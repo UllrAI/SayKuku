@@ -1,0 +1,12 @@
+.DS_Store
+.build/
+Build/
+Design/
+design-*.md
+
+# Xcode user-specific data
+*.xcuserstate
+xcuserdata/
+
+# Swift Package Manager
+.swiftpm/
