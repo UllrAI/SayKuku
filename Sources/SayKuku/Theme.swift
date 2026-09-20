@@ -35,6 +35,36 @@ enum Motion {
     static let snappy = Animation.easeInOut(duration: 0.22)
 }
 
+private struct KukuGlassPillModifier: ViewModifier {
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(macOS 26.0, *) {
+            content.glassEffect(.regular, in: Capsule())
+        } else {
+            content.background(.thinMaterial, in: Capsule())
+        }
+    }
+}
+
+extension View {
+    func kukuGlassPill() -> some View {
+        modifier(KukuGlassPillModifier())
+    }
+}
+
+enum KukuPillLayout {
+    static func width(
+        for text: String,
+        minimum: CGFloat,
+        fixedContentWidth: CGFloat,
+        maximum: CGFloat = 350
+    ) -> CGFloat {
+        let font = NSFont.systemFont(ofSize: 11.5, weight: .semibold)
+        let textWidth = (text as NSString).size(withAttributes: [.font: font]).width
+        return min(max(ceil(textWidth + fixedContentWidth), minimum), maximum)
+    }
+}
+
 struct PressScaleStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label

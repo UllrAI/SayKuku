@@ -71,14 +71,11 @@ private struct FloatingSystemOverlay: View {
             if let error = appState.overlayError {
                 Label(error, systemImage: appState.overlayErrorSymbol)
                     .font(.system(size: 11, weight: .medium, design: .rounded))
-                    .foregroundStyle(Color.white.opacity(0.88))
+                    .foregroundStyle(KukuColor.ink.opacity(0.72))
                     .lineLimit(1)
                     .padding(.horizontal, 12)
                     .frame(maxWidth: 300, minHeight: 32)
-                    .background(.ultraThinMaterial, in: Capsule())
-                    .background(KukuColor.graphite.opacity(0.72), in: Capsule())
-                    .overlay(Capsule().stroke(Color.white.opacity(0.14), lineWidth: 0.8))
-                    .shadow(color: Color.black.opacity(0.09), radius: 10, y: 4)
+                    .kukuGlassPill()
                     .transition(.scale(scale: 0.94, anchor: .bottom).combined(with: .opacity))
             } else if appState.agentPhase != .hidden {
                 AgentPill()

@@ -140,12 +140,25 @@ struct AgentPill: View {
     private var width: CGFloat {
         switch appState.agentPhase {
         case .hidden: 0
-        case .listening: appState.liveTranscript.isEmpty ? 216 : 360
-        case .copyReady: 360
-        case .transcribing: 132
-        case .processing: labelWidth(for: processingLabel, minimum: 150)
-        case .result: labelWidth(for: resultLabel, minimum: 118)
+        case .listening:
+            KukuPillLayout.width(for: listeningLabel, minimum: 174, fixedContentWidth: 154)
+        case .copyReady:
+            KukuPillLayout.width(for: appState.pendingCopyText, minimum: 180, fixedContentWidth: 136)
+        case .transcribing:
+            KukuPillLayout.width(for: transcribingLabel, minimum: 112, fixedContentWidth: 48, maximum: 200)
+        case .processing:
+            KukuPillLayout.width(for: processingLabel, minimum: 112, fixedContentWidth: 48)
+        case .result:
+            KukuPillLayout.width(for: resultLabel, minimum: 78, fixedContentWidth: 38, maximum: 320)
         }
+    }
+
+    private var listeningLabel: String {
+        appState.liveTranscript.isEmpty ? appState.agentCommand : appState.liveTranscript
+    }
+
+    private var transcribingLabel: String {
+        appState.text("正在理解…", "Understanding…")
     }
 
     private var taskTitle: String {
@@ -173,29 +186,34 @@ struct AgentPill: View {
                 Button(action: appState.dismissAgent) {
                     Image(systemName: "xmark")
                         .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(Color.white.opacity(0.78))
+                        .foregroundStyle(KukuColor.stone.opacity(0.82))
                         .frame(width: 26, height: 26)
-                        .background { Circle().fill(Color.white.opacity(0.09)) }
+                        .background { Circle().fill(Color.black.opacity(0.05)) }
                 }
                 .buttonStyle(PressScaleStyle())
+                .accessibilityLabel(appState.text("取消语音 Agent", "Cancel Voice Agent"))
+                .help(appState.text("取消语音 Agent", "Cancel Voice Agent"))
 
-                Waveform(level: appState.inputLevel, barCount: 5, height: 15)
+                Waveform(color: KukuColor.coral.opacity(0.82), level: appState.inputLevel, barCount: 5, height: 15)
                     .frame(width: 22)
 
-                Text(!appState.liveTranscript.isEmpty ? appState.liveTranscript : appState.agentCommand)
+                Text(listeningLabel)
                     .font(.system(size: 11.5, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(KukuColor.ink.opacity(0.78))
                     .lineLimit(1)
+                    .truncationMode(.tail)
 
                 Spacer(minLength: 0)
 
                 Button { showingContext.toggle() } label: {
                     Image(systemName: "scope")
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Color.white.opacity(0.5))
+                        .foregroundStyle(KukuColor.stone.opacity(0.7))
                         .frame(width: 22, height: 26)
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(appState.text("查看本次上下文", "Show context"))
+                .help(appState.text("查看本次上下文", "Show context"))
                 .popover(isPresented: $showingContext, arrowEdge: .bottom) {
                     AgentContextPopover()
                 }
@@ -203,24 +221,26 @@ struct AgentPill: View {
                 Button(action: appState.finishAgentListening) {
                     Image(systemName: "checkmark")
                         .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Color.white.opacity(0.94))
                         .frame(width: 26, height: 26)
-                        .background { Circle().fill(KukuColor.coral) }
+                        .background { Circle().fill(KukuColor.coral.opacity(0.84)) }
                 }
                 .buttonStyle(PressScaleStyle())
+                .accessibilityLabel(appState.text("结束录音并执行", "Stop recording and run"))
+                .help(appState.text("结束录音并执行", "Stop recording and run"))
             } else if appState.agentPhase == .transcribing || appState.agentPhase == .processing {
                 AgentActivityIndicator()
                 Text(appState.agentPhase == .transcribing
-                     ? appState.text("正在理解…", "Understanding…")
+                     ? transcribingLabel
                      : processingLabel)
                     .font(.system(size: 11.5, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(KukuColor.ink.opacity(0.78))
                     .lineLimit(1)
                     .truncationMode(.tail)
             } else if appState.agentPhase == .result {
                 Label(resultLabel, systemImage: "checkmark")
                     .font(.system(size: 11.5, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Color.white.opacity(0.86))
+                    .foregroundStyle(KukuColor.ink.opacity(0.64))
                     .lineLimit(1)
             }
         }
@@ -229,15 +249,8 @@ struct AgentPill: View {
         .animation(Motion.snappy, value: appState.liveTranscript.isEmpty)
         .padding(.horizontal, 7)
         .frame(width: width, height: 40)
-        .background(.ultraThinMaterial, in: Capsule())
-        .background(KukuColor.graphite.opacity(0.86), in: Capsule())
-        .overlay(Capsule().stroke(Color.white.opacity(0.14), lineWidth: 0.8))
-        .shadow(color: Color.black.opacity(0.12), radius: 14, y: 6)
+        .kukuGlassPill()
         .animation(Motion.pill, value: width)
-    }
-
-    private func labelWidth(for label: String, minimum: CGFloat) -> CGFloat {
-        min(max(CGFloat(label.count) * 7 + 50, minimum), 350)
     }
 }
 
@@ -252,14 +265,14 @@ private struct AgentActivityIndicator: View {
                 .font(.system(size: 14, weight: .bold))
                 .foregroundStyle(
                     LinearGradient(
-                        colors: [.white, KukuColor.coral, KukuColor.amber],
+                        colors: [KukuColor.stone, KukuColor.coral.opacity(0.88), KukuColor.amber],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
                 )
                 .rotationEffect(.degrees(progress * 180))
                 .scaleEffect(pulse)
-                .shadow(color: KukuColor.coral.opacity(0.42), radius: 4)
+                .shadow(color: KukuColor.coral.opacity(0.2), radius: 3)
         }
         .frame(width: 18, height: 18)
         .accessibilityHidden(true)
@@ -310,11 +323,27 @@ struct DictationPill: View {
     private var width: CGFloat {
         switch appState.dictationPhase {
         case .idle: 0
-        case .listening: appState.liveTranscript.isEmpty ? 166 : 320
-        case .copyReady: 360
-        case .processing: appState.liveTranscript.isEmpty ? 132 : 320
-        case .success: 88
+        case .listening:
+            KukuPillLayout.width(for: listeningLabel, minimum: 132, fixedContentWidth: 86, maximum: 340)
+        case .copyReady:
+            KukuPillLayout.width(for: appState.pendingCopyText, minimum: 180, fixedContentWidth: 136)
+        case .processing:
+            KukuPillLayout.width(for: processingLabel, minimum: 112, fixedContentWidth: 48, maximum: 340)
+        case .success:
+            KukuPillLayout.width(for: successLabel, minimum: 78, fixedContentWidth: 42, maximum: 160)
         }
+    }
+
+    private var listeningLabel: String {
+        appState.liveTranscript.isEmpty ? appState.text("正在听…", "Listening…") : appState.liveTranscript
+    }
+
+    private var processingLabel: String {
+        appState.liveTranscript.isEmpty ? appState.text("正在整理…", "Formatting…") : appState.liveTranscript
+    }
+
+    private var successLabel: String {
+        appState.text("已输入", "Done")
     }
 
     var body: some View {
@@ -323,29 +352,29 @@ struct DictationPill: View {
             case .idle:
                 EmptyView()
             case .listening:
-                Waveform(level: appState.inputLevel, barCount: 6, height: 16)
-                Text(appState.liveTranscript.isEmpty
-                     ? appState.text("正在听…", "Listening…")
-                     : appState.liveTranscript)
+                Waveform(color: KukuColor.coral.opacity(0.82), level: appState.inputLevel, barCount: 6, height: 16)
+                Text(listeningLabel)
                     .lineLimit(1)
+                    .truncationMode(.tail)
                 Spacer(minLength: 0)
                 Button(action: appState.finishDictation) {
                     Image(systemName: "checkmark")
                         .font(.system(size: 10, weight: .bold))
                         .frame(width: 25, height: 25)
-                        .background(KukuColor.coral, in: Circle())
-                        .foregroundStyle(.white)
+                        .background(KukuColor.coral.opacity(0.84), in: Circle())
+                        .foregroundStyle(Color.white.opacity(0.94))
                 }
                 .buttonStyle(PressScaleStyle())
+                .accessibilityLabel(appState.text("结束录音并输入", "Stop recording and insert"))
+                .help(appState.text("结束录音并输入", "Stop recording and insert"))
             case .processing:
                 ProgressView().controlSize(.small)
-                Text(appState.liveTranscript.isEmpty
-                     ? appState.text("正在整理…", "Formatting…")
-                     : appState.liveTranscript)
+                Text(processingLabel)
                     .lineLimit(1)
+                    .truncationMode(.tail)
             case .success:
                 Image(systemName: "checkmark")
-                Text(appState.text("已输入", "Done"))
+                Text(successLabel)
             case .copyReady:
                 CopyFallbackContent()
             }
@@ -354,13 +383,10 @@ struct DictationPill: View {
         .animation(Motion.snappy, value: appState.dictationPhase)
         .animation(Motion.snappy, value: appState.liveTranscript.isEmpty)
         .font(.system(size: 11.5, weight: .semibold, design: .rounded))
-        .foregroundStyle(appState.dictationPhase == .success ? KukuColor.mint : KukuColor.ink)
+        .foregroundStyle(KukuColor.ink.opacity(appState.dictationPhase == .success ? 0.62 : 0.78))
         .padding(.horizontal, 10)
         .frame(width: width, height: appState.dictationPhase == .copyReady ? 40 : 34)
-        .background(.thinMaterial, in: Capsule())
-        .background(Color.white.opacity(0.58), in: Capsule())
-        .overlay(Capsule().stroke(Color.white.opacity(0.76), lineWidth: 0.8))
-        .shadow(color: Color.black.opacity(0.1), radius: 10, y: 4)
+        .kukuGlassPill()
         .animation(Motion.pill, value: width)
     }
 }
@@ -368,12 +394,10 @@ struct DictationPill: View {
 private struct CopyFallbackContent: View {
     @Environment(AppState.self) private var appState
 
-    private var darkBackground: Bool { appState.agentPhase == .copyReady }
-
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "doc.on.clipboard")
-                .foregroundStyle(KukuColor.coral)
+                .foregroundStyle(KukuColor.coral.opacity(0.82))
             Text(appState.pendingCopyText)
                 .lineLimit(1)
                 .truncationMode(.tail)
@@ -383,19 +407,22 @@ private struct CopyFallbackContent: View {
                     .font(.system(size: 10.5, weight: .semibold))
                     .padding(.horizontal, 9)
                     .frame(height: 25)
-                    .background(Color.white.opacity(darkBackground ? 0.12 : 0.65), in: Capsule())
+                    .background(Color.black.opacity(0.055), in: Capsule())
             }
             .buttonStyle(.plain)
+            .help(appState.text("复制", "Copy"))
             Button(action: appState.dismissCopyFallback) {
                 Image(systemName: "xmark")
                     .font(.system(size: 9, weight: .bold))
                     .frame(width: 25, height: 25)
-                    .background(Color.white.opacity(darkBackground ? 0.1 : 0.65), in: Circle())
+                    .background(Color.black.opacity(0.05), in: Circle())
             }
             .buttonStyle(.plain)
+            .accessibilityLabel(appState.text("关闭", "Close"))
+            .help(appState.text("关闭", "Close"))
         }
         .font(.system(size: 11.5, weight: .semibold, design: .rounded))
-        .foregroundStyle(darkBackground ? Color.white : KukuColor.ink)
+        .foregroundStyle(KukuColor.ink.opacity(0.76))
         .frame(maxWidth: .infinity)
     }
 }
