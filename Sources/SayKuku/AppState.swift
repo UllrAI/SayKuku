@@ -487,7 +487,8 @@ final class AppState {
                     entities: knowledgeEntities,
                     relationships: knowledgeRelationships,
                     domains: selectedDomains,
-                    customTerms: customDomainTerms
+                    customTerms: customDomainTerms,
+                    purpose: .transcription
                 )
                 uploadTask = Task { [weak self, realtimeClient, apiKey, configuration, selectedRecognitionLanguage, selectedNumberFormat, knowledgePrompt] in
                     try await realtimeClient.connect(
@@ -556,7 +557,8 @@ final class AppState {
                 entities: includesKnowledge ? knowledgeEntities : [],
                 relationships: includesKnowledge ? knowledgeRelationships : [],
                 domains: includesDomains ? selectedDomains : [],
-                customTerms: includesDomains ? customDomainTerms : []
+                customTerms: includesDomains ? customDomainTerms : [],
+                purpose: .agent
             )
             let response = try await reasoningClient.respondToAudio(
                 apiKey: apiKey,
@@ -609,7 +611,8 @@ final class AppState {
                     entities: knowledgeEntities,
                     relationships: knowledgeRelationships,
                     domains: selectedDomains,
-                    customTerms: customDomainTerms
+                    customTerms: customDomainTerms,
+                    purpose: .transcription
                 )
             )
                 .trimmingCharacters(in: .whitespacesAndNewlines)

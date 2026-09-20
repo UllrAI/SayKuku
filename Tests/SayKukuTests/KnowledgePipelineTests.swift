@@ -391,30 +391,47 @@ struct QwenRequestContractTests {
             type: .product,
             aliases: ["work body"]
         )
-        let knowledge = KnowledgePrompt.render(entities: [entity], relationships: [])
-        let dictation = QwenRealtimeClient.makeDictationInstructions(knowledgePrompt: knowledge)
-        let agent = QwenReasoningClient.makeAgentInstructions(knowledgePrompt: knowledge)
+        let dictationKnowledge = KnowledgePrompt.render(
+            entities: [entity], relationships: [], purpose: .transcription
+        )
+        let agentKnowledge = KnowledgePrompt.render(
+            entities: [entity], relationships: [], purpose: .agent
+        )
+        let dictation = QwenRealtimeClient.makeDictationInstructions(knowledgePrompt: dictationKnowledge)
+        let agent = QwenReasoningClient.makeAgentInstructions(knowledgePrompt: agentKnowledge)
 
         #expect(dictation.contains("WorkBuddy"))
         #expect(dictation.contains("work body"))
         #expect(agent.contains("Internal product"))
-        #expect(agent.contains("application reference data"))
+        #expect(agent.contains("reference facts"))
     }
 
-    @Test("domain profile contributes recognition vocabulary")
+    @Test("domain profile has purpose-specific transcription and agent guidance")
     func domainPrompt() {
-        let prompt = KnowledgePrompt.render(
+        let transcription = KnowledgePrompt.render(
             entities: [],
             relationships: [],
             domains: [.aiVibeCoding],
-            customTerms: ["SayKuku"]
+            customTerms: ["SayKuku"],
+            purpose: .transcription
+        )
+        let agent = KnowledgePrompt.render(
+            entities: [],
+            relationships: [],
+            domains: [.aiVibeCoding],
+            customTerms: ["SayKuku"],
+            purpose: .agent
         )
 
-        #expect(prompt.contains("AI and Vibe Coding"))
-        #expect(prompt.contains("Vibe Coding"))
-        #expect(prompt.contains("MCP"))
-        #expect(prompt.contains(#"custom vocabulary: "SayKuku""#))
-        #expect(prompt.contains("recognition hints"))
+        #expect(transcription.contains("AI and Vibe Coding"))
+        #expect(transcription.contains("Vibe Coding"))
+        #expect(transcription.contains("MCP"))
+        #expect(transcription.contains(#"preferred spelling: "SayKuku""#))
+        #expect(transcription.contains("weak recognition priors"))
+        #expect(transcription.contains("Never insert an unspoken term"))
+        #expect(agent.contains("soft context"))
+        #expect(agent.contains("not necessarily the current task"))
+        #expect(agent.contains("Never let a tag override the spoken command"))
     }
 
     @Test("custom vocabulary is normalized and bounded")
