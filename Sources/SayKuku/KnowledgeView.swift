@@ -450,8 +450,9 @@ private struct KukuFormInput: View {
         .focused($isFocused)
         .onSubmit { onSubmit?() }
         .padding(.horizontal, 12)
-        .padding(.vertical, multiline ? 9 : 0)
-        .frame(maxWidth: .infinity, minHeight: multiline ? 52 : 40, alignment: .topLeading)
+        .padding(.vertical, multiline ? 9 : 8)
+        .frame(height: multiline ? 52 : 40, alignment: multiline ? .topLeading : .center)
+        .frame(maxWidth: .infinity)
         .background(
             isFocused ? KukuColor.surfaceStrong : Color.white.opacity(0.66),
             in: RoundedRectangle(cornerRadius: 10, style: .continuous)
