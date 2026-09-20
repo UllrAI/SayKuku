@@ -452,7 +452,8 @@ final class AppState {
                 try audioCapture.start { continuation.yield($0) }
                 withAnimation(Motion.spring) { dictationPhase = .listening }
                 let shouldAutoStop = autoStop
-                uploadTask = Task { [weak self, realtimeClient, apiKey, configuration] in
+                let knowledgePrompt = KnowledgePrompt.render(entities: knowledgeEntities, relationships: knowledgeRelationships)
+                uploadTask = Task { [weak self, realtimeClient, apiKey, configuration, knowledgePrompt] in
                     try await realtimeClient.connect(
                         apiKey: apiKey,
                         configuration: configuration,
@@ -460,7 +461,8 @@ final class AppState {
                         onSpeechStopped: {
                             Task { @MainActor in self?.finishDictation() }
                         },
-                        onDelta: { transcript in Task { @MainActor in self?.liveTranscript = transcript } }
+                        onDelta: { transcript in Task { @MainActor in self?.liveTranscript = transcript } },
+                        knowledgePrompt: knowledgePrompt
                     )
                     for await chunk in stream { await realtimeClient.append(chunk) }
                 }
@@ -476,18 +478,17 @@ final class AppState {
         do {
             let raw = try await transcribe(recording)
             guard !raw.isEmpty else { throw QwenError.invalidResponse }
-            let final = KnowledgePipeline.corrected(raw, using: knowledgeEntities)
             guard let snapshot = targetSnapshot else { throw TextInteractionError.targetChanged }
             do {
-                try await textInteraction.write(final, to: snapshot)
-                observeCorrection(writtenText: final, snapshot: snapshot)
+                try await textInteraction.write(raw, to: snapshot)
+                observeCorrection(writtenText: raw, snapshot: snapshot)
             } catch is TextInteractionError {
-                await recordHistory(mode: .dictation, input: raw, output: final, recording: recording, snapshot: snapshot)
-                presentCopyFallback(final, agent: false)
+                await recordHistory(mode: .dictation, input: raw, output: raw, recording: recording, snapshot: snapshot)
+                presentCopyFallback(raw, agent: false)
                 await realtimeClient.cancel()
                 return
             }
-            await recordHistory(mode: .dictation, input: raw, output: final, recording: recording, snapshot: snapshot)
+            await recordHistory(mode: .dictation, input: raw, output: raw, recording: recording, snapshot: snapshot)
             withAnimation(Motion.spring) { dictationPhase = .success }
             try? await Task.sleep(for: .milliseconds(850))
             withAnimation(Motion.snappy) { dictationPhase = .idle }
@@ -502,12 +503,16 @@ final class AppState {
     private func processAgentRecording(_ recording: AudioCapture.Recording) async {
         do {
             guard recording.hasSpeech else { throw QwenError.noSpeech }
+            let knowledgePrompt = contextItems.contains { $0.kind == .knowledge }
+                ? KnowledgePrompt.render(entities: knowledgeEntities, relationships: knowledgeRelationships)
+                : KnowledgePrompt.render(entities: [], relationships: [])
             let response = try await reasoningClient.respondToAudio(
                 apiKey: apiKey,
                 configuration: configuration,
                 wav: recording.wav,
                 context: contextItems,
-                session: activeAgentSession
+                session: activeAgentSession,
+                knowledgePrompt: knowledgePrompt
             )
             guard let command = response.transcript?.trimmingCharacters(in: .whitespacesAndNewlines),
                   !command.isEmpty else { throw QwenError.invalidResponse }
@@ -539,7 +544,12 @@ final class AppState {
             throw QwenError.noSpeech
         } catch {
             await realtimeClient.cancel()
-            let result = try await reasoningClient.transcribeAudio(apiKey: apiKey, configuration: configuration, wav: recording.wav)
+            let result = try await reasoningClient.transcribeAudio(
+                apiKey: apiKey,
+                configuration: configuration,
+                wav: recording.wav,
+                knowledgePrompt: KnowledgePrompt.render(entities: knowledgeEntities, relationships: knowledgeRelationships)
+            )
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             guard !result.isEmpty else { throw QwenError.noSpeech }
             return result

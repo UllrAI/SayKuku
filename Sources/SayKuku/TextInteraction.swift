@@ -239,18 +239,16 @@ enum ContextCollector {
         if let session, session.expiresAt > .now {
             items.append(ContextItem(kind: .session, symbol: "bubble.left.and.bubble.right", title: "Recent session", value: session.contextSummary))
         }
-        let haystack = ([snapshot.selectedText, snapshot.windowTitle] + (session.map { [$0.userCommand, $0.response] } ?? []))
-            .joined(separator: " ")
-        let matches = knowledge.filter { entity in
-            haystack.localizedCaseInsensitiveContains(entity.name)
-                || entity.aliases.contains(where: haystack.localizedCaseInsensitiveContains)
-        }.prefix(8)
-        if !matches.isEmpty {
+        if !knowledge.isEmpty {
             items.append(ContextItem(
                 kind: .knowledge,
                 symbol: "books.vertical",
-                title: "Relevant Knowledge",
-                value: matches.map { "\($0.name) [\($0.type.rawValue)] aliases: \($0.aliases.joined(separator: ", "))" }.joined(separator: "\n")
+                title: "Knowledge base",
+                value: knowledge.map { entity in
+                    let aliases = entity.aliases.isEmpty ? "(none)" : entity.aliases.joined(separator: ", ")
+                    let detail = entity.detail.isEmpty ? "(none)" : entity.detail
+                    return "\(entity.name) [\(entity.type.rawValue)] aliases: \(aliases) detail: \(detail)"
+                }.joined(separator: "\n")
             ))
         }
         return items

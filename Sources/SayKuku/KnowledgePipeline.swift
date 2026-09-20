@@ -142,16 +142,6 @@ enum KnowledgePipeline {
         return (entities, relationships)
     }
 
-    static func corrected(_ transcript: String, using entities: [KnowledgeEntity]) -> String {
-        var result = transcript
-        for entity in entities {
-            for alias in entity.aliases.sorted(by: { $0.count > $1.count }) where !alias.isEmpty {
-                result = result.replacingOccurrences(of: alias, with: entity.name, options: [.caseInsensitive])
-            }
-        }
-        return result
-    }
-
     private static func exactMatch(_ lhs: KnowledgeEntity, _ rhs: KnowledgeEntity) -> Bool {
         let lhsKeys = Set([lhs.normalizedKey] + lhs.aliases.map(KnowledgeNormalizer.key))
         let rhsKeys = Set([rhs.normalizedKey] + rhs.aliases.map(KnowledgeNormalizer.key))

@@ -53,12 +53,6 @@ struct KnowledgePipelineTests {
         #expect(result.relationships.count == 1)
     }
 
-    @Test("confirmed aliases correct transcripts deterministically")
-    func correction() {
-        let entities = [KnowledgeEntity(name: "WorkBuddy", type: .product, aliases: ["work body"])]
-        #expect(KnowledgePipeline.corrected("打开 work body 项目", using: entities) == "打开 WorkBuddy 项目")
-    }
-
     @Test("long imports are split without losing text")
     func chunking() {
         let source = String(repeating: "abcdef", count: 100)
@@ -252,6 +246,24 @@ struct QwenRequestContractTests {
         #expect(QwenReasoningClient.agentInstructions.contains("Transform the selected text, not the spoken command"))
         #expect(input.contains("<selected_text>\n明天下午见\n</selected_text>"))
         #expect(input.contains("Notes:\ncom.apple.Notes"))
+    }
+
+    @Test("knowledge is included in the model prompts")
+    func knowledgePrompt() {
+        let entity = KnowledgeEntity(
+            name: "WorkBuddy",
+            detail: "Internal product",
+            type: .product,
+            aliases: ["work body"]
+        )
+        let knowledge = KnowledgePrompt.render(entities: [entity], relationships: [])
+        let dictation = QwenRealtimeClient.makeDictationInstructions(knowledgePrompt: knowledge)
+        let agent = QwenReasoningClient.makeAgentInstructions(knowledgePrompt: knowledge)
+
+        #expect(dictation.contains("WorkBuddy"))
+        #expect(dictation.contains("work body"))
+        #expect(agent.contains("Internal product"))
+        #expect(agent.contains("application reference data"))
     }
 
     @Test("live Qwen endpoints accept realtime dictation and direct agent audio")
