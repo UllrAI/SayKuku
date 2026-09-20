@@ -24,4 +24,19 @@ struct PillLayoutTests {
         #expect(compact == 78)
         #expect(expanded == 320)
     }
+
+    @Test("short error copy keeps a compact pill")
+    func compactErrorWidth() {
+        let width = KukuPillLayout.width(
+            for: "没有听清，请重试",
+            minimum: 120,
+            fixedContentWidth: 46,
+            maximum: 260,
+            fontSize: 11,
+            fontWeight: .medium
+        )
+
+        #expect(width >= 120)
+        #expect(width < 200)
+    }
 }

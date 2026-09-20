@@ -74,7 +74,17 @@ private struct FloatingSystemOverlay: View {
                     .foregroundStyle(KukuColor.ink.opacity(0.72))
                     .lineLimit(1)
                     .padding(.horizontal, 12)
-                    .frame(maxWidth: 300, minHeight: 32)
+                    .frame(
+                        width: KukuPillLayout.width(
+                            for: error,
+                            minimum: 120,
+                            fixedContentWidth: 46,
+                            maximum: 260,
+                            fontSize: 11,
+                            fontWeight: .medium
+                        ),
+                        height: 32
+                    )
                     .kukuGlassPill()
                     .transition(.scale(scale: 0.94, anchor: .bottom).combined(with: .opacity))
             } else if appState.agentPhase != .hidden {

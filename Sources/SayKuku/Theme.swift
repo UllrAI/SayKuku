@@ -57,9 +57,11 @@ enum KukuPillLayout {
         for text: String,
         minimum: CGFloat,
         fixedContentWidth: CGFloat,
-        maximum: CGFloat = 350
+        maximum: CGFloat = 350,
+        fontSize: CGFloat = 11.5,
+        fontWeight: NSFont.Weight = .semibold
     ) -> CGFloat {
-        let font = NSFont.systemFont(ofSize: 11.5, weight: .semibold)
+        let font = NSFont.systemFont(ofSize: fontSize, weight: fontWeight)
         let textWidth = (text as NSString).size(withAttributes: [.font: font]).width
         return min(max(ceil(textWidth + fixedContentWidth), minimum), maximum)
     }

@@ -141,7 +141,7 @@ struct AgentPill: View {
         switch appState.agentPhase {
         case .hidden: 0
         case .listening:
-            KukuPillLayout.width(for: listeningLabel, minimum: 174, fixedContentWidth: 154)
+            KukuPillLayout.width(for: listeningLabel, minimum: 168, fixedContentWidth: 140)
         case .copyReady:
             KukuPillLayout.width(for: appState.pendingCopyText, minimum: 180, fixedContentWidth: 136)
         case .transcribing:
@@ -194,8 +194,28 @@ struct AgentPill: View {
                 .accessibilityLabel(appState.text("取消语音 Agent", "Cancel Voice Agent"))
                 .help(appState.text("取消语音 Agent", "Cancel Voice Agent"))
 
-                Waveform(color: KukuColor.coral.opacity(0.82), level: appState.inputLevel, barCount: 5, height: 15)
+                HStack(spacing: 4) {
+                    Button { showingContext.toggle() } label: {
+                        Image(systemName: "sparkle")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(KukuColor.coral.opacity(0.82))
+                            .frame(width: 16, height: 22)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(appState.text("查看本次上下文", "Show context"))
+                    .help(appState.text("查看本次上下文", "Show context"))
+                    .popover(isPresented: $showingContext, arrowEdge: .bottom) {
+                        AgentContextPopover()
+                    }
+
+                    Waveform(
+                        color: KukuColor.stone.opacity(0.58),
+                        level: appState.inputLevel,
+                        barCount: 5,
+                        height: 15
+                    )
                     .frame(width: 22)
+                }
 
                 Text(listeningLabel)
                     .font(.system(size: 11.5, weight: .semibold, design: .rounded))
@@ -204,19 +224,6 @@ struct AgentPill: View {
                     .truncationMode(.tail)
 
                 Spacer(minLength: 0)
-
-                Button { showingContext.toggle() } label: {
-                    Image(systemName: "scope")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(KukuColor.stone.opacity(0.7))
-                        .frame(width: 22, height: 26)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(appState.text("查看本次上下文", "Show context"))
-                .help(appState.text("查看本次上下文", "Show context"))
-                .popover(isPresented: $showingContext, arrowEdge: .bottom) {
-                    AgentContextPopover()
-                }
 
                 Button(action: appState.finishAgentListening) {
                     Image(systemName: "checkmark")
@@ -297,7 +304,7 @@ private struct AgentContextPopover: View {
                         of: "28 字",
                         with: appState.text("28 字", "28 chars")
                     ))
-                        .font(.system(size: 12, weight: .medium))
+                    .font(.system(size: 12, weight: .medium))
                     Spacer()
                     if appState.agentPhase == .listening {
                         Button {
@@ -308,6 +315,7 @@ private struct AgentContextPopover: View {
                                 .foregroundStyle(KukuColor.stone)
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel(appState.text("移除此上下文", "Remove this context"))
                     }
                 }
             }
