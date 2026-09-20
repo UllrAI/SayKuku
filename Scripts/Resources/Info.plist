@@ -9,7 +9,7 @@
 	<key>CFBundleIconFile</key>
 	<string>AppIcon</string>
     <key>CFBundleIdentifier</key>
-    <string>com.saykuku.prototype</string>
+    <string>com.saykuku.app</string>
     <key>CFBundleDevelopmentRegion</key>
     <string>en</string>
     <key>CFBundleLocalizations</key>
@@ -24,9 +24,9 @@
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-	<string>0.1.1</string>
+    <string>1.0.0</string>
     <key>CFBundleVersion</key>
-    <string>9</string>
+    <string>10</string>
     <key>LSMinimumSystemVersion</key>
     <string>15.0</string>
     <key>LSApplicationCategoryType</key>
@@ -34,6 +34,8 @@
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>NSMicrophoneUsageDescription</key>
-    <string>SayKuku. accesses the microphone only for Voice Input, Voice Agent, or the microphone input test. Test audio is never saved, uploaded, or played back.</string>
+    <string>SayKuku. records only when you start Voice Input or Voice Agent. Audio is sent to your selected Qwen region and, when enabled, stored encrypted in local History. Microphone test audio is never saved or uploaded.</string>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>SayKuku. reads the current Safari or Chrome URL only when Browser Page context is enabled and you trigger Voice Agent.</string>
 </dict>
 </plist>

@@ -72,7 +72,10 @@ private struct VoiceInputSettings: View {
                 SettingsDivider()
                 SettingsValueRow(title: appState.text("识别语言", "Recognition language"), value: appState.text("自动 · 中英混合", "Auto · Chinese & English"))
                 SettingsDivider()
-                SettingsValueRow(title: appState.text("文本整理", "Text cleanup"), value: appState.text("轻度", "Light"))
+                SettingsValueRow(
+                    title: appState.text("数字格式", "Number format"),
+                    value: appState.text("优先阿拉伯数字", "Prefer digits")
+                )
             }
         }
     }
@@ -98,24 +101,20 @@ private struct VoiceAgentSettings: View {
 
 private struct PrivacySettings: View {
     @Environment(AppState.self) private var appState
-    @State private var selectedText = true
-    @State private var currentApp = true
-    @State private var windowTitle = true
-    @State private var clipboard = false
-    @State private var browserPage = false
 
     var body: some View {
+        @Bindable var appState = appState
         SettingsStack(title: "Context & Privacy", subtitle: appState.text("实际发送的 Context 会在确认浮层中按需查看。", "Inspect the exact context from the confirmation overlay.")) {
             SettingsGroup(title: appState.text("允许的上下文", "Allowed context")) {
-                SettingsToggle(title: "Selected Text", subtitle: appState.text("仅在 Fn Fn 时读取", "Read only after Fn Fn"), isOn: $selectedText)
+                SettingsToggle(title: "Selected Text", subtitle: appState.text("仅在 Fn Fn 时读取", "Read only after Fn Fn"), isOn: $appState.selectedTextAllowed)
                 SettingsDivider()
-                SettingsToggle(title: "Current App", subtitle: appState.text("应用名称与 Bundle ID", "App name and bundle ID"), isOn: $currentApp)
+                SettingsToggle(title: "Current App", subtitle: appState.text("应用名称与 Bundle ID", "App name and bundle ID"), isOn: $appState.currentAppAllowed)
                 SettingsDivider()
-                SettingsToggle(title: "Window Title", subtitle: appState.text("自动阻断隐私浏览窗口", "Private browsing is blocked"), isOn: $windowTitle)
+                SettingsToggle(title: "Window Title", subtitle: appState.text("自动阻断隐私浏览窗口", "Private browsing is blocked"), isOn: $appState.windowTitleAllowed)
                 SettingsDivider()
-                SettingsToggle(title: "Clipboard", subtitle: appState.text("默认关闭", "Off by default"), isOn: $clipboard)
+                SettingsToggle(title: "Clipboard", subtitle: appState.text("默认关闭；仅在 Agent 触发时读取", "Off by default; read only when Agent is triggered"), isOn: $appState.clipboardAllowed)
                 SettingsDivider()
-                SettingsToggle(title: "Browser Page", subtitle: appState.text("默认关闭", "Off by default"), isOn: $browserPage)
+                SettingsToggle(title: "Browser Page", subtitle: appState.text("默认关闭；仅支持 Safari 与 Chrome 当前网址", "Off by default; reads the current Safari or Chrome URL"), isOn: $appState.browserPageAllowed)
             }
             SettingsGroup(title: appState.text("永不访问", "Never access")) {
                 HStack(spacing: 10) {
@@ -131,17 +130,22 @@ private struct PrivacySettings: View {
 
 private struct QwenSettings: View {
     @Environment(AppState.self) private var appState
-    @State private var region = "北京"
-    @State private var realtime = "qwen3.8-omni-flash-realtime"
-    @State private var reasoning = "qwen3.8-omni-flash"
-    @State private var apiKey = ""
-    @State private var testing = false
-    @State private var connected = false
 
     var body: some View {
+        @Bindable var appState = appState
         SettingsStack(title: "Qwen & API", subtitle: appState.text("为实时听写和意图处理分别选择模型。", "Choose models for live input and intent processing.")) {
             SettingsGroup(title: appState.text("连接", "Connection")) {
-                SettingsPickerRow(title: appState.text("地域", "Region"), value: $region, values: ["北京", "新加坡"])
+                HStack {
+                    Text(appState.text("地域", "Region")).font(.system(size: 12.5, weight: .medium))
+                    Spacer()
+                    Picker("", selection: $appState.qwenRegion) {
+                        ForEach(QwenRegion.allCases) { Text($0.title).tag($0) }
+                    }
+                    .labelsHidden()
+                    .frame(width: 230)
+                }
+                .padding(.horizontal, 14)
+                .frame(minHeight: 50)
                 SettingsDivider()
                 HStack {
                     VStack(alignment: .leading, spacing: 3) {
@@ -149,42 +153,67 @@ private struct QwenSettings: View {
                         Text(appState.text("保存在 macOS Keychain", "Stored in macOS Keychain")).font(.system(size: 10)).foregroundStyle(KukuColor.stone)
                     }
                     Spacer()
-                    SecureField("sk-...", text: $apiKey)
+                    SecureField("sk-...", text: $appState.apiKey)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 160)
+                        .onSubmit { try? appState.saveAPIKey(appState.apiKey) }
+                    Button(appState.text("保存", "Save")) {
+                        do {
+                            try appState.saveAPIKey(appState.apiKey)
+                            appState.showToast(appState.text("API Key 已安全保存", "API Key saved securely"), symbol: "checkmark.circle.fill")
+                        } catch {
+                            appState.showToast(error.localizedDescription, symbol: "exclamationmark.triangle.fill")
+                        }
+                    }
+                    .buttonStyle(HoverFillButtonStyle())
+                }
+                .padding(14)
+                SettingsDivider()
+                HStack {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Workspace ID").font(.system(size: 12, weight: .medium))
+                        Text(appState.text("可选；填写后使用业务空间专属域名", "Optional; enables the workspace-specific endpoint"))
+                            .font(.system(size: 10)).foregroundStyle(KukuColor.stone)
+                    }
+                    Spacer()
+                    TextField("ws-...", text: $appState.qwenWorkspaceID)
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 220)
                 }
                 .padding(14)
             }
             SettingsGroup(title: appState.text("模型", "Models")) {
-                SettingsPickerRow(title: "Realtime", value: $realtime, values: [
-                    "qwen3.8-omni-flash-realtime",
-                    "qwen3.5-omni-plus-realtime",
-                    "qwen3.5-omni-flash-realtime"
+                SettingsPickerRow(title: "Voice Input", value: $appState.realtimeModel, values: [
+                    "qwen3.5-omni-flash-realtime",
+                    "qwen3.5-omni-flash-realtime-2026-03-15"
                 ])
                 SettingsDivider()
-                SettingsPickerRow(title: appState.text("处理模型", "Processing"), value: $reasoning, values: [
+                SettingsPickerRow(title: "Voice Agent", value: $appState.reasoningModel, values: [
                     "qwen3.8-omni-flash",
                     "qwen3.5-omni-plus",
                     "qwen3.5-omni-flash"
                 ])
             }
             HStack {
-                if connected {
-                    Label(appState.text("连接正常 · 184 ms", "Connected · 184 ms"), systemImage: "checkmark.circle.fill")
+                switch appState.connectionState {
+                case .connected(let milliseconds):
+                    Label(appState.text("连接正常 · \(milliseconds) ms", "Connected · \(milliseconds) ms"), systemImage: "checkmark.circle.fill")
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(KukuColor.mint)
+                case .failed(let message):
+                    Label(message, systemImage: "exclamationmark.triangle.fill")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(KukuColor.amber)
+                        .lineLimit(2)
+                default:
+                    EmptyView()
                 }
                 Spacer()
-                Button(testing ? appState.text("正在测试…", "Testing…") : appState.text("测试连接", "Test connection")) {
-                    testing = true
-                    Task { @MainActor in
-                        try? await Task.sleep(for: .milliseconds(850))
-                        testing = false
-                        connected = true
-                    }
+                Button(appState.connectionState == .testing ? appState.text("正在测试…", "Testing…") : appState.text("保存并测试", "Save & test")) {
+                    Task { await appState.testQwenConnection() }
                 }
                 .buttonStyle(HoverFillButtonStyle(prominent: true))
-                .disabled(testing)
+                .disabled(appState.connectionState == .testing || appState.apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         }
     }

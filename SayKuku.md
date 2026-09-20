@@ -39,14 +39,14 @@ App 图标不放文字，使用珊瑚红圆角底板与暖白 Lucide Bird 线稿
 | 全局快捷键 | ✅ 已完成 | `⇧⌘D` Voice Input、`⇧⌘A` Voice Agent，通过 Carbon 注册且不需要任何隐私权限 | 增加可配置按键 |
 | Fn Gesture Router | ✅ 已完成 | Hold Fn、Tap Fn、Double Fn、组合键取消、超时恢复、冲突检测、系统 Fn 行为引导与全局快捷键 fallback；复用写回所需的辅助功能权限，不申请输入监控 | 增加真实设备与外接键盘回归测试 |
 | 权限引导与麦克风测试 | ✅ 已完成 | 启动时缺失权限自动展示引导；麦克风与辅助功能实时状态、快捷开启、回到 App 自动复查；设置页可重新打开；AVAudioEngine 实时输入电平测试 | 增加多输入设备切换回归测试 |
-| 首页与两种浮层 | 🟡 交互原型完成 | Voice Input / Voice Agent 的 Ready、Listening、Processing、Result 状态，以及跨桌面非激活浮层 | 接入真实 AudioCapture、模型与写回 |
-| History | 🟡 交互原型完成 | 筛选、星标、播放状态、保留策略界面 | 本地数据库、音频文件与清理任务 |
-| Knowledge | 🟡 交互原型完成 | 分类、搜索、手动添加、粘贴导入与 Review 状态 | 实体抽取、归一化、去重与存储 |
-| Memory | 🟡 交互原型完成 | Corrections、Short-term、Long-term 页面和交互 | TTL、纠错学习与持久化 |
-| Settings 与中英文 | 🟡 交互原型完成 | 统一水平 Tab、语言、输入模式、菜单栏、登录项、快捷键状态及各配置界面 | Keychain、真实网络测试和全部设置持久化 |
-| Qwen Realtime / Omni | ⬜ 待实现 | 型号、地域和交互已在 PRD 与设置界面定义 | WebSocket、请求式 API、错误与重试 |
-| 麦克风与系统写回 | 🟡 基础能力完成 | 麦克风授权、默认输入设备识别和实时电平采集已完成；不保存、不上传、不回放测试音频 | 接入转写 AudioCapture、Accessibility 目标快照、校验与写回 |
-| 本地隐私存储 | ⬜ 待实现 | 数据边界与保留规则已定义 | Keychain、加密存储、History / Memory 清理 |
+| 首页与两种浮层 | ✅ 已完成 | Voice Input / Voice Agent 的真实录音、识别、确认、处理与结果状态，以及跨桌面非激活浮层 | — |
+| History | ✅ 已完成 | 本地加密历史、原始语音回放、筛选、星标和按期限清理 | — |
+| Knowledge | ✅ 已完成 | 手动添加、模型抽取、PII 预过滤、分段、归一化、去重、实体/关系 Review 与加密存储 | — |
+| Memory | ✅ 已完成 | Agent Session TTL、当天听写、纠错建议、用户确认后进入长期 Knowledge | — |
+| Settings 与中英文 | ✅ 已完成 | 统一水平 Tab、语言、输入模式、隐私开关、菜单栏、登录项、快捷键状态和持久化 | — |
+| Qwen Realtime / Omni | ✅ 已完成 | Realtime WebSocket、Omni 请求式 API、批处理音频 fallback、错误与超时 | — |
+| 麦克风与系统写回 | ✅ 已完成 | 16kHz PCM 录音、可选 Semantic VAD、目标快照、写回前校验和 Accessibility 写回 | — |
+| 本地隐私存储 | ✅ 已完成 | Keychain、AES-GCM 加密 History / Memory / Knowledge / Audio 与保留清理 | — |
 | 截图 OCR 导入 | ⏸ 后续版本 | 仅保留产品设计 | MVP 后再评估 |
 
 ## 0.1 桌面端视觉与布局标准
@@ -251,7 +251,7 @@ Tap Pending ≈ 220–280ms
 
 用户体验上不应该显示“等待双击”。
 
-第一次按下以后可以立即显示一个非常轻的 Ready 动画；确定是单击后进入 Listening。
+确定进入 Voice Input 后直接显示 Listening，并在 Pill 内实时回显已识别内容，不暴露短暂的内部准备状态。
 
 输入结束可以：
 
@@ -297,7 +297,7 @@ Idle
 
 # 3. 两套 UI 必须明显不同
 
-> 实现状态：`🟡 交互原型完成`。视觉、动效与状态转换已实现；真实录音、转写和系统输入框写回尚未接入。
+> 实现状态：`✅ 已完成`。已接入真实录音、Qwen 转写、知识纠正和系统输入框写回。
 
 ## Voice Input
 
@@ -350,7 +350,7 @@ Idle
 
 # 4. Voice Agent UI
 
-> 实现状态：`🟡 交互原型完成`。确认 Pill、Context Popover、处理与结果状态已实现；真实 Context 采集、Qwen 调用和目标 App 写回尚未接入。
+> 实现状态：`✅ 已完成`。确认 Pill、按需 Context、Qwen 调用、目标校验与自动写回均已接入。
 
 Double Fn 后，UI 仍然只是一层极轻的输入法式浮层，不打开自己的编辑器，也不承载结果管理。
 
@@ -437,7 +437,7 @@ TextTargetSnapshot
 
 * 有选区，且应用、窗口、选区和原文均未变化：允许 Replace Selection。
 * 无选区，且原 Focused Element 与光标仍有效：允许 Insert At Cursor。
-* 目标已经变化或无法可靠校验：禁止写入，显示“目标已变化，请重新触发”，不提供 Copy、Insert 等补救按钮。
+* 目标已经变化或无法可靠校验：禁止写入目标，自动把最终文本复制到剪贴板；Pill 保持显示文本，并提供“复制”和“关闭”，不向用户暴露底层目标校验错误。
 
 MVP 每次 Agent 写回前都确认识别出的意图；不提供“高置信度文本修改无需确认”。先积累真实的写回成功率和错位率，再决定是否开放；即使以后开放，也必须支持立即撤销。
 
@@ -614,7 +614,7 @@ AgentSession
 
 # 8. 热词 / 人名 / 组织知识
 
-> 实现状态：`🟡 交互原型完成`。列表、分类、搜索、添加和导入 Review 已实现；模型抽取、归一化、去重与本地存储尚未接入。
+> 实现状态：`✅ 已完成`。列表、分类、搜索、手动添加、模型抽取、归一化、去重、关系 Review 与本地加密存储均已接入。
 
 设置中单独做：
 
@@ -908,7 +908,7 @@ Import 18 items
 
 # 12. 短期记忆
 
-> 实现状态：`🟡 交互原型完成`。Memory 页面与状态交互已实现；真实 Session、TTL 和持久化尚未接入。
+> 实现状态：`✅ 已完成`。Memory 页面使用真实 Agent Session、当天听写、TTL、纠错学习与持久化数据。
 
 Short-term Memory 的目标是：
 
@@ -1113,7 +1113,7 @@ Final Text
 
 # 17. Settings 信息架构
 
-> 实现状态：`🟡 交互原型完成`。界面结构、语言切换、菜单栏开关、登录项和快捷键状态已实现；API Key 的 Keychain 存储和真实 Qwen 连接测试尚未接入。
+> 实现状态：`✅ 已完成`。界面结构、设置持久化、Keychain API Key 和真实 Qwen 连接测试均已接入。
 
 Settings 不再使用第二套左侧导航。所有设置统一使用页面顶部水平 Tab：
 
@@ -1156,9 +1156,8 @@ API Key
 - 输入 Key
 
 Realtime 模型版本
-- qwen3.8-omni-flash-realtime（默认）
-- qwen3.5-omni-plus-realtime
-- qwen3.5-omni-flash-realtime
+- qwen3.5-omni-flash-realtime（默认）
+- qwen3.5-omni-flash-realtime-2026-03-15
 
 处理模型版本
 - qwen3.8-omni-flash（默认）
@@ -1168,7 +1167,7 @@ Realtime 模型版本
 测试连接
 ```
 
-MVP 支持用户填写自己的 Qwen API Key。两个模型版本都使用下拉选择，只展示 App 已验证支持的 Qwen 型号或快照版本，不允许自由输入任意 model ID。默认使用 3.8 型号，同时保留已验证的 3.5 Omni Plus / Flash 作为兼容选项。
+MVP 支持用户填写自己的 Qwen API Key。两个模型版本都使用下拉选择，只展示 App 已验证支持的 Qwen 型号或快照版本，不允许自由输入任意 model ID。Voice Input 默认使用 Qwen3.5 Omni Realtime，Voice Agent 与批处理 fallback 使用 Qwen3.8 Omni Flash。
 
 ## History
 
@@ -1232,24 +1231,23 @@ MVP 数据规则：
 
 # 18. MVP 模型选型与技术架构
 
-> 实现状态：`⬜ 待实现`。当前 App 中 Qwen 连接与结果均为界面演示，不应视为已连通生产 API。
+> 实现状态：`✅ 已完成`。App 已接入 Qwen3.5 Omni Realtime WebSocket 与 Qwen3.8 Omni Chat Completions，并在 Realtime 失败时使用完整内存录音执行一次批处理 fallback。
 
 ## 18.1 官方型号与发布状态
 
-截至 2026-09-20，Qwen 官方发布文章已同时公布两个 API 型号，并给出了 Realtime 的可运行示例：
+截至 2026-09-20，MVP 使用两个已在百炼官方模型目录和 API 文档中明确列出的型号：
 
 ```text
 qwen3.8-omni-flash
-qwen3.8-omni-flash-realtime
+qwen3.5-omni-flash-realtime
 ```
 
-其中 `qwen3.8-omni-flash-realtime` 明确支持 WebSocket 和 WebRTC；官方示例使用 `qwen3.8-omni-flash-realtime` 作为 model ID，并给出北京、新加坡的 WebSocket 地址。此前百炼通用 Omni 模型目录一度只列出 3.5 Realtime，属于文档同步滞后，不能据此判定 3.8 Realtime 不存在。
+`qwen3.5-omni-flash-realtime` 支持 WebSocket 和 WebRTC，可持续接收麦克风音频并输出文本；`qwen3.8-omni-flash` 通过 Chat Completions / Responses 接收完整音频、文本和其他多模态输入。`qwen3.8-omni-flash` 没有 Realtime API，因此不把不存在的 Realtime 型号放进设置。
 
 这两个型号都非常新。MVP 将已支持的 model ID 集中为一个简单列表，供设置页下拉选择，不建设远程配置或通用供应商系统。加入新型号或快照版本前必须完成基本回归测试。
 
 官方资料：
 
-* [Qwen3.8-Omni-Flash 官方发布文章（含 Realtime API 示例）](https://qwen.ai/blog?id=qwen3.8-omni-flash)
 * [Qwen3.8-Omni-Flash 模型说明](https://help.aliyun.com/zh/model-studio/qwen3-8-omni-flash)
 * [Qwen Omni 非实时调用](https://help.aliyun.com/zh/model-studio/qwen-omni)
 * [Qwen Omni Realtime 调用](https://help.aliyun.com/zh/model-studio/realtime)
@@ -1257,17 +1255,16 @@ qwen3.8-omni-flash-realtime
 
 ## 18.2 两个模型的分工
 
-### `qwen3.8-omni-flash-realtime`
+### `qwen3.5-omni-flash-realtime`
 
 它是 MVP 的实时语音入口：
 
-* 官方支持 WebSocket / WebRTC；macOS MVP 优先 WebSocket，避免为单机客户端引入 WebRTC 会话和媒体协商复杂度。
+* 官方支持 WebSocket / WebRTC；macOS MVP 使用 WebSocket，避免为单机客户端引入 WebRTC 会话和媒体协商复杂度。
 * WebSocket 接收实时音频块，适合按住说话和点击开停；MVP 暂不发送摄像头画面。
 * 支持 Manual 模式：客户端在松开 Fn 后显式 `commit`，与 Hold Fn 交互完全对齐。
 * 支持 Server VAD / Semantic VAD，可用于 Tap Fn 的可选自动停止。
-* 官方示例提供 `conversation.item.input_audio_transcription.delta / completed`，可直接获得用户语音的流式预览与最终转写。
-* 支持文本和语音响应、实时上下文及工具调用，但 MVP 关闭语音回答，也不让它承担 Knowledge 抽取和复杂 Agent 规划。
-* 官方发布数据中，纯音频场景首个文本 Token 约为 591–618 ms；这是模型侧样例数据，不等于端到端产品 SLA，仍需用目标地域和用户 Key 实测。
+* MVP 禁用独立 `input_audio_transcription`，通过严格听写 instruction 让主模型直接输出文本，避免叠加 ASR 调用。
+* 仅启用文本输出，不生成音频；录音结束后通过 `response.text.delta / done` 增量展示和取得最终结果。
 
 MVP 使用：
 
@@ -1277,13 +1274,14 @@ Fn / Fn Fn Down
 → WebSocket append audio chunks
 → Fn Up / Tap Stop
 → input_audio_buffer.commit
-→ input_audio_transcription.delta（仅 UI 预览）
-→ input_audio_transcription.completed（最终候选文本）
+→ response.create
+→ response.text.delta（停止后增量预览）
+→ response.text.done（最终候选文本）
 ```
 
 Hold / Tap 都优先使用 Manual 模式。Semantic VAD 仅在用户开启“自动停止”时启用。
 
-普通 Fn 优先采用 Realtime 自带的 input transcription 完成听写；最终文本到达前的 delta 只能展示，不能提前写入目标 App。若实测表明 input transcription 的忠实度不足，再比较“Realtime 严格听写响应”和非实时批处理结果，但不得在未更新 PRD 和验收标准的情况下偷偷引入第三个模型。
+普通 Fn 使用 Realtime 主模型的严格听写响应；最终文本到达前的 delta 只能展示，不能提前写入目标 App。听写 instruction 要求忠实保留措辞和语言、只补自然标点，并仅把明确的数字、日期、时间、金额、百分比、单位、电话和编号转成阿拉伯数字。
 
 ### `qwen3.8-omni-flash`
 
@@ -1300,10 +1298,9 @@ MVP 使用：
 
 ```text
 Voice Agent
-→ Realtime 获得用户指令文本
-→ 组合 Selected Text / App / Window / Session / Top-K Knowledge
-→ qwen3.8-omni-flash
-→ Intent + Proposed Text / Tool Call
+→ 完整 WAV + Selected Text / App / Window / Session / Top-K Knowledge
+→ qwen3.8-omni-flash 一次完成转写与理解
+→ Transcript + Intent + Proposed Text / Tool Call
 → Validate Target
 → Replace Selection / Insert At Cursor
 ```
@@ -1340,16 +1337,16 @@ MVP 不开放 `xhigh`，避免普通语音操作出现不必要的延迟和输�
 * 必须在录音结束后上传整段音频，不能边说边发。
 * 听写启动延迟更高，无法很好支撑 Fn 的“像键盘一样即时”。
 
-只用 `qwen3.8-omni-flash-realtime`：
+只用 `qwen3.5-omni-flash-realtime`：
 
 * 可以完成持续语音交互和工具调用，但 Realtime 会话的核心优化目标是低延迟交互。
 * Knowledge 抽取、严格的关系 JSON、长文本分段、多上下文 Agent 和复杂修改更适合请求式模型的 reasoning、结构化重试与可观测流水线。
 
 所以 MVP 采用：
 
-> **Qwen3.8 Realtime 负责快，Qwen3.8 Omni 负责深度处理。**
+> **Qwen3.5 Omni Realtime 负责直接听写，Qwen3.8 Omni 负责直接理解 Agent 音频与批处理。**
 
-两次调用只发生在 Voice Agent。普通 Fn Dictation 默认只调用 Realtime，再用本地 Knowledge Top-K 进行确定性纠错，不追加第二次 LLM 请求。
+Voice Input 和 Voice Agent 各自只发起一次模型调用。普通 Fn Dictation 只调用 Realtime，再用本地 Knowledge Top-K 进行确定性纠错；Fn Fn 不再先做 ASR，而是把音频和 Context 一次提交给 Qwen3.8 Omni。
 
 Realtime 连接失败但内存中仍有完整录音时，可以用 `qwen3.8-omni-flash` 作一次批处理 fallback。重试完成或失败后立即释放音频，不落盘。
 
@@ -1368,9 +1365,8 @@ RealtimeVoiceClient
 └── textEvents
 
 ReasoningClient
-├── respond
-├── stream
-├── callTools
+├── respondToAudio
+├── transcribeAudio
 └── extractKnowledge
 ```
 
@@ -1382,7 +1378,7 @@ App
 ├── FnGestureRouter
 ├── AudioCapture
 ├── QwenVoiceEngine
-│   ├── QwenRealtimeClient        // qwen3.8-omni-flash-realtime
+│   ├── QwenRealtimeClient        // qwen3.5-omni-flash-realtime
 │   └── QwenOmniClient            // qwen3.8-omni-flash
 │
 ├── ContextCollector
@@ -1432,7 +1428,7 @@ MVP 只需要四项：
 
 * 地域：北京或新加坡，由 App 自动匹配对应 API 地址。
 * API Key：用户填写，保存在本机 Keychain。
-* Realtime 模型版本：默认 `qwen3.8-omni-flash-realtime`，可选 `qwen3.5-omni-plus-realtime`、`qwen3.5-omni-flash-realtime`。
+* Realtime 模型版本：默认 `qwen3.5-omni-flash-realtime`，可选固定快照 `qwen3.5-omni-flash-realtime-2026-03-15`。
 * 处理模型版本：默认 `qwen3.8-omni-flash`，可选 `qwen3.5-omni-plus`、`qwen3.5-omni-flash`。
 
 提供一个简单的“测试连接”按钮即可。首版不做自定义 Base URL、账号体系、复杂密钥状态、安全策略页面或详细账单展示。
@@ -1441,7 +1437,7 @@ MVP 只需要四项：
 
 ```text
 Fn UI 首次反馈 P95             < 100 ms
-Realtime 连接已就绪时，松开到首个文字 P95  < 800 ms
+Realtime 连接已就绪时，松开到首个结果 Token P95  < 1.5 s
 短句听写完成 P95              < 2.0 s
 Voice Agent 首个结果 Token P95     < 2.5 s
 支持应用的插入成功率             > 98%
@@ -1466,9 +1462,8 @@ Secure Text Field
 开发顺序中必须先做一个语音模型 spike，不直接假设 Realtime 的任意文本输出都等于忠实 ASR。用同一批至少 200 条带人工真值的音频比较：
 
 ```text
-A. qwen3.8-omni-flash-realtime 的 input_audio_transcription.completed
-B. qwen3.8-omni-flash-realtime + “只返回忠实听写” instruction
-C. qwen3.8-omni-flash 直接处理整段音频，reasoning_effort=none
+A. qwen3.5-omni-flash-realtime + 严格听写 instruction
+B. qwen3.8-omni-flash 直接处理整段音频，reasoning_effort=none
 ```
 
 测试集覆盖普通中文、中英混说、人名项目名、数字、标点、长句、环境噪声和不同麦克风。除 CER / WER 外，必须单独统计：
@@ -1478,7 +1473,7 @@ C. qwen3.8-omni-flash 直接处理整段音频，reasoning_effort=none
 * 模型擅自改写、摘要或删除内容的次数。
 * 首字延迟、完成延迟和单分钟成本。
 
-默认选择 A；B 只在 A 的转写能力不足且能证明不会擅自改写时替代，C 只作为 Realtime 失败后的单次 fallback。如果三者都达不到门槛，应暂停语音方案并更新 PRD，不能为了维持“只支持两个模型”而降低忠实度标准。
+默认选择 A；B 只作为 Realtime 失败后的单次 fallback。如果两者都达不到门槛，应暂停语音方案并更新 PRD，不能为了维持“只支持两个模型”而降低忠实度标准。
 
 ---
 
@@ -1696,7 +1691,7 @@ Our App
 │   └── KeyboardShortcuts
 │
 ├── Qwen APIs
-│   ├── qwen3.8-omni-flash-realtime
+│   ├── qwen3.5-omni-flash-realtime
 │   └── qwen3.8-omni-flash
 │
 └── Learn / selectively port
@@ -1720,15 +1715,14 @@ Fork Pindrop
 ```text
 Fn
 → Voice Input
-→ qwen3.8-omni-flash-realtime
+→ qwen3.5-omni-flash-realtime 直接听写
 → 准确进入当前光标
 ```
 
 ```text
 Fn Fn
 → Voice Agent
-→ Realtime 获得语音指令
-→ qwen3.8-omni-flash 理解与执行
+→ qwen3.8-omni-flash 直接接收语音并理解与执行
 → 理解 selected text / current app
 → 确认意图
 → Translate / Rewrite / Generate

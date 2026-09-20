@@ -136,7 +136,7 @@ final class MicrophoneTestController: @unchecked Sendable {
     private(set) var level: Double = 0
     private(set) var deviceName = ""
 
-    @ObservationIgnored private let engine = AVAudioEngine()
+    @ObservationIgnored private lazy var engine = AVAudioEngine()
     @ObservationIgnored private var tapInstalled = false
 
     init() {

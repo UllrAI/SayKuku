@@ -1,3 +1,4 @@
+import AVFoundation
 import SwiftUI
 
 struct HistoryView: View {
@@ -57,9 +58,9 @@ struct HistoryView: View {
 
     private func dayLabel(for index: Int) -> String {
         let entry = appState.historyEntries[index]
-        return entry.day == .today
-            ? appState.text("今天", "Today")
-            : appState.text("昨天", "Yesterday")
+        if Calendar.current.isDateInToday(entry.createdAt) { return appState.text("今天", "Today") }
+        if Calendar.current.isDateInYesterday(entry.createdAt) { return appState.text("昨天", "Yesterday") }
+        return entry.createdAt.formatted(date: .abbreviated, time: .omitted)
     }
 }
 
@@ -68,11 +69,12 @@ private struct HistoryRow: View {
     @Binding var entry: HistoryEntry
     @State private var isPlaying = false
     @State private var hovering = false
+    @State private var player: AVAudioPlayer?
 
     var body: some View {
         HStack(alignment: .top, spacing: 13) {
             Button {
-                withAnimation(Motion.snappy) { isPlaying.toggle() }
+                togglePlayback()
             } label: {
                 ZStack {
                     RoundedRectangle(cornerRadius: 9, style: .continuous)
@@ -147,6 +149,31 @@ private struct HistoryRow: View {
         .onHover { hovering = $0 }
         .animation(Motion.snappy, value: hovering)
     }
+
+    private func togglePlayback() {
+        if isPlaying {
+            player?.stop()
+            player = nil
+            withAnimation(Motion.snappy) { isPlaying = false }
+            return
+        }
+        Task {
+            do {
+                let data = try await appState.playAudio(for: entry)
+                let audioPlayer = try AVAudioPlayer(data: data)
+                audioPlayer.prepareToPlay()
+                audioPlayer.play()
+                player = audioPlayer
+                withAnimation(Motion.snappy) { isPlaying = true }
+                try? await Task.sleep(for: .seconds(max(entry.durationSeconds, 0.2)))
+                guard player === audioPlayer else { return }
+                player = nil
+                withAnimation(Motion.snappy) { isPlaying = false }
+            } catch {
+                appState.showToast(error.localizedDescription, symbol: "exclamationmark.triangle.fill")
+            }
+        }
+    }
 }
 
 private struct LabeledHistoryText: View {
@@ -169,33 +196,6 @@ private struct LabeledHistoryText: View {
     }
 }
 
-enum HistoryRetention: String, CaseIterable, Identifiable {
-    case day1, days7, days30, days90, forever
-
-    var id: String { rawValue }
-    var chineseTitle: String {
-        switch self {
-        case .day1: "1 天"
-        case .days7: "7 天"
-        case .days30: "30 天"
-        case .days90: "90 天"
-        case .forever: "永久"
-        }
-    }
-    var englishTitle: String {
-        switch self {
-        case .day1: "1 day"
-        case .days7: "7 days"
-        case .days30: "30 days"
-        case .days90: "90 days"
-        case .forever: "Forever"
-        }
-    }
-    @MainActor func title(_ appState: AppState) -> String {
-        appState.usesChineseUI ? chineseTitle : englishTitle
-    }
-}
-
 enum HistoryFilter: String, CaseIterable, Identifiable {
     case all, dictation, agent
     var id: String { rawValue }
@@ -206,76 +206,4 @@ enum HistoryFilter: String, CaseIterable, Identifiable {
         case .agent: "Voice Agent"
         }
     }
-}
-
-enum HistoryMode: String {
-    case dictation, agent
-    var filter: HistoryFilter { self == .dictation ? .dictation : .agent }
-    var symbol: String { self == .dictation ? "mic.fill" : "sparkles" }
-    var color: Color { self == .dictation ? KukuColor.coral : KukuColor.graphite }
-    @MainActor func title(_ appState: AppState) -> String { self == .dictation ? "Voice Input" : "Voice Agent" }
-}
-
-enum HistoryDay {
-    case today, yesterday
-}
-
-struct HistoryEntry: Identifiable {
-    let id = UUID()
-    let mode: HistoryMode
-    let app: String
-    let time: String
-    let duration: String
-    let input: String
-    let output: String
-    let day: HistoryDay
-    let hasAudio: Bool
-    var isStarred: Bool
-
-    static let samples = [
-        HistoryEntry(
-            mode: .agent,
-            app: "Messages",
-            time: "10:42",
-            duration: "3.8s",
-            input: "翻译成英文，口语一点",
-            output: "We’re planning to wrap this version up next week and start internal testing afterwards.",
-            day: .today,
-            hasAudio: true,
-            isStarred: true
-        ),
-        HistoryEntry(
-            mode: .dictation,
-            app: "Notes",
-            time: "09:18",
-            duration: "6.2s",
-            input: "下周二和产品团队确认一下新的 onboarding 流程。",
-            output: "下周二和产品团队确认一下新的 onboarding 流程。",
-            day: .today,
-            hasAudio: true,
-            isStarred: false
-        ),
-        HistoryEntry(
-            mode: .agent,
-            app: "Slack",
-            time: "17:26",
-            duration: "4.1s",
-            input: "帮我写得更简洁一些",
-            output: "The release is ready for internal testing next week.",
-            day: .yesterday,
-            hasAudio: true,
-            isStarred: false
-        ),
-        HistoryEntry(
-            mode: .dictation,
-            app: "Safari",
-            time: "15:03",
-            duration: "—",
-            input: "搜索一下 Qwen Realtime 的 WebSocket 文档。",
-            output: "搜索一下 Qwen Realtime 的 WebSocket 文档。",
-            day: .yesterday,
-            hasAudio: false,
-            isStarred: false
-        )
-    ]
 }

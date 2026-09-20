@@ -120,35 +120,6 @@ struct BrandMark: View {
     }
 }
 
-/// A compact monochrome mark for the constrained macOS status-item canvas.
-/// Template rendering lets AppKit choose the correct light, dark and pressed color.
-struct MenuBarMark: View {
-    private var templateImage: NSImage? {
-        guard let url = Bundle.module.url(forResource: "SayKuku", withExtension: "svg"),
-              let image = NSImage(contentsOf: url) else { return nil }
-        image.isTemplate = true
-        return image
-    }
-
-    var body: some View {
-        Group {
-            if let image = templateImage {
-                Image(nsImage: image)
-                    .resizable()
-                    .renderingMode(.template)
-            } else {
-                Image(systemName: "bird")
-                    .resizable()
-            }
-        }
-        .scaledToFit()
-        .foregroundStyle(.primary)
-        .frame(width: 8.5, height: 8.5)
-        .frame(width: 16, height: 18)
-        .accessibilityLabel("SayKuku.")
-    }
-}
-
 struct Waveform: View {
     var color: Color = KukuColor.coral
     var isActive = true

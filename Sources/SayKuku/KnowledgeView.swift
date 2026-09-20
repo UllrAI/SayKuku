@@ -6,10 +6,9 @@ struct KnowledgeView: View {
     @State private var filter: KnowledgeFilter = .all
     @State private var showingImport = false
     @State private var newName = ""
-    @State private var entities = KnowledgeEntity.samples
 
     var filteredEntities: [KnowledgeEntity] {
-        entities.filter { entity in
+        appState.knowledgeEntities.filter { entity in
             (filter == .all || entity.type.filter == filter) &&
             (search.isEmpty || entity.name.localizedCaseInsensitiveContains(search) || entity.detail.localizedCaseInsensitiveContains(search))
         }
@@ -30,14 +29,7 @@ struct KnowledgeView: View {
             }
         }
         .sheet(isPresented: $showingImport) {
-            KnowledgeImportSheet { imported in
-                entities.insert(contentsOf: imported, at: 0)
-                appState.importedEntityCount += imported.count
-                appState.showToast(
-                    appState.text("已导入 \(imported.count) 项 Knowledge", "Imported \(imported.count) Knowledge items"),
-                    symbol: "checkmark.seal.fill"
-                )
-            }
+            KnowledgeImportSheet()
         }
     }
 
@@ -87,14 +79,9 @@ struct KnowledgeView: View {
             .padding(.vertical, 16)
 
             if !newName.isEmpty {
-                QuickAddRow(name: $newName) { name in
-                    entities.insert(
-                        KnowledgeEntity(name: name, detail: appState.text("手动添加", "Added manually"), type: .term, aliases: []),
-                        at: 0
-                    )
-                    appState.importedEntityCount += 1
+                QuickAddRow(name: $newName) { name, type in
+                    appState.addKnowledge(name: name, type: type)
                     newName = ""
-                    appState.showToast(appState.text("已加入 Knowledge", "Added to Knowledge"), symbol: "checkmark.circle.fill")
                 }
                 .padding(.bottom, 12)
                 .transition(.move(edge: .top).combined(with: .opacity))
@@ -103,7 +90,10 @@ struct KnowledgeView: View {
             ScrollView {
                 LazyVStack(spacing: 0) {
                     ForEach(filteredEntities) { entity in
-                        EntityRow(entity: entity)
+                        EntityRow(entity: entity) {
+                            appState.knowledgeRelationships.removeAll { $0.fromEntityID == entity.id || $0.toEntityID == entity.id }
+                            appState.knowledgeEntities.removeAll { $0.id == entity.id }
+                        }
                         Divider().padding(.leading, 59).opacity(0.55)
                     }
                 }
@@ -127,8 +117,10 @@ struct KnowledgeView: View {
 private struct QuickAddRow: View {
     @Environment(AppState.self) private var appState
     @Binding var name: String
-    let onAdd: (String) -> Void
+    let onAdd: (String, EntityType) -> Void
     @FocusState private var focused: Bool
+    @State private var type: EntityType = .term
+    @State private var classifying = false
 
     var body: some View {
         HStack(spacing: 12) {
@@ -137,13 +129,23 @@ private struct QuickAddRow: View {
             TextField(appState.text("输入名称", "Enter a name"), text: $name)
                 .textFieldStyle(.plain)
                 .focused($focused)
-                .onSubmit { if !name.isEmpty { onAdd(name) } }
-            Picker("类型", selection: .constant(EntityType.term)) {
+                .onSubmit { if !name.isEmpty { onAdd(name, type) } }
+            Picker("类型", selection: $type) {
                 ForEach(EntityType.allCases) { type in Text(type.title(appState)).tag(type) }
             }
             .labelsHidden()
             .frame(width: 120)
-            Button(appState.text("添加", "Add")) { if !name.isEmpty { onAdd(name) } }
+            Button(classifying ? appState.text("识别中…", "Classifying…") : appState.text("识别类型", "Detect type")) {
+                classifying = true
+                Task {
+                    do { type = try await appState.suggestEntityType(for: name) }
+                    catch { appState.showToast(error.localizedDescription, symbol: "exclamationmark.triangle.fill") }
+                    classifying = false
+                }
+            }
+            .buttonStyle(HoverFillButtonStyle())
+            .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || classifying)
+            Button(appState.text("添加", "Add")) { if !name.isEmpty { onAdd(name, type) } }
                 .buttonStyle(HoverFillButtonStyle(prominent: true))
         }
         .padding(12)
@@ -156,6 +158,7 @@ private struct QuickAddRow: View {
 private struct EntityRow: View {
     @Environment(AppState.self) private var appState
     let entity: KnowledgeEntity
+    let onDelete: () -> Void
 
     var body: some View {
         HStack(spacing: 13) {
@@ -185,6 +188,15 @@ private struct EntityRow: View {
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(KukuColor.stone)
             }
+            Menu {
+                Button(appState.text("删除", "Delete"), role: .destructive, action: onDelete)
+            } label: {
+                Image(systemName: "ellipsis")
+                    .foregroundStyle(KukuColor.stone)
+                    .frame(width: 24, height: 24)
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
         }
         .padding(.horizontal, 10)
         .frame(height: KukuLayout.rowHeight)
@@ -195,13 +207,11 @@ private struct KnowledgeImportSheet: View {
     @Environment(AppState.self) private var appState
     @Environment(\.dismiss) private var dismiss
     @State private var step = 0
-    @State private var source = "姓名：王涛\n部门：产品部\n职位：产品经理\n手机号：18600000000\n\n项目 AniKuku，负责人张越，也叫 Visoar。"
-    @State private var selected = Set(
-        ImportCandidate.samples
-            .filter { $0.status == .new || $0.status == .merge }
-            .map(\.id)
-    )
-    let onImport: ([KnowledgeEntity]) -> Void
+    @State private var source = ""
+    @State private var selected = Set<UUID>()
+    @State private var analysis: KnowledgeAnalysis?
+    @State private var analyzing = false
+    @State private var errorMessage: String?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -244,10 +254,23 @@ private struct KnowledgeImportSheet: View {
             } else {
                 ScrollView {
                     VStack(spacing: 10) {
-                        ForEach(ImportCandidate.samples) { candidate in
+                        ForEach(analysis?.candidates ?? []) { candidate in
                             ImportCandidateRow(candidate: candidate, isSelected: selected.contains(candidate.id)) {
                                 guard candidate.status != .ignored else { return }
                                 if selected.contains(candidate.id) { selected.remove(candidate.id) } else { selected.insert(candidate.id) }
+                            }
+                        }
+                        if let relationships = analysis?.relationships, !relationships.isEmpty {
+                            Text(appState.text("关系", "Relationships"))
+                                .font(.system(size: 11, weight: .bold, design: .rounded))
+                                .foregroundStyle(KukuColor.stone)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.top, 8)
+                            ForEach(relationships) { candidate in
+                                ImportRelationshipRow(candidate: candidate, isSelected: selected.contains(candidate.id)) {
+                                    if selected.contains(candidate.id) { selected.remove(candidate.id) }
+                                    else { selected.insert(candidate.id) }
+                                }
                             }
                         }
                     }
@@ -269,20 +292,84 @@ private struct KnowledgeImportSheet: View {
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(KukuColor.stone)
                 Button(step == 0 ? appState.text("分析文本", "Analyze text") : appState.text("确认导入", "Confirm import")) {
-                    if step == 0 {
-                        withAnimation(Motion.panel) { step = 1 }
-                    } else {
-                        let entities = ImportCandidate.samples.filter { selected.contains($0.id) }.map(\.entity)
-                        onImport(entities)
+                    if step == 0 { analyze() }
+                    else if let analysis {
+                        appState.commitKnowledge(analysis, selectedIDs: selected)
+                        appState.showToast(
+                            appState.text("已导入 \(selected.count) 项 Knowledge", "Imported \(selected.count) Knowledge items"),
+                            symbol: "checkmark.seal.fill"
+                        )
                         dismiss()
                     }
                 }
                 .buttonStyle(HoverFillButtonStyle(prominent: true))
+                .disabled(step == 0 ? source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || analyzing : selected.isEmpty)
             }
             .padding(20)
         }
         .frame(width: 680, height: 580)
         .background(KukuColor.canvas)
+        .overlay {
+            if analyzing {
+                ZStack {
+                    Color.black.opacity(0.08)
+                    ProgressView(appState.text("正在分析…", "Analyzing…"))
+                        .padding(18)
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+                }
+            }
+        }
+        .alert(appState.text("分析失败", "Analysis failed"), isPresented: Binding(
+            get: { errorMessage != nil },
+            set: { if !$0 { errorMessage = nil } }
+        )) { Button(appState.text("好", "OK"), role: .cancel) { } } message: { Text(errorMessage ?? "") }
+    }
+
+    private func analyze() {
+        analyzing = true
+        errorMessage = nil
+        Task {
+            do {
+                let value = try await appState.analyzeKnowledge(source)
+                analysis = value
+                selected = Set(value.candidates.filter { $0.status == .new || $0.status == .merge }.map(\.id)
+                    + value.relationships.filter { $0.status == .new || $0.status == .merge }.map(\.id))
+                withAnimation(Motion.panel) { step = 1 }
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+            analyzing = false
+        }
+    }
+}
+
+private struct ImportRelationshipRow: View {
+    let candidate: ImportRelationshipCandidate
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 13) {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 17))
+                    .foregroundStyle(isSelected ? KukuColor.coral : KukuColor.stone)
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("\(candidate.relationship.from) → \(candidate.relationship.type.rawValue) → \(candidate.relationship.to)")
+                        .font(.system(size: 13, weight: .semibold))
+                    Text(candidate.relationship.evidence)
+                        .font(.system(size: 11))
+                        .foregroundStyle(KukuColor.stone)
+                }
+                Spacer()
+                Text(candidate.status.rawValue)
+                    .font(.system(size: 9, weight: .bold, design: .rounded))
+                    .foregroundStyle(candidate.status.color)
+            }
+            .padding(14)
+            .background(Color.white.opacity(0.54), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -350,89 +437,13 @@ enum KnowledgeFilter: String, CaseIterable, Identifiable {
     }
 }
 
-enum EntityType: String, CaseIterable, Identifiable {
-    case person, organization, project, product, term
-    var id: String { rawValue }
-    @MainActor func title(_ appState: AppState) -> String {
-        switch self {
-        case .person: appState.text("人物", "Person")
-        case .organization: appState.text("组织", "Organization")
-        case .project: appState.text("项目", "Project")
-        case .product: appState.text("产品", "Product")
-        case .term: appState.text("术语", "Term")
-        }
-    }
-    var symbol: String {
-        switch self {
-        case .person: "person.fill"
-        case .organization: "building.2.fill"
-        case .project: "folder.fill"
-        case .product: "shippingbox.fill"
-        case .term: "character.book.closed.fill"
-        }
-    }
+private extension ImportStatus {
     var color: Color {
         switch self {
-        case .person: KukuColor.coral
-        case .organization: Color(red: 0.34, green: 0.50, blue: 0.75)
-        case .project: Color(red: 0.58, green: 0.43, blue: 0.72)
-        case .product: KukuColor.amber
-        case .term: KukuColor.mint
+        case .new: KukuColor.mint
+        case .merge: Color(red: 0.34, green: 0.50, blue: 0.75)
+        case .conflict: KukuColor.amber
+        case .ignored: KukuColor.stone
         }
     }
-    var filter: KnowledgeFilter {
-        switch self {
-        case .person: .people
-        case .organization: .organizations
-        case .project, .product: .projects
-        case .term: .terms
-        }
-    }
-}
-
-struct KnowledgeEntity: Identifiable {
-    let id = UUID()
-    let name: String
-    let detail: String
-    let type: EntityType
-    let aliases: [String]
-
-    static let samples = [
-        KnowledgeEntity(name: "张越", detail: "UllrAI Lab · Founder · AniKuku", type: .person, aliases: ["Visoar", "张老师"]),
-        KnowledgeEntity(name: "王涛", detail: "产品部 · 产品经理", type: .person, aliases: []),
-        KnowledgeEntity(name: "AniKuku", detail: "Project · 负责人 张越", type: .project, aliases: ["Ani Kuku"]),
-        KnowledgeEntity(name: "BifroMQ", detail: "Apache Project · 固定大小写", type: .product, aliases: ["B / M / Q"]),
-        KnowledgeEntity(name: "UllrAI Lab", detail: "Organization", type: .organization, aliases: ["UllrAI"]),
-        KnowledgeEntity(name: "WorkBuddy", detail: "Product · 纠正自 work body", type: .product, aliases: ["work body"]),
-        KnowledgeEntity(name: "Semantic VAD", detail: "Voice terminology", type: .term, aliases: [])
-    ]
-}
-
-struct ImportCandidate: Identifiable {
-    enum Status: String {
-        case new = "NEW"
-        case merge = "MERGE"
-        case conflict = "CONFLICT"
-        case ignored = "IGNORED"
-        var color: Color {
-            switch self {
-            case .new: KukuColor.mint
-            case .merge: Color(red: 0.34, green: 0.50, blue: 0.75)
-            case .conflict: KukuColor.amber
-            case .ignored: KukuColor.stone
-            }
-        }
-    }
-    let id = UUID()
-    let entity: KnowledgeEntity
-    let status: Status
-    let evidence: String
-
-    static let samples = [
-        ImportCandidate(entity: KnowledgeEntity(name: "王涛", detail: "产品部", type: .person, aliases: []), status: .merge, evidence: "“姓名：王涛 / 部门：产品部”"),
-        ImportCandidate(entity: KnowledgeEntity(name: "产品部", detail: "Organization Unit", type: .organization, aliases: []), status: .new, evidence: "“部门：产品部”"),
-        ImportCandidate(entity: KnowledgeEntity(name: "AniKuku", detail: "Project", type: .project, aliases: []), status: .merge, evidence: "“项目 AniKuku”"),
-        ImportCandidate(entity: KnowledgeEntity(name: "张越", detail: "负责人", type: .person, aliases: ["Visoar"]), status: .conflict, evidence: "“负责人张越，也叫 Visoar”"),
-        ImportCandidate(entity: KnowledgeEntity(name: "186 •••• 0000", detail: "已过滤的电话号码", type: .term, aliases: []), status: .ignored, evidence: "“手机号：18600000000”")
-    ]
 }

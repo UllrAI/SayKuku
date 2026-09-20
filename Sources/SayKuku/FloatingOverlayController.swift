@@ -53,7 +53,7 @@ final class FloatingOverlayController {
 
         let origin = NSPoint(
             x: visibleFrame.midX - panel.frame.width / 2,
-            y: visibleFrame.minY + 22
+            y: visibleFrame.minY + 8
         )
         panel.setFrameOrigin(origin)
     }
@@ -74,6 +74,7 @@ private struct FloatingSystemOverlay: View {
                     .transition(.scale(scale: 0.88, anchor: .bottom).combined(with: .opacity))
             }
         }
+        .padding(.bottom, 16)
         .frame(width: 380, height: 92)
         .animation(Motion.panel, value: appState.agentPhase)
         .animation(Motion.panel, value: appState.dictationPhase)

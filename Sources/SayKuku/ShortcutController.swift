@@ -50,6 +50,7 @@ final class ShortcutController: @unchecked Sendable {
     private var hotKeyHandler: EventHandlerRef?
     private var voiceInputHotKey: EventHotKeyRef?
     private var voiceAgentHotKey: EventHotKeyRef?
+    private var wakeObserver: NSObjectProtocol?
 
     private var fnIsDown = false
     private var fnWasChorded = false
@@ -76,6 +77,15 @@ final class ShortcutController: @unchecked Sendable {
     func start() {
         registerFallbackHotKeys()
         installFnMonitors()
+        if wakeObserver == nil {
+            wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+                forName: NSWorkspace.didWakeNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor in self?.installFnMonitors() }
+            }
+        }
     }
 
     func stop() {
@@ -87,6 +97,10 @@ final class ShortcutController: @unchecked Sendable {
         if let voiceInputHotKey { UnregisterEventHotKey(voiceInputHotKey) }
         if let voiceAgentHotKey { UnregisterEventHotKey(voiceAgentHotKey) }
         if let hotKeyHandler { RemoveEventHandler(hotKeyHandler) }
+        if let wakeObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(wakeObserver)
+            self.wakeObserver = nil
+        }
     }
 
     @MainActor
@@ -116,7 +130,7 @@ final class ShortcutController: @unchecked Sendable {
         if sample.kind == .keyDown, fnIsDown, !isFnKey {
             fnWasChorded = true
             holdTask?.cancel()
-            if appState.dictationPhase == .ready || appState.dictationPhase == .listening {
+            if appState.dictationPhase == .listening {
                 appState.cancelDictation()
             }
             return
@@ -161,14 +175,14 @@ final class ShortcutController: @unchecked Sendable {
         }
 
         if appState.inputMode == .hold,
-           appState.dictationPhase == .ready || appState.dictationPhase == .listening {
+           appState.dictationPhase == .listening {
             firstTapAt = nil
             appState.finishDictation()
             return
         }
 
         if appState.inputMode == .tap,
-           appState.dictationPhase == .ready || appState.dictationPhase == .listening {
+           appState.dictationPhase == .listening {
             firstTapAt = nil
             singleTapTask?.cancel()
             appState.finishDictation()

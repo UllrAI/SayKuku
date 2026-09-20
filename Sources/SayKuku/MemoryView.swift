@@ -31,9 +31,10 @@ struct MemoryView: View {
                     VStack(spacing: 14) {
                         if selectedScope == .corrections {
                             CorrectionSummary()
-                            ForEach(CorrectionSample.samples) { item in
+                            ForEach(appState.corrections.filter { $0.status == .pending }) { item in
                                 CorrectionRow(item: item)
                             }
+                            if appState.corrections.allSatisfy({ $0.status != .pending }) { emptyView }
                         } else if selectedScope == .shortTerm {
                             SessionMemoryView()
                         } else {
@@ -44,6 +45,16 @@ struct MemoryView: View {
                 .padding(.vertical, 20)
             }
         }
+    }
+
+    private var emptyView: some View {
+        ContentUnavailableView(
+            appState.text("暂无记忆", "No memory yet"),
+            systemImage: "sparkles",
+            description: Text(appState.text("使用 Voice Input 和 Voice Agent 后，这里会显示真实记录。", "Real records appear here after you use Voice Input and Voice Agent."))
+        )
+        .foregroundStyle(KukuColor.stone)
+        .frame(maxWidth: .infinity, minHeight: 180)
     }
 }
 
@@ -60,17 +71,17 @@ private struct CorrectionSummary: View {
             }
             .frame(width: 44, height: 44)
             VStack(alignment: .leading, spacing: 4) {
-                Text(appState.text("本周识别准确率正在提升", "Recognition is improving this week"))
+                Text(appState.text("纠正建议", "Correction suggestions"))
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
                 Text(appState.text(
-                    "发现 3 组重复纠正，只有你确认后才会进入长期 Knowledge。",
-                    "Three repeated corrections found. Only confirmed items enter long-term Knowledge."
+                    "发现 \(appState.corrections.filter { $0.status == .pending }.count) 组重复纠正，只有你确认后才会进入长期 Knowledge。",
+                    "\(appState.corrections.filter { $0.status == .pending }.count) repeated corrections found. Only confirmed items enter long-term Knowledge."
                 ))
                     .font(.system(size: 11))
                     .foregroundStyle(KukuColor.stone)
             }
             Spacer()
-            Text("+8.4%")
+            Text("\(appState.corrections.reduce(0) { $0 + $1.count })")
                 .font(.system(size: 18, weight: .bold, design: .rounded))
                 .foregroundStyle(KukuColor.mint)
         }
@@ -81,8 +92,7 @@ private struct CorrectionSummary: View {
 
 private struct CorrectionRow: View {
     @Environment(AppState.self) private var appState
-    let item: CorrectionSample
-    @State private var resolved = false
+    let item: CorrectionRecord
 
     var body: some View {
         HStack(spacing: 16) {
@@ -99,24 +109,17 @@ private struct CorrectionRow: View {
                 }
                 .font(.system(size: 15, design: .rounded))
                 Text(appState.text(
-                    "过去 7 天纠正 \(item.count) 次 · 最近在 \(item.context)",
-                    "Corrected \(item.count) times in 7 days · Last in \(item.context)"
+                    "累计纠正 \(item.count) 次 · 最近在 \(item.lastApp)",
+                    "Corrected \(item.count) times · Last in \(item.lastApp)"
                 ))
                     .font(.system(size: 10))
                     .foregroundStyle(KukuColor.stone)
             }
             Spacer()
-            if resolved {
-                Label(appState.text("已加入", "Added"), systemImage: "checkmark")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(KukuColor.mint)
-                    .transition(.scale.combined(with: .opacity))
-            } else {
-                Button(appState.text("忽略", "Ignore")) { withAnimation(Motion.snappy) { resolved = true } }
-                    .buttonStyle(HoverFillButtonStyle())
-                Button(appState.text("加入 Knowledge", "Add to Knowledge")) { withAnimation(Motion.spring) { resolved = true } }
-                    .buttonStyle(TintButtonStyle())
-            }
+            Button(appState.text("忽略", "Ignore")) { withAnimation(Motion.snappy) { appState.ignoreCorrection(item.id) } }
+                .buttonStyle(HoverFillButtonStyle())
+            Button(appState.text("加入 Knowledge", "Add to Knowledge")) { withAnimation(Motion.spring) { appState.acceptCorrection(item.id) } }
+                .buttonStyle(TintButtonStyle())
         }
         .padding(14)
         .kukuSurface(radius: KukuLayout.radiusMedium)
@@ -124,15 +127,29 @@ private struct CorrectionRow: View {
 }
 
 private struct SessionMemoryView: View {
+    @Environment(AppState.self) private var appState
+
+    private var items: [MemoryTimelineItem] {
+        let sessions = appState.sessions.filter { $0.expiresAt > .now }.map {
+            MemoryTimelineItem(id: $0.id, title: $0.app, detail: $0.userCommand + "\n" + $0.response, expiresAt: $0.expiresAt)
+        }
+        let recentDictation = appState.historyEntries.filter {
+            $0.mode == .dictation && Calendar.current.isDateInToday($0.createdAt)
+        }.prefix(5).map {
+            MemoryTimelineItem(id: $0.id, title: $0.app, detail: $0.output, expiresAt: Calendar.current.startOfDay(for: .now).addingTimeInterval(86_400))
+        }
+        return (sessions + recentDictation).sorted { $0.expiresAt < $1.expiresAt }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
-            ForEach(Array(SessionSample.samples.enumerated()), id: \.element.id) { index, item in
+            ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
                 HStack(alignment: .top, spacing: 16) {
                     VStack(spacing: 5) {
                         Circle()
                             .fill(index == 0 ? KukuColor.coral : KukuColor.stone.opacity(0.35))
                             .frame(width: 9, height: 9)
-                        if index < SessionSample.samples.count - 1 {
+                        if index < items.count - 1 {
                             Rectangle().fill(KukuColor.line).frame(width: 1, height: 52)
                         }
                     }
@@ -145,7 +162,7 @@ private struct SessionMemoryView: View {
                             .lineSpacing(3)
                     }
                     Spacer()
-                    Text(item.ttl)
+                    Text(item.expiresAt, style: .relative)
                         .font(.system(size: 10, weight: .medium))
                         .foregroundStyle(KukuColor.stone)
                 }
@@ -156,12 +173,28 @@ private struct SessionMemoryView: View {
     }
 }
 
+private struct MemoryTimelineItem: Identifiable {
+    let id: UUID
+    let title: String
+    let detail: String
+    let expiresAt: Date
+}
+
 private struct LongTermMemoryView: View {
-    let groups = [
-        ("固定拼写", "AniKuku · BifroMQ · WorkBuddy", "character.cursor.ibeam"),
-        ("常用关系", "张越 → owns → AniKuku", "point.3.connected.trianglepath.dotted"),
-        ("语言偏好", "中文输入优先使用全角标点", "textformat")
-    ]
+    @Environment(AppState.self) private var appState
+
+    private var groups: [(String, String, String)] {
+        let spellings = appState.knowledgeEntities.prefix(8).map(\.name).joined(separator: " · ")
+        let relationships = appState.knowledgeRelationships.prefix(8).compactMap { relationship -> String? in
+            guard let from = appState.knowledgeEntities.first(where: { $0.id == relationship.fromEntityID }),
+                  let to = appState.knowledgeEntities.first(where: { $0.id == relationship.toEntityID }) else { return nil }
+            return "\(from.name) → \(relationship.type.rawValue) → \(to.name)"
+        }.joined(separator: " · ")
+        return [
+            (appState.text("固定拼写", "Confirmed spellings"), spellings, "character.cursor.ibeam"),
+            (appState.text("常用关系", "Relationships"), relationships, "point.3.connected.trianglepath.dotted")
+        ].filter { !$0.1.isEmpty }
+    }
 
     var body: some View {
         VStack(spacing: 10) {
@@ -177,8 +210,6 @@ private struct LongTermMemoryView: View {
                         Text(group.1).font(.system(size: 11)).foregroundStyle(KukuColor.stone)
                     }
                     Spacer()
-                    Button { } label: { Image(systemName: "ellipsis") }
-                        .buttonStyle(.plain)
                 }
                 .padding(14)
                 .kukuSurface(radius: KukuLayout.radiusMedium)
@@ -197,29 +228,4 @@ enum MemoryScope: String, CaseIterable, Identifiable {
         case .longTerm: appState.text("长期", "Long-term")
         }
     }
-}
-
-struct CorrectionSample: Identifiable {
-    let id = UUID()
-    let raw: String
-    let corrected: String
-    let count: Int
-    let context: String
-    static let samples = [
-        CorrectionSample(raw: "张月", corrected: "张越", count: 4, context: "Safari"),
-        CorrectionSample(raw: "work body", corrected: "WorkBuddy", count: 3, context: "Slack"),
-        CorrectionSample(raw: "Bifro M Q", corrected: "BifroMQ", count: 2, context: "VS Code")
-    ]
-}
-
-struct SessionSample: Identifiable {
-    let id = UUID()
-    let title: String
-    let detail: String
-    let ttl: String
-    static let samples = [
-        SessionSample(title: "当前 Agent Session", detail: "Safari · 选中文字 · Translate · 2 条 Follow-up", ttl: "8 min"),
-        SessionSample(title: "最近提及", detail: "AniKuku · 张越 · internal testing", ttl: "42 min"),
-        SessionSample(title: "最近听写", detail: "只保存字符数与纠错，不保存原始音频。", ttl: "Today")
-    ]
 }

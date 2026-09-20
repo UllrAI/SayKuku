@@ -140,28 +140,36 @@ struct AgentPill: View {
     private var width: CGFloat {
         switch appState.agentPhase {
         case .hidden: 0
-        case .listening: 286
-        case .processing: 146
+        case .listening, .confirming, .copyReady: 360
+        case .transcribing, .processing: 146
         case .result: 82
         }
     }
 
     var body: some View {
         HStack(spacing: 8) {
-            if appState.agentPhase == .listening {
+            if appState.agentPhase == .copyReady {
+                CopyFallbackContent()
+            } else if appState.agentPhase == .listening || appState.agentPhase == .confirming {
                 Button(action: appState.dismissAgent) {
                     Image(systemName: "xmark")
                         .font(.system(size: 10, weight: .bold))
                         .foregroundStyle(Color.white.opacity(0.78))
                         .frame(width: 26, height: 26)
-                        .background(Color.white.opacity(0.09), in: Circle())
+                        .background { Circle().fill(Color.white.opacity(0.09)) }
                 }
                 .buttonStyle(PressScaleStyle())
 
-                Waveform(barCount: 5, height: 15)
-                    .frame(width: 22)
+                if appState.agentPhase == .listening {
+                    Waveform(barCount: 5, height: 15)
+                        .frame(width: 22)
+                } else {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(KukuColor.coral)
+                }
 
-                Text(appState.agentCommand)
+                Text(appState.agentPhase == .listening && !appState.liveTranscript.isEmpty ? appState.liveTranscript : appState.agentCommand)
                     .font(.system(size: 11.5, weight: .semibold, design: .rounded))
                     .foregroundStyle(.white)
                     .lineLimit(1)
@@ -179,19 +187,24 @@ struct AgentPill: View {
                     AgentContextPopover()
                 }
 
-                Button(action: appState.runAgent) {
+                Button {
+                    if appState.agentPhase == .listening { appState.finishAgentListening() }
+                    else { appState.runAgent() }
+                } label: {
                     Image(systemName: "checkmark")
                         .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(.white)
                         .frame(width: 26, height: 26)
-                        .background(KukuColor.coral, in: Circle())
+                        .background { Circle().fill(KukuColor.coral) }
                 }
                 .buttonStyle(PressScaleStyle())
-            } else if appState.agentPhase == .processing {
+            } else if appState.agentPhase == .transcribing || appState.agentPhase == .processing {
                 ProgressView()
                     .controlSize(.small)
                     .tint(.white)
-                Text(appState.text("正在写入…", "Writing…"))
+                Text(appState.agentPhase == .transcribing
+                     ? appState.text("正在理解…", "Understanding…")
+                     : appState.text("正在写入…", "Writing…"))
                     .font(.system(size: 11.5, weight: .semibold, design: .rounded))
                     .foregroundStyle(.white)
             } else if appState.agentPhase == .result {
@@ -202,7 +215,7 @@ struct AgentPill: View {
         }
         .padding(.horizontal, 7)
         .frame(width: width, height: appState.agentPhase == .result ? 30 : 40)
-        .background(KukuColor.graphite.opacity(0.98), in: Capsule())
+        .background { Capsule().fill(KukuColor.graphite.opacity(0.98)) }
         .overlay(Capsule().stroke(Color.white.opacity(0.1), lineWidth: 1))
         .shadow(color: Color.black.opacity(0.16), radius: 16, y: 7)
         .animation(Motion.panel, value: appState.agentPhase)
@@ -230,14 +243,16 @@ private struct AgentContextPopover: View {
                     ))
                         .font(.system(size: 12, weight: .medium))
                     Spacer()
-                    Button {
-                        appState.contextItems.removeAll { $0.id == item.id }
-                    } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 8, weight: .bold))
-                            .foregroundStyle(KukuColor.stone)
+                    if appState.agentPhase == .listening {
+                        Button {
+                            appState.contextItems.removeAll { $0.id == item.id }
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 8, weight: .bold))
+                                .foregroundStyle(KukuColor.stone)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
             }
         }
@@ -252,47 +267,91 @@ struct DictationPill: View {
     private var width: CGFloat {
         switch appState.dictationPhase {
         case .idle: 0
-        case .ready: 104
-        case .listening: 140
-        case .processing: 130
+        case .listening: appState.liveTranscript.isEmpty ? 252 : 320
+        case .copyReady: 360
+        case .processing: appState.liveTranscript.isEmpty ? 130 : 320
         case .success: 82
         }
     }
 
     var body: some View {
-        Button {
-            if appState.dictationPhase == .ready || appState.dictationPhase == .listening {
-                appState.finishDictation()
-            }
-        } label: {
-            HStack(spacing: 8) {
-                switch appState.dictationPhase {
-                case .idle:
-                    EmptyView()
-                case .ready:
-                    Image(systemName: "mic.fill").foregroundStyle(KukuColor.coral)
-                    Text(appState.text("准备中", "Ready"))
-                case .listening:
-                    Waveform(barCount: 7, height: 17)
-                    Text(appState.text("正在听…", "Listening…"))
-                case .processing:
-                    ProgressView().controlSize(.small)
-                    Text(appState.text("正在输入…", "Typing…"))
-                case .success:
+        HStack(spacing: 8) {
+            switch appState.dictationPhase {
+            case .idle:
+                EmptyView()
+            case .listening:
+                Waveform(barCount: 6, height: 16)
+                Text(appState.liveTranscript.isEmpty
+                     ? appState.text("正在听…", "Listening…")
+                     : appState.liveTranscript)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+                Button(action: appState.finishDictation) {
                     Image(systemName: "checkmark")
-                    Text(appState.text("已输入", "Done"))
+                        .font(.system(size: 10, weight: .bold))
+                        .frame(width: 25, height: 25)
+                        .background(KukuColor.coral, in: Circle())
+                        .foregroundStyle(.white)
                 }
+                .buttonStyle(PressScaleStyle())
+            case .processing:
+                ProgressView().controlSize(.small)
+                Text(appState.liveTranscript.isEmpty
+                     ? appState.text("正在整理…", "Formatting…")
+                     : appState.liveTranscript)
+                    .lineLimit(1)
+            case .success:
+                Image(systemName: "checkmark")
+                Text(appState.text("已输入", "Done"))
+            case .copyReady:
+                CopyFallbackContent()
             }
-            .font(.system(size: 11.5, weight: .semibold, design: .rounded))
-            .foregroundStyle(appState.dictationPhase == .success ? KukuColor.mint : KukuColor.ink)
-            .frame(width: width, height: 34)
-            .background(.ultraThinMaterial, in: Capsule())
-            .background(Color.white.opacity(0.5), in: Capsule())
-            .overlay(Capsule().stroke(Color.white.opacity(0.72), lineWidth: 1))
-            .shadow(color: Color.black.opacity(0.09), radius: 13, y: 5)
         }
-        .buttonStyle(PressScaleStyle())
+        .font(.system(size: 11.5, weight: .semibold, design: .rounded))
+        .foregroundStyle(appState.dictationPhase == .success ? KukuColor.mint : KukuColor.ink)
+        .padding(.horizontal, 10)
+        .frame(width: width, height: appState.dictationPhase == .copyReady ? 40 : 34)
+        .background(.ultraThinMaterial, in: Capsule())
+        .background(Color.white.opacity(0.5), in: Capsule())
+        .overlay(Capsule().stroke(Color.white.opacity(0.76), lineWidth: 0.8))
+        .shadow(color: Color.black.opacity(0.1), radius: 10, y: 4)
         .animation(Motion.panel, value: appState.dictationPhase)
+        .animation(Motion.snappy, value: appState.liveTranscript.isEmpty)
         .contentTransition(.interpolate)
+    }
+}
+
+private struct CopyFallbackContent: View {
+    @Environment(AppState.self) private var appState
+
+    private var darkBackground: Bool { appState.agentPhase == .copyReady }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "doc.on.clipboard")
+                .foregroundStyle(KukuColor.coral)
+            Text(appState.pendingCopyText)
+                .lineLimit(1)
+                .truncationMode(.tail)
+            Spacer(minLength: 4)
+            Button(action: appState.copyPendingText) {
+                Label(appState.text("复制", "Copy"), systemImage: "doc.on.doc")
+                    .font(.system(size: 10.5, weight: .semibold))
+                    .padding(.horizontal, 9)
+                    .frame(height: 25)
+                    .background(Color.white.opacity(darkBackground ? 0.12 : 0.65), in: Capsule())
+            }
+            .buttonStyle(.plain)
+            Button(action: appState.dismissCopyFallback) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 9, weight: .bold))
+                    .frame(width: 25, height: 25)
+                    .background(Color.white.opacity(darkBackground ? 0.1 : 0.65), in: Circle())
+            }
+            .buttonStyle(.plain)
+        }
+        .font(.system(size: 11.5, weight: .semibold, design: .rounded))
+        .foregroundStyle(darkBackground ? Color.white : KukuColor.ink)
+        .frame(maxWidth: .infinity)
     }
 }
