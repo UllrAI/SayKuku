@@ -5,12 +5,13 @@ struct KnowledgeView: View {
     @State private var search = ""
     @State private var filter: KnowledgeFilter = .all
     @State private var showingImport = false
-    @State private var newName = ""
+    @State private var showingAdd = false
+    @State private var editingEntity: KnowledgeEntity?
 
     var filteredEntities: [KnowledgeEntity] {
         appState.knowledgeEntities.filter { entity in
             (filter == .all || entity.type.filter == filter) &&
-            (search.isEmpty || entity.name.localizedCaseInsensitiveContains(search) || entity.detail.localizedCaseInsensitiveContains(search))
+            (search.isEmpty || entity.name.localizedCaseInsensitiveContains(search) || entity.detail.localizedCaseInsensitiveContains(search) || entity.aliases.contains { $0.localizedCaseInsensitiveContains(search) })
         }
     }
 
@@ -31,6 +32,12 @@ struct KnowledgeView: View {
         .sheet(isPresented: $showingImport) {
             KnowledgeImportSheet()
         }
+        .sheet(isPresented: $showingAdd) {
+            KnowledgeFormSheet()
+        }
+        .sheet(item: $editingEntity) { entity in
+            KnowledgeFormSheet(entity: entity)
+        }
     }
 
     private var header: some View {
@@ -48,7 +55,7 @@ struct KnowledgeView: View {
                 .buttonStyle(HoverFillButtonStyle())
 
                 Button {
-                    withAnimation(Motion.snappy) { newName = appState.text("新术语", "New term") }
+                    showingAdd = true
                 } label: {
                     Label(appState.text("手动添加", "Add manually"), systemImage: "plus")
                 }
@@ -59,45 +66,22 @@ struct KnowledgeView: View {
 
     private var entityList: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                Image(systemName: "magnifyingglass")
-                    .foregroundStyle(KukuColor.stone)
-                TextField(appState.text("搜索人名、项目或术语", "Search names, projects, or terms"), text: $search)
-                    .textFieldStyle(.plain)
-                if !search.isEmpty {
-                    Button { search = "" } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(KukuColor.stone)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(.horizontal, 13)
-            .frame(height: 36)
-            .background(KukuColor.surfaceStrong, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).stroke(KukuColor.line, lineWidth: 1))
-            .padding(.vertical, 16)
-
-            if !newName.isEmpty {
-                QuickAddRow(name: $newName) { name, type in
-                    appState.addKnowledge(name: name, type: type)
-                    newName = ""
-                }
-                .padding(.bottom, 12)
-                .transition(.move(edge: .top).combined(with: .opacity))
-            }
+            searchField
+            listSummary
 
             ScrollView {
-                LazyVStack(spacing: 0) {
+                LazyVStack(spacing: 8) {
                     ForEach(filteredEntities) { entity in
                         EntityRow(entity: entity) {
                             appState.knowledgeRelationships.removeAll { $0.fromEntityID == entity.id || $0.toEntityID == entity.id }
                             appState.knowledgeEntities.removeAll { $0.id == entity.id }
+                        } onEdit: {
+                            editingEntity = entity
                         }
-                        Divider().padding(.leading, 59).opacity(0.55)
                     }
                 }
-                .padding(.bottom, 36)
+                .frame(maxWidth: .infinity)
+                .padding(.bottom, 32)
             }
             .overlay {
                 if filteredEntities.isEmpty {
@@ -112,60 +96,70 @@ struct KnowledgeView: View {
         }
     }
 
-}
-
-private struct QuickAddRow: View {
-    @Environment(AppState.self) private var appState
-    @Binding var name: String
-    let onAdd: (String, EntityType) -> Void
-    @FocusState private var focused: Bool
-    @State private var type: EntityType = .term
-    @State private var classifying = false
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "text.badge.plus")
-                .foregroundStyle(KukuColor.coral)
-            TextField(appState.text("输入名称", "Enter a name"), text: $name)
+    private var searchField: some View {
+        HStack(spacing: 11) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(KukuColor.stone)
+            TextField(appState.text("搜索名称、别名或备注", "Search names, aliases, or details"), text: $search)
                 .textFieldStyle(.plain)
-                .focused($focused)
-                .onSubmit { if !name.isEmpty { onAdd(name, type) } }
-            Picker("类型", selection: $type) {
-                ForEach(EntityType.allCases) { type in Text(type.title(appState)).tag(type) }
-            }
-            .labelsHidden()
-            .frame(width: 120)
-            Button(classifying ? appState.text("识别中…", "Classifying…") : appState.text("识别类型", "Detect type")) {
-                classifying = true
-                Task {
-                    do { type = try await appState.suggestEntityType(for: name) }
-                    catch { appState.showToast(error.localizedDescription, symbol: "exclamationmark.triangle.fill") }
-                    classifying = false
+            if !search.isEmpty {
+                Button { search = "" } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(KukuColor.stone)
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel(appState.text("清除搜索", "Clear search"))
             }
-            .buttonStyle(HoverFillButtonStyle())
-            .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || classifying)
-            Button(appState.text("添加", "Add")) { if !name.isEmpty { onAdd(name, type) } }
-                .buttonStyle(HoverFillButtonStyle(prominent: true))
         }
-        .padding(12)
-        .background(KukuColor.surfaceStrong, in: RoundedRectangle(cornerRadius: KukuLayout.radiusMedium, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: KukuLayout.radiusMedium, style: .continuous).stroke(KukuColor.coral.opacity(0.22), lineWidth: 1))
-        .onAppear { focused = true }
+        .padding(.horizontal, 14)
+        .frame(height: 40)
+        .background(KukuColor.surfaceStrong, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(KukuColor.line, lineWidth: 1))
+        .padding(.top, 16)
+        .padding(.bottom, 12)
     }
+
+    private var listSummary: some View {
+        HStack(alignment: .firstTextBaseline) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(appState.text("知识条目", "Knowledge items"))
+                    .font(.system(size: 12, weight: .semibold))
+                Text(appState.text("已确认的名称会用于语音识别。", "Confirmed names are used for voice recognition."))
+                    .font(.system(size: 10))
+                    .foregroundStyle(KukuColor.stone)
+            }
+            Spacer()
+            Text(appState.text("\(filteredEntities.count) 条", "\(filteredEntities.count) items"))
+                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                .foregroundStyle(KukuColor.stone)
+            if filter != .all || !search.isEmpty {
+                Button(appState.text("清除筛选", "Clear filters")) {
+                    withAnimation(Motion.snappy) {
+                        filter = .all
+                        search = ""
+                    }
+                }
+                .buttonStyle(TintButtonStyle())
+            }
+        }
+        .padding(.bottom, 12)
+    }
+
 }
 
 private struct EntityRow: View {
     @Environment(AppState.self) private var appState
     let entity: KnowledgeEntity
     let onDelete: () -> Void
+    let onEdit: () -> Void
+    @State private var isHovering = false
 
     var body: some View {
-        HStack(spacing: 13) {
+        HStack(spacing: 14) {
             Image(systemName: entity.type.symbol)
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(entity.type.color)
-                .frame(width: 34, height: 34)
+                .frame(width: 38, height: 38)
                 .background(entity.type.color.opacity(0.11), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
@@ -178,28 +172,148 @@ private struct EntityRow: View {
                         .frame(height: 18)
                         .background(entity.type.color.opacity(0.09), in: Capsule())
                 }
-                Text(entity.detail)
+                if !entity.detail.isEmpty {
+                    Text(entity.detail)
+                        .font(.system(size: 11))
+                        .foregroundStyle(KukuColor.stone)
+                        .lineLimit(1)
+                } else if !entity.aliases.isEmpty {
+                    Text(appState.text("别名：", "Aliases: ") + entity.aliases.joined(separator: " · "))
+                        .font(.system(size: 11))
+                        .foregroundStyle(KukuColor.stone)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+            }
+            Spacer(minLength: 12)
+            HStack(spacing: 6) {
+                Button(action: onEdit) {
+                    Label(appState.text("编辑", "Edit"), systemImage: "pencil")
+                }
+                .buttonStyle(TintButtonStyle())
+                .accessibilityLabel(appState.text("编辑 \(entity.name)", "Edit \(entity.name)"))
+
+                Menu {
+                    Button(appState.text("编辑", "Edit"), systemImage: "pencil", action: onEdit)
+                    Button(appState.text("删除", "Delete"), role: .destructive, action: onDelete)
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .foregroundStyle(KukuColor.stone)
+                        .frame(width: 30, height: 32)
+                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+            }
+            .frame(width: 92, alignment: .trailing)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
+        .background((isHovering ? KukuColor.surfaceStrong : KukuColor.surface), in: RoundedRectangle(cornerRadius: KukuLayout.radiusMedium, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: KukuLayout.radiusMedium, style: .continuous).stroke(KukuColor.line, lineWidth: 1))
+        .onHover { isHovering = $0 }
+    }
+}
+
+private struct KnowledgeFormSheet: View {
+    @Environment(AppState.self) private var appState
+    @Environment(\.dismiss) private var dismiss
+    let entity: KnowledgeEntity?
+    @State private var name: String
+    @State private var type: EntityType
+    @State private var detail: String
+    @State private var aliases: String
+    @State private var classifying = false
+
+    init(entity: KnowledgeEntity? = nil) {
+        self.entity = entity
+        _name = State(initialValue: entity?.name ?? "")
+        _type = State(initialValue: entity?.type ?? .term)
+        _detail = State(initialValue: entity?.detail ?? "")
+        _aliases = State(initialValue: entity?.aliases.joined(separator: "、") ?? "")
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(appState.text(entity == nil ? "添加知识" : "编辑知识", entity == nil ? "Add knowledge" : "Edit knowledge"))
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                Text(appState.text("名称和类别会影响语音识别。", "The name and category affect voice recognition."))
                     .font(.system(size: 11))
                     .foregroundStyle(KukuColor.stone)
             }
-            Spacer()
-            if !entity.aliases.isEmpty {
-                Text(entity.aliases.joined(separator: " · "))
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(KukuColor.stone)
+
+            VStack(alignment: .leading, spacing: 12) {
+                LabeledContent(appState.text("名称", "Name")) {
+                    TextField(appState.text("输入名称", "Enter a name"), text: $name)
+                        .textFieldStyle(.roundedBorder)
+                }
+                LabeledContent(appState.text("类别", "Category")) {
+                    HStack(spacing: 8) {
+                        Picker(appState.text("类别", "Category"), selection: $type) {
+                            ForEach(EntityType.allCases) { type in
+                                Text(type.title(appState)).tag(type)
+                            }
+                        }
+                        .labelsHidden()
+                        .frame(width: 160, alignment: .trailing)
+                        Button(classifying ? appState.text("识别中…", "Detecting…") : appState.text("自动识别", "Detect")) {
+                            classify()
+                        }
+                        .buttonStyle(TintButtonStyle())
+                        .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || classifying)
+                    }
+                }
+                LabeledContent(appState.text("备注", "Detail")) {
+                    TextField(appState.text("可选", "Optional"), text: $detail)
+                        .textFieldStyle(.roundedBorder)
+                }
+                LabeledContent(appState.text("别名", "Aliases")) {
+                    TextField(appState.text("用顿号分隔", "Separate with commas"), text: $aliases)
+                        .textFieldStyle(.roundedBorder)
+                }
             }
-            Menu {
-                Button(appState.text("删除", "Delete"), role: .destructive, action: onDelete)
-            } label: {
-                Image(systemName: "ellipsis")
-                    .foregroundStyle(KukuColor.stone)
-                    .frame(width: 24, height: 24)
+
+            HStack {
+                Spacer()
+                Button(appState.text("取消", "Cancel")) { dismiss() }
+                    .buttonStyle(HoverFillButtonStyle())
+                Button(appState.text(entity == nil ? "添加" : "保存", entity == nil ? "Add" : "Save")) { save() }
+                    .buttonStyle(HoverFillButtonStyle(prominent: true))
+                    .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
-            .menuStyle(.borderlessButton)
-            .menuIndicator(.hidden)
         }
-        .padding(.horizontal, 10)
-        .frame(height: KukuLayout.rowHeight)
+        .padding(24)
+        .frame(width: 500)
+        .background(KukuColor.canvas)
+    }
+
+    private func save() {
+        let editedAliases = aliases
+            .split(whereSeparator: { $0 == "," || $0 == "，" || $0 == "、" })
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        if let entity {
+            guard appState.updateKnowledge(
+                id: entity.id,
+                name: name,
+                type: type,
+                detail: detail,
+                aliases: editedAliases
+            ) else { return }
+        } else {
+            guard appState.addKnowledge(name: name, type: type, detail: detail, aliases: editedAliases) else { return }
+        }
+        dismiss()
+    }
+
+    private func classify() {
+        classifying = true
+        Task {
+            do { type = try await appState.suggestEntityType(for: name) }
+            catch { appState.showToast(error.localizedDescription, symbol: "exclamationmark.triangle.fill") }
+            classifying = false
+        }
     }
 }
 
@@ -296,7 +410,7 @@ private struct KnowledgeImportSheet: View {
                     else if let analysis {
                         appState.commitKnowledge(analysis, selectedIDs: selected)
                         appState.showToast(
-                            appState.text("已导入 \(selected.count) 项 Knowledge", "Imported \(selected.count) Knowledge items"),
+                            appState.text("已导入 \(selected.count) 项知识", "Imported \(selected.count) Knowledge items"),
                             symbol: "checkmark.seal.fill"
                         )
                         dismiss()

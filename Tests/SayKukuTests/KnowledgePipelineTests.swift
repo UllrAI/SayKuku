@@ -1,4 +1,5 @@
 import ApplicationServices
+import Carbon.HIToolbox
 import Foundation
 import Testing
 @testable import SayKuku
@@ -64,6 +65,68 @@ struct KnowledgePipelineTests {
         let chunks = KnowledgePipeline.chunks(source, limit: 64)
         #expect(chunks.allSatisfy { $0.count <= 64 })
         #expect(chunks.joined() == source)
+    }
+
+    @Test("knowledge edits preserve identity and normalize aliases")
+    @MainActor
+    func knowledgeEditing() {
+        let suite = "SayKukuTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer {
+            defaults.removePersistentDomain(forName: suite)
+            try? FileManager.default.removeItem(at: root)
+        }
+        let originalDate = Date(timeIntervalSince1970: 1_700_000_000)
+        let original = KnowledgeEntity(
+            name: "AniKuku",
+            detail: "Project",
+            type: .project,
+            aliases: ["Ani Kuku"],
+            source: .importText,
+            createdAt: originalDate
+        )
+        let state = AppState(defaults: defaults, store: LocalStore(root: root))
+        state.knowledgeEntities = [original, KnowledgeEntity(name: "WorkBuddy", type: .product)]
+
+        #expect(state.updateKnowledge(
+            id: original.id,
+            name: " AniKuku Pro ",
+            type: .product,
+            detail: " Updated project ",
+            aliases: ["Ani Kuku", " ani kuku ", "AniKuku Pro", ""]
+        ))
+        let edited = state.knowledgeEntities[0]
+        #expect(edited.id == original.id)
+        #expect(edited.name == "AniKuku Pro")
+        #expect(edited.detail == "Updated project")
+        #expect(edited.aliases == ["Ani Kuku"])
+        #expect(edited.source == .importText)
+        #expect(edited.createdAt == originalDate)
+        #expect(!state.updateKnowledge(
+            id: original.id,
+            name: "WorkBuddy",
+            type: .product,
+            detail: "",
+            aliases: []
+        ))
+    }
+
+    @Test("main navigation titles follow the selected language")
+    @MainActor
+    func navigationLocalization() {
+        let suite = "SayKukuTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer {
+            defaults.removePersistentDomain(forName: suite)
+            try? FileManager.default.removeItem(at: root)
+        }
+        let state = AppState(defaults: defaults, store: LocalStore(root: root))
+        state.appLanguage = .chinese
+        #expect(AppState.Destination.knowledge.title(state) == "知识")
+        state.appLanguage = .english
+        #expect(AppState.Destination.knowledge.title(state) == "Knowledge")
     }
 }
 
@@ -176,11 +239,29 @@ struct QwenRequestContractTests {
         #expect(response.action == .openURL)
     }
 
+    @Test("selected text is sent as the primary agent input")
+    func selectedTextInput() {
+        let input = QwenReasoningClient.agentInput(
+            context: [
+                ContextItem(kind: .app, symbol: "app", title: "Notes", value: "com.apple.Notes"),
+                ContextItem(kind: .selectedText, symbol: "text.quote", title: "Selected text", value: "明天下午见")
+            ],
+            session: nil
+        )
+        #expect(QwenReasoningClient.agentInstructions.contains("primary object"))
+        #expect(QwenReasoningClient.agentInstructions.contains("Transform the selected text, not the spoken command"))
+        #expect(input.contains("<selected_text>\n明天下午见\n</selected_text>"))
+        #expect(input.contains("Notes:\ncom.apple.Notes"))
+    }
+
     @Test("live Qwen endpoints accept realtime dictation and direct agent audio")
     func liveEndpoints() async throws {
         guard ProcessInfo.processInfo.environment["SAYKUKU_LIVE_QWEN_TEST"] == "1" else { return }
         let key = try #require(try KeychainStore().string(for: "qwen.apiKey"))
         let audioPath = try #require(ProcessInfo.processInfo.environment["SAYKUKU_TEST_AUDIO"])
+        let expectedTranscript = ProcessInfo.processInfo.environment["SAYKUKU_TEST_PHRASE"] ?? "苹果"
+        let selectedText = ProcessInfo.processInfo.environment["SAYKUKU_TEST_SELECTED_TEXT"]
+        let expectedOutput = ProcessInfo.processInfo.environment["SAYKUKU_TEST_EXPECTED_OUTPUT"]
         let configuration = QwenConfiguration(
             region: .beijing,
             workspaceID: "",
@@ -204,7 +285,7 @@ struct QwenRequestContractTests {
         }
         let dictation = try await realtime.commit()
         await realtime.cancel()
-        #expect(dictation.contains("苹果"))
+        #expect(dictation.contains(expectedTranscript))
 
         try await realtime.connect(
             apiKey: key,
@@ -219,9 +300,73 @@ struct QwenRequestContractTests {
             apiKey: key,
             configuration: configuration,
             wav: wav,
-            context: [],
+            context: selectedText.map {
+                [ContextItem(kind: .selectedText, symbol: "text.quote", title: "Selected text", value: $0)]
+            } ?? [],
             session: nil
         )
-        #expect(response.transcript?.contains("苹果") == true)
+        #expect(response.transcript?.contains(expectedTranscript) == true)
+        if let expectedOutput {
+            #expect(response.action == .writeText)
+            #expect(response.output?.localizedCaseInsensitiveContains(expectedOutput) == true)
+        }
+    }
+}
+
+@Suite("Fn gesture routing")
+struct FnGestureRoutingTests {
+    @Test("single Fn release stops an active agent before starting dictation")
+    func agentStopHasPriority() {
+        #expect(ShortcutController.releaseAction(
+            wasChorded: false,
+            agentIsListening: true,
+            dictationIsListening: false
+        ) == .finishAgent)
+        #expect(!ShortcutController.shouldArmHold(inputMode: .hold, agentIsListening: true))
+        #expect(!ShortcutController.shouldArmHold(inputMode: .tap, agentIsListening: true))
+    }
+
+    @Test("dictation and unused taps keep their existing routing")
+    func existingRoutesRemainStable() {
+        #expect(ShortcutController.releaseAction(
+            wasChorded: false,
+            agentIsListening: false,
+            dictationIsListening: true
+        ) == .finishDictation)
+        #expect(ShortcutController.releaseAction(
+            wasChorded: false,
+            agentIsListening: false,
+            dictationIsListening: false
+        ) == .registerQuickTap)
+        #expect(ShortcutController.releaseAction(
+            wasChorded: true,
+            agentIsListening: true,
+            dictationIsListening: false
+        ) == .ignore)
+        #expect(ShortcutController.shouldArmHold(inputMode: .hold, agentIsListening: false))
+    }
+
+    @Test("escape cancels only while a voice workflow is active")
+    func escapeRouting() {
+        #expect(ShortcutController.shouldCancelForEscape(
+            keyCode: UInt16(kVK_Escape),
+            dictationIsActive: true,
+            agentIsActive: false
+        ))
+        #expect(ShortcutController.shouldCancelForEscape(
+            keyCode: UInt16(kVK_Escape),
+            dictationIsActive: false,
+            agentIsActive: true
+        ))
+        #expect(!ShortcutController.shouldCancelForEscape(
+            keyCode: UInt16(kVK_Escape),
+            dictationIsActive: false,
+            agentIsActive: false
+        ))
+        #expect(!ShortcutController.shouldCancelForEscape(
+            keyCode: UInt16(kVK_Return),
+            dictationIsActive: true,
+            agentIsActive: false
+        ))
     }
 }

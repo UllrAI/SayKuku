@@ -104,7 +104,7 @@ private struct PrivacySettings: View {
 
     var body: some View {
         @Bindable var appState = appState
-        SettingsStack(title: "Context & Privacy", subtitle: appState.text("实际发送的 Context 会在确认浮层中按需查看。", "Inspect the exact context from the confirmation overlay.")) {
+        SettingsStack(title: "Context & Privacy", subtitle: appState.text("实际发送的 Context 可在聆听浮层中按需查看。", "Inspect the exact context from the listening overlay.")) {
             SettingsGroup(title: appState.text("允许的上下文", "Allowed context")) {
                 SettingsToggle(title: "Selected Text", subtitle: appState.text("仅在 Fn Fn 时读取", "Read only after Fn Fn"), isOn: $appState.selectedTextAllowed)
                 SettingsDivider()
@@ -225,7 +225,7 @@ private struct GeneralSettings: View {
     var body: some View {
         @Bindable var appState = appState
 
-        SettingsStack(title: appState.text("通用", "General"), subtitle: appState.text("SayKuku. 安静地待在需要它的位置。", "SayKuku. stays quiet until you need it.")) {
+        SettingsStack(title: appState.text("通用", "General"), subtitle: appState.text("SayKuku 安静地待在需要它的位置。", "SayKuku stays quiet until you need it.")) {
             SettingsGroup(title: appState.text("语言", "Language")) {
                 HStack {
                     VStack(alignment: .leading, spacing: 3) {

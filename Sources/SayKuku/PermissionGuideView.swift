@@ -18,8 +18,8 @@ struct PermissionGuideView: View {
                     Text(appState.text("准备好，说一句就开始", "Get ready to speak"))
                         .font(.system(size: 22, weight: .semibold, design: .rounded))
                     Text(appState.text(
-                        "SayKuku. 需要麦克风来听见你，也需要辅助功能来响应 Fn 并把结果写回当前 App。",
-                        "SayKuku. needs the microphone to hear you and Accessibility to respond to Fn and write results back."
+                        "SayKuku 需要麦克风来听见你，也需要辅助功能来响应 Fn 并把结果写回当前 App。",
+                        "SayKuku needs the microphone to hear you and Accessibility to respond to Fn and write results back."
                     ))
                     .font(.system(size: 11.5))
                     .foregroundStyle(KukuColor.stone)

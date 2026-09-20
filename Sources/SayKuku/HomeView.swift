@@ -38,7 +38,7 @@ private struct HomeReadyState: View {
                     }
 
                     Label(
-                        appState.text("语音只在手势确认后发送", "Audio is sent only after the gesture is confirmed"),
+                        appState.text("语音仅在你主动触发后发送", "Audio is sent only when you invoke it"),
                         systemImage: "lock.fill"
                     )
                     .font(.system(size: 10, weight: .medium))
@@ -67,7 +67,7 @@ private struct HomeReadyState: View {
         HomeGestureRow(
             key: "Fn Fn",
             title: "Voice Agent",
-            subtitle: appState.text("说出意图，确认后写回原输入框", "Say an intent, confirm, and write it back"),
+            subtitle: appState.text("说出意图，识别后直接执行或写回", "Say an intent to run it or write it back"),
             symbol: "sparkles",
             accent: KukuColor.graphite
         ) {
@@ -140,9 +140,10 @@ struct AgentPill: View {
     private var width: CGFloat {
         switch appState.agentPhase {
         case .hidden: 0
-        case .listening, .confirming, .copyReady: 360
-        case .transcribing, .processing: 146
-        case .result: 82
+        case .listening: appState.liveTranscript.isEmpty ? 216 : 360
+        case .copyReady: 360
+        case .transcribing, .processing: 132
+        case .result: 88
         }
     }
 
@@ -150,7 +151,7 @@ struct AgentPill: View {
         HStack(spacing: 8) {
             if appState.agentPhase == .copyReady {
                 CopyFallbackContent()
-            } else if appState.agentPhase == .listening || appState.agentPhase == .confirming {
+            } else if appState.agentPhase == .listening {
                 Button(action: appState.dismissAgent) {
                     Image(systemName: "xmark")
                         .font(.system(size: 10, weight: .bold))
@@ -160,16 +161,10 @@ struct AgentPill: View {
                 }
                 .buttonStyle(PressScaleStyle())
 
-                if appState.agentPhase == .listening {
-                    Waveform(barCount: 5, height: 15)
-                        .frame(width: 22)
-                } else {
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(KukuColor.coral)
-                }
+                Waveform(barCount: 5, height: 15)
+                    .frame(width: 22)
 
-                Text(appState.agentPhase == .listening && !appState.liveTranscript.isEmpty ? appState.liveTranscript : appState.agentCommand)
+                Text(!appState.liveTranscript.isEmpty ? appState.liveTranscript : appState.agentCommand)
                     .font(.system(size: 11.5, weight: .semibold, design: .rounded))
                     .foregroundStyle(.white)
                     .lineLimit(1)
@@ -187,10 +182,7 @@ struct AgentPill: View {
                     AgentContextPopover()
                 }
 
-                Button {
-                    if appState.agentPhase == .listening { appState.finishAgentListening() }
-                    else { appState.runAgent() }
-                } label: {
+                Button(action: appState.finishAgentListening) {
                     Image(systemName: "checkmark")
                         .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(.white)
@@ -204,22 +196,24 @@ struct AgentPill: View {
                     .tint(.white)
                 Text(appState.agentPhase == .transcribing
                      ? appState.text("正在理解…", "Understanding…")
-                     : appState.text("正在写入…", "Writing…"))
+                     : appState.text("正在执行…", "Running…"))
                     .font(.system(size: 11.5, weight: .semibold, design: .rounded))
                     .foregroundStyle(.white)
             } else if appState.agentPhase == .result {
-                Label(appState.text("已写入", "Done"), systemImage: "checkmark")
+                Label(appState.text("已完成", "Done"), systemImage: "checkmark")
                     .font(.system(size: 11.5, weight: .semibold, design: .rounded))
                     .foregroundStyle(KukuColor.mint)
             }
         }
+        .contentTransition(.interpolate)
+        .animation(Motion.snappy, value: appState.agentPhase)
+        .animation(Motion.snappy, value: appState.liveTranscript.isEmpty)
         .padding(.horizontal, 7)
         .frame(width: width, height: appState.agentPhase == .result ? 30 : 40)
         .background { Capsule().fill(KukuColor.graphite.opacity(0.98)) }
         .overlay(Capsule().stroke(Color.white.opacity(0.1), lineWidth: 1))
         .shadow(color: Color.black.opacity(0.16), radius: 16, y: 7)
-        .animation(Motion.panel, value: appState.agentPhase)
-        .contentTransition(.interpolate)
+        .animation(Motion.pill, value: width)
     }
 }
 
@@ -267,10 +261,10 @@ struct DictationPill: View {
     private var width: CGFloat {
         switch appState.dictationPhase {
         case .idle: 0
-        case .listening: appState.liveTranscript.isEmpty ? 252 : 320
+        case .listening: appState.liveTranscript.isEmpty ? 166 : 320
         case .copyReady: 360
-        case .processing: appState.liveTranscript.isEmpty ? 130 : 320
-        case .success: 82
+        case .processing: appState.liveTranscript.isEmpty ? 132 : 320
+        case .success: 88
         }
     }
 
@@ -307,6 +301,9 @@ struct DictationPill: View {
                 CopyFallbackContent()
             }
         }
+        .contentTransition(.interpolate)
+        .animation(Motion.snappy, value: appState.dictationPhase)
+        .animation(Motion.snappy, value: appState.liveTranscript.isEmpty)
         .font(.system(size: 11.5, weight: .semibold, design: .rounded))
         .foregroundStyle(appState.dictationPhase == .success ? KukuColor.mint : KukuColor.ink)
         .padding(.horizontal, 10)
@@ -315,9 +312,7 @@ struct DictationPill: View {
         .background(Color.white.opacity(0.5), in: Capsule())
         .overlay(Capsule().stroke(Color.white.opacity(0.76), lineWidth: 0.8))
         .shadow(color: Color.black.opacity(0.1), radius: 10, y: 4)
-        .animation(Motion.panel, value: appState.dictationPhase)
-        .animation(Motion.snappy, value: appState.liveTranscript.isEmpty)
-        .contentTransition(.interpolate)
+        .animation(Motion.pill, value: width)
     }
 }
 

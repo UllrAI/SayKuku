@@ -177,9 +177,15 @@ struct KnowledgeEntity: Identifiable, Codable, Equatable {
         self.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         let key = KnowledgeNormalizer.key(name)
         normalizedKey = key
-        self.detail = detail
+        self.detail = detail.trimmingCharacters(in: .whitespacesAndNewlines)
         self.type = type
-        self.aliases = aliases.uniqued().filter { KnowledgeNormalizer.key($0) != key }
+        var aliasKeys = Set<String>()
+        self.aliases = aliases.compactMap { alias in
+            let value = alias.trimmingCharacters(in: .whitespacesAndNewlines)
+            let aliasKey = KnowledgeNormalizer.key(value)
+            guard !aliasKey.isEmpty, aliasKey != key, aliasKeys.insert(aliasKey).inserted else { return nil }
+            return value
+        }
         self.source = source
         self.createdAt = createdAt
     }
@@ -278,12 +284,5 @@ enum KnowledgeNormalizer {
             .map(String.init)
             .joined()
             .lowercased()
-    }
-}
-
-private extension Array where Element: Hashable {
-    func uniqued() -> [Element] {
-        var seen = Set<Element>()
-        return filter { seen.insert($0).inserted }
     }
 }

@@ -19,10 +19,19 @@ final class AppState {
             case .settings: "gearshape"
             }
         }
+        @MainActor func title(_ appState: AppState) -> String {
+            switch self {
+            case .home: appState.text("首页", "Home")
+            case .history: appState.text("历史", "History")
+            case .knowledge: appState.text("知识", "Knowledge")
+            case .memory: appState.text("记忆", "Memory")
+            case .settings: appState.text("设置", "Settings")
+            }
+        }
     }
 
     enum DictationPhase: Equatable { case idle, listening, processing, success, copyReady }
-    enum AgentPhase: Equatable { case hidden, listening, transcribing, confirming, processing, result, copyReady }
+    enum AgentPhase: Equatable { case hidden, listening, transcribing, processing, result, copyReady }
     enum ConnectionState: Equatable { case idle, testing, connected(milliseconds: Int), failed(String) }
 
     enum ShortcutStatus: Equatable {
@@ -99,7 +108,6 @@ final class AppState {
     @ObservationIgnored private var uploadTask: Task<Void, Error>?
     @ObservationIgnored private var chunkContinuation: AsyncStream<Data>.Continuation?
     @ObservationIgnored private var targetSnapshot: TextTargetSnapshot?
-    @ObservationIgnored private var pendingAgentResponse: AgentResponse?
     @ObservationIgnored private var activeAgentTranscript = ""
     @ObservationIgnored private var activeAgentSession: AgentSession?
     @ObservationIgnored private var activeRecording: AudioCapture.Recording?
@@ -173,19 +181,21 @@ final class AppState {
         chunkContinuation?.finish()
         chunkContinuation = nil
         withAnimation(Motion.snappy) { agentPhase = .transcribing }
-        workflowTask = Task { [weak self] in await self?.prepareAgentConfirmation(recording) }
-    }
-
-    func runAgent() {
-        guard agentPhase == .confirming, let response = pendingAgentResponse,
-              let snapshot = targetSnapshot else { return }
-        withAnimation(Motion.snappy) { agentPhase = .processing }
-        workflowTask = Task { [weak self] in await self?.executeAgent(response, snapshot: snapshot) }
+        workflowTask = Task { [weak self] in await self?.processAgentRecording(recording) }
     }
 
     func dismissAgent() {
         cancelWorkflow()
         withAnimation(Motion.snappy) { agentPhase = .hidden }
+    }
+
+    func cancelActiveVoiceWorkflow() {
+        guard dictationPhase != .idle || agentPhase != .hidden else { return }
+        cancelWorkflow()
+        withAnimation(Motion.snappy) {
+            dictationPhase = .idle
+            agentPhase = .hidden
+        }
     }
 
     func copyPendingText() {
@@ -243,16 +253,57 @@ final class AppState {
         })
     }
 
-    func addKnowledge(name: String, type: EntityType) {
+    @discardableResult
+    func addKnowledge(name: String, type: EntityType, detail: String? = nil, aliases: [String] = []) -> Bool {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        let candidate = KnowledgeEntity(name: trimmed, detail: text("手动添加", "Added manually"), type: type)
+        guard !trimmed.isEmpty else { return false }
+        let resolvedDetail = detail?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let candidate = KnowledgeEntity(
+            name: trimmed,
+            detail: resolvedDetail.isEmpty ? text("手动添加", "Added manually") : resolvedDetail,
+            type: type,
+            aliases: aliases
+        )
         guard !knowledgeEntities.contains(where: { $0.normalizedKey == candidate.normalizedKey }) else {
             showToast(text("该条目已存在", "This item already exists"), symbol: "exclamationmark.circle")
-            return
+            return false
         }
         knowledgeEntities.insert(candidate, at: 0)
-        showToast(text("已加入 Knowledge", "Added to Knowledge"), symbol: "checkmark.circle.fill")
+        showToast(text("已加入知识", "Added to Knowledge"), symbol: "checkmark.circle.fill")
+        return true
+    }
+
+    @discardableResult
+    func updateKnowledge(
+        id: UUID,
+        name: String,
+        type: EntityType,
+        detail: String,
+        aliases: [String]
+    ) -> Bool {
+        guard let index = knowledgeEntities.firstIndex(where: { $0.id == id }) else { return false }
+
+        let candidate = KnowledgeEntity(
+            id: id,
+            name: name,
+            detail: detail,
+            type: type,
+            aliases: aliases,
+            source: knowledgeEntities[index].source,
+            createdAt: knowledgeEntities[index].createdAt
+        )
+        guard !candidate.name.isEmpty, !candidate.normalizedKey.isEmpty else {
+            showToast(text("名称不能为空", "Name cannot be empty"), symbol: "exclamationmark.circle")
+            return false
+        }
+        guard !knowledgeEntities.contains(where: { $0.id != id && $0.normalizedKey == candidate.normalizedKey }) else {
+            showToast(text("该名称已存在", "This name already exists"), symbol: "exclamationmark.circle")
+            return false
+        }
+
+        knowledgeEntities[index] = candidate
+        showToast(text("已更新知识", "Knowledge updated"), symbol: "checkmark.circle.fill")
+        return true
     }
 
     func suggestEntityType(for name: String) async throws -> EntityType {
@@ -369,7 +420,6 @@ final class AppState {
             targetSnapshot = snapshot
             liveTranscript = ""
             pendingCopyText = ""
-            pendingAgentResponse = nil
             activeAgentTranscript = ""
             activeAgentSession = nil
             activeRecording = nil
@@ -449,7 +499,7 @@ final class AppState {
         await realtimeClient.cancel()
     }
 
-    private func prepareAgentConfirmation(_ recording: AudioCapture.Recording) async {
+    private func processAgentRecording(_ recording: AudioCapture.Recording) async {
         do {
             guard recording.hasSpeech else { throw QwenError.noSpeech }
             let response = try await reasoningClient.respondToAudio(
@@ -461,10 +511,11 @@ final class AppState {
             )
             guard let command = response.transcript?.trimmingCharacters(in: .whitespacesAndNewlines),
                   !command.isEmpty else { throw QwenError.invalidResponse }
+            guard let snapshot = targetSnapshot else { throw TextInteractionError.targetChanged }
             activeAgentTranscript = command
-            pendingAgentResponse = response
             agentCommand = response.intent
-            withAnimation(Motion.panel) { agentPhase = .confirming }
+            withAnimation(Motion.panel) { agentPhase = .processing }
+            await executeAgent(response, snapshot: snapshot)
         } catch is CancellationError {
             agentPhase = .hidden
         } catch {
@@ -563,7 +614,6 @@ final class AppState {
         audioCapture.cancel()
         Task { await realtimeClient.cancel() }
         targetSnapshot = nil
-        pendingAgentResponse = nil
         activeAgentTranscript = ""
         activeAgentSession = nil
         activeRecording = nil

@@ -1,2 +1,2 @@
-"NSMicrophoneUsageDescription" = "SayKuku. 仅在你启动 Voice Input 或 Voice Agent 时录音。音频会发送到你选择的 Qwen 地域；启用历史语音后，会加密保存在本机。麦克风测试音频不会保存或上传。";
-"NSAppleEventsUsageDescription" = "仅当你启用 Browser Page Context 并触发 Voice Agent 时，SayKuku. 才会读取 Safari 或 Chrome 当前网址。";
+"NSMicrophoneUsageDescription" = "SayKuku 仅在你启动 Voice Input 或 Voice Agent 时录音。音频会发送到你选择的 Qwen 地域；启用历史语音后，会加密保存在本机。麦克风测试音频不会保存或上传。";
+"NSAppleEventsUsageDescription" = "仅当你启用 Browser Page Context 并触发 Voice Agent 时，SayKuku 才会读取 Safari 或 Chrome 当前网址。";

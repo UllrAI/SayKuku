@@ -1,10 +1,10 @@
-# SayKuku.
+# SayKuku
 
 > Just Say It...
 
-品牌文字固定写作 `SayKuku.`，末尾的点是名称的一部分，不省略。
+软件名称与所有纯文本固定写作 `SayKuku`。句点只作为 Logo 组合中的视觉细节，不进入窗口标题、菜单、按钮、权限文案或无障碍文本。
 
-品牌组合由鸟形图标与 `SayKuku.` 文字组成。图标固定使用 Lucide Bird 的线性造型，只调整品牌色、描边粗细、缩放和安全边距，不改变鸟形结构：
+Logo 组合可使用鸟形图标与带视觉句点的字标。图标固定使用 Lucide Bird 的线性造型，只调整品牌色、描边粗细、缩放和安全边距，不改变鸟形结构：
 
 ```svg
 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -37,9 +37,9 @@ App 图标不放文字，使用珊瑚红圆角底板与暖白 Lucide Bird 线稿
 | App 图标与打包 | ✅ 已完成 | Lucide Bird 品牌母形、珊瑚底色与暖白线稿、1024 px 预览、ICNS、Bundle 图标、应用分类与签名脚本 | 正式发布时确定 Bundle ID，并替换为 Developer ID 签名与公证 |
 | 菜单栏常驻入口 | ✅ 已完成 | 8.5 pt Lucide Bird 放置在 16 × 18 pt 状态项画布，使用原生 template 渲染自动适配明暗与按下态；包含 Voice Input、Voice Agent、显示主窗口、设置、状态与退出菜单 | 后续增加连接延迟与录音态图标 |
 | 全局快捷键 | ✅ 已完成 | `⇧⌘D` Voice Input、`⇧⌘A` Voice Agent，通过 Carbon 注册且不需要任何隐私权限 | 增加可配置按键 |
-| Fn Gesture Router | ✅ 已完成 | Hold Fn、Tap Fn、Double Fn、组合键取消、超时恢复、冲突检测、系统 Fn 行为引导与全局快捷键 fallback；复用写回所需的辅助功能权限，不申请输入监控 | 增加真实设备与外接键盘回归测试 |
+| Fn Gesture Router | ✅ 已完成 | Hold Fn、Tap Fn、Double Fn、活动语音流程下 Esc 取消、组合键取消、超时恢复、冲突检测、系统 Fn 行为引导与全局快捷键 fallback；复用写回所需的辅助功能权限，不申请输入监控 | 增加真实设备与外接键盘回归测试 |
 | 权限引导与麦克风测试 | ✅ 已完成 | 启动时缺失权限自动展示引导；麦克风与辅助功能实时状态、快捷开启、回到 App 自动复查；设置页可重新打开；AVAudioEngine 实时输入电平测试 | 增加多输入设备切换回归测试 |
-| 首页与两种浮层 | ✅ 已完成 | Voice Input / Voice Agent 的真实录音、识别、确认、处理与结果状态，以及跨桌面非激活浮层 | — |
+| 首页与两种浮层 | ✅ 已完成 | Voice Input / Voice Agent 的真实录音、识别、自动执行与结果状态，以及跨桌面非激活浮层 | — |
 | History | ✅ 已完成 | 本地加密历史、原始语音回放、筛选、星标和按期限清理 | — |
 | Knowledge | ✅ 已完成 | 手动添加、模型抽取、PII 预过滤、分段、归一化、去重、实体/关系 Review 与加密存储 | — |
 | Memory | ✅ 已完成 | Agent Session TTL、当天听写、纠错建议、用户确认后进入长期 Knowledge | — |
@@ -350,7 +350,7 @@ Idle
 
 # 4. Voice Agent UI
 
-> 实现状态：`✅ 已完成`。确认 Pill、按需 Context、Qwen 调用、目标校验与自动写回均已接入。
+> 实现状态：`✅ 已完成`。状态 Pill、按需 Context、Qwen 调用、目标校验与自动写回均已接入。
 
 Double Fn 后，UI 仍然只是一层极轻的输入法式浮层，不打开自己的编辑器，也不承载结果管理。
 
@@ -364,13 +364,7 @@ Double Fn 后，UI 仍然只是一层极轻的输入法式浮层，不打开自�
 
 > 翻译成英文，口语一点。
 
-识别到意图后，同一个 Pill 展示最终意图并等待确认：
-
-```text
-[ × ]  翻译成英文，口语一点  ✦  [ ✓ ]
-```
-
-确认后：
+识别到意图后不再等待确认，同一个 Pill 直接进入执行状态：
 
 ```text
 正在写入…
@@ -378,7 +372,7 @@ Double Fn 后，UI 仍然只是一层极轻的输入法式浮层，不打开自�
 ✓ 已写入
 ```
 
-随后浮层自动消失。结果直接进入用户正在使用的其他 App 输入框；SayKuku. 不提供自己的编辑器，也不显示 Replace / Insert / Copy 等结果按钮。
+随后浮层自动消失。结果直接进入用户正在使用的其他 App 输入框；SayKuku 不提供自己的编辑器，也不显示 Replace / Insert / Copy 等结果按钮。
 
 ### 确定性修改
 
@@ -388,10 +382,10 @@ Double Fn 后，UI 仍然只是一层极轻的输入法式浮层，不打开自�
 > 改短一点
 > 修一下错别字
 
-有选中文字时，用户确认意图后：
+有选中文字时，识别意图后直接执行：
 
 ```text
-Confirm → Validate Target → Replace Selection
+Understand → Validate Target → Replace Selection
 ```
 
 ### 生成型操作
@@ -400,10 +394,10 @@ Confirm → Validate Target → Replace Selection
 
 > 帮我回复他说周四上午可以。
 
-没有选中文字时，用户确认意图后：
+没有选中文字时，识别意图后直接执行：
 
 ```text
-Confirm → Validate Target → Insert At Cursor
+Understand → Validate Target → Insert At Cursor
 ```
 
 需要解释、总结等 Understand 能力时，MVP 也把结果写入当前光标，不建设独立阅读或对话界面。若用户只想阅读答案而不写入，应放到后续版本单独设计，而不是在 MVP 中加入一个半成品聊天面板。
@@ -439,9 +433,7 @@ TextTargetSnapshot
 * 无选区，且原 Focused Element 与光标仍有效：允许 Insert At Cursor。
 * 目标已经变化或无法可靠校验：禁止写入目标，自动把最终文本复制到剪贴板；Pill 保持显示文本，并提供“复制”和“关闭”，不向用户暴露底层目标校验错误。
 
-MVP 每次 Agent 写回前都确认识别出的意图；不提供“高置信度文本修改无需确认”。先积累真实的写回成功率和错位率，再决定是否开放；即使以后开放，也必须支持立即撤销。
-
-打开 URL、搜索可以直接执行。发送消息、运行可能修改外部数据的 Shortcut，以及未来的 Calendar、Email、Files 等工具必须逐次确认。
+Agent 识别出意图后直接执行。文本操作必须先校验原输入目标，目标变化时不得写入，只能自动复制并展示兜底 Pill；打开 URL、搜索和 Shortcut 等动作直接执行。
 
 ---
 
@@ -475,7 +467,7 @@ Recent Voice History
 Relevant Long-term Memory
 ```
 
-Context 默认不常驻显示。确认 Pill 只保留一个低强调的 scope 图标，点击后才打开轻量 Popover：
+Context 默认不常驻显示。聆听 Pill 只保留一个低强调的 scope 图标，点击后才打开轻量 Popover：
 
 ```text
 本次使用的上下文
@@ -534,7 +526,7 @@ Markdown 化
 有什么问题
 ```
 
-MVP 中 Understand 的输出仍写入当前光标，不在 SayKuku. 内部打开答案阅读器。
+MVP 中 Understand 的输出仍写入当前光标，不在 SayKuku 内部打开答案阅读器。
 
 ### Context Action
 
@@ -608,7 +600,7 @@ AgentSession
 
 > **悬浮在所有 Mac App 之上的意图输入层。**
 
-而不是打开一个 ChatGPT 窗口或 SayKuku. 自己的编辑器。
+而不是打开一个 ChatGPT 窗口或 SayKuku 自己的编辑器。
 
 ---
 
@@ -1219,7 +1211,7 @@ MVP 数据规则：
 
 * Context 只在用户触发 Fn Fn 时采集，不后台持续扫描。
 * Voice Input 只发送音频和听写 instruction，默认不携带窗口内容。
-* Voice Agent 发送前可从确认 Pill 的 scope 图标查看实际 Context，并删除任意一项；Context 不常驻占用界面。
+* Voice Agent 发送前可从聆听 Pill 的 scope 图标查看实际 Context，并删除任意一项；Context 不常驻占用界面。
 * `AXSecureTextField`、密码管理器、银行应用和隐私浏览窗口为硬性阻断，不仅是可配置开关。
 * 原始音频先进入内存预缓冲；成功输入后，仅在“保存原始语音”开启且目标非敏感环境时加密存入本地 History。
 * History 默认保留 30 天，可选 1 / 7 / 30 / 90 天或永久；星标记录不自动删除。
@@ -1553,7 +1545,7 @@ Pindrop 是 MIT License，而且目前工程结构已经把 Services、Transcrip
 | [VoiceInk](https://github.com/Beingpax/VoiceInk/blob/main/VoiceInk/Features/Shortcuts/Coordination/ShortcutMonitor.swift) | `.defaultTap` active CGEvent tap | 使用 Accessibility，可识别单独 Fn |
 | [RedWhisper](https://github.com/redoyan/RedWhisper/blob/main/voxtape.py) | active Quartz event tap | 使用 Accessibility，可识别 Fn flags |
 
-SayKuku. 因此采用两层策略：`⇧⌘D` 与 `⇧⌘A` 使用 Carbon，永远不依赖隐私权限；单独 Fn / Fn Fn 在 Accessibility 已授权后使用 `NSEvent.addGlobalMonitorForEvents`，并用 local monitor 覆盖 App 自身前台事件。应用不创建 CGEvent tap，也不申请 Input Monitoring。
+SayKuku 因此采用两层策略：`⇧⌘D` 与 `⇧⌘A` 使用 Carbon，永远不依赖隐私权限；单独 Fn / Fn Fn 在 Accessibility 已授权后使用 `NSEvent.addGlobalMonitorForEvents`，并用 local monitor 覆盖 App 自身前台事件。应用不创建 CGEvent tap，也不申请 Input Monitoring。
 
 ## 21.1 Looped Whisper 更值得参考的部分
 
@@ -1572,7 +1564,7 @@ Vocabulary
 Learning writing style
 ```
 
-Fn 不能作为普通 global hotkey 注册。参考实现中，passive listen-only tap 会触发 Input Monitoring，active tap 则使用 Accessibility；但为彻底避免 event tap 带来的权限歧义，SayKuku. 最终采用 AppKit 全局/本地 event monitor，并且仅在 Accessibility 已经授权后安装。全局 monitor 无法吞掉 macOS 自身的 Fn / Globe 动作，因此当系统把它设为切换输入法、Emoji 或听写时，App 明确提示用户在系统键盘设置中改为“无操作”，而不是暗中修改系统偏好或重新引入 event tap。
+Fn 不能作为普通 global hotkey 注册。参考实现中，passive listen-only tap 会触发 Input Monitoring，active tap 则使用 Accessibility；但为彻底避免 event tap 带来的权限歧义，SayKuku 最终采用 AppKit 全局/本地 event monitor，并且仅在 Accessibility 已经授权后安装。全局 monitor 无法吞掉 macOS 自身的 Fn / Globe 动作，因此当系统把它设为切换输入法、Emoji 或听写时，App 明确提示用户在系统键盘设置中改为“无操作”，而不是暗中修改系统偏好或重新引入 event tap。
 
 这部分代码/设计特别值得参考：
 
@@ -1724,7 +1716,6 @@ Fn Fn
 → Voice Agent
 → qwen3.8-omni-flash 直接接收语音并理解与执行
 → 理解 selected text / current app
-→ 确认意图
 → Translate / Rewrite / Generate
 → 校验目标后自动 Replace Selection / Insert At Cursor
 ```

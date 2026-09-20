@@ -13,6 +13,13 @@ private struct KeyboardEventSample: Sendable {
     let keyCode: UInt16
 }
 
+enum FnReleaseAction: Equatable {
+    case ignore
+    case finishAgent
+    case finishDictation
+    case registerQuickTap
+}
+
 private let hotKeyEventCallback: EventHandlerUPP = { _, event, userInfo in
     guard let event, let userInfo else { return OSStatus(eventNotHandledErr) }
 
@@ -127,6 +134,20 @@ final class ShortcutController: @unchecked Sendable {
 
         let isFnKey = sample.keyCode == UInt16(kVK_Function)
 
+        if sample.kind == .keyDown,
+           Self.shouldCancelForEscape(
+               keyCode: sample.keyCode,
+               dictationIsActive: appState.dictationPhase != .idle,
+               agentIsActive: appState.agentPhase != .hidden
+           ) {
+            holdTask?.cancel()
+            singleTapTask?.cancel()
+            firstTapAt = nil
+            fnWasChorded = fnIsDown
+            appState.cancelActiveVoiceWorkflow()
+            return
+        }
+
         if sample.kind == .keyDown, fnIsDown, !isFnKey {
             fnWasChorded = true
             holdTask?.cancel()
@@ -150,11 +171,15 @@ final class ShortcutController: @unchecked Sendable {
         fnIsDown = true
         fnWasChorded = false
 
-        guard appState.inputMode == .hold else { return }
+        guard Self.shouldArmHold(
+            inputMode: appState.inputMode,
+            agentIsListening: appState.agentPhase == .listening
+        ) else { return }
         holdTask?.cancel()
         holdTask = Task { @MainActor [weak self, weak appState] in
             try? await Task.sleep(for: self?.holdThreshold ?? .milliseconds(150))
-            guard let self, let appState, !Task.isCancelled, self.fnIsDown, !self.fnWasChorded else { return }
+            guard let self, let appState, !Task.isCancelled, self.fnIsDown, !self.fnWasChorded,
+                  appState.agentPhase != .listening else { return }
             self.firstTapAt = nil
             self.singleTapTask?.cancel()
             appState.startDictation()
@@ -168,28 +193,48 @@ final class ShortcutController: @unchecked Sendable {
         let wasChorded = fnWasChorded
         fnWasChorded = false
 
-        guard !wasChorded else {
+        switch Self.releaseAction(
+            wasChorded: wasChorded,
+            agentIsListening: appState.agentPhase == .listening,
+            dictationIsListening: appState.dictationPhase == .listening
+        ) {
+        case .ignore:
             firstTapAt = nil
             singleTapTask?.cancel()
-            return
-        }
-
-        if appState.inputMode == .hold,
-           appState.dictationPhase == .listening {
+        case .finishAgent:
             firstTapAt = nil
-            appState.finishDictation()
-            return
-        }
-
-        if appState.inputMode == .tap,
-           appState.dictationPhase == .listening {
+            singleTapTask?.cancel()
+            appState.finishAgentListening()
+        case .finishDictation:
             firstTapAt = nil
             singleTapTask?.cancel()
             appState.finishDictation()
-            return
+        case .registerQuickTap:
+            registerQuickTap(appState)
         }
+    }
 
-        registerQuickTap(appState)
+    static func shouldArmHold(inputMode: InputMode, agentIsListening: Bool) -> Bool {
+        inputMode == .hold && !agentIsListening
+    }
+
+    static func shouldCancelForEscape(
+        keyCode: UInt16,
+        dictationIsActive: Bool,
+        agentIsActive: Bool
+    ) -> Bool {
+        keyCode == UInt16(kVK_Escape) && (dictationIsActive || agentIsActive)
+    }
+
+    static func releaseAction(
+        wasChorded: Bool,
+        agentIsListening: Bool,
+        dictationIsListening: Bool
+    ) -> FnReleaseAction {
+        if wasChorded { return .ignore }
+        if agentIsListening { return .finishAgent }
+        if dictationIsListening { return .finishDictation }
+        return .registerQuickTap
     }
 
     @MainActor

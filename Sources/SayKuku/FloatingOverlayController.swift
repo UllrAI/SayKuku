@@ -68,10 +68,10 @@ private struct FloatingSystemOverlay: View {
 
             if appState.agentPhase != .hidden {
                 AgentPill()
-                    .transition(.scale(scale: 0.88, anchor: .bottom).combined(with: .opacity))
+                    .transition(.scale(scale: 0.94, anchor: .bottom).combined(with: .opacity))
             } else if appState.dictationPhase != .idle {
                 DictationPill()
-                    .transition(.scale(scale: 0.88, anchor: .bottom).combined(with: .opacity))
+                    .transition(.scale(scale: 0.94, anchor: .bottom).combined(with: .opacity))
             }
         }
         .padding(.bottom, 16)

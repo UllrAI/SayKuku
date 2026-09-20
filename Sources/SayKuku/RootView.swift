@@ -112,7 +112,7 @@ private struct Sidebar: View {
                     .symbolVariant(selection == destination ? .fill : .none)
                     .font(.system(size: 13, weight: .medium))
                     .frame(width: 18)
-                Text(destinationTitle(destination))
+                Text(destination.title(appState))
                     .font(.system(size: 13, weight: selection == destination ? .semibold : .medium))
                 Spacer()
             }
@@ -138,15 +138,6 @@ private struct Sidebar: View {
         .animation(Motion.snappy, value: hovered)
     }
 
-    private func destinationTitle(_ destination: AppState.Destination) -> String {
-        switch destination {
-        case .home: appState.text("首页", "Home")
-        case .history: appState.text("历史", "History")
-        case .knowledge: "Knowledge"
-        case .memory: appState.text("记忆", "Memory")
-        case .settings: appState.text("设置", "Settings")
-        }
-    }
 }
 
 private struct ToastView: View {

@@ -74,7 +74,7 @@ private struct CorrectionSummary: View {
                 Text(appState.text("纠正建议", "Correction suggestions"))
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
                 Text(appState.text(
-                    "发现 \(appState.corrections.filter { $0.status == .pending }.count) 组重复纠正，只有你确认后才会进入长期 Knowledge。",
+                    "发现 \(appState.corrections.filter { $0.status == .pending }.count) 组重复纠正，只有你确认后才会进入长期知识。",
                     "\(appState.corrections.filter { $0.status == .pending }.count) repeated corrections found. Only confirmed items enter long-term Knowledge."
                 ))
                     .font(.system(size: 11))
@@ -118,7 +118,7 @@ private struct CorrectionRow: View {
             Spacer()
             Button(appState.text("忽略", "Ignore")) { withAnimation(Motion.snappy) { appState.ignoreCorrection(item.id) } }
                 .buttonStyle(HoverFillButtonStyle())
-            Button(appState.text("加入 Knowledge", "Add to Knowledge")) { withAnimation(Motion.spring) { appState.acceptCorrection(item.id) } }
+            Button(appState.text("加入知识", "Add to Knowledge")) { withAnimation(Motion.spring) { appState.acceptCorrection(item.id) } }
                 .buttonStyle(TintButtonStyle())
         }
         .padding(14)

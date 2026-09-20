@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleDisplayName</key>
-    <string>SayKuku.</string>
+    <string>SayKuku</string>
 	<key>CFBundleExecutable</key>
 	<string>SayKuku</string>
 	<key>CFBundleIconFile</key>
@@ -20,7 +20,7 @@
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
-    <string>SayKuku.</string>
+    <string>SayKuku</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
@@ -34,8 +34,8 @@
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>NSMicrophoneUsageDescription</key>
-    <string>SayKuku. records only when you start Voice Input or Voice Agent. Audio is sent to your selected Qwen region and, when enabled, stored encrypted in local History. Microphone test audio is never saved or uploaded.</string>
+    <string>SayKuku records only when you start Voice Input or Voice Agent. Audio is sent to your selected Qwen region and, when enabled, stored encrypted in local History. Microphone test audio is never saved or uploaded.</string>
     <key>NSAppleEventsUsageDescription</key>
-    <string>SayKuku. reads the current Safari or Chrome URL only when Browser Page context is enabled and you trigger Voice Agent.</string>
+    <string>SayKuku reads the current Safari or Chrome URL only when Browser Page context is enabled and you trigger Voice Agent.</string>
 </dict>
 </plist>

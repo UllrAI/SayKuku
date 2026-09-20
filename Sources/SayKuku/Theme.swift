@@ -31,6 +31,7 @@ enum KukuLayout {
 enum Motion {
     static let spring = Animation.spring(response: 0.42, dampingFraction: 0.76, blendDuration: 0.15)
     static let panel = Animation.spring(response: 0.5, dampingFraction: 0.82, blendDuration: 0.2)
+    static let pill = Animation.spring(response: 0.34, dampingFraction: 0.86, blendDuration: 0.12)
     static let snappy = Animation.easeInOut(duration: 0.22)
 }
 

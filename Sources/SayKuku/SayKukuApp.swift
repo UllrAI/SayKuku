@@ -15,7 +15,7 @@ struct SayKukuApp: App {
     var body: some Scene {
         @Bindable var appState = appState
 
-        Window("SayKuku.", id: "main") {
+        Window("SayKuku", id: "main") {
             RootView()
                 .environment(appState)
                 .frame(minWidth: 860, minHeight: 580)
@@ -33,7 +33,7 @@ struct SayKukuApp: App {
             }
         }
 
-        MenuBarExtra("SayKuku.", systemImage: "bird.fill", isInserted: $appState.showInMenuBar) {
+        MenuBarExtra("SayKuku", systemImage: "bird.fill", isInserted: $appState.showInMenuBar) {
             MenuBarContent()
                 .environment(appState)
         }
@@ -62,7 +62,7 @@ private struct MenuBarContent: View {
 
         Divider()
 
-        Button(appState.text("显示 SayKuku.", "Show SayKuku.")) {
+        Button(appState.text("显示 SayKuku", "Show SayKuku")) {
             showWindow(destination: .home)
         }
 
@@ -78,7 +78,7 @@ private struct MenuBarContent: View {
 
         Divider()
 
-        Button(appState.text("退出 SayKuku.", "Quit SayKuku.")) {
+        Button(appState.text("退出 SayKuku", "Quit SayKuku")) {
             NSApplication.shared.terminate(nil)
         }
         .keyboardShortcut("q", modifiers: .command)
