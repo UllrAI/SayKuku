@@ -47,6 +47,7 @@ struct HistoryView: View {
                             }
 
                             HistoryRow(entry: $appState.historyEntries[index])
+                                .id(appState.historyEntries[index].id)
                             Divider().padding(.leading, 58).opacity(0.45)
                         }
                     }
@@ -68,6 +69,7 @@ private struct HistoryRow: View {
     @Environment(AppState.self) private var appState
     @Binding var entry: HistoryEntry
     @State private var isPlaying = false
+    @State private var isOutputExpanded = false
     @State private var hovering = false
     @State private var player: AVAudioPlayer?
 
@@ -185,9 +187,35 @@ private struct HistoryRow: View {
             Label(appState.text("已取消", "Cancelled"), systemImage: "xmark.circle")
                 .foregroundStyle(KukuColor.stone)
         case .completed:
-            Text(entry.output)
-                .foregroundStyle(KukuColor.ink)
+            VStack(alignment: .leading, spacing: 6) {
+                Text(entry.output)
+                    .foregroundStyle(KukuColor.ink)
+                    .lineLimit(shouldCollapseOutput && !isOutputExpanded ? 4 : nil)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .textSelection(.enabled)
+
+                if shouldCollapseOutput {
+                    Button {
+                        withAnimation(Motion.snappy) { isOutputExpanded.toggle() }
+                    } label: {
+                        Label(
+                            isOutputExpanded
+                                ? appState.text("收起", "Collapse")
+                                : appState.text("展开全文", "Show all"),
+                            systemImage: isOutputExpanded ? "chevron.up" : "chevron.down"
+                        )
+                        .font(.system(size: 10.5, weight: .semibold))
+                        .foregroundStyle(KukuColor.stone)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
         }
+    }
+
+    private var shouldCollapseOutput: Bool {
+        entry.output.count > 180
+            || entry.output.filter { $0.isNewline }.count >= 3
     }
 
     private func historyLine<Content: View>(
@@ -201,8 +229,8 @@ private struct HistoryRow: View {
                 .frame(width: 34, alignment: .leading)
             content()
                 .font(.system(size: 12.5, weight: .semibold))
-                .lineLimit(2)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func togglePlayback() {
