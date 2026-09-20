@@ -444,14 +444,16 @@ private struct KukuFormInput: View {
                     .lineLimit(1...2)
             } else {
                 TextField(prompt, text: $text)
+                    .frame(height: 20)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .textFieldStyle(.plain)
         .focused($isFocused)
         .onSubmit { onSubmit?() }
         .padding(.horizontal, 12)
-        .padding(.vertical, 9)
-        .frame(maxWidth: .infinity, minHeight: multiline ? 52 : 40, alignment: .topLeading)
+        .padding(.vertical, multiline ? 9 : 0)
+        .frame(maxWidth: .infinity, minHeight: multiline ? 52 : 40, alignment: multiline ? .topLeading : .center)
         .background(
             isFocused ? KukuColor.surfaceStrong : Color.white.opacity(0.66),
             in: RoundedRectangle(cornerRadius: 10, style: .continuous)
