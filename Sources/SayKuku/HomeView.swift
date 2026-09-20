@@ -142,9 +142,27 @@ struct AgentPill: View {
         case .hidden: 0
         case .listening: appState.liveTranscript.isEmpty ? 216 : 360
         case .copyReady: 360
-        case .transcribing, .processing: 132
-        case .result: 88
+        case .transcribing: 132
+        case .processing: labelWidth(for: processingLabel, minimum: 150)
+        case .result: labelWidth(for: resultLabel, minimum: 118)
         }
+    }
+
+    private var taskTitle: String {
+        let value = appState.agentCommand.trimmingCharacters(in: .whitespacesAndNewlines)
+        return value == appState.text("正在听…", "Listening…") ? "" : value
+    }
+
+    private var processingLabel: String {
+        taskTitle.isEmpty
+            ? appState.text("正在执行…", "Running…")
+            : appState.text("正在执行 · \(taskTitle)", "Running · \(taskTitle)")
+    }
+
+    private var resultLabel: String {
+        taskTitle.isEmpty
+            ? appState.text("已完成", "Done")
+            : appState.text("已完成 · \(taskTitle)", "Done · \(taskTitle)")
     }
 
     var body: some View {
@@ -161,7 +179,7 @@ struct AgentPill: View {
                 }
                 .buttonStyle(PressScaleStyle())
 
-                Waveform(barCount: 5, height: 15)
+                Waveform(level: appState.inputLevel, barCount: 5, height: 15)
                     .frame(width: 22)
 
                 Text(!appState.liveTranscript.isEmpty ? appState.liveTranscript : appState.agentCommand)
@@ -194,24 +212,32 @@ struct AgentPill: View {
                 AgentActivityIndicator()
                 Text(appState.agentPhase == .transcribing
                      ? appState.text("正在理解…", "Understanding…")
-                     : appState.text("正在执行…", "Running…"))
+                     : processingLabel)
                     .font(.system(size: 11.5, weight: .semibold, design: .rounded))
                     .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
             } else if appState.agentPhase == .result {
-                Label(appState.text("已完成", "Done"), systemImage: "checkmark")
+                Label(resultLabel, systemImage: "checkmark")
                     .font(.system(size: 11.5, weight: .semibold, design: .rounded))
-                    .foregroundStyle(KukuColor.mint)
+                    .foregroundStyle(Color.white.opacity(0.86))
+                    .lineLimit(1)
             }
         }
         .contentTransition(.interpolate)
         .animation(Motion.snappy, value: appState.agentPhase)
         .animation(Motion.snappy, value: appState.liveTranscript.isEmpty)
         .padding(.horizontal, 7)
-        .frame(width: width, height: appState.agentPhase == .result ? 30 : 40)
-        .background { Capsule().fill(KukuColor.graphite.opacity(0.98)) }
-        .overlay(Capsule().stroke(Color.white.opacity(0.1), lineWidth: 1))
-        .shadow(color: Color.black.opacity(0.16), radius: 16, y: 7)
+        .frame(width: width, height: 40)
+        .background(.ultraThinMaterial, in: Capsule())
+        .background(KukuColor.graphite.opacity(0.86), in: Capsule())
+        .overlay(Capsule().stroke(Color.white.opacity(0.14), lineWidth: 0.8))
+        .shadow(color: Color.black.opacity(0.12), radius: 14, y: 6)
         .animation(Motion.pill, value: width)
+    }
+
+    private func labelWidth(for label: String, minimum: CGFloat) -> CGFloat {
+        min(max(CGFloat(label.count) * 7 + 50, minimum), 350)
     }
 }
 
@@ -297,7 +323,7 @@ struct DictationPill: View {
             case .idle:
                 EmptyView()
             case .listening:
-                Waveform(barCount: 6, height: 16)
+                Waveform(level: appState.inputLevel, barCount: 6, height: 16)
                 Text(appState.liveTranscript.isEmpty
                      ? appState.text("正在听…", "Listening…")
                      : appState.liveTranscript)
@@ -331,8 +357,8 @@ struct DictationPill: View {
         .foregroundStyle(appState.dictationPhase == .success ? KukuColor.mint : KukuColor.ink)
         .padding(.horizontal, 10)
         .frame(width: width, height: appState.dictationPhase == .copyReady ? 40 : 34)
-        .background(.ultraThinMaterial, in: Capsule())
-        .background(Color.white.opacity(0.5), in: Capsule())
+        .background(.thinMaterial, in: Capsule())
+        .background(Color.white.opacity(0.58), in: Capsule())
         .overlay(Capsule().stroke(Color.white.opacity(0.76), lineWidth: 0.8))
         .shadow(color: Color.black.opacity(0.1), radius: 10, y: 4)
         .animation(Motion.pill, value: width)

@@ -87,7 +87,9 @@ final class AppState {
     var contextItems: [ContextItem] = []
     var agentCommand = ""
     var liveTranscript = ""
+    var inputLevel = 0.0
     var pendingCopyText = ""
+    var overlayErrorSymbol = "exclamationmark"
     var overlayError: String? { didSet { overlayController?.refresh() } }
     var toast: ToastMessage?
     var historyEntries: [HistoryEntry] = [] { didSet { schedulePersistence() } }
@@ -174,6 +176,7 @@ final class AppState {
     func finishDictation() {
         guard dictationPhase == .listening else { return }
         let recording = audioCapture.stop()
+        inputLevel = 0
         chunkContinuation?.finish()
         chunkContinuation = nil
         let historyID = beginHistoryEntry(mode: .dictation, recording: recording)
@@ -192,6 +195,7 @@ final class AppState {
     func finishAgentListening() {
         guard agentPhase == .listening else { return }
         let recording = audioCapture.stop()
+        inputLevel = 0
         chunkContinuation?.finish()
         chunkContinuation = nil
         let historyID = beginHistoryEntry(mode: .agent, recording: recording)
@@ -447,6 +451,7 @@ final class AppState {
             guard !snapshot.isSensitive else { throw TextInteractionError.sensitiveTarget }
             targetSnapshot = snapshot
             liveTranscript = ""
+            inputLevel = 0
             pendingCopyText = ""
             activeAgentTranscript = ""
             activeAgentSession = nil
@@ -478,7 +483,7 @@ final class AppState {
             if mode == .dictation {
                 let (stream, continuation) = AsyncStream<Data>.makeStream()
                 chunkContinuation = continuation
-                try audioCapture.start { continuation.yield($0) }
+                try startAudioCapture { continuation.yield($0) }
                 withAnimation(Motion.spring) { dictationPhase = .listening }
                 let shouldAutoStop = autoStop
                 let selectedRecognitionLanguage = recognitionLanguage
@@ -506,11 +511,23 @@ final class AppState {
                     for await chunk in stream { try await realtimeClient.append(chunk) }
                 }
             } else {
-                try audioCapture.start { _ in }
+                try startAudioCapture { _ in }
             }
         } catch {
             handleWorkflowError(error, agent: mode == .agent)
         }
+    }
+
+    private func startAudioCapture(onChunk: @escaping @Sendable (Data) -> Void) throws {
+        try audioCapture.start(
+            onLevel: { [weak self] level in
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    self.inputLevel = (self.inputLevel * 0.55) + (level * 0.45)
+                }
+            },
+            onChunk: onChunk
+        )
     }
 
     private func completeDictation(_ recording: AudioCapture.Recording, historyID: UUID?) async {
@@ -657,7 +674,7 @@ final class AppState {
                 return
             }
             withAnimation(Motion.panel) { agentPhase = .result }
-            try? await Task.sleep(for: .milliseconds(950))
+            try? await Task.sleep(for: .milliseconds(1_250))
             withAnimation(Motion.snappy) { agentPhase = .hidden }
         } catch is CancellationError {
             updateHistory(historyID, status: .cancelled)
@@ -727,6 +744,7 @@ final class AppState {
         chunkContinuation?.finish()
         chunkContinuation = nil
         audioCapture.cancel()
+        inputLevel = 0
         Task { await realtimeClient.cancel() }
         targetSnapshot = nil
         activeAgentTranscript = ""
@@ -746,14 +764,18 @@ final class AppState {
 
     private func handleWorkflowError(_ error: Error, agent: Bool) {
         audioCapture.cancel()
+        inputLevel = 0
         chunkContinuation?.finish()
         chunkContinuation = nil
         uploadTask?.cancel()
         if agent { agentPhase = .hidden } else { dictationPhase = .idle }
         targetSnapshot = nil
         let message = localizedError(error)
+        overlayErrorSymbol = (error as? QwenError) == .noSpeech ? "waveform.slash" : "exclamationmark"
         overlayError = message
-        showToast(message, symbol: "exclamationmark.triangle.fill")
+        if (error as? QwenError) != .noSpeech {
+            showToast(message, symbol: "exclamationmark.triangle.fill")
+        }
         Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(2.4))
             guard self?.overlayError == message else { return }
@@ -803,7 +825,7 @@ final class AppState {
 
     private func localizedError(_ error: Error) -> String {
         if let qwenError = error as? QwenError, qwenError == .noSpeech {
-            return text("未检测到语音，请靠近麦克风后重试", "No speech detected; move closer to the microphone and try again")
+            return text("没有听清，请重试", "Didn't catch that. Try again")
         }
         if let textError = error as? TextInteractionError {
             switch textError {

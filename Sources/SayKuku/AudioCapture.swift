@@ -28,6 +28,7 @@ final class AudioCapture: @unchecked Sendable {
     private var pcm = Data()
     private var converter: AVAudioConverter?
     private var chunkHandler: (@Sendable (Data) -> Void)?
+    private var levelHandler: (@Sendable (Double) -> Void)?
     private var running = false
     private var tapInstalled = false
     private let targetFormat = AVAudioFormat(
@@ -37,7 +38,10 @@ final class AudioCapture: @unchecked Sendable {
         interleaved: false
     )!
 
-    func start(onChunk: @escaping @Sendable (Data) -> Void) throws {
+    func start(
+        onLevel: @escaping @Sendable (Double) -> Void,
+        onChunk: @escaping @Sendable (Data) -> Void
+    ) throws {
         stopEngine()
         let input = engine.inputNode
         let sourceFormat = input.outputFormat(forBus: 0)
@@ -52,6 +56,7 @@ final class AudioCapture: @unchecked Sendable {
             pcm.removeAll(keepingCapacity: true)
             self.converter = converter
             chunkHandler = onChunk
+            levelHandler = onLevel
             running = true
         }
 
@@ -72,6 +77,7 @@ final class AudioCapture: @unchecked Sendable {
         lock.withLock {
             running = false
             chunkHandler = nil
+            levelHandler = nil
         }
         stopEngine()
         let data = lock.withLock { () -> Data in
@@ -90,6 +96,7 @@ final class AudioCapture: @unchecked Sendable {
         lock.withLock {
             running = false
             chunkHandler = nil
+            levelHandler = nil
         }
         stopEngine()
         lock.withLock {
@@ -127,12 +134,28 @@ final class AudioCapture: @unchecked Sendable {
         guard conversionError == nil, status != .error,
               output.frameLength > 0, let samples = output.int16ChannelData?[0] else { return }
         let chunk = Data(bytes: samples, count: Int(output.frameLength) * MemoryLayout<Int16>.size)
-        let handler = lock.withLock { () -> (@Sendable (Data) -> Void)? in
-            guard running else { return nil }
+        let handlers = lock.withLock { () -> ((@Sendable (Data) -> Void), (@Sendable (Double) -> Void))? in
+            guard running, let chunkHandler, let levelHandler else { return nil }
             pcm.append(chunk)
-            return chunkHandler
+            return (chunkHandler, levelHandler)
         }
-        handler?(chunk)
+        handlers?.0(chunk)
+        handlers?.1(Self.normalizedLevel(in: chunk))
+    }
+
+    private static func normalizedLevel(in pcm16: Data) -> Double {
+        pcm16.withUnsafeBytes { bytes in
+            let samples = bytes.bindMemory(to: Int16.self)
+            guard !samples.isEmpty else { return 0 }
+            var squareSum: Double = 0
+            for sample in samples {
+                let normalized = Double(Int16(littleEndian: sample)) / Double(Int16.max)
+                squareSum += normalized * normalized
+            }
+            let rms = sqrt(squareSum / Double(samples.count))
+            let decibels = 20 * log10(max(rms, 0.000_001))
+            return min(1, max(0, (decibels + 58) / 58))
+        }
     }
 
     private static func makeWAV(pcm16: Data, sampleRate: UInt32, channels: UInt16) -> Data {

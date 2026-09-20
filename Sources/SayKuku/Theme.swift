@@ -124,23 +124,45 @@ struct BrandMark: View {
 struct Waveform: View {
     var color: Color = KukuColor.coral
     var isActive = true
+    var level: Double? = nil
     var barCount = 18
     var height: CGFloat = 26
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1 / 24, paused: !isActive)) { timeline in
-            let t = timeline.date.timeIntervalSinceReferenceDate
-            HStack(spacing: 2.5) {
-                ForEach(0..<barCount, id: \.self) { index in
-                    let phase = Double(index) * 0.68
-                    let wave = isActive ? (sin(t * 6.2 + phase) + sin(t * 3.3 - phase * 0.5)) * 0.22 + 0.52 : 0.14
-                    Capsule()
-                        .fill(index < barCount * 2 / 3 ? color : KukuColor.stone.opacity(0.22))
-                        .frame(width: 2.5, height: max(3, height * wave))
+        Group {
+            if let level {
+                bars { index in
+                    let audibleLevel = CGFloat(level < 0.08 ? 0 : min(1, (level - 0.08) / 0.62))
+                    let center = CGFloat(max(barCount - 1, 1)) / 2
+                    let distance = abs(CGFloat(index) - center) / max(center, 1)
+                    let envelope = 1 - distance * 0.42
+                    return 3 + (height - 3) * audibleLevel * envelope
+                }
+                .animation(.linear(duration: 0.08), value: level)
+            } else {
+                TimelineView(.animation(minimumInterval: 1 / 24, paused: !isActive)) { timeline in
+                    let t = timeline.date.timeIntervalSinceReferenceDate
+                    bars { index in
+                        let phase = Double(index) * 0.68
+                        let wave = isActive
+                            ? (sin(t * 6.2 + phase) + sin(t * 3.3 - phase * 0.5)) * 0.22 + 0.52
+                            : 0.14
+                        return max(3, height * wave)
+                    }
                 }
             }
-            .frame(height: height)
         }
+    }
+
+    private func bars(barHeight: @escaping (Int) -> CGFloat) -> some View {
+        HStack(spacing: 2.5) {
+            ForEach(0..<barCount, id: \.self) { index in
+                Capsule()
+                    .fill(index < barCount * 2 / 3 ? color : KukuColor.stone.opacity(0.22))
+                    .frame(width: 2.5, height: barHeight(index))
+            }
+        }
+        .frame(height: height)
     }
 }
 
