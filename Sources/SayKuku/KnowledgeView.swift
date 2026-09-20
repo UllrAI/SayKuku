@@ -195,9 +195,12 @@ private struct EntityRow: View {
                     HStack(spacing: 6) {
                         Image(systemName: "pencil")
                         Text(appState.text("编辑", "Edit"))
+                            .lineLimit(1)
+                            .fixedSize(horizontal: true, vertical: false)
                     }
                 }
                 .buttonStyle(TintButtonStyle())
+                .frame(width: 78, height: 32)
                 .accessibilityLabel(appState.text("编辑 \(entity.name)", "Edit \(entity.name)"))
 
                 Menu {
@@ -211,7 +214,7 @@ private struct EntityRow: View {
                 .menuIndicator(.hidden)
                 .help(appState.text("更多操作", "More actions"))
             }
-            .frame(width: 124, alignment: .trailing)
+            .frame(width: 120, alignment: .trailing)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
@@ -231,7 +234,6 @@ private struct KnowledgeFormSheet: View {
     @State private var detail: String
     @State private var aliases: String
     @State private var classifying = false
-    @FocusState private var nameFocused: Bool
 
     init(entity: KnowledgeEntity? = nil) {
         self.entity = entity
@@ -270,12 +272,16 @@ private struct KnowledgeFormSheet: View {
             Divider().opacity(0.6)
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    formFieldLabel(appState.text("名称", "Name"), required: true)
-                    TextField(appState.text("输入名称", "Enter a name"), text: $name)
-                        .textFieldStyle(.roundedBorder)
-                        .focused($nameFocused)
-                        .onSubmit { if canSave { save() } }
+                VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 7) {
+                        formFieldLabel(appState.text("名称", "Name"), required: true)
+                        KukuFormInput(
+                            text: $name,
+                            prompt: appState.text("输入名称", "Enter a name"),
+                            autoFocus: entity == nil,
+                            onSubmit: { if canSave { save() } }
+                        )
+                    }
 
                     VStack(alignment: .leading, spacing: 9) {
                         HStack(alignment: .firstTextBaseline) {
@@ -293,7 +299,7 @@ private struct KnowledgeFormSheet: View {
                             .disabled(!canSave || classifying)
                         }
 
-                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 148, maximum: 220), spacing: 8)], spacing: 8) {
                             ForEach(EntityType.allCases) { option in
                                 Button {
                                     type = option
@@ -329,30 +335,40 @@ private struct KnowledgeFormSheet: View {
 
                     VStack(alignment: .leading, spacing: 7) {
                         formFieldLabel(appState.text("备注", "Detail"))
-                        TextField(appState.text("例如：团队负责人、常用项目名", "For example: team lead or project name"), text: $detail, axis: .vertical)
-                            .lineLimit(2...3)
-                            .textFieldStyle(.roundedBorder)
+                        KukuFormInput(
+                            text: $detail,
+                            prompt: appState.text("例如：团队负责人、常用项目名", "For example: team lead or project name"),
+                            multiline: true
+                        )
                     }
 
                     VStack(alignment: .leading, spacing: 7) {
                         formFieldLabel(appState.text("别名", "Aliases"))
-                        TextField(appState.text("多个别名用顿号或逗号分隔", "Separate aliases with commas"), text: $aliases)
-                            .textFieldStyle(.roundedBorder)
+                        KukuFormInput(
+                            text: $aliases,
+                            prompt: appState.text("多个别名用顿号或逗号分隔", "Separate aliases with commas")
+                        )
                         Text(appState.text("别名也会参与语音识别。", "Aliases are also used for voice recognition."))
                             .font(.system(size: 10))
                             .foregroundStyle(KukuColor.stone)
                     }
                 }
-                .padding(24)
+                .padding(20)
             }
             .frame(maxHeight: .infinity)
 
             Divider().opacity(0.6)
 
             HStack(spacing: 10) {
-                Text(appState.text("名称不能为空", "A name is required"))
-                    .font(.system(size: 10.5))
-                    .foregroundStyle(canSave ? KukuColor.stone : KukuColor.coral)
+                if canSave {
+                    Text(appState.text("确认类别后即可保存", "Review the category, then save"))
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(KukuColor.stone)
+                } else {
+                    Text(appState.text("名称不能为空", "A name is required"))
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(KukuColor.coral)
+                }
                 Spacer()
                 Button(appState.text("取消", "Cancel")) { dismiss() }
                     .buttonStyle(HoverFillButtonStyle())
@@ -364,9 +380,8 @@ private struct KnowledgeFormSheet: View {
             .padding(.horizontal, 24)
             .padding(.vertical, 16)
         }
-        .frame(width: 560, height: 590)
+        .frame(width: 560, height: 640)
         .background(KukuColor.canvas)
-        .onAppear { nameFocused = entity == nil }
     }
 
     private var canSave: Bool {
@@ -376,7 +391,7 @@ private struct KnowledgeFormSheet: View {
     private func formFieldLabel(_ title: String, required: Bool = false) -> some View {
         HStack(spacing: 4) {
             Text(title)
-                .font(.system(size: 11.5, weight: .semibold))
+                .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(KukuColor.ink)
             if required {
                 Text("*")
@@ -410,6 +425,44 @@ private struct KnowledgeFormSheet: View {
             do { type = try await appState.suggestEntityType(for: name) }
             catch { appState.showToast(error.localizedDescription, symbol: "exclamationmark.triangle.fill") }
             classifying = false
+        }
+    }
+}
+
+private struct KukuFormInput: View {
+    @Binding var text: String
+    let prompt: String
+    var multiline = false
+    var autoFocus = false
+    var onSubmit: (() -> Void)? = nil
+    @FocusState private var isFocused: Bool
+
+    var body: some View {
+        Group {
+            if multiline {
+                TextField(prompt, text: $text, axis: .vertical)
+                    .lineLimit(1...2)
+            } else {
+                TextField(prompt, text: $text)
+            }
+        }
+        .textFieldStyle(.plain)
+        .focused($isFocused)
+        .onSubmit { onSubmit?() }
+        .padding(.horizontal, 12)
+        .padding(.vertical, multiline ? 9 : 0)
+        .frame(maxWidth: .infinity, minHeight: multiline ? 52 : 40, alignment: .topLeading)
+        .background(
+            isFocused ? KukuColor.surfaceStrong : Color.white.opacity(0.66),
+            in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(isFocused ? KukuColor.coral.opacity(0.58) : KukuColor.line, lineWidth: isFocused ? 1.5 : 1)
+        }
+        .shadow(color: isFocused ? KukuColor.coral.opacity(0.08) : .clear, radius: 5)
+        .onAppear {
+            if autoFocus { isFocused = true }
         }
     }
 }
