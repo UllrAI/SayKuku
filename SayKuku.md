@@ -35,7 +35,7 @@ App 图标不放文字，使用珊瑚红圆角底板与暖白 Lucide Bird 线稿
 | --- | --- | --- | --- |
 | 原生 App 外壳与统一设计系统 | ✅ 已完成 | SwiftUI 原生窗口、固定侧栏、统一页面宽度、标题、Tab、卡片、间距、圆角与阴影 | 持续做逐页视觉回归 |
 | App 图标与打包 | ✅ 已完成 | Lucide Bird 品牌母形、珊瑚底色与暖白线稿、1024 px 预览、ICNS、Bundle 图标、应用分类与签名脚本 | 正式发布时确定 Bundle ID，并替换为 Developer ID 签名与公证 |
-| 菜单栏常驻入口 | ✅ 已完成 | 9.5 pt Lucide Bird 放置在 16 × 18 pt 状态项画布，使用原生 template 渲染自动适配明暗与按下态；包含 Voice Input、Voice Agent、显示主窗口、设置、状态与退出菜单 | 后续增加连接延迟与录音态图标 |
+| 菜单栏常驻入口 | ✅ 已完成 | 8.5 pt Lucide Bird 放置在 16 × 18 pt 状态项画布，使用原生 template 渲染自动适配明暗与按下态；包含 Voice Input、Voice Agent、显示主窗口、设置、状态与退出菜单 | 后续增加连接延迟与录音态图标 |
 | 全局快捷键 | ✅ 已完成 | `⇧⌘D` Voice Input、`⇧⌘A` Voice Agent，通过 Carbon 注册且不需要任何隐私权限 | 增加可配置按键 |
 | Fn Gesture Router | ✅ 已完成 | Hold Fn、Tap Fn、Double Fn、组合键取消、超时恢复、冲突检测、系统 Fn 行为引导与全局快捷键 fallback；复用写回所需的辅助功能权限，不申请输入监控 | 增加真实设备与外接键盘回归测试 |
 | 权限引导与麦克风测试 | ✅ 已完成 | 启动时缺失权限自动展示引导；麦克风与辅助功能实时状态、快捷开启、回到 App 自动复查；设置页可重新打开；AVAudioEngine 实时输入电平测试 | 增加多输入设备切换回归测试 |

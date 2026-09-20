@@ -143,7 +143,7 @@ struct MenuBarMark: View {
         }
         .scaledToFit()
         .foregroundStyle(.primary)
-        .frame(width: 9.5, height: 9.5)
+        .frame(width: 8.5, height: 8.5)
         .frame(width: 16, height: 18)
         .accessibilityLabel("SayKuku.")
     }
