@@ -167,7 +167,7 @@ struct PermissionActionRow: View {
     private var subtitle: String {
         switch kind {
         case .microphone:
-            appState.text("仅在开始 Voice Input、Voice Agent 或输入测试时访问", "Used only for Voice Input, Voice Agent, or the input test")
+            appState.text("仅在开始语音输入、语音 Agent 或输入测试时访问", "Used only for Voice Input, Voice Agent, or the input test")
         case .accessibility:
             appState.text("用于 Fn 手势与向当前输入框写回文字；不申请输入监控", "Used for Fn gestures and writing text at the caret; Input Monitoring is not requested")
         }

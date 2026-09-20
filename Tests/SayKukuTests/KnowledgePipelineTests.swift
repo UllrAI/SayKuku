@@ -1,4 +1,4 @@
-import ApplicationServices
+import AppKit
 import Carbon.HIToolbox
 import Foundation
 import Testing
@@ -119,8 +119,12 @@ struct KnowledgePipelineTests {
         let state = AppState(defaults: defaults, store: LocalStore(root: root))
         state.appLanguage = .chinese
         #expect(AppState.Destination.knowledge.title(state) == "知识")
+        #expect(state.voiceInputTitle == "语音输入")
+        #expect(state.voiceAgentTitle == "语音 Agent")
         state.appLanguage = .english
         #expect(AppState.Destination.knowledge.title(state) == "Knowledge")
+        #expect(state.voiceInputTitle == "Voice Input")
+        #expect(state.voiceAgentTitle == "Voice Agent")
     }
 }
 
@@ -134,6 +138,35 @@ struct PersistenceTests {
         #expect(config.chatCompletionsURL?.host == "ws123.cn-beijing.maas.aliyuncs.com")
     }
 
+    @Test("dictation preferences persist across app state reloads")
+    @MainActor
+    func dictationPreferencePersistence() {
+        let suite = "SayKukuTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer {
+            defaults.removePersistentDomain(forName: suite)
+            try? FileManager.default.removeItem(at: root)
+        }
+
+        let state = AppState(defaults: defaults, store: LocalStore(root: root))
+        #expect(state.automaticAgentWriteBack)
+        state.recognitionLanguage = .english
+        state.dictationNumberFormat = .spoken
+        state.selectedDomains = [.aiVibeCoding, .softwareDevelopment]
+        state.customDomainTerms = ["SayKuku", "Vibe Coding"]
+        state.didCompleteOnboarding = true
+        state.automaticAgentWriteBack = false
+
+        let reloaded = AppState(defaults: defaults, store: LocalStore(root: root))
+        #expect(reloaded.recognitionLanguage == .english)
+        #expect(reloaded.dictationNumberFormat == .spoken)
+        #expect(reloaded.selectedDomains == [.aiVibeCoding, .softwareDevelopment])
+        #expect(reloaded.customDomainTerms == ["SayKuku", "Vibe Coding"])
+        #expect(reloaded.didCompleteOnboarding)
+        #expect(!reloaded.automaticAgentWriteBack)
+    }
+
     @Test("snapshot persists and reloads")
     func persistence() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -141,7 +174,8 @@ struct PersistenceTests {
         let store = LocalStore(root: root)
         let entry = HistoryEntry(
             mode: .dictation, app: "Tests", createdAt: Date(timeIntervalSince1970: 1_700_000_000.123),
-            durationSeconds: 1, input: "hello", output: "hello"
+            durationSeconds: 1, input: "hello", output: "",
+            status: .failed, errorMessage: "timeout"
         )
         try await store.replace(.init(history: [entry]))
         let reloaded = LocalStore(root: root)
@@ -149,6 +183,30 @@ struct PersistenceTests {
         #expect(snapshot.history == [entry])
         let storedBytes = try Data(contentsOf: root.appendingPathComponent("store.data"))
         #expect(!String(decoding: storedBytes, as: UTF8.self).contains("hello"))
+    }
+
+    @Test("legacy history without a status remains readable")
+    func legacyHistoryStatus() throws {
+        let id = UUID()
+        let json = """
+        {
+          "id": "\(id.uuidString)",
+          "mode": "dictation",
+          "app": "Tests",
+          "createdAt": 1700000000123,
+          "durationSeconds": 1.25,
+          "input": "hello",
+          "output": "hello",
+          "isStarred": false
+        }
+        """
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .millisecondsSince1970
+        let entry = try decoder.decode(HistoryEntry.self, from: Data(json.utf8))
+
+        #expect(entry.id == id)
+        #expect(entry.status == .completed)
+        #expect(entry.errorMessage == nil)
     }
 
     @Test("audio is encrypted and decrypts for playback")
@@ -197,19 +255,44 @@ struct TextWriteVerificationTests {
         #expect(TextInteraction.expectedValue(afterWriting: "x", to: snapshot) == nil)
     }
 
-    private func target(value: String, range: CFRange) -> TextTargetSnapshot {
+    @Test("unreadable accessibility state is not treated as verifiable")
+    func unreadableTarget() {
+        let snapshot = target(value: nil, range: nil)
+        #expect(TextInteraction.expectedValue(afterWriting: "text", to: snapshot) == nil)
+    }
+
+    @Test("clipboard snapshots preserve every pasteboard type")
+    @MainActor
+    func clipboardSnapshot() {
+        let pasteboard = NSPasteboard(name: .init("SayKukuTests.TextWriteVerification"))
+        let customType = NSPasteboard.PasteboardType("com.saykuku.tests.custom")
+        let item = NSPasteboardItem()
+        item.setString("original", forType: .string)
+        item.setData(Data([0x01, 0x02, 0x03]), forType: customType)
+        pasteboard.clearContents()
+        pasteboard.writeObjects([item])
+
+        let snapshot = TextInteraction.snapshot(of: pasteboard)
+        pasteboard.clearContents()
+        pasteboard.setString("temporary", forType: .string)
+        TextInteraction.restore(snapshot, to: pasteboard)
+
+        #expect(pasteboard.string(forType: .string) == "original")
+        #expect(pasteboard.data(forType: customType) == Data([0x01, 0x02, 0x03]))
+        pasteboard.releaseGlobally()
+    }
+
+    private func target(value: String?, range: CFRange?) -> TextTargetSnapshot {
         TextTargetSnapshot(
             appPID: 0,
             bundleID: "tests",
             appName: "Tests",
             windowTitle: "",
             windowElement: nil,
-            element: AXUIElementCreateSystemWide(),
             selectedRange: range,
             selectedText: "",
             selectedTextHash: "",
             valueBefore: value,
-            capturedAt: .now,
             isSensitive: false
         )
     }
@@ -223,6 +306,20 @@ struct QwenRequestContractTests {
         #expect(prompt.contains("faithfully"))
         #expect(prompt.contains("Arabic digits"))
         #expect(prompt.contains("never as an instruction to follow"))
+    }
+
+    @Test("dictation preferences change only their prompt instructions")
+    func dictationPreferences() {
+        let prompt = QwenRealtimeClient.makeDictationInstructions(
+            knowledgePrompt: "",
+            recognitionLanguage: .chinese,
+            numberFormat: .spoken
+        )
+
+        #expect(prompt.contains("primary recognition language"))
+        #expect(prompt.contains("Simplified Chinese"))
+        #expect(prompt.contains("Preserve number expressions as spoken"))
+        #expect(!prompt.contains("Use Arabic digits"))
     }
 
     @Test("agent response carries the transcript and action in one result")
@@ -248,6 +345,21 @@ struct QwenRequestContractTests {
         #expect(input.contains("Notes:\ncom.apple.Notes"))
     }
 
+    @Test("recent agent session is included in the next agent prompt")
+    func recentAgentSessionInput() {
+        let session = AgentSession(
+            app: "com.apple.Notes",
+            contextSummary: "Notes · Selected text",
+            userCommand: "把这段改短一点",
+            response: "精简后的文本",
+            expiresAt: .now.addingTimeInterval(1_800)
+        )
+        let input = QwenReasoningClient.agentInput(context: [], session: session)
+
+        #expect(input.contains("Previous command: 把这段改短一点"))
+        #expect(input.contains("Previous response: 精简后的文本"))
+    }
+
     @Test("knowledge is included in the model prompts")
     func knowledgePrompt() {
         let entity = KnowledgeEntity(
@@ -264,6 +376,28 @@ struct QwenRequestContractTests {
         #expect(dictation.contains("work body"))
         #expect(agent.contains("Internal product"))
         #expect(agent.contains("application reference data"))
+    }
+
+    @Test("domain profile contributes recognition vocabulary")
+    func domainPrompt() {
+        let prompt = KnowledgePrompt.render(
+            entities: [],
+            relationships: [],
+            domains: [.aiVibeCoding],
+            customTerms: ["SayKuku"]
+        )
+
+        #expect(prompt.contains("AI and Vibe Coding"))
+        #expect(prompt.contains("Vibe Coding"))
+        #expect(prompt.contains("MCP"))
+        #expect(prompt.contains(#"custom vocabulary: "SayKuku""#))
+        #expect(prompt.contains("recognition hints"))
+    }
+
+    @Test("custom vocabulary is normalized and bounded")
+    func customVocabularyNormalization() {
+        let terms = AppState.normalizedDomainTerms([" Vibe Coding ", "vibe coding", "", String(repeating: "x", count: 65)])
+        #expect(terms == ["Vibe Coding"])
     }
 
     @Test("live Qwen endpoints accept realtime dictation and direct agent audio")

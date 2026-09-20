@@ -44,7 +44,7 @@ private struct VoiceInputSettings: View {
 
     var body: some View {
         @Bindable var appState = appState
-        SettingsStack(title: "Voice Input", subtitle: appState.text("Fn 只负责忠实输入，不改变你的意思。", "Fn types faithfully without changing your meaning.")) {
+        SettingsStack(title: appState.voiceInputTitle, subtitle: appState.text("Fn 只负责忠实输入，不改变你的意思。", "Fn types faithfully without changing your meaning.")) {
             SettingsGroup(title: appState.text("输入方式", "Input gesture")) {
                 VStack(spacing: 0) {
                     ForEach(InputMode.allCases) { mode in
@@ -70,14 +70,51 @@ private struct VoiceInputSettings: View {
                 SettingsDivider()
                 SettingsValueRow(title: appState.text("输入位置", "Overlay position"), value: appState.text("光标附近", "Near caret"))
                 SettingsDivider()
-                SettingsValueRow(title: appState.text("识别语言", "Recognition language"), value: appState.text("自动 · 中英混合", "Auto · Chinese & English"))
+                SettingsOptionRow(
+                    title: appState.text("识别语言", "Recognition language"),
+                    selection: $appState.recognitionLanguage
+                ) { language in
+                    language.title(isChineseUI: appState.usesChineseUI)
+                }
                 SettingsDivider()
-                SettingsValueRow(
+                SettingsOptionRow(
                     title: appState.text("数字格式", "Number format"),
-                    value: appState.text("优先阿拉伯数字", "Prefer digits")
-                )
+                    selection: $appState.dictationNumberFormat
+                ) { format in
+                    format.title(isChineseUI: appState.usesChineseUI)
+                }
+            }
+
+            SettingsGroup(title: appState.text("识别上下文", "Recognition context")) {
+                HStack(spacing: 14) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(appState.text("常用领域与词汇", "Domains & vocabulary"))
+                            .font(.system(size: 12.5, weight: .medium))
+                        Text(domainSummary)
+                            .font(.system(size: 10.5))
+                            .foregroundStyle(KukuColor.stone)
+                            .lineLimit(2)
+                    }
+                    Spacer(minLength: 16)
+                    Button(appState.text("编辑", "Edit")) {
+                        appState.showDomainOnboarding()
+                    }
+                    .buttonStyle(TintButtonStyle())
+                }
+                .padding(.horizontal, 14)
+                .frame(maxWidth: .infinity, minHeight: 58, alignment: .leading)
             }
         }
+    }
+
+    private var domainSummary: String {
+        let domains = DomainPreset.allCases
+            .filter(appState.selectedDomains.contains)
+            .map { $0.title(isChineseUI: appState.usesChineseUI) }
+        let values = domains + appState.customDomainTerms
+        return values.isEmpty
+            ? appState.text("尚未选择；可添加 Vibe Coding 等常用词", "None selected; add terms such as Vibe Coding")
+            : values.joined(separator: " · ")
     }
 }
 
@@ -86,13 +123,14 @@ private struct VoiceAgentSettings: View {
 
     var body: some View {
         @Bindable var appState = appState
-        SettingsStack(title: "Voice Agent", subtitle: appState.text("Fn Fn 才会理解、生成或执行动作。", "Fn Fn understands, generates, and acts.")) {
+        SettingsStack(title: appState.voiceAgentTitle, subtitle: appState.text("Fn Fn 才会理解、生成或执行动作。", "Fn Fn understands, generates, and acts.")) {
             SettingsGroup(title: appState.text("交互", "Interaction")) {
                 SettingsToggle(title: appState.text("连续对话", "Continuous context"), subtitle: appState.text("在当前任务里保留轻量 Session", "Keep a lightweight session for the current task"), isOn: $appState.continuousConversation)
                 SettingsDivider()
-                SettingsInfoRow(
+                SettingsToggle(
                     title: appState.text("自动写回", "Automatic write-back"),
-                    subtitle: appState.text("有选区时替换，无选区时输入当前光标", "Replace a selection or type at the caret")
+                    subtitle: appState.text("默认开启；关闭后生成文字停留在浮层，可手动复制", "On by default; when off, generated text stays in the overlay for manual copying"),
+                    isOn: $appState.automaticAgentWriteBack
                 )
             }
         }
@@ -183,12 +221,12 @@ private struct QwenSettings: View {
                 .padding(14)
             }
             SettingsGroup(title: appState.text("模型", "Models")) {
-                SettingsPickerRow(title: "Voice Input", value: $appState.realtimeModel, values: [
+                SettingsPickerRow(title: appState.voiceInputTitle, value: $appState.realtimeModel, values: [
                     "qwen3.5-omni-flash-realtime",
                     "qwen3.5-omni-flash-realtime-2026-03-15"
                 ])
                 SettingsDivider()
-                SettingsPickerRow(title: "Voice Agent", value: $appState.reasoningModel, values: [
+                SettingsPickerRow(title: appState.voiceAgentTitle, value: $appState.reasoningModel, values: [
                     "qwen3.8-omni-flash",
                     "qwen3.5-omni-plus",
                     "qwen3.5-omni-flash"
@@ -290,9 +328,9 @@ private struct GeneralSettings: View {
             SettingsGroup(title: appState.text("全局快捷键", "Global shortcuts")) {
                 ShortcutStatusRow()
                 SettingsDivider()
-                SettingsValueRow(title: "Voice Input", value: "Fn · ⇧⌘D")
+                SettingsValueRow(title: appState.voiceInputTitle, value: "Fn · ⇧⌘D")
                 SettingsDivider()
-                SettingsValueRow(title: "Voice Agent", value: "Fn Fn · ⇧⌘A")
+                SettingsValueRow(title: appState.voiceAgentTitle, value: "Fn Fn · ⇧⌘A")
             }
         }
     }
@@ -498,6 +536,29 @@ private struct SettingsPickerRow: View {
     }
 }
 
+private struct SettingsOptionRow<Option: CaseIterable & Hashable & Identifiable>: View
+where Option.AllCases: RandomAccessCollection {
+    let title: String
+    @Binding var selection: Option
+    let label: (Option) -> String
+
+    var body: some View {
+        HStack {
+            Text(title).font(.system(size: 12.5, weight: .medium))
+            Spacer()
+            Picker("", selection: $selection) {
+                ForEach(Option.allCases) { option in
+                    Text(label(option)).tag(option)
+                }
+            }
+            .labelsHidden()
+            .frame(width: 230)
+        }
+        .padding(.horizontal, 14)
+        .frame(maxWidth: .infinity, minHeight: 50, alignment: .leading)
+    }
+}
+
 private struct SettingsDivider: View {
     var body: some View { Divider().padding(.leading, 14).opacity(0.5) }
 }
@@ -548,8 +609,8 @@ enum SettingsSection: String, CaseIterable, Identifiable {
     @MainActor func title(_ appState: AppState) -> String {
         switch self {
         case .general: appState.text("通用", "General")
-        case .voiceInput: "Voice Input"
-        case .voiceAgent: "Voice Agent"
+        case .voiceInput: appState.voiceInputTitle
+        case .voiceAgent: appState.voiceAgentTitle
         case .history: appState.text("历史", "History")
         case .privacy: appState.text("上下文与隐私", "Context & Privacy")
         case .qwen: "Qwen & API"

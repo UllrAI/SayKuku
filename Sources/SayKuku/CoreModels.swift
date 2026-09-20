@@ -41,6 +41,126 @@ struct QwenConfiguration: Equatable {
     }
 }
 
+enum RecognitionLanguage: String, CaseIterable, Identifiable, Sendable {
+    case automatic
+    case chinese
+    case english
+
+    var id: String { rawValue }
+
+    func title(isChineseUI: Bool) -> String {
+        switch self {
+        case .automatic: isChineseUI ? "自动 · 中英混合" : "Auto · Chinese & English"
+        case .chinese: "简体中文"
+        case .english: "English"
+        }
+    }
+
+    var promptInstruction: String {
+        switch self {
+        case .automatic:
+            "Detect the spoken language automatically. Preserve the original language and natural code-switching. Never translate."
+        case .chinese:
+            "Treat Mandarin Chinese as the primary recognition language and output Chinese speech in Simplified Chinese. Preserve clearly spoken words in other languages. Never translate."
+        case .english:
+            "Treat English as the primary recognition language. Preserve clearly spoken words in other languages. Never translate."
+        }
+    }
+}
+
+enum DictationNumberFormat: String, CaseIterable, Identifiable, Sendable {
+    case preferDigits
+    case spoken
+
+    var id: String { rawValue }
+
+    func title(isChineseUI: Bool) -> String {
+        switch self {
+        case .preferDigits: isChineseUI ? "优先阿拉伯数字" : "Prefer digits"
+        case .spoken: isChineseUI ? "保持口述" : "As spoken"
+        }
+    }
+
+    var promptInstruction: String {
+        switch self {
+        case .preferDigits:
+            "Use Arabic digits for unambiguous numbers, dates, times, amounts, percentages, measurements, phone numbers, and codes. Preserve idioms, proper nouns, and ambiguous number words as spoken."
+        case .spoken:
+            "Preserve number expressions as spoken instead of converting number words into digits. Keep explicitly dictated digit sequences, codes, and existing numeric forms unchanged."
+        }
+    }
+}
+
+enum DomainPreset: String, CaseIterable, Identifiable, Sendable {
+    case aiVibeCoding
+    case softwareDevelopment
+    case productDesign
+    case productManagement
+    case marketingGrowth
+    case contentCreation
+    case finance
+    case healthcare
+    case legal
+
+    var id: String { rawValue }
+
+    func title(isChineseUI: Bool) -> String {
+        switch self {
+        case .aiVibeCoding: "AI / Vibe Coding"
+        case .softwareDevelopment: isChineseUI ? "软件开发" : "Software Development"
+        case .productDesign: isChineseUI ? "产品设计" : "Product Design"
+        case .productManagement: isChineseUI ? "产品管理" : "Product Management"
+        case .marketingGrowth: isChineseUI ? "市场与增长" : "Marketing & Growth"
+        case .contentCreation: isChineseUI ? "内容创作" : "Content Creation"
+        case .finance: isChineseUI ? "金融与投资" : "Finance & Investing"
+        case .healthcare: isChineseUI ? "医疗健康" : "Healthcare"
+        case .legal: isChineseUI ? "法律" : "Legal"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .aiVibeCoding: "sparkles"
+        case .softwareDevelopment: "chevron.left.forwardslash.chevron.right"
+        case .productDesign: "scribble.variable"
+        case .productManagement: "map"
+        case .marketingGrowth: "chart.line.uptrend.xyaxis"
+        case .contentCreation: "text.quote"
+        case .finance: "chart.pie.fill"
+        case .healthcare: "cross.case.fill"
+        case .legal: "building.columns.fill"
+        }
+    }
+
+    var promptName: String {
+        switch self {
+        case .aiVibeCoding: "AI and Vibe Coding"
+        case .softwareDevelopment: "Software Development"
+        case .productDesign: "Product Design"
+        case .productManagement: "Product Management"
+        case .marketingGrowth: "Marketing and Growth"
+        case .contentCreation: "Content Creation"
+        case .finance: "Finance and Investing"
+        case .healthcare: "Healthcare"
+        case .legal: "Legal"
+        }
+    }
+
+    var vocabulary: [String] {
+        switch self {
+        case .aiVibeCoding: ["Vibe Coding", "AI Agent", "LLM", "prompt", "MCP", "Cursor", "Claude Code", "Codex"]
+        case .softwareDevelopment: ["GitHub", "API", "SDK", "frontend", "backend", "TypeScript", "SwiftUI", "React"]
+        case .productDesign: ["Figma", "UI", "UX", "prototype", "design system", "user flow"]
+        case .productManagement: ["PRD", "roadmap", "MVP", "user story", "backlog", "OKR"]
+        case .marketingGrowth: ["SEO", "SEM", "conversion rate", "campaign", "retention", "acquisition"]
+        case .contentCreation: ["podcast", "newsletter", "copywriting", "storyboard", "thumbnail"]
+        case .finance: ["cash flow", "EBITDA", "valuation", "portfolio", "dividend"]
+        case .healthcare: ["diagnosis", "prescription", "clinical", "patient", "telemedicine"]
+        case .legal: ["contract", "clause", "compliance", "liability", "jurisdiction"]
+        }
+    }
+}
+
 enum HistoryRetention: String, Codable, CaseIterable, Identifiable {
     case day1, days7, days30, days90, forever
 
@@ -79,8 +199,16 @@ enum HistoryMode: String, Codable {
     case dictation, agent
     var filter: HistoryFilter { self == .dictation ? .dictation : .agent }
     var symbol: String { self == .dictation ? "mic.fill" : "sparkles" }
-    var color: Color { self == .dictation ? KukuColor.coral : KukuColor.graphite }
-    @MainActor func title(_ appState: AppState) -> String { self == .dictation ? "Voice Input" : "Voice Agent" }
+    @MainActor func title(_ appState: AppState) -> String {
+        self == .dictation ? appState.voiceInputTitle : appState.voiceAgentTitle
+    }
+}
+
+enum HistoryStatus: String, Codable {
+    case processing
+    case completed
+    case failed
+    case cancelled
 }
 
 struct HistoryEntry: Identifiable, Codable, Equatable {
@@ -93,11 +221,14 @@ struct HistoryEntry: Identifiable, Codable, Equatable {
     var output: String
     var audioFilename: String?
     var isStarred: Bool
+    var status: HistoryStatus
+    var errorMessage: String?
 
     init(
         id: UUID = UUID(), mode: HistoryMode, app: String, createdAt: Date = .now,
         durationSeconds: Double, input: String, output: String,
-        audioFilename: String? = nil, isStarred: Bool = false
+        audioFilename: String? = nil, isStarred: Bool = false,
+        status: HistoryStatus = .completed, errorMessage: String? = nil
     ) {
         self.id = id
         self.mode = mode
@@ -108,11 +239,32 @@ struct HistoryEntry: Identifiable, Codable, Equatable {
         self.output = output
         self.audioFilename = audioFilename
         self.isStarred = isStarred
+        self.status = status
+        self.errorMessage = errorMessage
     }
 
     var time: String { createdAt.formatted(date: .omitted, time: .shortened) }
     var duration: String { durationSeconds > 0 ? String(format: "%.1fs", durationSeconds) : "—" }
     var hasAudio: Bool { audioFilename != nil }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, mode, app, createdAt, durationSeconds, input, output, audioFilename, isStarred, status, errorMessage
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        mode = try container.decode(HistoryMode.self, forKey: .mode)
+        app = try container.decode(String.self, forKey: .app)
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        durationSeconds = try container.decode(Double.self, forKey: .durationSeconds)
+        input = try container.decode(String.self, forKey: .input)
+        output = try container.decode(String.self, forKey: .output)
+        audioFilename = try container.decodeIfPresent(String.self, forKey: .audioFilename)
+        isStarred = try container.decode(Bool.self, forKey: .isStarred)
+        status = try container.decodeIfPresent(HistoryStatus.self, forKey: .status) ?? .completed
+        errorMessage = try container.decodeIfPresent(String.self, forKey: .errorMessage)
+    }
 }
 
 enum EntityType: String, Codable, CaseIterable, Identifiable {
@@ -257,7 +409,7 @@ struct AgentSession: Identifiable, Codable, Equatable {
 }
 
 struct ContextItem: Identifiable, Equatable {
-    enum Kind: Equatable { case selectedText, app, window, clipboard, browser, session, knowledge }
+    enum Kind: Equatable { case selectedText, app, window, clipboard, browser, session, domain, knowledge }
     var id = UUID()
     var kind: Kind
     var symbol: String

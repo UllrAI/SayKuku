@@ -51,7 +51,7 @@ struct MemoryView: View {
         ContentUnavailableView(
             appState.text("暂无记忆", "No memory yet"),
             systemImage: "sparkles",
-            description: Text(appState.text("使用 Voice Input 和 Voice Agent 后，这里会显示真实记录。", "Real records appear here after you use Voice Input and Voice Agent."))
+            description: Text(appState.text("使用语音输入和语音 Agent 后，这里会显示真实记录。", "Real records appear here after you use Voice Input and Voice Agent."))
         )
         .foregroundStyle(KukuColor.stone)
         .frame(maxWidth: .infinity, minHeight: 180)
@@ -60,6 +60,10 @@ struct MemoryView: View {
 
 private struct CorrectionSummary: View {
     @Environment(AppState.self) private var appState
+
+    private var pendingCorrections: [CorrectionRecord] {
+        appState.corrections.filter { $0.status == .pending }
+    }
 
     var body: some View {
         HStack(spacing: 16) {
@@ -74,14 +78,14 @@ private struct CorrectionSummary: View {
                 Text(appState.text("纠正建议", "Correction suggestions"))
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
                 Text(appState.text(
-                    "发现 \(appState.corrections.filter { $0.status == .pending }.count) 组重复纠正，只有你确认后才会进入长期知识。",
-                    "\(appState.corrections.filter { $0.status == .pending }.count) repeated corrections found. Only confirmed items enter long-term Knowledge."
+                    "发现 \(pendingCorrections.count) 条待确认纠正，只有你确认后才会进入长期知识。",
+                    "\(pendingCorrections.count) corrections await confirmation. Only confirmed items enter long-term Knowledge."
                 ))
                     .font(.system(size: 11))
                     .foregroundStyle(KukuColor.stone)
             }
             Spacer()
-            Text("\(appState.corrections.reduce(0) { $0 + $1.count })")
+            Text("\(pendingCorrections.reduce(0) { $0 + $1.count })")
                 .font(.system(size: 18, weight: .bold, design: .rounded))
                 .foregroundStyle(KukuColor.mint)
         }
@@ -130,46 +134,63 @@ private struct SessionMemoryView: View {
     @Environment(AppState.self) private var appState
 
     private var items: [MemoryTimelineItem] {
-        let sessions = appState.sessions.filter { $0.expiresAt > .now }.map {
+        appState.sessions.filter { $0.expiresAt > .now }.map {
             MemoryTimelineItem(id: $0.id, title: $0.app, detail: $0.userCommand + "\n" + $0.response, expiresAt: $0.expiresAt)
         }
-        let recentDictation = appState.historyEntries.filter {
-            $0.mode == .dictation && Calendar.current.isDateInToday($0.createdAt)
-        }.prefix(5).map {
-            MemoryTimelineItem(id: $0.id, title: $0.app, detail: $0.output, expiresAt: Calendar.current.startOfDay(for: .now).addingTimeInterval(86_400))
-        }
-        return (sessions + recentDictation).sorted { $0.expiresAt < $1.expiresAt }
+        .sorted { $0.expiresAt < $1.expiresAt }
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                HStack(alignment: .top, spacing: 16) {
-                    VStack(spacing: 5) {
-                        Circle()
-                            .fill(index == 0 ? KukuColor.coral : KukuColor.stone.opacity(0.35))
-                            .frame(width: 9, height: 9)
-                        if index < items.count - 1 {
-                            Rectangle().fill(KukuColor.line).frame(width: 1, height: 52)
+        if items.isEmpty {
+            ContentUnavailableView(
+                appState.text("暂无短期记忆", "No short-term memory"),
+                systemImage: "clock.arrow.circlepath",
+                description: Text(appState.text(
+                    "语音 Agent 完成一次操作后，会保留同一 App 的上一轮对话 30 分钟。",
+                    "After Voice Agent completes an action, its previous turn is kept for the same app for 30 minutes."
+                ))
+            )
+            .foregroundStyle(KukuColor.stone)
+            .frame(maxWidth: .infinity, minHeight: 180)
+        } else {
+            VStack(alignment: .leading, spacing: 14) {
+                Text(appState.text(
+                    "这些对话会自动加入同一 App 的下一次语音 Agent 请求，并在 30 分钟后过期。",
+                    "These turns are added to the next Voice Agent request in the same app and expire after 30 minutes."
+                ))
+                    .font(.system(size: 11))
+                    .foregroundStyle(KukuColor.stone)
+
+                VStack(spacing: 0) {
+                    ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                        HStack(alignment: .top, spacing: 16) {
+                            VStack(spacing: 5) {
+                                Circle()
+                                    .fill(index == 0 ? KukuColor.coral : KukuColor.stone.opacity(0.35))
+                                    .frame(width: 9, height: 9)
+                                if index < items.count - 1 {
+                                    Rectangle().fill(KukuColor.line).frame(width: 1, height: 52)
+                                }
+                            }
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text(item.title)
+                                    .font(.system(size: 13, weight: .semibold))
+                                Text(item.detail)
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(KukuColor.stone)
+                                    .lineSpacing(3)
+                            }
+                            Spacer()
+                            Text(item.expiresAt, style: .relative)
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundStyle(KukuColor.stone)
                         }
                     }
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text(item.title)
-                            .font(.system(size: 13, weight: .semibold))
-                        Text(item.detail)
-                            .font(.system(size: 11))
-                            .foregroundStyle(KukuColor.stone)
-                            .lineSpacing(3)
-                    }
-                    Spacer()
-                    Text(item.expiresAt, style: .relative)
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(KukuColor.stone)
                 }
+                .padding(17)
+                .kukuSurface(radius: KukuLayout.radiusMedium)
             }
         }
-        .padding(17)
-        .kukuSurface(radius: KukuLayout.radiusMedium)
     }
 }
 
@@ -197,22 +218,35 @@ private struct LongTermMemoryView: View {
     }
 
     var body: some View {
-        VStack(spacing: 10) {
-            ForEach(groups, id: \.0) { group in
-                HStack(spacing: 15) {
-                    Image(systemName: group.2)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(KukuColor.coral)
-                        .frame(width: 38, height: 38)
-                        .background(KukuColor.coralSoft, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(group.0).font(.system(size: 13, weight: .semibold))
-                        Text(group.1).font(.system(size: 11)).foregroundStyle(KukuColor.stone)
+        if groups.isEmpty {
+            ContentUnavailableView(
+                appState.text("暂无长期知识", "No long-term knowledge"),
+                systemImage: "books.vertical",
+                description: Text(appState.text(
+                    "确认纠正建议或导入知识后，它们会进入识别和 Agent prompt。",
+                    "Confirmed corrections and imported knowledge are added to recognition and Agent prompts."
+                ))
+            )
+            .foregroundStyle(KukuColor.stone)
+            .frame(maxWidth: .infinity, minHeight: 180)
+        } else {
+            VStack(spacing: 10) {
+                ForEach(groups, id: \.0) { group in
+                    HStack(spacing: 15) {
+                        Image(systemName: group.2)
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(KukuColor.coral)
+                            .frame(width: 38, height: 38)
+                            .background(KukuColor.coralSoft, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(group.0).font(.system(size: 13, weight: .semibold))
+                            Text(group.1).font(.system(size: 11)).foregroundStyle(KukuColor.stone)
+                        }
+                        Spacer()
                     }
-                    Spacer()
+                    .padding(14)
+                    .kukuSurface(radius: KukuLayout.radiusMedium)
                 }
-                .padding(14)
-                .kukuSurface(radius: KukuLayout.radiusMedium)
             }
         }
     }

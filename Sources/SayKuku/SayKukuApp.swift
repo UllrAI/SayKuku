@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 
 enum AppSheet: String, Identifiable {
+    case onboarding
     case permissions
 
     var id: String { rawValue }
@@ -28,8 +29,8 @@ struct SayKukuApp: App {
         .commands {
             CommandGroup(replacing: .newItem) { }
             CommandMenu("Voice") {
-                Button("Start Voice Input    ⇧⌘D") { appState.toggleDictation() }
-                Button("Open Voice Agent    ⇧⌘A") { appState.startAgent() }
+                Button(appState.text("开始语音输入    ⇧⌘D", "Start Voice Input    ⇧⌘D")) { appState.toggleDictation() }
+                Button(appState.text("打开语音 Agent    ⇧⌘A", "Open Voice Agent    ⇧⌘A")) { appState.startAgent() }
             }
         }
 
@@ -52,11 +53,11 @@ private struct MenuBarContent: View {
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        Button(appState.text("开始 Voice Input", "Start Voice Input")) {
+        Button(appState.text("开始语音输入", "Start Voice Input")) {
             appState.toggleDictation()
         }
 
-        Button(appState.text("打开 Voice Agent", "Open Voice Agent")) {
+        Button(appState.text("打开语音 Agent", "Open Voice Agent")) {
             appState.startAgent()
         }
 

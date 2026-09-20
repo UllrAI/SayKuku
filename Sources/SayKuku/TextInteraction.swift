@@ -1,7 +1,9 @@
 import ApplicationServices
 import AppKit
+import Carbon.HIToolbox
 import CryptoKit
 import Foundation
+import os
 
 enum TextInteractionError: LocalizedError {
     case accessibilityRequired
@@ -21,23 +23,35 @@ enum TextInteractionError: LocalizedError {
     }
 }
 
+enum TextWriteOutcome: Equatable {
+    case verified
+    case deliveredUnverified
+}
+
 struct TextTargetSnapshot: @unchecked Sendable {
     let appPID: pid_t
     let bundleID: String
     let appName: String
     let windowTitle: String
     let windowElement: AXUIElement?
-    let element: AXUIElement
     let selectedRange: CFRange?
     let selectedText: String
     let selectedTextHash: String
     let valueBefore: String?
-    let capturedAt: Date
     let isSensitive: Bool
 }
 
 @MainActor
 final class TextInteraction {
+    typealias PasteboardItemSnapshot = [NSPasteboard.PasteboardType: Data]
+    typealias PasteboardSnapshot = [PasteboardItemSnapshot]
+
+    private static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier ?? "SayKuku",
+        category: "TextInteraction"
+    )
+    private static let pasteSessionType = NSPasteboard.PasteboardType("com.saykuku.paste-session")
+    private static let textRoles = Set(["AXTextArea", "AXTextField", "AXComboBox", "AXSearchField"])
     private let sensitiveBundleFragments = [
         "1password", "lastpass", "bitwarden", "dashlane", "keepass", "bank", "wallet"
     ]
@@ -46,132 +60,192 @@ final class TextInteraction {
         guard AXIsProcessTrusted() else { throw TextInteractionError.accessibilityRequired }
         guard let app = NSWorkspace.shared.frontmostApplication else { throw TextInteractionError.noFocusedElement }
         let application = AXUIElementCreateApplication(app.processIdentifier)
-        guard let element: AXUIElement = copyAttribute(application, kAXFocusedUIElementAttribute) else {
-            throw TextInteractionError.noFocusedElement
-        }
-        let bundleID = app.bundleIdentifier ?? ""
-        let appName = app.localizedName ?? bundleID
-        let role: String = copyAttribute(element, kAXRoleAttribute) ?? ""
-        let subrole: String = copyAttribute(element, kAXSubroleAttribute) ?? ""
-        let window: AXUIElement? = copyAttribute(application, kAXFocusedWindowAttribute)
+        let focusedElement = focusedElement(for: app.processIdentifier)
+        let element = focusedElement.flatMap(preferredTextElement(from:))
+        let window = element.flatMap(window(of:))
+            ?? focusedElement.flatMap(window(of:))
+            ?? copyAttribute(application, kAXFocusedWindowAttribute)
+        guard element != nil || window != nil else { throw TextInteractionError.noFocusedElement }
         let title: String = window.flatMap { copyAttribute($0, kAXTitleAttribute) } ?? ""
-        let selectedText: String = copyAttribute(element, kAXSelectedTextAttribute) ?? ""
-        let range = selectedRange(of: element)
-        let lowerBundle = bundleID.lowercased()
-        let lowerTitle = title.lowercased()
-        let sensitive = role == "AXSecureTextField"
-            || subrole.lowercased().contains("secure")
-            || sensitiveBundleFragments.contains(where: lowerBundle.contains)
-            || lowerTitle.contains("private browsing")
-            || lowerTitle.contains("incognito")
-            || lowerTitle.contains("隐私浏览")
+        let bundleID = app.bundleIdentifier ?? ""
+        let range = element.flatMap(selectedRange(of:))
+        let value = element.flatMap { normalizedValue(of: $0, selectedRange: range) }
+        let selectedText = element.map { selectedText(of: $0, value: value, range: range) } ?? ""
+        let sensitive = isSensitive(element: element, bundleID: bundleID, windowTitle: title)
 
+        Self.logger.info(
+            "Captured target bundle=\(bundleID, privacy: .public) role=\(element.map(self.role(of:)) ?? "unavailable", privacy: .public) readable=\(value != nil, privacy: .public)"
+        )
         return TextTargetSnapshot(
             appPID: app.processIdentifier,
             bundleID: bundleID,
-            appName: appName,
+            appName: app.localizedName ?? bundleID,
             windowTitle: title,
             windowElement: window,
-            element: element,
             selectedRange: range,
             selectedText: selectedText,
             selectedTextHash: Self.hash(selectedText),
-            valueBefore: copyAttribute(element, kAXValueAttribute),
-            capturedAt: .now,
+            valueBefore: value,
             isSensitive: sensitive
         )
     }
 
-    func validate(_ snapshot: TextTargetSnapshot) throws {
+    private func validate(_ snapshot: TextTargetSnapshot) throws -> AXUIElement? {
         guard !snapshot.isSensitive else { throw TextInteractionError.sensitiveTarget }
+        guard !IsSecureEventInputEnabled() else { throw TextInteractionError.sensitiveTarget }
         guard let app = NSWorkspace.shared.frontmostApplication,
               app.processIdentifier == snapshot.appPID,
               app.bundleIdentifier == snapshot.bundleID else { throw TextInteractionError.targetChanged }
+
         let application = AXUIElementCreateApplication(snapshot.appPID)
-        guard let currentElement: AXUIElement = copyAttribute(application, kAXFocusedUIElementAttribute),
-              CFEqual(currentElement, snapshot.element) else { throw TextInteractionError.targetChanged }
-        let currentWindow: AXUIElement? = copyAttribute(application, kAXFocusedWindowAttribute)
+        let focusedElement = focusedElement(for: snapshot.appPID)
+        let element = focusedElement.flatMap(preferredTextElement(from:))
+        let currentWindow = element.flatMap(window(of:))
+            ?? focusedElement.flatMap(window(of:))
+            ?? copyAttribute(application, kAXFocusedWindowAttribute)
+        guard element != nil || currentWindow != nil else { throw TextInteractionError.targetChanged }
+        guard sameWindow(snapshot.windowElement, currentWindow) else {
+            throw TextInteractionError.targetChanged
+        }
         let currentTitle: String = currentWindow.flatMap { copyAttribute($0, kAXTitleAttribute) } ?? ""
-        let sameWindow = snapshot.windowElement == nil && currentWindow == nil
-            || (snapshot.windowElement != nil && currentWindow != nil && CFEqual(snapshot.windowElement, currentWindow))
-        guard sameWindow, currentTitle == snapshot.windowTitle,
-              selectedRange(of: currentElement) == snapshot.selectedRange else { throw TextInteractionError.targetChanged }
-        let selectedText: String = copyAttribute(currentElement, kAXSelectedTextAttribute) ?? ""
-        guard Self.hash(selectedText) == snapshot.selectedTextHash else { throw TextInteractionError.targetChanged }
+        guard !isSensitive(element: element, bundleID: snapshot.bundleID, windowTitle: currentTitle) else {
+            throw TextInteractionError.sensitiveTarget
+        }
+
+        let range = element.flatMap(selectedRange(of:))
+        let value = element.flatMap { normalizedValue(of: $0, selectedRange: range) }
+        if snapshot.valueBefore != nil, snapshot.selectedRange != nil {
+            guard let element else { throw TextInteractionError.targetChanged }
+            let selectedText = selectedText(of: element, value: value, range: range)
+            guard value == snapshot.valueBefore,
+                  range == snapshot.selectedRange,
+                  Self.hash(selectedText) == snapshot.selectedTextHash else {
+                throw TextInteractionError.targetChanged
+            }
+        }
+        return element
     }
 
-    func write(_ text: String, to snapshot: TextTargetSnapshot) async throws {
-        try validate(snapshot)
+    @discardableResult
+    func write(_ text: String, to snapshot: TextTargetSnapshot) async throws -> TextWriteOutcome {
+        let element = try validate(snapshot)
+        let expectedValue = Self.expectedValue(afterWriting: text, to: snapshot)
         var settable = DarwinBoolean(false)
-        let queryStatus = AXUIElementIsAttributeSettable(snapshot.element, kAXSelectedTextAttribute as CFString, &settable)
-        if queryStatus == .success, settable.boolValue,
-           AXUIElementSetAttributeValue(snapshot.element, kAXSelectedTextAttribute as CFString, text as CFTypeRef) == .success {
-            guard try await waitForWrite(text, to: snapshot) else { throw TextInteractionError.writeFailed }
-            return
+
+        if let element, let expectedValue,
+           AXUIElementIsAttributeSettable(
+               element,
+               kAXSelectedTextAttribute as CFString,
+               &settable
+           ) == .success,
+           settable.boolValue {
+            let setStatus = AXUIElementSetAttributeValue(
+                element,
+                kAXSelectedTextAttribute as CFString,
+                text as CFTypeRef
+            )
+            if setStatus == .success {
+                if try await waitForExpectedValue(expectedValue, in: snapshot) {
+                    Self.logger.info("Text delivered with verified Accessibility insertion")
+                    return .verified
+                }
+                guard let current = currentValue(in: snapshot) else {
+                    Self.logger.info("Accessibility insertion made the target unreadable; avoiding a duplicate paste")
+                    return .deliveredUnverified
+                }
+                if current != snapshot.valueBefore {
+                    Self.logger.info("Accessibility insertion changed text but could not be verified exactly")
+                    return .deliveredUnverified
+                }
+                Self.logger.info("Accessibility insertion made no observable change; falling back to paste")
+            }
         }
-        try await paste(text, to: snapshot)
+
+        return try await paste(text, to: snapshot)
     }
 
     func currentValue(of snapshot: TextTargetSnapshot) -> String? {
-        copyAttribute(snapshot.element, kAXValueAttribute)
+        currentValue(in: snapshot)
     }
 
-    private func paste(_ text: String, to snapshot: TextTargetSnapshot) async throws {
-        try validate(snapshot)
+    private func paste(_ text: String, to snapshot: TextTargetSnapshot) async throws -> TextWriteOutcome {
+        _ = try validate(snapshot)
         let pasteboard = NSPasteboard.general
-        let previous = pasteboard.string(forType: .string)
+        let previous = Self.snapshot(of: pasteboard)
+        let sessionID = UUID().uuidString
         pasteboard.clearContents()
-        pasteboard.setString(text, forType: .string)
-        guard let source = CGEventSource(stateID: .combinedSessionState),
-              let down = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: true),
-              let up = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: false) else {
+        let item = NSPasteboardItem()
+        item.setString(text, forType: .string)
+        item.setString(sessionID, forType: Self.pasteSessionType)
+        guard pasteboard.writeObjects([item]), pasteboard.string(forType: .string) == text else {
             throw TextInteractionError.writeFailed
         }
-        down.flags = .maskCommand
-        up.flags = .maskCommand
-        down.post(tap: .cghidEventTap)
-        up.post(tap: .cghidEventTap)
 
-        guard try await waitForWrite(text, to: snapshot) else {
-            throw TextInteractionError.writeFailed
-        }
-        guard pasteboard.string(forType: .string) == text else { return }
-        pasteboard.clearContents()
-        if let previous {
-            pasteboard.setString(previous, forType: .string)
-        }
-    }
-
-    private func didWrite(_ text: String, to snapshot: TextTargetSnapshot) -> Bool {
-        guard isSameTarget(snapshot), let current = currentValue(of: snapshot) else { return false }
-        if let expected = Self.expectedValue(afterWriting: text, to: snapshot) {
-            return current == expected
-        }
-        guard let previous = snapshot.valueBefore else { return false }
-        return current != previous && current.contains(text)
-    }
-
-    private func waitForWrite(_ text: String, to snapshot: TextTargetSnapshot) async throws -> Bool {
-        for _ in 0..<8 {
+        do {
             try await Task.sleep(for: .milliseconds(80))
-            if didWrite(text, to: snapshot) { return true }
+            _ = try validate(snapshot)
+            try await postPasteCommand()
+        } catch {
+            restore(previous, ifOwnedBy: sessionID, on: pasteboard)
+            throw error
+        }
+
+        let expectedValue = Self.expectedValue(afterWriting: text, to: snapshot)
+        if let expectedValue, try await waitForExpectedValue(expectedValue, in: snapshot) {
+            try? await Task.sleep(for: .milliseconds(180))
+            restore(previous, ifOwnedBy: sessionID, on: pasteboard)
+            Self.logger.info("Text delivered with verified synthetic paste")
+            return .verified
+        }
+
+        if expectedValue != nil,
+           let current = currentValue(in: snapshot),
+           current == snapshot.valueBefore {
+            Self.logger.error("Synthetic paste posted but readable target text did not change")
+            throw TextInteractionError.writeFailed
+        }
+
+        try? await Task.sleep(for: .milliseconds(350))
+        restore(previous, ifOwnedBy: sessionID, on: pasteboard)
+        Self.logger.info("Text delivered with synthetic paste; target does not expose verifiable text")
+        return .deliveredUnverified
+    }
+
+    private func postPasteCommand() async throws {
+        guard let source = CGEventSource(stateID: .privateState),
+              let commandDown = CGEvent(keyboardEventSource: source, virtualKey: 0x37, keyDown: true),
+              let pasteDown = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: true),
+              let pasteUp = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: false),
+              let commandUp = CGEvent(keyboardEventSource: source, virtualKey: 0x37, keyDown: false) else {
+            throw TextInteractionError.writeFailed
+        }
+        pasteDown.flags = .maskCommand
+        pasteUp.flags = .maskCommand
+        for event in [commandDown, pasteDown, pasteUp, commandUp] {
+            event.post(tap: .cghidEventTap)
+            try await Task.sleep(for: .milliseconds(8))
+        }
+    }
+
+    private func waitForExpectedValue(_ expectedValue: String, in snapshot: TextTargetSnapshot) async throws -> Bool {
+        for _ in 0..<10 {
+            try await Task.sleep(for: .milliseconds(50))
+            if currentValue(in: snapshot) == expectedValue { return true }
         }
         return false
     }
 
-    private func isSameTarget(_ snapshot: TextTargetSnapshot) -> Bool {
+    private func currentValue(in snapshot: TextTargetSnapshot) -> String? {
         guard let app = NSWorkspace.shared.frontmostApplication,
               app.processIdentifier == snapshot.appPID,
-              app.bundleIdentifier == snapshot.bundleID else { return false }
+              app.bundleIdentifier == snapshot.bundleID,
+              let focusedElement = focusedElement(for: snapshot.appPID) else { return nil }
+        guard let element = preferredTextElement(from: focusedElement) else { return nil }
         let application = AXUIElementCreateApplication(snapshot.appPID)
-        guard let element: AXUIElement = copyAttribute(application, kAXFocusedUIElementAttribute),
-              CFEqual(element, snapshot.element) else { return false }
-        let window: AXUIElement? = copyAttribute(application, kAXFocusedWindowAttribute)
-        if let originalWindow = snapshot.windowElement, let window {
-            return CFEqual(originalWindow, window)
-        }
-        let title: String = window.flatMap { copyAttribute($0, kAXTitleAttribute) } ?? ""
-        return snapshot.windowElement == nil && window == nil && title == snapshot.windowTitle
+        let currentWindow = window(of: element) ?? copyAttribute(application, kAXFocusedWindowAttribute)
+        guard sameWindow(snapshot.windowElement, currentWindow) else { return nil }
+        let range = selectedRange(of: element)
+        return normalizedValue(of: element, selectedRange: range)
     }
 
     nonisolated static func expectedValue(afterWriting text: String, to snapshot: TextTargetSnapshot) -> String? {
@@ -189,6 +263,154 @@ final class TextInteraction {
               AXValueGetType(value) == .cfRange else { return nil }
         var range = CFRange()
         return AXValueGetValue(value, .cfRange, &range) ? range : nil
+    }
+
+    private func focusedElement(for expectedPID: pid_t) -> AXUIElement? {
+        let systemWide = AXUIElementCreateSystemWide()
+        if let element: AXUIElement = copyAttribute(systemWide, kAXFocusedUIElementAttribute),
+           processID(of: element) == expectedPID {
+            return element
+        }
+        let application = AXUIElementCreateApplication(expectedPID)
+        guard let element: AXUIElement = copyAttribute(application, kAXFocusedUIElementAttribute),
+              processID(of: element) == expectedPID else { return nil }
+        return element
+    }
+
+    private func processID(of element: AXUIElement) -> pid_t? {
+        var pid: pid_t = 0
+        return AXUIElementGetPid(element, &pid) == .success ? pid : nil
+    }
+
+    private func preferredTextElement(from root: AXUIElement) -> AXUIElement? {
+        if isTextElement(root) { return root }
+        var queue = childElements(of: root).map { (element: $0, depth: 1) }
+        var seen: [AXUIElement] = []
+        var candidates: [AXUIElement] = []
+        var visited = 0
+        while !queue.isEmpty, visited < 80 {
+            let current = queue.removeFirst()
+            guard !seen.contains(where: { CFEqual($0, current.element) }) else { continue }
+            seen.append(current.element)
+            visited += 1
+            if isTextElement(current.element) {
+                let focused: NSNumber? = copyAttribute(current.element, kAXFocusedAttribute)
+                if focused?.boolValue == true { return current.element }
+                candidates.append(current.element)
+                continue
+            }
+            if current.depth < 6 {
+                queue.append(contentsOf: childElements(of: current.element).map {
+                    (element: $0, depth: current.depth + 1)
+                })
+            }
+        }
+        return candidates.count == 1 ? candidates[0] : nil
+    }
+
+    private func isTextElement(_ element: AXUIElement) -> Bool {
+        let elementRole = role(of: element)
+        if elementRole == "AXSecureTextField" || Self.textRoles.contains(elementRole) { return true }
+        let editable: NSNumber? = copyAttribute(element, kAXIsEditableAttribute)
+        return editable?.boolValue == true
+    }
+
+    private func childElements(of element: AXUIElement) -> [AXUIElement] {
+        var result: [AXUIElement] = []
+        for attribute in [kAXChildrenAttribute, kAXContentsAttribute, "AXVisibleChildren"] {
+            var value: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success,
+                  let value else { continue }
+            if CFGetTypeID(value) == AXUIElementGetTypeID() {
+                result.append(value as! AXUIElement)
+            } else if let children = value as? [AXUIElement] {
+                result.append(contentsOf: children)
+            } else if let children = value as? [AnyObject] {
+                result.append(contentsOf: children.compactMap { child in
+                    guard CFGetTypeID(child) == AXUIElementGetTypeID() else { return nil }
+                    return (child as! AXUIElement)
+                })
+            }
+        }
+        return result
+    }
+
+    private func window(of element: AXUIElement) -> AXUIElement? {
+        copyAttribute(element, kAXWindowAttribute)
+    }
+
+    private func sameWindow(_ original: AXUIElement?, _ current: AXUIElement?) -> Bool {
+        switch (original, current) {
+        case (nil, nil): true
+        case let (original?, current?): CFEqual(original, current)
+        default: false
+        }
+    }
+
+    private func role(of element: AXUIElement) -> String {
+        copyAttribute(element, kAXRoleAttribute) ?? ""
+    }
+
+    private func normalizedValue(of element: AXUIElement, selectedRange: CFRange?) -> String? {
+        guard let value: String = copyAttribute(element, kAXValueAttribute) else { return nil }
+        let placeholder: String? = copyAttribute(element, kAXPlaceholderValueAttribute)
+        if let placeholder, !placeholder.isEmpty, value == placeholder,
+           selectedRange == CFRange(location: 0, length: 0) {
+            return ""
+        }
+        return value
+    }
+
+    private func selectedText(of element: AXUIElement, value: String?, range: CFRange?) -> String {
+        if let selected: String = copyAttribute(element, kAXSelectedTextAttribute), !selected.isEmpty {
+            return selected
+        }
+        guard let value, let range, range.location >= 0, range.length > 0,
+              range.location + range.length <= (value as NSString).length else { return "" }
+        return (value as NSString).substring(
+            with: NSRange(location: range.location, length: range.length)
+        )
+    }
+
+    private func isSensitive(element: AXUIElement?, bundleID: String, windowTitle: String) -> Bool {
+        let elementRole = element.map(role(of:)) ?? ""
+        let subrole: String = element.flatMap { copyAttribute($0, kAXSubroleAttribute) } ?? ""
+        let lowerBundle = bundleID.lowercased()
+        let lowerTitle = windowTitle.lowercased()
+        return IsSecureEventInputEnabled()
+            || elementRole == "AXSecureTextField"
+            || subrole.lowercased().contains("secure")
+            || sensitiveBundleFragments.contains(where: lowerBundle.contains)
+            || lowerTitle.contains("private browsing")
+            || lowerTitle.contains("incognito")
+            || lowerTitle.contains("隐私浏览")
+    }
+
+    static func snapshot(of pasteboard: NSPasteboard) -> PasteboardSnapshot {
+        (pasteboard.pasteboardItems ?? []).map { item in
+            Dictionary(uniqueKeysWithValues: item.types.compactMap { type in
+                item.data(forType: type).map { (type, $0) }
+            })
+        }
+    }
+
+    static func restore(_ snapshot: PasteboardSnapshot, to pasteboard: NSPasteboard) {
+        pasteboard.clearContents()
+        let items = snapshot.map { values in
+            let item = NSPasteboardItem()
+            for (type, data) in values { item.setData(data, forType: type) }
+            return item
+        }
+        if !items.isEmpty { pasteboard.writeObjects(items) }
+    }
+
+    private func restore(
+        _ snapshot: PasteboardSnapshot,
+        ifOwnedBy sessionID: String,
+        on pasteboard: NSPasteboard
+    ) {
+        guard pasteboard.string(forType: Self.pasteSessionType) == sessionID else { return }
+        Self.restore(snapshot, to: pasteboard)
     }
 
     private func copyAttribute<T>(_ element: AXUIElement, _ attribute: String) -> T? {
@@ -212,6 +434,8 @@ enum ContextCollector {
         clipboardAllowed: Bool,
         browserPageAllowed: Bool,
         session: AgentSession?,
+        domains: Set<DomainPreset>,
+        customDomainTerms: [String],
         knowledge: [KnowledgeEntity]
     ) -> [ContextItem] {
         guard !snapshot.isSensitive else { return [] }
@@ -238,6 +462,15 @@ enum ContextCollector {
         }
         if let session, session.expiresAt > .now {
             items.append(ContextItem(kind: .session, symbol: "bubble.left.and.bubble.right", title: "Recent session", value: session.contextSummary))
+        }
+        if !domains.isEmpty || !customDomainTerms.isEmpty {
+            let domainNames = DomainPreset.allCases.filter(domains.contains).map(\.promptName)
+            items.append(ContextItem(
+                kind: .domain,
+                symbol: "text.bubble",
+                title: "Domains & vocabulary",
+                value: (domainNames + customDomainTerms).joined(separator: ", ")
+            ))
         }
         if !knowledge.isEmpty {
             items.append(ContextItem(

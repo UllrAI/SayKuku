@@ -59,7 +59,25 @@ final class AppState {
     var agentPhase: AgentPhase = .hidden { didSet { overlayController?.refresh() } }
     var inputMode: InputMode = .hold { didSet { defaults.set(inputMode.rawValue, forKey: Keys.inputMode) } }
     var autoStop = false { didSet { defaults.set(autoStop, forKey: Keys.autoStop) } }
+    var recognitionLanguage: RecognitionLanguage = .automatic {
+        didSet { defaults.set(recognitionLanguage.rawValue, forKey: Keys.recognitionLanguage) }
+    }
+    var dictationNumberFormat: DictationNumberFormat = .preferDigits {
+        didSet { defaults.set(dictationNumberFormat.rawValue, forKey: Keys.dictationNumberFormat) }
+    }
+    var selectedDomains: Set<DomainPreset> = [] {
+        didSet { defaults.set(selectedDomains.map(\.rawValue).sorted(), forKey: Keys.selectedDomains) }
+    }
+    var customDomainTerms: [String] = [] {
+        didSet { defaults.set(customDomainTerms, forKey: Keys.customDomainTerms) }
+    }
+    var didCompleteOnboarding = false {
+        didSet { defaults.set(didCompleteOnboarding, forKey: Keys.didCompleteOnboarding) }
+    }
     var continuousConversation = true { didSet { defaults.set(continuousConversation, forKey: Keys.continuousConversation) } }
+    var automaticAgentWriteBack = true {
+        didSet { defaults.set(automaticAgentWriteBack, forKey: Keys.automaticAgentWriteBack) }
+    }
     var learnFromCorrections = true { didSet { defaults.set(learnFromCorrections, forKey: Keys.learnCorrections) } }
     var selectedTextAllowed = true { didSet { defaults.set(selectedTextAllowed, forKey: Keys.selectedText) } }
     var currentAppAllowed = true { didSet { defaults.set(currentAppAllowed, forKey: Keys.currentApp) } }
@@ -70,6 +88,7 @@ final class AppState {
     var agentCommand = ""
     var liveTranscript = ""
     var pendingCopyText = ""
+    var overlayError: String? { didSet { overlayController?.refresh() } }
     var toast: ToastMessage?
     var historyEntries: [HistoryEntry] = [] { didSet { schedulePersistence() } }
     var knowledgeEntities: [KnowledgeEntity] = [] { didSet { schedulePersistence() } }
@@ -110,7 +129,6 @@ final class AppState {
     @ObservationIgnored private var targetSnapshot: TextTargetSnapshot?
     @ObservationIgnored private var activeAgentTranscript = ""
     @ObservationIgnored private var activeAgentSession: AgentSession?
-    @ObservationIgnored private var activeRecording: AudioCapture.Recording?
     @ObservationIgnored private var didEvaluateStartupPermissions = false
     @ObservationIgnored private var isLoaded = false
     @ObservationIgnored private var persistenceGeneration = 0
@@ -135,12 +153,9 @@ final class AppState {
         QwenConfiguration(region: qwenRegion, workspaceID: qwenWorkspaceID.trimmingCharacters(in: .whitespacesAndNewlines), realtimeModel: realtimeModel, reasoningModel: reasoningModel)
     }
 
-    var currentSession: AgentSession? {
-        let now = Date.now
-        return sessions.filter { $0.expiresAt > now }.max(by: { $0.createdAt < $1.createdAt })
-    }
-
     func text(_ chinese: String, _ english: String) -> String { usesChineseUI ? chinese : english }
+    var voiceInputTitle: String { text("语音输入", "Voice Input") }
+    var voiceAgentTitle: String { text("语音 Agent", "Voice Agent") }
 
     func startDictation() {
         beginVoiceWorkflow(mode: .dictation)
@@ -159,11 +174,11 @@ final class AppState {
     func finishDictation() {
         guard dictationPhase == .listening else { return }
         let recording = audioCapture.stop()
-        activeRecording = recording
         chunkContinuation?.finish()
         chunkContinuation = nil
+        let historyID = beginHistoryEntry(mode: .dictation, recording: recording)
         withAnimation(Motion.snappy) { dictationPhase = .processing }
-        workflowTask = Task { [weak self] in await self?.completeDictation(recording) }
+        workflowTask = Task { [weak self] in await self?.completeDictation(recording, historyID: historyID) }
     }
 
     func startAgent() {
@@ -177,11 +192,11 @@ final class AppState {
     func finishAgentListening() {
         guard agentPhase == .listening else { return }
         let recording = audioCapture.stop()
-        activeRecording = recording
         chunkContinuation?.finish()
         chunkContinuation = nil
+        let historyID = beginHistoryEntry(mode: .agent, recording: recording)
         withAnimation(Motion.snappy) { agentPhase = .transcribing }
-        workflowTask = Task { [weak self] in await self?.processAgentRecording(recording) }
+        workflowTask = Task { [weak self] in await self?.processAgentRecording(recording, historyID: historyID) }
     }
 
     func dismissAgent() {
@@ -222,7 +237,7 @@ final class AppState {
         Task { await loadStoredData() }
         Task { @MainActor [weak self] in
             await Task.yield()
-            self?.presentPermissionGuideIfNeeded()
+            self?.presentStartupExperienceIfNeeded()
         }
     }
 
@@ -368,6 +383,19 @@ final class AppState {
         didEvaluateStartupPermissions = true
         if !systemPermissions.allRequiredPermissionsGranted { presentedSheet = .permissions }
     }
+    func showDomainOnboarding() { presentedSheet = .onboarding }
+    func completeDomainOnboarding(domains: Set<DomainPreset>, customTerms: [String]) {
+        let wasFirstRun = !didCompleteOnboarding
+        selectedDomains = domains
+        customDomainTerms = Self.normalizedDomainTerms(customTerms)
+        didCompleteOnboarding = true
+        presentedSheet = nil
+        guard wasFirstRun else { return }
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(350))
+            self?.presentPermissionGuideIfNeeded()
+        }
+    }
 
     func showPermissionGuide() { systemPermissions.refresh(); presentedSheet = .permissions }
     func dismissPermissionGuide() { microphoneTest.stop(); presentedSheet = nil }
@@ -422,7 +450,6 @@ final class AppState {
             pendingCopyText = ""
             activeAgentTranscript = ""
             activeAgentSession = nil
-            activeRecording = nil
             if mode == .agent {
                 let session = continuousConversation
                     ? sessions.filter { $0.app == snapshot.bundleID && $0.expiresAt > .now }.max(by: { $0.createdAt < $1.createdAt })
@@ -436,6 +463,8 @@ final class AppState {
                     clipboardAllowed: clipboardAllowed,
                     browserPageAllowed: browserPageAllowed,
                     session: session,
+                    domains: selectedDomains,
+                    customDomainTerms: customDomainTerms,
                     knowledge: knowledgeEntities
                 )
                 agentCommand = text("正在听…", "Listening…")
@@ -452,8 +481,15 @@ final class AppState {
                 try audioCapture.start { continuation.yield($0) }
                 withAnimation(Motion.spring) { dictationPhase = .listening }
                 let shouldAutoStop = autoStop
-                let knowledgePrompt = KnowledgePrompt.render(entities: knowledgeEntities, relationships: knowledgeRelationships)
-                uploadTask = Task { [weak self, realtimeClient, apiKey, configuration, knowledgePrompt] in
+                let selectedRecognitionLanguage = recognitionLanguage
+                let selectedNumberFormat = dictationNumberFormat
+                let knowledgePrompt = KnowledgePrompt.render(
+                    entities: knowledgeEntities,
+                    relationships: knowledgeRelationships,
+                    domains: selectedDomains,
+                    customTerms: customDomainTerms
+                )
+                uploadTask = Task { [weak self, realtimeClient, apiKey, configuration, selectedRecognitionLanguage, selectedNumberFormat, knowledgePrompt] in
                     try await realtimeClient.connect(
                         apiKey: apiKey,
                         configuration: configuration,
@@ -462,6 +498,8 @@ final class AppState {
                             Task { @MainActor in self?.finishDictation() }
                         },
                         onDelta: { transcript in Task { @MainActor in self?.liveTranscript = transcript } },
+                        recognitionLanguage: selectedRecognitionLanguage,
+                        numberFormat: selectedNumberFormat,
                         knowledgePrompt: knowledgePrompt
                     )
                     for await chunk in stream { await realtimeClient.append(chunk) }
@@ -474,38 +512,52 @@ final class AppState {
         }
     }
 
-    private func completeDictation(_ recording: AudioCapture.Recording) async {
+    private func completeDictation(_ recording: AudioCapture.Recording, historyID: UUID?) async {
+        defer { targetSnapshot = nil }
+        await persistHistoryAudio(recording, historyID: historyID)
         do {
             let raw = try await transcribe(recording)
             guard !raw.isEmpty else { throw QwenError.invalidResponse }
+            updateHistory(historyID, input: raw, output: raw)
             guard let snapshot = targetSnapshot else { throw TextInteractionError.targetChanged }
             do {
-                try await textInteraction.write(raw, to: snapshot)
-                observeCorrection(writtenText: raw, snapshot: snapshot)
+                let outcome = try await textInteraction.write(raw, to: snapshot)
+                if outcome == .verified {
+                    observeCorrection(writtenText: raw, snapshot: snapshot)
+                }
             } catch is TextInteractionError {
-                await recordHistory(mode: .dictation, input: raw, output: raw, recording: recording, snapshot: snapshot)
+                updateHistory(historyID, status: .completed)
                 presentCopyFallback(raw, agent: false)
                 await realtimeClient.cancel()
                 return
             }
-            await recordHistory(mode: .dictation, input: raw, output: raw, recording: recording, snapshot: snapshot)
+            updateHistory(historyID, status: .completed)
             withAnimation(Motion.spring) { dictationPhase = .success }
             try? await Task.sleep(for: .milliseconds(850))
             withAnimation(Motion.snappy) { dictationPhase = .idle }
         } catch is CancellationError {
+            updateHistory(historyID, status: .cancelled)
             dictationPhase = .idle
         } catch {
+            updateHistory(historyID, status: .failed, errorMessage: localizedError(error))
             handleWorkflowError(error, agent: false)
         }
         await realtimeClient.cancel()
     }
 
-    private func processAgentRecording(_ recording: AudioCapture.Recording) async {
+    private func processAgentRecording(_ recording: AudioCapture.Recording, historyID: UUID?) async {
+        defer { targetSnapshot = nil }
+        await persistHistoryAudio(recording, historyID: historyID)
         do {
             guard recording.hasSpeech else { throw QwenError.noSpeech }
-            let knowledgePrompt = contextItems.contains { $0.kind == .knowledge }
-                ? KnowledgePrompt.render(entities: knowledgeEntities, relationships: knowledgeRelationships)
-                : KnowledgePrompt.render(entities: [], relationships: [])
+            let includesKnowledge = contextItems.contains { $0.kind == .knowledge }
+            let includesDomains = contextItems.contains { $0.kind == .domain }
+            let knowledgePrompt = KnowledgePrompt.render(
+                entities: includesKnowledge ? knowledgeEntities : [],
+                relationships: includesKnowledge ? knowledgeRelationships : [],
+                domains: includesDomains ? selectedDomains : [],
+                customTerms: includesDomains ? customDomainTerms : []
+            )
             let response = try await reasoningClient.respondToAudio(
                 apiKey: apiKey,
                 configuration: configuration,
@@ -518,12 +570,15 @@ final class AppState {
                   !command.isEmpty else { throw QwenError.invalidResponse }
             guard let snapshot = targetSnapshot else { throw TextInteractionError.targetChanged }
             activeAgentTranscript = command
+            updateHistory(historyID, input: command)
             agentCommand = response.intent
             withAnimation(Motion.panel) { agentPhase = .processing }
-            await executeAgent(response, snapshot: snapshot)
+            await executeAgent(response, snapshot: snapshot, historyID: historyID)
         } catch is CancellationError {
+            updateHistory(historyID, status: .cancelled)
             agentPhase = .hidden
         } catch {
+            updateHistory(historyID, status: .failed, errorMessage: localizedError(error))
             handleWorkflowError(error, agent: true)
         }
         await realtimeClient.cancel()
@@ -548,7 +603,14 @@ final class AppState {
                 apiKey: apiKey,
                 configuration: configuration,
                 wav: recording.wav,
-                knowledgePrompt: KnowledgePrompt.render(entities: knowledgeEntities, relationships: knowledgeRelationships)
+                recognitionLanguage: recognitionLanguage,
+                numberFormat: dictationNumberFormat,
+                knowledgePrompt: KnowledgePrompt.render(
+                    entities: knowledgeEntities,
+                    relationships: knowledgeRelationships,
+                    domains: selectedDomains,
+                    customTerms: customDomainTerms
+                )
             )
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             guard !result.isEmpty else { throw QwenError.noSpeech }
@@ -556,15 +618,19 @@ final class AppState {
         }
     }
 
-    private func executeAgent(_ response: AgentResponse, snapshot: TextTargetSnapshot) async {
+    private func executeAgent(_ response: AgentResponse, snapshot: TextTargetSnapshot, historyID: UUID?) async {
         do {
             let output: String
             var needsCopyFallback = false
             if response.action == .writeText {
                 guard let text = response.output, !text.isEmpty else { throw QwenError.invalidResponse }
-                do {
-                    try await textInteraction.write(text, to: snapshot)
-                } catch is TextInteractionError {
+                if automaticAgentWriteBack {
+                    do {
+                        try await textInteraction.write(text, to: snapshot)
+                    } catch is TextInteractionError {
+                        needsCopyFallback = true
+                    }
+                } else {
                     needsCopyFallback = true
                 }
                 output = text
@@ -572,9 +638,7 @@ final class AppState {
                 try AgentActionExecutor.execute(response)
                 output = response.url ?? response.query ?? response.shortcutName ?? response.intent
             }
-            if let recording = activeRecording {
-                await recordHistory(mode: .agent, input: activeAgentTranscript, output: output, recording: recording, snapshot: snapshot)
-            }
+            updateHistory(historyID, input: activeAgentTranscript, output: output, status: .completed)
             if continuousConversation {
                 sessions.removeAll { $0.expiresAt <= .now || $0.app == snapshot.bundleID }
                 sessions.append(AgentSession(
@@ -586,32 +650,70 @@ final class AppState {
                 ))
             }
             if needsCopyFallback {
-                presentCopyFallback(output, agent: true)
+                presentCopyFallback(output, agent: true, copyImmediately: automaticAgentWriteBack)
                 return
             }
             withAnimation(Motion.panel) { agentPhase = .result }
             try? await Task.sleep(for: .milliseconds(950))
             withAnimation(Motion.snappy) { agentPhase = .hidden }
         } catch is CancellationError {
+            updateHistory(historyID, status: .cancelled)
             agentPhase = .hidden
         } catch {
+            updateHistory(historyID, status: .failed, errorMessage: localizedError(error))
             handleWorkflowError(error, agent: true)
         }
     }
 
-    private func recordHistory(
-        mode: HistoryMode, input: String, output: String,
-        recording: AudioCapture.Recording, snapshot: TextTargetSnapshot
-    ) async {
-        guard !snapshot.isSensitive else { return }
+    private func beginHistoryEntry(mode: HistoryMode, recording: AudioCapture.Recording) -> UUID? {
+        guard let snapshot = targetSnapshot, !snapshot.isSensitive else { return nil }
         let id = UUID()
-        var filename: String?
-        if storeVoiceAudio, !recording.wav.isEmpty { filename = try? await store.saveAudio(recording.wav, id: id) }
         historyEntries.insert(HistoryEntry(
             id: id, mode: mode, app: snapshot.appName, durationSeconds: recording.duration,
-            input: input, output: output, audioFilename: filename
+            input: "", output: "", status: .processing
         ), at: 0)
         cleanExpiredHistory()
+        return id
+    }
+
+    private func persistHistoryAudio(_ recording: AudioCapture.Recording, historyID: UUID?) async {
+        guard let historyID else { return }
+        var saveFailed = false
+        if storeVoiceAudio, !recording.wav.isEmpty {
+            do {
+                let filename = try await store.saveAudio(recording.wav, id: historyID)
+                updateHistory(historyID, audioFilename: filename)
+            } catch {
+                saveFailed = true
+            }
+        }
+        do {
+            try await persistCurrentState()
+        } catch {
+            saveFailed = true
+        }
+        if saveFailed {
+            showToast(
+                text("输入记录保存失败，识别仍会继续", "Could not save the input record; recognition will continue"),
+                symbol: "exclamationmark.triangle.fill"
+            )
+        }
+    }
+
+    private func updateHistory(
+        _ id: UUID?, input: String? = nil, output: String? = nil,
+        audioFilename: String? = nil, status: HistoryStatus? = nil, errorMessage: String? = nil
+    ) {
+        guard let id, let index = historyEntries.firstIndex(where: { $0.id == id }) else { return }
+        if let input { historyEntries[index].input = input }
+        if let output { historyEntries[index].output = output }
+        if let audioFilename { historyEntries[index].audioFilename = audioFilename }
+        if let status, historyEntries[index].status == .processing {
+            historyEntries[index].status = status
+            historyEntries[index].errorMessage = errorMessage
+        } else if let errorMessage {
+            historyEntries[index].errorMessage = errorMessage
+        }
     }
 
     private func cancelWorkflow() {
@@ -626,13 +728,13 @@ final class AppState {
         targetSnapshot = nil
         activeAgentTranscript = ""
         activeAgentSession = nil
-        activeRecording = nil
         pendingCopyText = ""
+        overlayError = nil
     }
 
-    private func presentCopyFallback(_ text: String, agent: Bool) {
+    private func presentCopyFallback(_ text: String, agent: Bool, copyImmediately: Bool = true) {
         pendingCopyText = text
-        copyPendingText()
+        if copyImmediately { copyPendingText() }
         withAnimation(Motion.panel) {
             if agent { agentPhase = .copyReady }
             else { dictationPhase = .copyReady }
@@ -645,7 +747,15 @@ final class AppState {
         chunkContinuation = nil
         uploadTask?.cancel()
         if agent { agentPhase = .hidden } else { dictationPhase = .idle }
-        showToast(localizedError(error), symbol: "exclamationmark.triangle.fill")
+        targetSnapshot = nil
+        let message = localizedError(error)
+        overlayError = message
+        showToast(message, symbol: "exclamationmark.triangle.fill")
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(2.4))
+            guard self?.overlayError == message else { return }
+            withAnimation(Motion.snappy) { self?.overlayError = nil }
+        }
     }
 
     private func observeCorrection(writtenText: String, snapshot: TextTargetSnapshot) {
@@ -692,8 +802,19 @@ final class AppState {
         if let qwenError = error as? QwenError, qwenError == .noSpeech {
             return text("未检测到语音，请靠近麦克风后重试", "No speech detected; move closer to the microphone and try again")
         }
-        if error is TextInteractionError {
-            return text("请先点一下要输入文字的位置，再试一次", "Click where you want to type, then try again")
+        if let textError = error as? TextInteractionError {
+            switch textError {
+            case .accessibilityRequired:
+                return text("请先允许 SayKuku 使用辅助功能", "Allow Accessibility access for SayKuku first")
+            case .noFocusedElement:
+                return text("请先点一下要输入文字的位置", "Click where you want to type first")
+            case .sensitiveTarget:
+                return text("为保护隐私，SayKuku 不会读写敏感输入框", "SayKuku does not read or write sensitive fields")
+            case .targetChanged:
+                return text("输入位置已改变，请重新触发", "The text target changed; trigger SayKuku again")
+            case .writeFailed:
+                return text("目标应用未接受文字，内容已复制", "The target app did not accept the text; it was copied")
+            }
         }
         let message = error.localizedDescription
         if usesChineseUI {
@@ -736,9 +857,27 @@ final class AppState {
         Task { [store] in try? await store.replace(value, generation: generation) }
     }
 
+    private func persistCurrentState() async throws {
+        guard isLoaded else { return }
+        persistenceGeneration += 1
+        let generation = persistenceGeneration
+        let value = LocalStore.Snapshot(
+            history: historyEntries, entities: knowledgeEntities,
+            relationships: knowledgeRelationships, corrections: corrections, sessions: sessions
+        )
+        try await store.replace(value, generation: generation)
+    }
+
     private func loadSettings() {
         if let raw = defaults.string(forKey: Keys.inputMode), let value = InputMode(rawValue: raw) { inputMode = value }
         if let raw = defaults.string(forKey: Keys.language), let value = AppLanguage(rawValue: raw) { appLanguage = value }
+        if let raw = defaults.string(forKey: Keys.recognitionLanguage),
+           let value = RecognitionLanguage(rawValue: raw) { recognitionLanguage = value }
+        if let raw = defaults.string(forKey: Keys.dictationNumberFormat),
+           let value = DictationNumberFormat(rawValue: raw) { dictationNumberFormat = value }
+        selectedDomains = Set((defaults.stringArray(forKey: Keys.selectedDomains) ?? []).compactMap(DomainPreset.init(rawValue:)))
+        customDomainTerms = Self.normalizedDomainTerms(defaults.stringArray(forKey: Keys.customDomainTerms) ?? [])
+        didCompleteOnboarding = defaults.bool(forKey: Keys.didCompleteOnboarding)
         if let raw = defaults.string(forKey: Keys.historyRetention), let value = HistoryRetention(rawValue: raw) { historyRetention = value }
         if let raw = defaults.string(forKey: Keys.qwenRegion), let value = QwenRegion(rawValue: raw) { qwenRegion = value }
         qwenWorkspaceID = defaults.string(forKey: Keys.qwenWorkspace) ?? ""
@@ -752,6 +891,7 @@ final class AppState {
         reasoningModel = defaults.string(forKey: Keys.reasoningModel) ?? reasoningModel
         autoStop = defaults.object(forKey: Keys.autoStop).map { _ in defaults.bool(forKey: Keys.autoStop) } ?? false
         continuousConversation = defaults.object(forKey: Keys.continuousConversation).map { _ in defaults.bool(forKey: Keys.continuousConversation) } ?? true
+        automaticAgentWriteBack = defaults.object(forKey: Keys.automaticAgentWriteBack).map { _ in defaults.bool(forKey: Keys.automaticAgentWriteBack) } ?? true
         learnFromCorrections = defaults.object(forKey: Keys.learnCorrections).map { _ in defaults.bool(forKey: Keys.learnCorrections) } ?? true
         selectedTextAllowed = defaults.object(forKey: Keys.selectedText).map { _ in defaults.bool(forKey: Keys.selectedText) } ?? true
         currentAppAllowed = defaults.object(forKey: Keys.currentApp).map { _ in defaults.bool(forKey: Keys.currentApp) } ?? true
@@ -764,12 +904,32 @@ final class AppState {
 
     private enum Keys {
         static let inputMode = "inputMode", language = "appLanguage", autoStop = "autoStop"
+        static let recognitionLanguage = "dictation.recognitionLanguage", dictationNumberFormat = "dictation.numberFormat"
+        static let selectedDomains = "dictation.selectedDomains", customDomainTerms = "dictation.customDomainTerms"
+        static let didCompleteOnboarding = "onboarding.completed"
         static let continuousConversation = "continuousConversation", learnCorrections = "learnFromCorrections"
+        static let automaticAgentWriteBack = "agent.automaticWriteBack"
         static let selectedText = "privacy.selectedText", currentApp = "privacy.currentApp", windowTitle = "privacy.windowTitle"
         static let clipboard = "privacy.clipboard", browserPage = "privacy.browserPage"
         static let historyRetention = "historyRetention", storeVoiceAudio = "storeVoiceAudio", showInMenuBar = "showInMenuBar"
         static let qwenRegion = "qwen.region", qwenWorkspace = "qwen.workspace", realtimeModel = "qwen.realtimeModel"
         static let reasoningModel = "qwen.reasoningModel", apiKey = "qwen.apiKey"
+    }
+
+    private func presentStartupExperienceIfNeeded() {
+        if didCompleteOnboarding { presentPermissionGuideIfNeeded() }
+        else { presentedSheet = .onboarding }
+    }
+
+    nonisolated static func normalizedDomainTerms(_ terms: [String]) -> [String] {
+        var seen = Set<String>()
+        return terms.compactMap { term in
+            let value = term.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !value.isEmpty, value.count <= 64 else { return nil }
+            let key = value.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+            guard seen.insert(key).inserted else { return nil }
+            return value
+        }.prefix(20).map { $0 }
     }
 }
 

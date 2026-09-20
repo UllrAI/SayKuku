@@ -73,57 +73,31 @@ private struct HistoryRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 13) {
-            Button {
-                togglePlayback()
-            } label: {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 9, style: .continuous)
-                        .fill(entry.mode.color.opacity(0.1))
-                    if isPlaying {
-                        Waveform(color: entry.mode.color, barCount: 5, height: 18)
-                            .frame(width: 23)
-                    } else {
-                        Image(systemName: entry.hasAudio ? "play.fill" : entry.mode.symbol)
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(entry.mode.color)
-                    }
-                }
-                .frame(width: 34, height: 34)
+            ZStack {
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(KukuColor.stone.opacity(0.11))
+                Image(systemName: entry.mode.symbol)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(KukuColor.stone)
             }
-            .buttonStyle(PressScaleStyle())
-            .disabled(!entry.hasAudio)
-            .help(entry.hasAudio ? appState.text("播放原始语音", "Play original voice") : appState.text("未保存原始语音", "Original voice not saved"))
+            .frame(width: 34, height: 34)
 
             VStack(alignment: .leading, spacing: 7) {
                 HStack(spacing: 7) {
                     Text(entry.mode.title(appState))
                         .font(.system(size: 10.5, weight: .bold, design: .rounded))
-                        .foregroundStyle(entry.mode.color)
+                        .foregroundStyle(KukuColor.stone)
                     Text("·")
                     Text(entry.app)
                     Text("·")
                     Text(entry.time)
-                    if entry.hasAudio {
-                        Text("·")
-                        Text(entry.duration)
-                    }
                 }
                 .font(.system(size: 10.5, weight: .medium))
                 .foregroundStyle(KukuColor.stone)
 
                 VStack(alignment: .leading, spacing: 6) {
-                    LabeledHistoryText(
-                        label: appState.text("输入", "Input"),
-                        text: entry.input,
-                        color: KukuColor.stone,
-                        emphasized: false
-                    )
-                    LabeledHistoryText(
-                        label: appState.text("输出", "Output"),
-                        text: entry.output,
-                        color: KukuColor.ink,
-                        emphasized: true
-                    )
+                    historyLine(label: appState.text("输入", "Input")) { inputContent }
+                    historyLine(label: appState.text("输出", "Output")) { outputContent }
                 }
             }
 
@@ -148,6 +122,87 @@ private struct HistoryRow: View {
         .background(hovering ? Color.white.opacity(0.48) : .clear, in: RoundedRectangle(cornerRadius: KukuLayout.radiusMedium, style: .continuous))
         .onHover { hovering = $0 }
         .animation(Motion.snappy, value: hovering)
+    }
+
+    @ViewBuilder
+    private var inputContent: some View {
+        HStack(spacing: 8) {
+            if entry.hasAudio {
+                Button { togglePlayback() } label: {
+                    HStack(spacing: 7) {
+                        if isPlaying {
+                            Waveform(color: KukuColor.stone, barCount: 5, height: 12)
+                                .frame(width: 20)
+                        } else {
+                            Image(systemName: "play.fill")
+                                .font(.system(size: 9, weight: .semibold))
+                        }
+                        Text(entry.duration)
+                            .font(.system(size: 10.5, weight: .semibold, design: .rounded))
+                    }
+                    .foregroundStyle(KukuColor.stone)
+                    .padding(.horizontal, 9)
+                    .frame(height: 24)
+                    .background(KukuColor.stone.opacity(0.09), in: Capsule())
+                }
+                .buttonStyle(PressScaleStyle())
+                .help(appState.text("播放原始语音", "Play original voice"))
+            } else {
+                Image(systemName: entry.status == .processing && appState.storeVoiceAudio ? "ellipsis" : "waveform.slash")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(KukuColor.stone)
+                Text(entry.status == .processing && appState.storeVoiceAudio
+                     ? appState.text("正在保存录音…", "Saving voice…")
+                     : appState.text("未保存原始语音", "Original voice not saved"))
+                    .font(.system(size: 11))
+                    .foregroundStyle(KukuColor.stone)
+            }
+
+            if entry.mode == .agent, !entry.input.isEmpty {
+                Text(entry.input)
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(KukuColor.stone)
+                    .lineLimit(2)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var outputContent: some View {
+        switch entry.status {
+        case .processing:
+            HStack(spacing: 7) {
+                ProgressView().controlSize(.mini)
+                Text(entry.mode == .dictation
+                     ? appState.text("正在识别…", "Transcribing…")
+                     : appState.text("正在处理…", "Processing…"))
+            }
+            .foregroundStyle(KukuColor.stone)
+        case .failed:
+            Label(entry.errorMessage ?? appState.text("处理失败", "Processing failed"), systemImage: "exclamationmark.circle")
+                .foregroundStyle(KukuColor.stone)
+        case .cancelled:
+            Label(appState.text("已取消", "Cancelled"), systemImage: "xmark.circle")
+                .foregroundStyle(KukuColor.stone)
+        case .completed:
+            Text(entry.output)
+                .foregroundStyle(KukuColor.ink)
+        }
+    }
+
+    private func historyLine<Content: View>(
+        label: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(label)
+                .font(.system(size: 9.5, weight: .bold, design: .rounded))
+                .foregroundStyle(KukuColor.stone)
+                .frame(width: 34, alignment: .leading)
+            content()
+                .font(.system(size: 12.5, weight: .semibold))
+                .lineLimit(2)
+        }
     }
 
     private func togglePlayback() {
@@ -176,34 +231,14 @@ private struct HistoryRow: View {
     }
 }
 
-private struct LabeledHistoryText: View {
-    let label: String
-    let text: String
-    let color: Color
-    let emphasized: Bool
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text(label)
-                .font(.system(size: 9.5, weight: .bold, design: .rounded))
-                .foregroundStyle(KukuColor.stone)
-                .frame(width: 34, alignment: .leading)
-            Text(text)
-                .font(.system(size: 12.5, weight: emphasized ? .semibold : .regular))
-                .foregroundStyle(color)
-                .lineLimit(2)
-        }
-    }
-}
-
 enum HistoryFilter: String, CaseIterable, Identifiable {
     case all, dictation, agent
     var id: String { rawValue }
     @MainActor func title(_ appState: AppState) -> String {
         switch self {
         case .all: appState.text("全部", "All")
-        case .dictation: "Voice Input"
-        case .agent: "Voice Agent"
+        case .dictation: appState.voiceInputTitle
+        case .agent: appState.voiceAgentTitle
         }
     }
 }

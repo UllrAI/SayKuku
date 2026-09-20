@@ -44,6 +44,9 @@ struct RootView: View {
         .tint(KukuColor.coral)
         .sheet(item: $appState.presentedSheet) { destination in
             switch destination {
+            case .onboarding:
+                DomainOnboardingView()
+                    .environment(appState)
             case .permissions:
                 PermissionGuideView()
                     .environment(appState)

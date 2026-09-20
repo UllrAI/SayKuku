@@ -54,7 +54,7 @@ private struct HomeReadyState: View {
     private var voiceInputCard: some View {
         HomeGestureRow(
             key: "Fn",
-            title: "Voice Input",
+            title: appState.voiceInputTitle,
             subtitle: appState.text("按住说话，松开后写入当前光标", "Hold to speak, release to type"),
             symbol: "mic.fill",
             accent: KukuColor.coral
@@ -66,7 +66,7 @@ private struct HomeReadyState: View {
     private var voiceAgentCard: some View {
         HomeGestureRow(
             key: "Fn Fn",
-            title: "Voice Agent",
+            title: appState.voiceAgentTitle,
             subtitle: appState.text("说出意图，识别后直接执行或写回", "Say an intent to run it or write it back"),
             symbol: "sparkles",
             accent: KukuColor.graphite
@@ -191,9 +191,7 @@ struct AgentPill: View {
                 }
                 .buttonStyle(PressScaleStyle())
             } else if appState.agentPhase == .transcribing || appState.agentPhase == .processing {
-                ProgressView()
-                    .controlSize(.small)
-                    .tint(.white)
+                AgentActivityIndicator()
                 Text(appState.agentPhase == .transcribing
                      ? appState.text("正在理解…", "Understanding…")
                      : appState.text("正在执行…", "Running…"))
@@ -214,6 +212,31 @@ struct AgentPill: View {
         .overlay(Capsule().stroke(Color.white.opacity(0.1), lineWidth: 1))
         .shadow(color: Color.black.opacity(0.16), radius: 16, y: 7)
         .animation(Motion.pill, value: width)
+    }
+}
+
+private struct AgentActivityIndicator: View {
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1 / 30)) { timeline in
+            let progress = timeline.date.timeIntervalSinceReferenceDate
+                .truncatingRemainder(dividingBy: 1.6) / 1.6
+            let pulse = 0.76 + 0.24 * (0.5 - 0.5 * cos(progress * 2 * .pi))
+
+            Image(systemName: "sparkle")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [.white, KukuColor.coral, KukuColor.amber],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .rotationEffect(.degrees(progress * 180))
+                .scaleEffect(pulse)
+                .shadow(color: KukuColor.coral.opacity(0.42), radius: 4)
+        }
+        .frame(width: 18, height: 18)
+        .accessibilityHidden(true)
     }
 }
 

@@ -34,7 +34,9 @@ final class FloatingOverlayController {
 
     func refresh() {
         guard let appState else { return }
-        let shouldShow = appState.dictationPhase != .idle || appState.agentPhase != .hidden
+        let shouldShow = appState.overlayError != nil
+            || appState.dictationPhase != .idle
+            || appState.agentPhase != .hidden
 
         if shouldShow {
             positionOnActiveScreen()
@@ -66,7 +68,18 @@ private struct FloatingSystemOverlay: View {
         ZStack(alignment: .bottom) {
             Color.clear
 
-            if appState.agentPhase != .hidden {
+            if let error = appState.overlayError {
+                Label(error, systemImage: "exclamationmark.triangle.fill")
+                    .font(.system(size: 11.5, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .padding(.horizontal, 13)
+                    .frame(maxWidth: 360, minHeight: 38)
+                    .background(KukuColor.graphite.opacity(0.98), in: Capsule())
+                    .overlay(Capsule().stroke(Color.white.opacity(0.1), lineWidth: 1))
+                    .shadow(color: Color.black.opacity(0.16), radius: 16, y: 7)
+                    .transition(.scale(scale: 0.94, anchor: .bottom).combined(with: .opacity))
+            } else if appState.agentPhase != .hidden {
                 AgentPill()
                     .transition(.scale(scale: 0.94, anchor: .bottom).combined(with: .opacity))
             } else if appState.dictationPhase != .idle {
@@ -78,5 +91,6 @@ private struct FloatingSystemOverlay: View {
         .frame(width: 380, height: 92)
         .animation(Motion.panel, value: appState.agentPhase)
         .animation(Motion.panel, value: appState.dictationPhase)
+        .animation(Motion.panel, value: appState.overlayError)
     }
 }
