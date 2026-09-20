@@ -330,6 +330,29 @@ struct QwenRequestContractTests {
         #expect(response.action == .openURL)
     }
 
+    @Test("agent response parser recovers fenced JSON and rejects incomplete actions")
+    func resilientAgentResponse() {
+        let fenced = """
+        ```json
+        {"transcript":"改短一点","action":"writeText","intent":"精简","output":"更短的文本","url":null,"query":null,"shortcutName":null}
+        ```
+        """
+        let result = QwenReasoningClient.decodeAgentResponse(fenced)
+        #expect(result?.transcript == "改短一点")
+        #expect(result?.output == "更短的文本")
+
+        let incomplete = #"{"transcript":"打开官网","action":"openURL","intent":"打开","output":null,"url":null,"query":null,"shortcutName":null}"#
+        #expect(QwenReasoningClient.decodeAgentResponse(incomplete) == nil)
+    }
+
+    @Test("only short-lived network failures are retried")
+    func retryPolicy() {
+        #expect(QwenReasoningClient.isRetryableNetworkError(URLError(.networkConnectionLost)))
+        #expect(QwenReasoningClient.isRetryableNetworkError(URLError(.cannotConnectToHost)))
+        #expect(!QwenReasoningClient.isRetryableNetworkError(URLError(.timedOut)))
+        #expect(!QwenReasoningClient.isRetryableNetworkError(URLError(.notConnectedToInternet)))
+    }
+
     @Test("selected text is sent as the primary agent input")
     func selectedTextInput() {
         let input = QwenReasoningClient.agentInput(
@@ -427,7 +450,7 @@ struct QwenRequestContractTests {
         )
         for start in stride(from: 0, to: pcm.count, by: 3_200) {
             let end = min(start + 3_200, pcm.count)
-            await realtime.append(Data(pcm[start..<end]))
+            try await realtime.append(Data(pcm[start..<end]))
         }
         let dictation = try await realtime.commit()
         await realtime.cancel()

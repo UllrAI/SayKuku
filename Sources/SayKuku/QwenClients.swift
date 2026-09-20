@@ -169,9 +169,9 @@ actor QwenRealtimeClient {
         try await waitForSession()
     }
 
-    func append(_ pcm16: Data) async {
+    func append(_ pcm16: Data) async throws {
         guard !pcm16.isEmpty, socket != nil else { return }
-        try? await send([
+        try await send([
             "event_id": eventID(),
             "type": "input_audio_buffer.append",
             "audio": pcm16.base64EncodedString()
@@ -215,7 +215,7 @@ actor QwenRealtimeClient {
             sessionContinuation = continuation
             sessionTimeoutTask?.cancel()
             sessionTimeoutTask = Task { [weak self] in
-                try? await Task.sleep(for: .seconds(15))
+                try? await Task.sleep(for: .seconds(8))
                 guard !Task.isCancelled else { return }
                 await self?.failSession(QwenError.timeout)
             }
@@ -235,10 +235,22 @@ actor QwenRealtimeClient {
             transcriptContinuation = continuation
             transcriptTimeoutTask?.cancel()
             transcriptTimeoutTask = Task { [weak self] in
-                try? await Task.sleep(for: .seconds(30))
+                try? await Task.sleep(for: .seconds(15))
                 guard !Task.isCancelled else { return }
-                await self?.failTranscript(QwenError.timeout)
+                await self?.finishTranscript(usingPartialOr: QwenError.timeout)
             }
+        }
+    }
+
+    private func finishTranscript(usingPartialOr error: Error) {
+        let transcript = finalTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !transcript.isEmpty {
+            transcriptContinuation?.resume(returning: transcript)
+            transcriptContinuation = nil
+            transcriptTimeoutTask?.cancel()
+            transcriptTimeoutTask = nil
+        } else {
+            failTranscript(error)
         }
     }
 
@@ -294,7 +306,7 @@ actor QwenRealtimeClient {
             } catch {
                 if !Task.isCancelled {
                     failSession(error)
-                    failTranscript(error)
+                    finishTranscript(usingPartialOr: error)
                 }
                 break
             }
@@ -315,6 +327,8 @@ actor QwenRealtimeClient {
 }
 
 struct QwenReasoningClient: Sendable {
+    private static let retryableStatusCodes = Set([408, 429, 500, 502, 503, 504])
+
     static let agentInstructions = """
     You are the text action engine for a macOS voice assistant. Listen to the attached audio and return one JSON object only.
     Supported actions: writeText, openURL, webSearch, runShortcut.
@@ -404,22 +418,51 @@ struct QwenReasoningClient: Sendable {
         session: AgentSession?,
         knowledgePrompt: String = ""
     ) async throws -> AgentResponse {
-        let content = try await multimodalCompletion(
-            apiKey: apiKey,
-            configuration: configuration,
-            system: Self.makeAgentInstructions(knowledgePrompt: knowledgePrompt),
-            userText: Self.agentInput(context: context, session: session),
-            wav: wav,
-            reasoningEffort: "low",
-            jsonResponse: true
-        )
-        guard let data = content.data(using: .utf8),
-              let result = try? JSONDecoder().decode(AgentResponse.self, from: data),
-              let transcript = result.transcript?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !transcript.isEmpty else {
-            throw QwenError.invalidResponse
+        for attempt in 0..<2 {
+            var instructions = Self.makeAgentInstructions(knowledgePrompt: knowledgePrompt)
+            if attempt > 0 {
+                instructions += "\nYour previous response could not be decoded. Return one complete JSON object matching the schema exactly, including a non-empty transcript and the field required by the selected action."
+            }
+            let content = try await multimodalCompletion(
+                apiKey: apiKey,
+                configuration: configuration,
+                system: instructions,
+                userText: Self.agentInput(context: context, session: session),
+                wav: wav,
+                reasoningEffort: "none",
+                jsonResponse: true
+            )
+            if let result = Self.decodeAgentResponse(content) {
+                return result
+            }
         }
-        return result
+        throw QwenError.invalidResponse
+    }
+
+    static func decodeAgentResponse(_ content: String) -> AgentResponse? {
+        let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        var candidates = [trimmed]
+        if let first = trimmed.firstIndex(of: "{"), let last = trimmed.lastIndex(of: "}"), first <= last {
+            candidates.append(String(trimmed[first...last]))
+        }
+        for candidate in candidates {
+            guard let data = candidate.data(using: .utf8),
+                  let result = try? JSONDecoder().decode(AgentResponse.self, from: data),
+                  let transcript = result.transcript?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !transcript.isEmpty,
+                  Self.hasRequiredPayload(result) else { continue }
+            return result
+        }
+        return nil
+    }
+
+    private static func hasRequiredPayload(_ response: AgentResponse) -> Bool {
+        switch response.action {
+        case .writeText: response.output?.isEmpty == false
+        case .openURL: response.url?.isEmpty == false
+        case .webSearch: response.query?.isEmpty == false
+        case .runShortcut: response.shortcutName?.isEmpty == false
+        }
     }
 
     func extractKnowledge(
@@ -475,10 +518,13 @@ struct QwenReasoningClient: Sendable {
             "reasoning_effort": reasoningEffort,
             "stream": false
         ]
-        if jsonResponse { body["response_format"] = ["type": "json_object"] }
+        if jsonResponse {
+            body["response_format"] = ["type": "json_object"]
+            body["enable_thinking"] = false
+        }
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await perform(request)
         return try parseCompletion(data: data, response: response)
     }
 
@@ -510,16 +556,54 @@ struct QwenReasoningClient: Sendable {
             "reasoning_effort": reasoningEffort,
             "stream": false
         ]
-        if jsonResponse { body["response_format"] = ["type": "json_object"] }
+        if jsonResponse {
+            body["response_format"] = ["type": "json_object"]
+            body["enable_thinking"] = false
+        }
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.timeoutInterval = 60
+        request.timeoutInterval = 35
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await perform(request)
         return try parseCompletion(data: data, response: response)
+    }
+
+    private func perform(_ request: URLRequest) async throws -> (Data, URLResponse) {
+        for attempt in 0..<2 {
+            do {
+                let result = try await URLSession.shared.data(for: request)
+                if attempt == 0,
+                   let response = result.1 as? HTTPURLResponse,
+                   Self.retryableStatusCodes.contains(response.statusCode) {
+                    try await Task.sleep(for: .milliseconds(Self.retryDelay(response)))
+                    continue
+                }
+                return result
+            } catch {
+                guard attempt == 0, Self.isRetryableNetworkError(error) else { throw error }
+                try await Task.sleep(for: .milliseconds(350))
+            }
+        }
+        throw QwenError.invalidResponse
+    }
+
+    static func isRetryableNetworkError(_ error: Error) -> Bool {
+        guard let urlError = error as? URLError else { return false }
+        switch urlError.code {
+        case .networkConnectionLost, .cannotConnectToHost, .cannotFindHost, .dnsLookupFailed:
+            return true
+        default:
+            return false
+        }
+    }
+
+    private static func retryDelay(_ response: HTTPURLResponse) -> Int {
+        guard let value = response.value(forHTTPHeaderField: "Retry-After"),
+              let seconds = Double(value) else { return 350 }
+        return Int(min(max(seconds, 0), 2) * 1_000)
     }
 
     private func parseCompletion(data: Data, response: URLResponse) throws -> String {
@@ -540,7 +624,28 @@ struct QwenReasoningClient: Sendable {
 
 private struct ChatCompletionResponse: Decodable {
     struct Choice: Decodable {
-        struct Message: Decodable { let content: String? }
+        struct Message: Decodable {
+            private struct Part: Decodable {
+                let text: String?
+            }
+
+            let content: String?
+
+            private enum CodingKeys: String, CodingKey {
+                case content
+            }
+
+            init(from decoder: Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                if (try? container.decodeNil(forKey: .content)) == true {
+                    content = nil
+                } else if let text = try? container.decode(String.self, forKey: .content) {
+                    content = text
+                } else {
+                    content = try container.decode([Part].self, forKey: .content).compactMap(\.text).joined()
+                }
+            }
+        }
         let message: Message
     }
     let choices: [Choice]

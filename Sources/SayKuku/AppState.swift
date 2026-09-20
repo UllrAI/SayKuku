@@ -502,7 +502,7 @@ final class AppState {
                         numberFormat: selectedNumberFormat,
                         knowledgePrompt: knowledgePrompt
                     )
-                    for await chunk in stream { await realtimeClient.append(chunk) }
+                    for await chunk in stream { try await realtimeClient.append(chunk) }
                 }
             } else {
                 try audioCapture.start { _ in }
