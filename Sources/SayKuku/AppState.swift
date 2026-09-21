@@ -117,7 +117,7 @@ final class AppState {
     let microphoneTest = MicrophoneTestController()
 
     @ObservationIgnored private let defaults: UserDefaults
-    @ObservationIgnored private let keychain = KeychainStore()
+    @ObservationIgnored private let keychain: KeychainStore
     @ObservationIgnored private let store: LocalStore
     @ObservationIgnored private let audioCapture = AudioCapture()
     @ObservationIgnored private let realtimeClient = QwenRealtimeClient()
@@ -135,9 +135,14 @@ final class AppState {
     @ObservationIgnored private var isLoaded = false
     @ObservationIgnored private var persistenceGeneration = 0
 
-    init(defaults: UserDefaults = .standard, store: LocalStore = LocalStore()) {
+    init(
+        defaults: UserDefaults = .standard,
+        store: LocalStore = LocalStore(),
+        keychain: KeychainStore = KeychainStore()
+    ) {
         self.defaults = defaults
         self.store = store
+        self.keychain = keychain
         loadSettings()
         launchAtLogin = SMAppService.mainApp.status == .enabled
         apiKey = (try? keychain.string(for: Keys.apiKey)) ?? ""

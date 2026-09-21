@@ -1,5 +1,6 @@
 import ApplicationServices
 import AppKit
+import AVFAudio
 import AVFoundation
 import Observation
 
@@ -42,14 +43,12 @@ final class SystemPermissionController {
     }
 
     func refresh() {
-        switch AVCaptureDevice.authorizationStatus(for: .audio) {
-        case .notDetermined:
+        switch AVAudioApplication.shared.recordPermission {
+        case .undetermined:
             microphoneStatus = .notDetermined
-        case .restricted:
-            microphoneStatus = .restricted
         case .denied:
             microphoneStatus = .denied
-        case .authorized:
+        case .granted:
             microphoneStatus = .authorized
         @unknown default:
             microphoneStatus = .restricted
@@ -94,9 +93,13 @@ final class SystemPermissionController {
         case .authorized:
             return true
         case .notDetermined:
-            _ = await AVCaptureDevice.requestAccess(for: .audio)
+            let granted = await withCheckedContinuation { continuation in
+                AVAudioApplication.requestRecordPermission { granted in
+                    continuation.resume(returning: granted)
+                }
+            }
             refresh()
-            return microphoneStatus.isAuthorized
+            return granted && microphoneStatus.isAuthorized
         case .denied, .restricted:
             openSystemSettings(for: .microphone)
             return false
@@ -146,7 +149,7 @@ final class MicrophoneTestController: @unchecked Sendable {
     var isRunning: Bool { phase == .running }
 
     func start() {
-        guard AVCaptureDevice.authorizationStatus(for: .audio) == .authorized else {
+        guard AVAudioApplication.shared.recordPermission == .granted else {
             phase = .failed(.permissionRequired)
             return
         }

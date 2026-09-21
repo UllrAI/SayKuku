@@ -4,6 +4,15 @@ import Foundation
 import Testing
 @testable import SayKuku
 
+private func makeTestKeychain() -> KeychainStore {
+    KeychainStore(service: "com.saykuku.tests.\(UUID().uuidString)")
+}
+
+private func cleanTestKeychain(_ keychain: KeychainStore) {
+    try? keychain.remove("qwen.apiKey")
+    try? keychain.remove("history-encryption-key")
+}
+
 @Suite("Knowledge pipeline")
 struct KnowledgePipelineTests {
     @Test("normalization removes separators and case")
@@ -67,9 +76,11 @@ struct KnowledgePipelineTests {
         let suite = "SayKukuTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let keychain = makeTestKeychain()
         defer {
             defaults.removePersistentDomain(forName: suite)
             try? FileManager.default.removeItem(at: root)
+            cleanTestKeychain(keychain)
         }
         let originalDate = Date(timeIntervalSince1970: 1_700_000_000)
         let original = KnowledgeEntity(
@@ -80,7 +91,11 @@ struct KnowledgePipelineTests {
             source: .importText,
             createdAt: originalDate
         )
-        let state = AppState(defaults: defaults, store: LocalStore(root: root))
+        let state = AppState(
+            defaults: defaults,
+            store: LocalStore(root: root, keychain: keychain),
+            keychain: keychain
+        )
         state.knowledgeEntities = [original, KnowledgeEntity(name: "WorkBuddy", type: .product)]
 
         #expect(state.updateKnowledge(
@@ -112,11 +127,17 @@ struct KnowledgePipelineTests {
         let suite = "SayKukuTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let keychain = makeTestKeychain()
         defer {
             defaults.removePersistentDomain(forName: suite)
             try? FileManager.default.removeItem(at: root)
+            cleanTestKeychain(keychain)
         }
-        let state = AppState(defaults: defaults, store: LocalStore(root: root))
+        let state = AppState(
+            defaults: defaults,
+            store: LocalStore(root: root, keychain: keychain),
+            keychain: keychain
+        )
         state.appLanguage = .chinese
         #expect(AppState.Destination.knowledge.title(state) == "知识")
         #expect(state.voiceInputTitle == "语音输入")
@@ -144,12 +165,18 @@ struct PersistenceTests {
         let suite = "SayKukuTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let keychain = makeTestKeychain()
         defer {
             defaults.removePersistentDomain(forName: suite)
             try? FileManager.default.removeItem(at: root)
+            cleanTestKeychain(keychain)
         }
 
-        let state = AppState(defaults: defaults, store: LocalStore(root: root))
+        let state = AppState(
+            defaults: defaults,
+            store: LocalStore(root: root, keychain: keychain),
+            keychain: keychain
+        )
         #expect(state.automaticAgentWriteBack)
         state.recognitionLanguage = .english
         state.dictationNumberFormat = .spoken
@@ -158,7 +185,11 @@ struct PersistenceTests {
         state.didCompleteOnboarding = true
         state.automaticAgentWriteBack = false
 
-        let reloaded = AppState(defaults: defaults, store: LocalStore(root: root))
+        let reloaded = AppState(
+            defaults: defaults,
+            store: LocalStore(root: root, keychain: keychain),
+            keychain: keychain
+        )
         #expect(reloaded.recognitionLanguage == .english)
         #expect(reloaded.dictationNumberFormat == .spoken)
         #expect(reloaded.selectedDomains == [.aiVibeCoding, .softwareDevelopment])
@@ -170,15 +201,19 @@ struct PersistenceTests {
     @Test("snapshot persists and reloads")
     func persistence() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        defer { try? FileManager.default.removeItem(at: root) }
-        let store = LocalStore(root: root)
+        let keychain = makeTestKeychain()
+        defer {
+            try? FileManager.default.removeItem(at: root)
+            cleanTestKeychain(keychain)
+        }
+        let store = LocalStore(root: root, keychain: keychain)
         let entry = HistoryEntry(
             mode: .dictation, app: "Tests", createdAt: Date(timeIntervalSince1970: 1_700_000_000.123),
             durationSeconds: 1, input: "hello", output: "",
             status: .failed, errorMessage: "timeout"
         )
         try await store.replace(.init(history: [entry]))
-        let reloaded = LocalStore(root: root)
+        let reloaded = LocalStore(root: root, keychain: keychain)
         let snapshot = await reloaded.load()
         #expect(snapshot.history == [entry])
         let storedBytes = try Data(contentsOf: root.appendingPathComponent("store.data"))
@@ -212,8 +247,12 @@ struct PersistenceTests {
     @Test("audio is encrypted and decrypts for playback")
     func audioEncryption() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        defer { try? FileManager.default.removeItem(at: root) }
-        let store = LocalStore(root: root)
+        let keychain = makeTestKeychain()
+        defer {
+            try? FileManager.default.removeItem(at: root)
+            cleanTestKeychain(keychain)
+        }
+        let store = LocalStore(root: root, keychain: keychain)
         let audio = Data("RIFF-private-audio-payload".utf8)
         let filename = try await store.saveAudio(audio, id: UUID())
         let stored = try Data(contentsOf: root.appendingPathComponent("Audio").appendingPathComponent(filename))

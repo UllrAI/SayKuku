@@ -15,10 +15,36 @@ enum SecureStorageError: LocalizedError {
 }
 
 struct KeychainStore: Sendable {
-    private let service = "com.saykuku.app"
+    private static let releaseBundleIdentifier = "com.saykuku.app"
+
+    private let service: String
+    private let legacyServices: [String]
+
+    init() {
+        let bundleIdentifier = Bundle.main.bundleIdentifier
+        let isDevelopmentBuild = bundleIdentifier == "com.saykuku.dev"
+        service = isDevelopmentBuild ? "com.saykuku.dev.secure-storage" : "com.saykuku.app.secure-storage"
+        legacyServices = isDevelopmentBuild ? [] : [Self.releaseBundleIdentifier]
+    }
+
+    init(service: String, legacyServices: [String] = []) {
+        self.service = service
+        self.legacyServices = legacyServices.filter { $0 != service }
+    }
 
     func string(for account: String) throws -> String? {
-        var query = baseQuery(account)
+        if let value = try readString(for: account, service: service) { return value }
+
+        for legacyService in legacyServices {
+            guard let value = try readString(for: account, service: legacyService) else { continue }
+            try set(value, for: account)
+            return value
+        }
+        return nil
+    }
+
+    private func readString(for account: String, service: String) throws -> String? {
+        var query = baseQuery(account, service: service)
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
         var item: CFTypeRef?
@@ -33,22 +59,30 @@ struct KeychainStore: Sendable {
 
     func set(_ value: String, for account: String) throws {
         let data = Data(value.utf8)
-        let query = baseQuery(account)
+        let query = baseQuery(account, service: service)
         let status = SecItemUpdate(query as CFDictionary, [kSecValueData as String: data] as CFDictionary)
         if status == errSecItemNotFound {
             var item = query
             item[kSecValueData as String] = data
+            item[kSecAttrLabel as String] = "SayKuku"
             let addStatus = SecItemAdd(item as CFDictionary, nil)
-            guard addStatus == errSecSuccess else { throw SecureStorageError.keychain(addStatus) }
+            if addStatus == errSecDuplicateItem {
+                let retryStatus = SecItemUpdate(query as CFDictionary, [kSecValueData as String: data] as CFDictionary)
+                guard retryStatus == errSecSuccess else { throw SecureStorageError.keychain(retryStatus) }
+            } else if addStatus != errSecSuccess {
+                throw SecureStorageError.keychain(addStatus)
+            }
         } else if status != errSecSuccess {
             throw SecureStorageError.keychain(status)
         }
     }
 
     func remove(_ account: String) throws {
-        let status = SecItemDelete(baseQuery(account) as CFDictionary)
-        guard status == errSecSuccess || status == errSecItemNotFound else {
-            throw SecureStorageError.keychain(status)
+        for itemService in legacyServices + [service] {
+            let status = SecItemDelete(baseQuery(account, service: itemService) as CFDictionary)
+            guard status == errSecSuccess || status == errSecItemNotFound else {
+                throw SecureStorageError.keychain(status)
+            }
         }
     }
 
@@ -61,12 +95,21 @@ struct KeychainStore: Sendable {
         try set(data.base64EncodedString(), for: account)
     }
 
-    private func baseQuery(_ account: String) -> [String: Any] {
+    func setIfMissing(_ data: Data, for account: String) throws -> Bool {
+        var item = baseQuery(account, service: service)
+        item[kSecValueData as String] = Data(data.base64EncodedString().utf8)
+        item[kSecAttrLabel as String] = "SayKuku"
+        let status = SecItemAdd(item as CFDictionary, nil)
+        if status == errSecDuplicateItem { return false }
+        guard status == errSecSuccess else { throw SecureStorageError.keychain(status) }
+        return true
+    }
+
+    private func baseQuery(_ account: String, service: String) -> [String: Any] {
         [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+            kSecAttrAccount as String: account
         ]
     }
 }
@@ -156,8 +199,11 @@ actor LocalStore {
         let status = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
         guard status == errSecSuccess else { throw SecureStorageError.keychain(status) }
         let data = Data(bytes)
-        try keychain.set(data, for: account)
-        return SymmetricKey(data: data)
+        if try keychain.setIfMissing(data, for: account) { return SymmetricKey(data: data) }
+        guard let existing = try keychain.data(for: account), existing.count == 32 else {
+            throw SecureStorageError.invalidData
+        }
+        return SymmetricKey(data: existing)
     }
 
     private static func loadSnapshot(from url: URL, keychain: KeychainStore) -> Snapshot {
