@@ -78,6 +78,14 @@ xcrun notarytool store-credentials 'SayKuku-Notary' \
 xcrun notarytool history --keychain-profile 'SayKuku-Notary'
 ```
 
+本机当前已创建并验证 `SayKuku-Notary`；后续提交、查询历史和下载公证日志都使用这个 profile，不需要再把 `.p8` 路径写进命令：
+
+```bash
+xcrun notarytool submit Dist/SayKuku-1.0.0-notarization.zip \
+  --keychain-profile 'SayKuku-Notary' \
+  --wait
+```
+
 不要把 `.p8`、`.p12`、私钥密码、Apple ID App 专用密码或 API Key 提交到仓库。
 
 ## 2. 每次打包前检查
