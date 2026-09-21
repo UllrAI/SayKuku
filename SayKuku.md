@@ -2,6 +2,17 @@
 
 > Just Say It...
 
+本文是产品与当前实现说明。开发入口和文档索引见 [`README.md`](README.md)，本机签名、公证与发布步骤见 [`docs/LOCAL_PACKAGING.md`](docs/LOCAL_PACKAGING.md)。
+
+## 文档导航
+
+- 第 0 节：当前实现状态与界面基线。
+- 第 1–6 节：产品核心、Fn 交互、Voice Input、Voice Agent 与 Context。
+- 第 7–15 节：Agent Session、Knowledge、Memory、纠错与 Prompt 约束。
+- 第 16–18 节：Dictation/Agent 边界、Settings、模型与实际架构。
+- 第 19–24 节：技术选型记录、外部项目调研与依赖策略；不代表当前仓库已引入相关代码。
+- 第 25 节：MVP 收敛范围。
+
 软件名称与所有纯文本固定写作 `SayKuku`。句点只作为 Logo 组合中的视觉细节，不进入窗口标题、菜单、按钮、权限文案或无障碍文本。
 
 Logo 组合可使用鸟形图标与带视觉句点的字标。图标固定使用 Lucide Bird 的线性造型，只调整品牌色、描边粗细、缩放和安全边距，不改变鸟形结构：
@@ -23,19 +34,19 @@ Logo 组合可使用鸟形图标与带视觉句点的字标。图标固定使用
 [Bird Icon] SayKuku.
 ```
 
-App 图标不放文字，使用珊瑚红圆角底板与暖白 Lucide Bird 线稿；图形保持足够安全边距。菜单栏使用同一鸟形的缩小单色 template 版本，由 macOS 自动生成浅色、深色和按下态，不维护容易失配的手工黑白双份资源。打包资源位于 `Scripts/Resources/AppIcon.icns`。
+App 图标不放文字，使用珊瑚红圆角底板与暖白 Lucide Bird 线稿；图形保持足够安全边距。菜单栏使用同一鸟形的无底、无边框单色 template 版本，由 macOS 自动适配明暗、选中和按下状态。App 图标位于 `Scripts/Resources/AppIcon.icns`，菜单栏矢量资源位于 `Sources/SayKuku/Resources/MenuBarIcon.svg`。
 
 ---
 
-# 0. 当前实现进度与界面基线
+## 0. 当前实现进度与界面基线
 
-> 最后更新：2026-09-20。`✅ 已完成` 表示已经进入当前可运行 App；`🟡 交互原型完成` 表示界面和状态流已实现，但真实音频、模型、系统写回或持久化仍待接入；`⬜ 待实现` 表示尚未开始生产实现；`⏸ 后续版本` 表示不进入 MVP。
+> 最后更新：2026-09-21。`✅ 已完成` 表示已经进入当前可运行 App；`🟡 部分完成` 表示已有可用实现，但仍有明确范围尚未完成；`⬜ 待实现` 表示尚未开始生产实现；`⏸ 后续版本` 表示不进入 MVP。
 
 | 模块 | 状态 | 当前已经完成 | 下一步 |
 | --- | --- | --- | --- |
 | 原生 App 外壳与统一设计系统 | ✅ 已完成 | SwiftUI 原生窗口、固定侧栏、统一页面宽度、标题、Tab、卡片、间距、圆角与阴影 | 持续做逐页视觉回归 |
-| App 图标与打包 | ✅ 已完成 | Lucide Bird 品牌母形、珊瑚底色与暖白线稿、1024 px 预览、ICNS、Bundle 图标、应用分类与签名脚本 | 正式发布时确定 Bundle ID，并替换为 Developer ID 签名与公证 |
-| 菜单栏常驻入口 | ✅ 已完成 | 8.5 pt Lucide Bird 放置在 16 × 18 pt 状态项画布，使用原生 template 渲染自动适配明暗与按下态；包含 Voice Input、Voice Agent、显示主窗口、设置、状态与退出菜单 | 后续增加连接延迟与录音态图标 |
+| App 图标与打包 | ✅ 已完成 | Lucide Bird 品牌母形、ICNS、菜单栏 template 资源、固定 Bundle ID、开发/正式身份隔离，以及强制 Developer ID 的 Release 签名脚本 | 每次正式分发按发布文档完成公证、装订和最终 ZIP |
+| 菜单栏常驻入口 | ✅ 已完成 | 18 × 18 pt template 画布内放置约 15 × 13.5 pt Lucide Bird，使用原生 template 渲染自动适配明暗与按下态；包含 Voice Input、Voice Agent、显示主窗口、设置、状态与退出菜单 | 后续增加连接延迟与录音态图标 |
 | 全局快捷键 | ✅ 已完成 | `⇧⌘D` Voice Input、`⇧⌘A` Voice Agent，通过 Carbon 注册且不需要任何隐私权限 | 增加可配置按键 |
 | Fn Gesture Router | ✅ 已完成 | Hold Fn、Tap Fn、Double Fn、活动语音流程下 Esc 取消、组合键取消、超时恢复、冲突检测、系统 Fn 行为引导与全局快捷键 fallback；复用写回所需的辅助功能权限，不申请输入监控 | 增加真实设备与外接键盘回归测试 |
 | 权限引导与麦克风测试 | ✅ 已完成 | 启动时缺失权限自动展示引导；麦克风与辅助功能实时状态、快捷开启、回到 App 自动复查；设置页可重新打开；AVAudioEngine 实时输入电平测试 | 增加多输入设备切换回归测试 |
@@ -46,10 +57,10 @@ App 图标不放文字，使用珊瑚红圆角底板与暖白 Lucide Bird 线稿
 | Settings 与中英文 | ✅ 已完成 | 统一水平 Tab、语言、输入模式、隐私开关、菜单栏、登录项、快捷键状态和持久化 | — |
 | Qwen Realtime / Omni | ✅ 已完成 | Realtime WebSocket、Omni 请求式 API、批处理音频 fallback、错误与超时 | — |
 | 麦克风与系统写回 | ✅ 已完成 | 16kHz PCM 录音、可选 Semantic VAD、目标快照、写回前校验和 Accessibility 写回 | — |
-| 本地隐私存储 | ✅ 已完成 | Keychain、AES-GCM 加密 History / Memory / Knowledge / Audio 与保留清理 | — |
+| 本地隐私存储 | ✅ 已完成 | 独立开发/正式 Keychain 服务、旧服务无损迁移、AES-GCM 加密 History / Memory / Knowledge / Audio 与保留清理 | — |
 | 截图 OCR 导入 | ⏸ 后续版本 | 仅保留产品设计 | MVP 后再评估 |
 
-## 0.1 桌面端视觉与布局标准
+### 0.1 桌面端视觉与布局标准
 
 当前所有一级页面使用同一套布局，不允许各页面自行定义内容宽度或第二套 Tab：
 
@@ -75,7 +86,7 @@ Settings   General / Voice Input / Voice Agent / History / Context & Privacy / Q
 
 Knowledge 与 Memory 是一级侧栏页面，不再重复出现在 Settings 内。设置卡片中的每一行必须撑满卡片宽度并左对齐；只有明确的右侧值、Picker 或 Toggle 才使用尾部对齐。
 
-## 0.2 权限引导与输入测试标准
+### 0.2 权限引导与输入测试标准
 
 当麦克风或辅助功能任一权限缺失时，App 每次启动只展示一次应用内权限引导，不在页面出现前连续弹出多个系统对话框。用户明确点击后才触发对应系统授权：
 
@@ -87,13 +98,13 @@ Knowledge 与 Memory 是一级侧栏页面，不再重复出现在 Settings 内�
 
 权限引导与 Settings 使用同一个实时状态源。App 重新获得焦点时必须复查状态；设置页提供权限状态、快捷开启入口和重新打开完整引导的按钮。
 
-辅助功能请求不得用轮询锁住按钮。发起系统提示后立即结束按钮忙碌态；回到 App 时只以 `AXIsProcessTrusted()` 的实际结果复查，不猜测“需要重开”。开发包优先使用本机 Apple Development 证书形成稳定、带 Team ID 的 designated requirement；没有证书时才回退 ad-hoc 签名并明确警告其 TCC 授权可能随重建失效。发布包使用 Developer ID 签名。
+辅助功能请求不得用轮询锁住按钮。发起系统提示后立即结束按钮忙碌态；回到 App 时只以 `AXIsProcessTrusted()` 的实际结果复查，不猜测“需要重开”。开发包使用本机 Apple Development 证书形成稳定、带 Team ID 的 designated requirement；没有稳定证书时打包脚本直接失败，不生成会污染 TCC 或 Keychain 身份的 ad-hoc App。发布包必须使用 Developer ID Application 签名。
 
 麦克风测试使用系统默认输入设备，只计算实时 RMS 输入电平和峰值。测试声音不保存、不上传、不回放；页面或引导关闭时立即停止音频引擎。
 
 ---
 
-# 1. 产品核心
+## 1. 产品核心
 
 产品只有两个最高频入口：
 
@@ -115,7 +126,7 @@ Voice Agent
 
 所有能力都收敛到这两个动作。
 
-## 1.1 MVP 验证目标
+### 1.1 MVP 验证目标
 
 MVP 不是只做一个语音输入 Demo，也不做成完整的电脑 Agent。
 
@@ -154,11 +165,11 @@ Knowledge 不是被砍掉，而是先把输入渠道收窄到“粘贴文本”�
 
 ---
 
-# 2. Fn 交互设计
+## 2. Fn 交互设计
 
 > 实现状态：`✅ 已完成`。当前 App 已包含统一 Fn Gesture Router。普通组合键通过 Carbon 注册，不需要隐私权限；Fn 是纯修饰键，无法作为普通 HotKey 注册，因此在 Accessibility 已授权后使用 AppKit `NSEvent` 全局/本地 monitor。实现不创建 CGEvent tap，不调用 Input Monitoring API，也不声明相关权限。`NSEvent` 全局 monitor 只能观察事件，不能阻止系统同时执行 Fn / Globe 动作；设置页提供入口，引导将 macOS“按 Fn 键时”设为“无操作”。`⇧⌘D` 与 `⇧⌘A` 始终作为无权限 fallback。
 
-## 2.1 用户可选择两种输入习惯
+### 2.1 用户可选择两种输入习惯
 
 设置：
 
@@ -175,9 +186,9 @@ Knowledge 不是被砍掉，而是先把输入渠道收窄到“粘贴文本”�
 
 ---
 
-## 2.2 模式 A：Hold Fn 输入
+### 2.2 模式 A：Hold Fn 输入
 
-### 普通输入
+#### 普通输入
 
 ```text
 按住 Fn
@@ -207,7 +218,7 @@ Fn Down
 Dictation
 ```
 
-但音频可以从 Fn Down 就进入一个短暂的 pre-buffer，所以用户开口很快也不会漏掉第一个字。
+当前实现会在按住约 150 ms、确认是 Hold 手势后才启动录音，不维护 Fn Down 起始的音频 pre-buffer。用户应在 Listening Pill 出现后开始说话；若未来加入 pre-buffer，手势确认前的音频也只能留在内存，不能发送网络或落盘。
 
 如果用户只是快速敲了一下 Fn：
 
@@ -231,7 +242,7 @@ Voice Agent
 
 ---
 
-## 2.3 模式 B：单击 Fn 输入
+### 2.3 模式 B：单击 Fn 输入
 
 这里必须处理单击/双击冲突。
 
@@ -251,7 +262,7 @@ Tap Pending ≈ 220–280ms
 
 用户体验上不应该显示“等待双击”。
 
-确定进入 Voice Input 后直接显示 Listening，并在 Pill 内实时回显已识别内容，不暴露短暂的内部准备状态。
+确定进入 Voice Input 后直接显示 Listening 与输入电平波形，不暴露短暂的内部准备状态。当前 Manual Realtime 流程在停止录音并提交后才接收文本 delta，因此识别文本在 Processing 阶段增量显示，不宣称边说边出字。
 
 输入结束可以：
 
@@ -267,23 +278,23 @@ Tap Pending ≈ 220–280ms
 
 建议默认还是再次 Fn，VAD 自动停止作为可选项。
 
-## 2.4 Fn Gesture Router 必须处理的边界
+### 2.4 Fn Gesture Router 必须处理的边界
 
 Router 不能只根据按下次数触发回调，而应维护明确状态：
 
 ```text
-Idle
+Gesture Idle
 ├── FirstTapPending
-├── Prebuffering
-├── Dictating
-├── AgentListening
-├── Processing
-└── Previewing
+└── HoldPending
+
+Voice workflow
+├── Dictation Listening / Processing / Success / Copy Ready
+└── Agent Listening / Transcribing / Processing / Result / Copy Ready
 ```
 
 必须满足：
 
-* 用户按下 `Fn + ←/→`、`Fn + F1…F12` 或其他组合键时，立即取消语音手势并丢弃 pre-buffer。
+* 用户按下 `Fn + ←/→`、`Fn + F1…F12` 或其他组合键时，立即取消语音手势；如果已经开始 Dictation，则停止并丢弃本次录音。
 * 快速单击未形成双击时，才按所选模式开始 Dictation。
 * Hold 模式中第二次 Fn 进入 Agent 后，不得同时触发 Dictation。
 * Tap Dictation 已在录音时，单击 Fn 优先结束当前录音，不再进入双击判断。
@@ -291,15 +302,15 @@ Idle
 * Accessibility 被撤销、全局 monitor 失效、睡眠唤醒后，应恢复监听或给出明确错误。
 * 外接键盘不产生 Fn 事件时，必须提供普通全局快捷键作为 fallback。
 
-音频可以从 Fn Down 开始进入内存 pre-buffer，但只有手势确认后才允许发送网络。被识别为单击、双击或系统组合键之外的音频立即丢弃，不落盘。
+当前没有 Fn Down 音频 pre-buffer；只有手势确认并进入 Listening 后才开始采集和发送音频。若未来加入 pre-buffer，手势确认前的数据必须只保存在内存，取消或识别为系统组合键时立即丢弃且不落盘。
 
 ---
 
-# 3. 两套 UI 必须明显不同
+## 3. 两套 UI 必须明显不同
 
 > 实现状态：`✅ 已完成`。已接入真实录音、Qwen 转写、Knowledge Prompt 注入和系统输入框写回。
 
-## Voice Input
+### Voice Input
 
 它不是一个“窗口”。
 
@@ -329,14 +340,14 @@ Idle
 
 随后消失。
 
-位置可以提供：
+当前实现固定显示在鼠标所在屏幕的底部中央。以下位置属于后续可配置方向：
 
 * 光标附近 Bubble
 * 屏幕底部 Pill
 * 刘海 / 顶部
 * 固定浮窗
 
-但默认建议使用 **光标附近 Bubble / 底部 Pill**。
+MVP 当前只实现 **屏幕底部 Pill**，位置切换尚未实现。
 
 用户应该感觉：
 
@@ -348,7 +359,7 @@ Idle
 
 ---
 
-# 4. Voice Agent UI
+## 4. Voice Agent UI
 
 > 实现状态：`✅ 已完成`。状态 Pill、按需 Context、Qwen 调用、目标校验与自动写回均已接入。
 
@@ -409,11 +420,10 @@ Understand → Validate Target → Insert At Cursor
 > 打开 GitHub。
 > 搜一下这家公司。
 > 调用这个 Shortcut。
-> 把这句话发到……
 
-进入 Tool Calling。
+模型返回 `openURL`、`webSearch` 或 `runShortcut` 结构化 Action，本地只执行这三个白名单动作。当前实现没有通用 Tool Calling，也不支持发邮件、发消息或任意命令执行。
 
-## 4.1 自动写回安全规则
+### 4.1 自动写回安全规则
 
 自动写回默认开启，可在 Voice Agent 设置中关闭；以下目标校验只在开启时执行。打开网址、搜索和运行 Shortcut 等非写入 Action 不受该开关影响。
 
@@ -422,11 +432,12 @@ Agent 启动时必须创建 `TextTargetSnapshot`：
 ```text
 TextTargetSnapshot
 ├── App PID / Bundle ID
-├── Window ID / Title
-├── Focused Element
-├── Selected Range
+├── App Name / Window Title
+├── Window AX Element
+├── Selected Range / Selected Text
 ├── Selected Text Hash
-└── Captured At
+├── Value Before
+└── Sensitive Flag
 ```
 
 模型返回以后、写回以前重新校验目标：
@@ -439,7 +450,7 @@ Agent 识别出意图后直接执行。文本操作必须先校验原输入目�
 
 ---
 
-# 5. Agent 的 Context
+## 5. Agent 的 Context
 
 这是整个产品里比 ASR 更重要的一层。
 
@@ -449,25 +460,27 @@ Agent 识别出意图后直接执行。文本操作必须先校验原输入目�
 VoiceContext
 ```
 
-建议按优先级收集：
+当前实现按设置开关收集：
 
 ```text
 Selected Text
       ↓
-Focused Input / Current Paragraph
-      ↓
-Active App
+Active App / Bundle ID
       ↓
 Window Title
       ↓
-Current Document / URL
+Clipboard（默认关闭）
       ↓
-Current Agent Session
+Safari / Chrome 当前 URL（默认关闭）
+      ↓
+同一 App 最近 30 分钟的 Agent Session
       ↓
 Domains & vocabulary
       ↓
 Confirmed Knowledge Prompt
 ```
+
+Focused Element 和光标位置只用于后续目标校验，不作为文本 Context 发给模型；当前实现也不读取整个文档或当前段落。
 
 `Confirmed Knowledge Prompt` 不是本地词典替换，也不是隐藏在客户端的二次改写。每次模型调用都将已确认的实体、别名、详情和关系序列化为结构化参考数据，放入模型的 system / instructions prompt。模型根据语音和 Context 决定是否使用 canonical name；客户端直接写回模型返回的文本。
 
@@ -491,7 +504,7 @@ Knowledge base                  ×
 
 ---
 
-# 6. Voice Agent 第一版能力
+## 6. Voice Agent 第一版能力
 
 第一阶段不需要做成万能电脑 Agent。
 
@@ -556,7 +569,7 @@ Terminal / Dev tools
 
 ---
 
-# 7. Agent 对话
+## 7. Agent 对话
 
 Voice Agent 的界面是一次性 Command，但 Session 可以在后台连续。
 
@@ -586,20 +599,15 @@ Fn Fn
 
 ```text
 AgentSession
-├── Context Snapshot
-├── User Voice
-├── Tool Calls
-├── Assistant Response
-└── Follow-ups
+├── App Bundle ID
+├── Context Summary
+├── User Command
+├── Response
+├── Created At
+└── Expires At
 ```
 
-当用户：
-
-* 切换到明显不同的任务
-* 主动 Close
-* 超过一定空闲时间
-
-再结束 Session。
+当前每个 App 只保留最近一轮 Session，新一轮成功后替换同一 App 的旧 Session；Session 在 30 分钟后过期。切换 App 时只使用目标 App 自己的 Session，不会把上一 App 的内容带过去。关闭“连续对话”后不读取也不新增 Session；当前没有手动结束单条 Session 的入口。
 
 因此它实际上是：
 
@@ -609,13 +617,13 @@ AgentSession
 
 ---
 
-# 8. 热词 / 人名 / 组织知识
+## 8. 热词 / 人名 / 组织知识
 
 > 实现状态：`✅ 已完成`。列表、分类、搜索、手动添加、模型抽取、归一化、去重、关系 Review 与本地加密存储均已接入。
 
-设置中单独做：
+一级导航中单独提供：
 
-## Knowledge
+### Knowledge
 
 不要简单叫 Dictionary。
 
@@ -634,7 +642,7 @@ Custom Words
 
 ---
 
-## 人名
+### 人名
 
 例如：
 
@@ -684,7 +692,7 @@ Related:
 
 ---
 
-# 9. 组织架构
+## 9. 组织架构
 
 可以直接创建：
 
@@ -718,6 +726,8 @@ Agent 可以理解：
 → 当前组织
 ```
 
+当前这些关系用于 Knowledge Prompt 的理解与专名消歧；MVP 的 Action 白名单不包含发消息，因此上述“发给王涛”是后续能力示例，当前不会直接执行发送。
+
 因此这里最好从一开始就是轻量 Entity Store，而不是：
 
 ```text
@@ -726,7 +736,7 @@ Agent 可以理解：
 
 ---
 
-# 10. Knowledge 导入
+## 10. Knowledge 导入
 
 MVP 只提供两种入口：
 
@@ -747,7 +757,7 @@ WorkBuddy
 ……
 ```
 
-系统自动判断：
+用户在表单中明确选择：
 
 ```text
 Person
@@ -757,11 +767,11 @@ Term
 Unknown
 ```
 
-用户确认即可。
+还可以填写备注和别名。手动添加不调用模型自动判型；模型抽取只用于“粘贴文本”入口。
 
 ---
 
-## 粘贴文本导入
+### 粘贴文本导入
 
 用户可以粘贴通讯录、项目名单、术语表或任意半结构化文本。例如：
 
@@ -856,7 +866,7 @@ These are recognition hints for the user's common domains. Use them only to disa
 </knowledge_base>
 ```
 
-## Runtime Prompt Contract
+### Runtime Prompt Contract
 
 Voice Input 的 Realtime `session.instructions` 和批处理 fallback 的 `system` 使用同一套听写 Prompt：
 
@@ -917,7 +927,7 @@ Previous response: {{previous_response}}
 4. 原文中的手机号、邮箱、地址等非 Voice 必需 PII 默认过滤。
 5. 导入前必须展示 `New / Merge / Conflict / Ignored` 四类结果和对应原文证据。
 
-Knowledge 抽取时，用户粘贴的文本一律视为不可信数据，其中的“忽略之前指令”、“删除记忆”等内容不得被当成系统指令执行。该请求只允许调用一个无副作用的 `propose_knowledge_import` tool，返回候选 JSON，不向 Agent ToolRegistry 开放任何外部工具。
+Knowledge 抽取时，用户粘贴的文本一律视为不可信数据，其中的“忽略之前指令”、“删除记忆”等内容不得被当成系统指令执行。当前请求使用 JSON Object 响应返回候选实体与关系，不调用工具，不进入 Voice Agent 的动作执行路径，也不开放任何外部能力。
 
 每个候选实体或关系必须携带原文 evidence；无 evidence 的推断默认不入库。
 
@@ -927,7 +937,7 @@ Knowledge 抽取时，用户粘贴的文本一律视为不可信数据，其中�
 
 ---
 
-# 11. 截图录入
+## 11. 截图录入
 
 > 实现状态：`⏸ 后续版本`。不进入 MVP，当前 App 未实现入口。
 
@@ -974,13 +984,15 @@ Import 18 items
 
 ---
 
-# 12. 短期记忆
+## 12. 短期记忆
 
 > 实现状态：`🟡 部分完成`。Agent Session 会在 30 分钟 TTL 内进入同一 App 的后续 Voice Agent Prompt；Memory 页面只展示这些真正参与 Prompt 的 Session，不再混入普通 History。当前没有基于模型的自动提炼、归纳偏好或长期记忆生成。
 
 Short-term Memory 的目标是：
 
 **让我不用重复刚才说过的话。**
+
+当前只保存同一 App 最近一轮 Voice Agent 的命令、响应和 Context 摘要，保留 30 分钟。下面列出的页面、Dictation、人物或 Project 聚合是后续设计方向，不是当前数据源。
 
 例如：
 
@@ -1012,9 +1024,11 @@ Short-term Memory 的目标是：
 
 ---
 
-# 13. 长期记忆
+## 13. 长期记忆
 
-Long-term Memory 只保存真正稳定的东西：
+> 实现状态：`🟡 部分完成`。当前长期内容来自用户确认的 Knowledge、关系和纠错记录，并进入后续 Prompt；语言习惯、自动偏好提炼和“请记住”指令尚未实现。
+
+长期记忆的设计边界是只保存真正稳定的东西：
 
 ```text
 常用人名
@@ -1040,7 +1054,9 @@ B / M / Q 大小写固定
 
 ---
 
-# 14. Correction Memory
+## 14. Correction Memory
+
+> 实现状态：`✅ 已完成`。Voice Input 成功写回后，App 会在约 5 秒后比较目标文本；检测到用户改动时生成一条待确认建议，相同改动会累计次数。只有用户点击“加入知识”后，纠错才进入长期 Knowledge。
 
 我认为这一层甚至比“LLM Memory”更重要。
 
@@ -1070,7 +1086,7 @@ ASR:
 Recognition Correction
 ```
 
-累计几次以后：
+检测到以后可以提示；重复出现时累计次数：
 
 > 经常把「张越」识别为「张月」，是否加入识别词库？
 
@@ -1084,7 +1100,7 @@ Recognition Correction
 
 ---
 
-# 15. Knowledge Prompt 与规模控制
+## 15. Knowledge Prompt 与规模控制
 
 MVP 的运行时 pipeline 是：
 
@@ -1125,11 +1141,11 @@ Audio:
 
 ---
 
-# 16. Dictation 与 Agent 必须严格分开
+## 16. Dictation 与 Agent 必须严格分开
 
 这是一个很重要的产品原则。
 
-## Fn Dictation
+### Fn Dictation
 
 目标：
 
@@ -1148,7 +1164,7 @@ Knowledge Prompt 只作为模型的参考数据；模型必须在语音明确指
 
 ---
 
-## Fn Fn Agent
+### Fn Fn Agent
 
 目标：
 
@@ -1173,7 +1189,7 @@ Knowledge Prompt 只作为模型的参考数据；模型必须在语音明确指
 
 ---
 
-# 17. Settings 信息架构
+## 17. Settings 信息架构
 
 > 实现状态：`✅ 已完成`。界面结构、设置持久化、Keychain API Key 和真实 Qwen 连接测试均已接入。
 
@@ -1187,7 +1203,7 @@ Knowledge 与 Memory 保持为一级侧栏目的地，不在 Settings 中重复�
 
 首次启动先展示轻量领域 Onboarding，再进入系统权限引导。用户可以多选 AI / Vibe Coding、软件开发、产品设计、市场增长等常用领域，也可以手动添加产品名、项目名或技术词。选择会持久化为识别上下文，并以“仅用于词汇消歧、不得补写未说内容”的参考数据加入 Voice Input 与 Voice Agent Prompt；以后可在 Voice Input 设置中重新编辑。
 
-## Voice Input
+### Voice Input
 
 ```text
 输入方式
@@ -1197,21 +1213,20 @@ Knowledge 与 Memory 保持为一级侧栏目的地，不在 Settings 中重复�
 自动停止
 识别语言：自动中英混合 / 简体中文 / English
 数字格式：优先阿拉伯数字 / 保持口述
-输入位置
+输入位置：屏幕底部（当前固定）
 常用领域与词汇：编辑
 ```
 
-## Voice Agent
+### Voice Agent
 
 ```text
 Double Fn
 
-允许的工具
 连续对话
 自动写回（默认开启）
 ```
 
-## Qwen & API
+### Qwen & API
 
 ```text
 地域
@@ -1220,6 +1235,9 @@ Double Fn
 
 API Key
 - 输入 Key
+
+Workspace ID
+- 可选；填写后使用业务空间专属域名
 
 Realtime 模型版本
 - qwen3.5-omni-flash-realtime（默认）
@@ -1235,7 +1253,7 @@ Realtime 模型版本
 
 MVP 支持用户填写自己的 Qwen API Key。两个模型版本都使用下拉选择，只展示 App 已验证支持的 Qwen 型号或快照版本，不允许自由输入任意 model ID。Voice Input 默认使用 Qwen3.5 Omni Realtime，Voice Agent 与批处理 fallback 使用 Qwen3.8 Omni Flash。
 
-## History
+### History
 
 ```text
 自动清理
@@ -1252,7 +1270,7 @@ History 是输入记录，不是编辑器或录音资料库。录音停止后立
 
 History 默认仅保存在本机。关闭“保存原始语音”后，新记录只保留转写与最终输出；修改保留期限后，后台清理任务按新规则执行，但不删除任何星标记录。`AXSecureTextField`、密码管理器、银行应用与隐私浏览窗口永不写入 History。
 
-## Context & Privacy
+### Context & Privacy
 
 明确列：
 
@@ -1262,10 +1280,9 @@ History 默认仅保存在本机。关闭“保存原始语音”后，新记录
 ✓ Window Title
 □ Clipboard
 □ Browser Page
-□ Recent Dictation
 ```
 
-再提供：
+再显示固定的敏感目标阻断类别：
 
 ```text
 Never Access Apps
@@ -1279,7 +1296,7 @@ Never Access Apps
 Private Browser
 ```
 
-默认排除敏感应用是合理的。
+这些是当前代码中的固定安全策略，不是可编辑的自定义排除列表。
 
 MVP 数据规则：
 
@@ -1287,21 +1304,21 @@ MVP 数据规则：
 * Voice Input 发送音频、听写 instruction 和已确认的 Knowledge Prompt，默认不携带窗口内容。
 * Voice Agent 发送音频、Selected Text / App / Window 等用户允许的 Context、短期 Session 和已确认的 Knowledge Prompt；发送前可从聆听 Pill 的 scope 图标查看并删除 Context 项，Knowledge Prompt 作为单独的可见 Knowledge base 项。
 * `AXSecureTextField`、密码管理器、银行应用和隐私浏览窗口为硬性阻断，不仅是可配置开关。
-* 原始音频先进入内存预缓冲；停止录音后，只要“保存原始语音”开启且目标非敏感环境，就在请求完成前加密存入本地 History，不以模型或写回成功为前提。
+* 进入 Listening 后，录音音频先保存在内存；停止录音后，只要“保存原始语音”开启且目标非敏感环境，就在请求完成前加密存入本地 History，不以模型或写回成功为前提。
 * History 默认保留 30 天，可选 1 / 7 / 30 / 90 天或永久；星标记录不自动删除。
 * History 与 Memory 分离：History 保存可回看的输入/输出记录，Memory 只保存明确的短期 Session、纠错与用户确认的长期知识。
-* 诊断日志只记录状态、延迟、字符数和错误码，不重复记录原始语音、转写文本和 Context 内容。
+* 诊断日志只记录状态、目标 Bundle ID / Accessibility role、可读性和错误信息，不记录原始语音、转写文本、输入框全文或 Context 内容。
 * Short-term Memory 必须有 TTL；长期 Knowledge 只由用户确认后写入。
 
 ---
 
-# 18. MVP 模型选型与技术架构
+## 18. MVP 模型选型与技术架构
 
 > 实现状态：`✅ 已完成`。App 已接入 Qwen3.5 Omni Realtime WebSocket 与 Qwen3.8 Omni Chat Completions，并在 Realtime 失败时使用完整内存录音执行一次批处理 fallback。
 
-## 18.1 官方型号与发布状态
+### 18.1 官方型号与发布状态
 
-截至 2026-09-20，MVP 使用两个已在百炼官方模型目录和 API 文档中明确列出的型号：
+截至 2026-09-21，MVP 使用两个已在百炼官方模型目录和 API 文档中明确列出的型号：
 
 ```text
 qwen3.8-omni-flash
@@ -1319,9 +1336,9 @@ qwen3.5-omni-flash-realtime
 * [Qwen Omni Realtime 调用](https://help.aliyun.com/zh/model-studio/realtime)
 * [百炼 Omni 模型目录](https://help.aliyun.com/zh/model-studio/omni/)
 
-## 18.2 两个模型的分工
+### 18.2 两个模型的分工
 
-### `qwen3.5-omni-flash-realtime`
+#### `qwen3.5-omni-flash-realtime`
 
 它是 MVP 的实时语音入口：
 
@@ -1335,7 +1352,7 @@ qwen3.5-omni-flash-realtime
 MVP 使用：
 
 ```text
-Fn / Fn Fn Down
+Fn Dictation Down
 → AudioCapture 生成 16-bit mono PCM
 → WebSocket append audio chunks
 → Fn Up / Tap Stop
@@ -1349,13 +1366,13 @@ Hold / Tap 都优先使用 Manual 模式。Semantic VAD 仅在用户开启“自
 
 普通 Fn 使用 Realtime 主模型的严格听写响应，并在 session instructions 中附带已确认的 Knowledge Prompt；最终文本到达前的 delta 只能展示，不能提前写入目标 App。听写 instruction 要求忠实保留措辞和语言、只补自然标点，并仅把明确的数字、日期、时间、金额、百分比、单位、电话和编号转成阿拉伯数字。
 
-### `qwen3.8-omni-flash`
+#### `qwen3.8-omni-flash`
 
 它是 MVP 的理解、生成与结构化处理模型：
 
 * 输入支持文本、图片、音频和视频，仅输出文本。
 * 支持 Chat Completions 和 Responses。
-* 支持 Function Calling；Knowledge 候选结果仍须本地 Schema 校验和重试，不能把模型输出当作可信数据库写入。
+* 模型能力支持 Function Calling，但当前客户端不使用通用工具调用；Voice Agent 和 Knowledge 都要求 JSON Object 响应，再做本地 Schema 校验和必要重试，不能把模型输出当作可信数据库写入。
 * 官方发布文章标称 1M Token 上下文，并介绍网联搜索和 Responses Session 缓存；不同地域的帮助中心当前仍有能力表差异。MVP 不依赖网联搜索、超长上下文或服务端 Session 缓存，必须以用户所选地域的连接测试和合同测试为准。
 * 默认开启高强度思考；产品必须按任务显式设置 `reasoning_effort`，不使用默认 `xhigh`。
 * 它是请求式 API：即使文本输出可流式返回，也不能替代持续上传麦克风音频的 Realtime 链路。
@@ -1366,7 +1383,7 @@ MVP 使用：
 Voice Agent
 → 完整 WAV + Selected Text / App / Window / Session + Knowledge Prompt
 → qwen3.8-omni-flash 一次完成转写与理解
-→ Transcript + Intent + Proposed Text / Tool Call
+→ Transcript + Intent + Proposed Text / Whitelisted Action
 → Validate Target
 → Replace Selection / Insert At Cursor
 ```
@@ -1374,29 +1391,26 @@ Voice Agent
 ```text
 Knowledge Paste
 → 本地分段和 PII 预过滤
-→ qwen3.8-omni-flash Function Call
+→ qwen3.8-omni-flash JSON Object 响应
 → Candidate Entities / Aliases / Relationships / Evidence
 → 本地归一化与去重
 → User Review
-→ Knowledge Store
+→ LocalStore
 ```
 
-`reasoning_effort` 建议：
+当前 `reasoning_effort` 使用方式：
 
 ```text
 none
-→ 听写失败时的批处理 fallback、简单翻译、明确格式转换
+→ Voice Agent、听写失败时的批处理 fallback、连接测试
 
 low
-→ 普通 Rewrite / Generate、Knowledge 实体抽取
-
-medium
-→ 涉及多段 Context、关系识别或 Tool Calling 的任务
+→ Knowledge 实体与关系抽取
 ```
 
-MVP 不开放 `xhigh`，避免普通语音操作出现不必要的延迟和输出 Token。
+当前设置页不开放 reasoning effort，代码也不使用 `medium` 或 `xhigh`，避免普通语音操作出现不必要的延迟和输出 Token。
 
-## 18.3 为什么要同时使用两个
+### 18.3 为什么要同时使用两个
 
 只用 `qwen3.8-omni-flash`：
 
@@ -1412,94 +1426,71 @@ MVP 不开放 `xhigh`，避免普通语音操作出现不必要的延迟和输�
 
 > **Qwen3.5 Omni Realtime 负责直接听写，Qwen3.8 Omni 负责直接理解 Agent 音频与批处理。**
 
-Voice Input 和 Voice Agent 各自只发起一次模型调用。普通 Fn Dictation 调用 Realtime，并把已确认 Knowledge 作为 instructions 的结构化参考数据；不再在本地对转写结果做确定性纠错。Fn Fn 不再先做 ASR，而是把音频、Context 和 Knowledge Prompt 一次提交给 Qwen3.8 Omni。
+正常路径中 Voice Input 和 Voice Agent 各自只发起一次模型调用。普通 Fn Dictation 调用 Realtime，并把已确认 Knowledge 作为 instructions 的结构化参考数据；不再在本地对转写结果做确定性纠错。Fn Fn 不再先做 ASR，而是把音频、Context 和 Knowledge Prompt 一次提交给 Qwen3.8 Omni。
 
-Realtime 连接失败但内存中仍有完整录音时，可以用 `qwen3.8-omni-flash` 作一次批处理 fallback。重试完成或失败后立即释放音频，不落盘。
+Realtime 连接失败但内存中仍有完整录音时，可以用 `qwen3.8-omni-flash` 作一次批处理 fallback，因此异常路径可能有第二次模型请求。fallback 使用同一份内存 WAV；是否加密落盘只由 History 的“保存原始语音”设置和敏感目标阻断规则决定。
 
-## 18.4 具体架构
+### 18.4 具体架构
 
 MVP 只实现 Qwen，不做多供应商设置页，也不做为了“以后可能换模型”而层层抽象的通用 SDK。
 
-但音频、上下文、存储和 UI 不应直接依赖百炼网络对象。保留两个能力边界即可：
+但音频、上下文、存储和 UI 不直接依赖百炼网络响应对象。当前代码保留两个具体客户端边界：
 
 ```text
-RealtimeVoiceClient
+QwenRealtimeClient
 ├── connect
 ├── appendAudio
 ├── commit
 ├── cancel
-└── textEvents
 
-ReasoningClient
+QwenReasoningClient
 ├── respondToAudio
 ├── transcribeAudio
 └── extractKnowledge
 ```
 
-核心模块：
+当前实现的核心模块与源码对应关系：
 
 ```text
-App
+SayKukuApp / AppState
 │
-├── FnGestureRouter
-├── AudioCapture
-├── QwenVoiceEngine
-│   ├── QwenRealtimeClient        // qwen3.5-omni-flash-realtime
-│   └── QwenOmniClient            // qwen3.8-omni-flash
-│
-├── ContextCollector
-│   └── TextTargetSnapshot
-│
-├── KnowledgePipeline
-│   ├── TextChunker
-│   ├── EntityExtractor
-│   ├── Normalizer
-│   ├── Deduplicator
-│   └── ImportReview
-│
-├── KnowledgeStore
-│   ├── Entity
-│   ├── Alias
-│   └── Relationship
-│
-├── MemoryStore
-│   ├── Session
-│   └── Corrections
-├── HistoryStore
-│   ├── Entry
-│   ├── AudioAsset
-│   ├── Star
-│   └── RetentionCleaner
-│
-├── AgentRuntime
-│   └── ToolRegistry
+├── ShortcutController            // Carbon 快捷键 + AppKit Fn monitor
+├── AudioCapture                  // 16 kHz PCM / WAV
+├── QwenRealtimeClient            // qwen3.5-omni-flash-realtime
+├── QwenReasoningClient           // qwen3.8-omni-flash 等请求式模型
 │
 ├── TextInteraction
-│   ├── GetSelection
-│   ├── ValidateTarget
-│   ├── ReplaceSelection
-│   └── InsertAtCursor
+│   ├── ContextCollector
+│   ├── TextTargetSnapshot
+│   └── AgentActionExecutor
+│
+├── KnowledgePipeline
+│   ├── 分段、PII 预过滤、归一化、去重
+│   └── 实体与关系 Review
+│
+├── LocalStore / KeychainStore
+│   ├── AES-GCM Snapshot 与 Audio
+│   └── API Key 与 history-encryption-key
 │
 └── UI
-    ├── DictationOverlay
-    ├── AgentIntentOverlay
-    ├── History
-    ├── Settings
-    └── KnowledgeImport
+    ├── HomeView / FloatingOverlayController
+    ├── HistoryView / KnowledgeView / MemoryView
+    └── SettingsView / PermissionGuideView / DomainOnboardingView
 ```
 
-## 18.5 Qwen 配置
+### 18.5 Qwen 配置
 
-MVP 只需要四项：
+当前设置包含五类 Qwen 配置：
 
 * 地域：北京或新加坡，由 App 自动匹配对应 API 地址。
 * API Key：用户填写，保存在本机 Keychain。
+* Workspace ID：可选；填写后使用对应地域的业务空间专属域名。
 * Realtime 模型版本：默认 `qwen3.5-omni-flash-realtime`，可选固定快照 `qwen3.5-omni-flash-realtime-2026-03-15`。
 * 处理模型版本：默认 `qwen3.8-omni-flash`，可选 `qwen3.5-omni-plus`、`qwen3.5-omni-flash`。
 
 提供一个简单的“测试连接”按钮即可。首版不做自定义 Base URL、账号体系、复杂密钥状态、安全策略页面或详细账单展示。
 
-## 18.6 MVP 技术验收指标
+### 18.6 MVP 技术验收指标
 
 ```text
 Fn UI 首次反馈 P95             < 100 ms
@@ -1512,7 +1503,7 @@ Fn 系统组合键误触发率            = 0
 Knowledge 未经确认写入率         = 0
 ```
 
-数字是 MVP 目标而不是官方模型承诺。开发前必须先对北京和新加坡地域做真实网络 spike，根据目标用户地理位置确定默认地域。
+数字是 MVP 目标而不是官方模型承诺。正式发布前必须先对北京和新加坡地域做真实网络 spike，根据目标用户地理位置复核默认地域。
 
 兼容性矩阵至少覆盖：
 
@@ -1525,7 +1516,7 @@ Terminal
 Secure Text Field
 ```
 
-开发顺序中必须先做一个语音模型 spike，不直接假设 Realtime 的任意文本输出都等于忠实 ASR。用同一批至少 200 条带人工真值的音频比较：
+正式发布验证必须包含语音模型对照测试，不能直接假设 Realtime 的任意文本输出都等于忠实 ASR。用同一批至少 200 条带人工真值的音频比较：
 
 ```text
 A. qwen3.5-omni-flash-realtime + 严格听写 instruction
@@ -1543,11 +1534,11 @@ B. qwen3.8-omni-flash 直接处理整段音频，reasoning_effort=none
 
 ---
 
-# 19. 从 0 构建还是 Fork
+## 19. 从 0 构建还是 Fork
 
 我的建议非常明确：
 
-## 新建自己的 Repo，从 0 建产品架构，但不要从 0 重写基础设施。
+### 新建自己的 Repo，从 0 建产品架构，但不要从 0 重写基础设施。
 
 也就是：
 
@@ -1584,7 +1575,7 @@ Pindrop
 
 ---
 
-# 20. Pindrop 应该怎么用
+## 20. [Pindrop](https://github.com/watzon/pindrop) 应该怎么用
 
 不是 Fork。
 
@@ -1608,7 +1599,7 @@ Pindrop 是 MIT License，而且目前工程结构已经把 Services、Transcrip
 
 ---
 
-# 21. 全局快捷键与 Fn 的开源实现对照
+## 21. 全局快捷键与 Fn 的开源实现对照
 
 本轮对实现做了源码级对照，而不是把“全局快捷键”笼统地等同于“输入监控”：
 
@@ -1621,7 +1612,7 @@ Pindrop 是 MIT License，而且目前工程结构已经把 Services、Transcrip
 
 SayKuku 因此采用两层策略：`⇧⌘D` 与 `⇧⌘A` 使用 Carbon，永远不依赖隐私权限；单独 Fn / Fn Fn 在 Accessibility 已授权后使用 `NSEvent.addGlobalMonitorForEvents`，并用 local monitor 覆盖 App 自身前台事件。应用不创建 CGEvent tap，也不申请 Input Monitoring。
 
-## 21.1 Looped Whisper 更值得参考的部分
+### 21.1 Looped Whisper 更值得参考的部分
 
 Looped Whisper 的产品方向和我们更接近。
 
@@ -1649,9 +1640,9 @@ Vocabulary
 Style / correction learning
 ```
 
-但它当前把 Hold Fn 和 Double-tap Fn 作为互斥配置，没有实现本 PRD 要求的“Hold / Tap Dictation 与 Double Fn Agent 同时存在”。因此 `FnKeyMonitor` 可作为底层事件检测参考，`FnGestureRouter` 必须自己设计和测试。
+但它当前把 Hold Fn 和 Double-tap Fn 作为互斥配置，没有实现本 PRD 要求的“Hold / Tap Dictation 与 Double Fn Agent 同时存在”。因此 `FnKeyMonitor` 只作为底层事件检测参考；SayKuku 的手势状态机由 `ShortcutController` 独立实现并测试，仓库中没有单独名为 `FnGestureRouter` 的类型。
 
-它也是 MIT。
+[Looped Whisper](https://github.com/loopedautomation/whisper) 也是 MIT License。
 
 但我也不会直接 Fork 它。
 
@@ -1679,7 +1670,7 @@ Agent UI
 
 ---
 
-# 22. VoiceInk
+## 22. VoiceInk
 
 把它当作：
 
@@ -1691,7 +1682,7 @@ Knowledge Import / Correction Learning 的产品 Reference
 
 不要作为代码底座。
 
-当前项目是 GPLv3。
+[VoiceInk 仓库](https://github.com/Beingpax/VoiceInk/blob/main/LICENSE)使用 GPLv3；这里的“项目”指 VoiceInk，不是 SayKuku。
 
 如果我们的产品以后可能闭源或采用不同商业授权，引入 GPL 派生代码会给授权策略带来明显约束。
 
@@ -1704,7 +1695,7 @@ Knowledge Import / Correction Learning 的产品 Reference
 
 ---
 
-# 23. VibeTyping
+## 23. [VibeTyping](https://github.com/chenlu-hung/VibeTyping)
 
 可以看：
 
@@ -1715,7 +1706,7 @@ VAD
 原生输入法生命周期
 ```
 
-当前仓库只在 README 中写了“MIT License”，但根目录没有完整 LICENSE 文件。授权未由作者补齐前，只作技术参考，不复制实现。
+VibeTyping 仓库当前只在 README 中标注 MIT License，但根目录没有完整 LICENSE 文件。授权文件未由作者补齐前，只作技术参考，不复制实现。
 
 它当前的 VAD 也是固定 RMS 阈值和静音计时器，适合理解流程，不作为生产 VAD 底座。
 
@@ -1729,32 +1720,51 @@ VAD
 
 > 一个能读取 Context、操作 Selection、调用 Tool 的全局 Voice Agent。
 
-Accessibility + Event Tap 反而更自由。
+Accessibility 写回，加上 Carbon 普通快捷键与 AppKit Fn event monitor，反而更符合当前产品边界。
 
 ---
 
-# 24. 可以直接采用的基础库
+## 24. 依赖策略与当前实现
 
-有些东西完全没必要自己造。
+当前 `Package.swift` 没有第三方依赖。选中文字、写回、上下文采集、全局快捷键和 Fn 手势均由仓库内实现完成：
 
-例如获取当前选中文字，可以先用 MIT 的 `SelectedTextKit` 做跨应用 POC。它已经封装 Accessibility、菜单 Copy、快捷键模拟等多种 fallback，但会涉及焦点、剪贴板和模拟键盘副作用，通过目标应用兼容性测试后再决定是否正式依赖。
+```text
+Apple frameworks
+├── SwiftUI / AppKit
+├── AVFoundation / AVFAudio
+├── Accessibility
+├── Carbon.HIToolbox
+├── Security / CryptoKit
+└── ServiceManagement
 
-普通可配置快捷键也可以采用 `KeyboardShortcuts`；它是 MIT，并且提供原生 SwiftUI 设置组件。Fn 属于特殊 modifier，使用 Accessibility 保护下的 AppKit `NSEvent` monitor 单独处理。
+SayKuku code
+├── TextInteraction / ContextCollector
+├── ShortcutController
+├── AudioCapture
+├── QwenRealtimeClient / QwenReasoningClient
+└── LocalStore / KeychainStore
+```
 
-因此最终代码关系更推荐：
+下面的库仅是未来需求变化时的候选，不是当前依赖，也没有代码被复制进本仓库。
+
+如果未来需要更多跨应用 fallback，可重新评估 [SelectedTextKit](https://github.com/tisfeng/SelectedTextKit)。它封装 Accessibility、菜单 Copy、快捷键模拟等路径，但会涉及焦点、剪贴板和模拟键盘副作用，必须先通过目标应用兼容性测试并核对当时许可证。
+
+如果未来开放用户自定义普通快捷键，可重新评估 MIT 的 `KeyboardShortcuts`。Fn 属于特殊 modifier，即使引入该库，也仍需由 Accessibility 保护下的 AppKit `NSEvent` monitor 单独处理。
+
+未来若引入依赖，仍应保持 Apple frameworks 和少量边界清晰依赖为主：
 
 ```text
 Our App
 │
 ├── Apple frameworks
-│   ├── AVFoundation
-│   ├── Accessibility
-│   ├── Vision
+│   ├── AVFoundation / AVFAudio
+│   ├── Accessibility / AppKit / Carbon
+│   ├── Security / CryptoKit
 │   └── SwiftUI
 │
-├── Small MIT dependencies
-│   ├── SelectedTextKit
-│   └── KeyboardShortcuts
+├── Optional small dependencies
+│   ├── SelectedTextKit             // 当前未引入
+│   └── KeyboardShortcuts           // 当前未引入
 │
 ├── Qwen APIs
 │   ├── qwen3.5-omni-flash-realtime
@@ -1774,7 +1784,7 @@ Fork Pindrop
 
 ---
 
-# 25. MVP 应该砍到这里
+## 25. MVP 应该砍到这里
 
 第一版需要把下面几个体验做到极好：
 

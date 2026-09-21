@@ -34,11 +34,39 @@ struct SayKukuApp: App {
             }
         }
 
-        MenuBarExtra("SayKuku", systemImage: "bird.fill", isInserted: $appState.showInMenuBar) {
+        MenuBarExtra(isInserted: $appState.showInMenuBar) {
             MenuBarContent()
                 .environment(appState)
+        } label: {
+            MenuBarIcon()
         }
         .menuBarExtraStyle(.menu)
+    }
+}
+
+private struct MenuBarIcon: View {
+    private static let image: NSImage? = {
+        guard let url = Bundle.module.url(forResource: "MenuBarIcon", withExtension: "svg"),
+              let image = NSImage(contentsOf: url) else {
+            return nil
+        }
+
+        image.isTemplate = true
+        image.size = NSSize(width: 18, height: 18)
+        return image
+    }()
+
+    var body: some View {
+        Group {
+            if let image = Self.image {
+                Image(nsImage: image)
+                    .renderingMode(.template)
+            } else {
+                Image(systemName: "circle.fill")
+            }
+        }
+        .frame(width: 18, height: 18)
+        .accessibilityLabel("SayKuku")
     }
 }
 

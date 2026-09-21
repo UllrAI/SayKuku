@@ -1,6 +1,7 @@
 .DS_Store
 .build/
 Build/
+Dist/
 Design/
 design-*.md
 

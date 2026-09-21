@@ -51,7 +51,7 @@ private struct VoiceInputSettings: View {
                         ChoiceRow(
                             title: mode == .hold ? appState.text("按住 Fn", "Hold Fn") : appState.text("单击 Fn", "Tap Fn"),
                             subtitle: mode == .hold
-                                ? appState.text("按下即预缓冲，松开后提交", "Pre-buffer on press, commit on release")
+                                ? appState.text("短暂按住后开始录音，松开后提交", "Starts after a short hold, commits on release")
                                 : appState.text("单击开始，再次单击结束", "Tap once to start, again to stop"),
                             selected: appState.inputMode == mode
                         ) {
@@ -68,7 +68,7 @@ private struct VoiceInputSettings: View {
             SettingsGroup(title: appState.text("结束与输出", "Stop & output")) {
                 SettingsToggle(title: appState.text("自动检测停顿结束", "Stop after a pause"), subtitle: appState.text("使用 Semantic VAD；默认关闭", "Uses Semantic VAD; off by default"), isOn: $appState.autoStop)
                 SettingsDivider()
-                SettingsValueRow(title: appState.text("输入位置", "Overlay position"), value: appState.text("光标附近", "Near caret"))
+                SettingsValueRow(title: appState.text("输入位置", "Overlay position"), value: appState.text("屏幕底部", "Bottom of screen"))
                 SettingsDivider()
                 SettingsOptionRow(
                     title: appState.text("识别语言", "Recognition language"),
