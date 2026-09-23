@@ -40,13 +40,13 @@ App 图标不放文字，使用珊瑚红圆角底板与暖白 Lucide Bird 线稿
 
 ## 0. 当前实现进度与界面基线
 
-> 最后更新：2026-09-21。`✅ 已完成` 表示已经进入当前可运行 App；`🟡 部分完成` 表示已有可用实现，但仍有明确范围尚未完成；`⬜ 待实现` 表示尚未开始生产实现；`⏸ 后续版本` 表示不进入 MVP。
+> 最后更新：2026-09-23。`✅ 已完成` 表示已经进入当前可运行 App；`🟡 部分完成` 表示已有可用实现，但仍有明确范围尚未完成；`⬜ 待实现` 表示尚未开始生产实现；`⏸ 后续版本` 表示不进入 MVP。
 
 | 模块 | 状态 | 当前已经完成 | 下一步 |
 | --- | --- | --- | --- |
 | 原生 App 外壳与统一设计系统 | ✅ 已完成 | SwiftUI 原生窗口、固定侧栏、统一页面宽度、标题、Tab、卡片、间距、圆角与阴影 | 持续做逐页视觉回归 |
 | App 图标与打包 | ✅ 已完成 | Lucide Bird 品牌母形、ICNS、菜单栏 template 资源、固定 Bundle ID、开发/正式身份隔离，以及强制 Developer ID 的 Release 签名脚本 | 每次正式分发按发布文档完成公证、装订和最终 ZIP |
-| 菜单栏常驻入口 | ✅ 已完成 | 18 × 18 pt template 画布内放置约 15 × 13.5 pt Lucide Bird，使用原生 template 渲染自动适配明暗与按下态；包含 Voice Input、Voice Agent、显示主窗口、设置、状态与退出菜单 | 后续增加连接延迟与录音态图标 |
+| 菜单栏常驻入口 | ✅ 已完成 | 18 × 18 pt template 画布内放置约 15 × 13.5 pt Lucide Bird，使用原生 template 渲染自动适配明暗与按下态；包含 Voice Input、Voice Agent、显示主窗口、设置、状态与退出菜单；可选在关闭主窗口后隐藏 Dock 图标，从菜单栏重开时恢复 | 后续增加连接延迟与录音态图标 |
 | 全局快捷键 | ✅ 已完成 | `⇧⌘D` Voice Input、`⇧⌘A` Voice Agent，通过 Carbon 注册且不需要任何隐私权限 | 增加可配置按键 |
 | Fn Gesture Router | ✅ 已完成 | Hold Fn、Tap Fn、Double Fn、活动语音流程下 Esc 取消、组合键取消、超时恢复、冲突检测、系统 Fn 行为引导与全局快捷键 fallback；复用写回所需的辅助功能权限，不申请输入监控 | 增加真实设备与外接键盘回归测试 |
 | 权限引导与麦克风测试 | ✅ 已完成 | 启动时缺失权限自动展示引导；麦克风与辅助功能实时状态、快捷开启、回到 App 自动复查；设置页可重新打开；AVAudioEngine 实时输入电平测试 | 增加多输入设备切换回归测试 |
@@ -54,7 +54,7 @@ App 图标不放文字，使用珊瑚红圆角底板与暖白 Lucide Bird 线稿
 | History | ✅ 已完成 | 停止录音即创建历史；原始语音优先加密落盘；识别或 Agent 失败仍保留输入及失败状态；支持回放、筛选、星标和按期限清理 | — |
 | Knowledge | ✅ 已完成 | 手动添加、模型抽取、PII 预过滤、分段、归一化、去重、实体/关系 Review、加密存储，以及作为模型 Prompt 的结构化知识块 | — |
 | Memory | 🟡 部分完成 | Agent Session 在 30 分钟 TTL 内进入同一 App 的后续 Agent Prompt；纠错建议经用户确认后进入长期 Knowledge Prompt | [#1](https://github.com/UllrAI/SayKuku/issues/1)：实现可审阅的自动记忆提炼链路 |
-| Settings 与中英文 | ✅ 已完成 | 统一水平 Tab、语言、输入模式、隐私开关、菜单栏、登录项、快捷键状态和持久化 | — |
+| Settings 与中英文 | ✅ 已完成 | 统一水平 Tab、语言、输入模式、隐私开关、菜单栏、登录项、关闭窗口后的 Dock 行为、快捷键状态和持久化 | — |
 | Qwen Realtime / Omni | ✅ 已完成 | Realtime WebSocket、Omni 请求式 API、批处理音频 fallback、错误与超时 | — |
 | 麦克风与系统写回 | ✅ 已完成 | 16kHz PCM 录音、可选 Semantic VAD、目标快照、写回前校验和 Accessibility 写回 | — |
 | 本地隐私存储 | ✅ 已完成 | 独立开发/正式 Keychain 服务、旧服务无损迁移、AES-GCM 加密 History / Memory / Knowledge / Audio 与保留清理 | — |

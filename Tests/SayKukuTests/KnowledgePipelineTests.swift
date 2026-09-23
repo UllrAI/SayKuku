@@ -198,6 +198,46 @@ struct PersistenceTests {
         #expect(!reloaded.automaticAgentWriteBack)
     }
 
+    @Test("menu bar-only close preference persists and keeps a recovery entry")
+    @MainActor
+    func menuBarOnlyClosePreference() {
+        let suite = "SayKukuTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let keychain = makeTestKeychain()
+        defer {
+            defaults.removePersistentDomain(forName: suite)
+            try? FileManager.default.removeItem(at: root)
+            cleanTestKeychain(keychain)
+        }
+
+        let state = AppState(
+            defaults: defaults,
+            store: LocalStore(root: root, keychain: keychain),
+            keychain: keychain
+        )
+        #expect(!state.hideDockIconAfterMainWindowCloses)
+        state.setShowInMenuBar(false)
+        #expect(!state.showInMenuBar)
+
+        state.hideDockIconAfterMainWindowCloses = true
+        #expect(state.showInMenuBar)
+        state.setShowInMenuBar(false)
+        #expect(state.showInMenuBar)
+
+        let reloaded = AppState(
+            defaults: defaults,
+            store: LocalStore(root: root, keychain: keychain),
+            keychain: keychain
+        )
+        #expect(reloaded.hideDockIconAfterMainWindowCloses)
+        #expect(reloaded.showInMenuBar)
+
+        reloaded.hideDockIconAfterMainWindowCloses = false
+        reloaded.setShowInMenuBar(false)
+        #expect(!reloaded.showInMenuBar)
+    }
+
     @Test("snapshot persists and reloads")
     func persistence() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

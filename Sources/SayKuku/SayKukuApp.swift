@@ -14,13 +14,16 @@ struct SayKukuApp: App {
     @State private var appState = AppState()
 
     var body: some Scene {
-        @Bindable var appState = appState
-
         Window("SayKuku", id: "main") {
             RootView()
                 .environment(appState)
                 .frame(minWidth: 860, minHeight: 580)
                 .preferredColorScheme(.light)
+                .background {
+                    MainWindowReader { window in
+                        appDelegate.observeMainWindow(window, appState: appState)
+                    }
+                }
                 .task { appState.startSystemServices() }
         }
         .defaultSize(width: 1_000, height: 660)
@@ -34,13 +37,24 @@ struct SayKukuApp: App {
             }
         }
 
-        MenuBarExtra(isInserted: $appState.showInMenuBar) {
+        MenuBarExtra(isInserted: Binding(
+            get: { appState.showInMenuBar },
+            set: { setMenuBarVisibility($0) }
+        )) {
             MenuBarContent()
                 .environment(appState)
         } label: {
             MenuBarIcon()
         }
         .menuBarExtraStyle(.menu)
+    }
+
+    private func setMenuBarVisibility(_ isVisible: Bool) {
+        if !isVisible, appState.hideDockIconAfterMainWindowCloses {
+            appState.hideDockIconAfterMainWindowCloses = false
+            NSApplication.shared.setActivationPolicy(.regular)
+        }
+        appState.setShowInMenuBar(isVisible)
     }
 }
 
@@ -71,8 +85,74 @@ private struct MenuBarIcon: View {
 }
 
 private final class AppDelegate: NSObject, NSApplicationDelegate {
+    private weak var appState: AppState?
+    private weak var mainWindow: NSWindow?
+
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         false
+    }
+
+    func observeMainWindow(_ window: NSWindow?, appState: AppState) {
+        self.appState = appState
+        guard let window, mainWindow !== window else { return }
+
+        if let mainWindow {
+            NotificationCenter.default.removeObserver(
+                self,
+                name: NSWindow.willCloseNotification,
+                object: mainWindow
+            )
+        }
+        mainWindow = window
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(mainWindowWillClose(_:)),
+            name: NSWindow.willCloseNotification,
+            object: window
+        )
+    }
+
+    @MainActor @objc private func mainWindowWillClose(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow, mainWindow === window else { return }
+        NotificationCenter.default.removeObserver(
+            self,
+            name: NSWindow.willCloseNotification,
+            object: window
+        )
+        mainWindow = nil
+
+        if appState?.hideDockIconAfterMainWindowCloses == true {
+            NSApplication.shared.setActivationPolicy(.accessory)
+        }
+    }
+}
+
+private struct MainWindowReader: NSViewRepresentable {
+    let onWindowChange: @MainActor (NSWindow?) -> Void
+
+    func makeNSView(context: Context) -> WindowReaderView {
+        WindowReaderView(onWindowChange: onWindowChange)
+    }
+
+    func updateNSView(_ nsView: WindowReaderView, context: Context) { }
+}
+
+private final class WindowReaderView: NSView {
+    private let onWindowChange: @MainActor (NSWindow?) -> Void
+
+    init(onWindowChange: @escaping @MainActor (NSWindow?) -> Void) {
+        self.onWindowChange = onWindowChange
+        super.init(frame: .zero)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        onWindowChange(window)
     }
 }
 
@@ -115,6 +195,7 @@ private struct MenuBarContent: View {
 
     private func showWindow(destination: AppState.Destination) {
         appState.destination = destination
+        NSApplication.shared.setActivationPolicy(.regular)
         openWindow(id: "main")
         NSApplication.shared.activate(ignoringOtherApps: true)
     }

@@ -308,7 +308,7 @@ private struct GeneralSettings: View {
                 .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
             }
 
-            SettingsGroup(title: appState.text("启动", "Startup")) {
+            SettingsGroup(title: appState.text("启动与后台", "Startup & background")) {
                 SettingsToggle(
                     title: appState.text("登录时启动", "Launch at login"),
                     subtitle: appState.text("确保 Fn 手势随时可用", "Keep Fn gestures ready"),
@@ -320,8 +320,23 @@ private struct GeneralSettings: View {
                 SettingsDivider()
                 SettingsToggle(
                     title: appState.text("在菜单栏显示", "Show in menu bar"),
-                    subtitle: appState.text("快速开始输入、打开窗口并查看快捷键状态", "Start input, open the app, and check shortcut status"),
-                    isOn: $appState.showInMenuBar
+                    subtitle: appState.hideDockIconAfterMainWindowCloses
+                        ? appState.text("仅在菜单栏运行时必须保留", "Required while running only in the menu bar")
+                        : appState.text("快速开始输入、打开窗口并查看快捷键状态", "Start input, open the app, and check shortcut status"),
+                    isOn: Binding(
+                        get: { appState.showInMenuBar },
+                        set: { appState.setShowInMenuBar($0) }
+                    )
+                )
+                .disabled(appState.hideDockIconAfterMainWindowCloses)
+                SettingsDivider()
+                SettingsToggle(
+                    title: appState.text("关闭主窗口后仅保留菜单栏图标", "Show only in menu bar after closing"),
+                    subtitle: appState.text(
+                        "SayKuku 会继续运行；从菜单栏打开窗口时恢复 Dock 图标",
+                        "SayKuku keeps running; reopening the window restores its Dock icon"
+                    ),
+                    isOn: $appState.hideDockIconAfterMainWindowCloses
                 )
             }
 

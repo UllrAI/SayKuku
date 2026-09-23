@@ -103,7 +103,13 @@ final class AppState {
     var storeVoiceAudio = true { didSet { defaults.set(storeVoiceAudio, forKey: Keys.storeVoiceAudio) } }
     var shortcutStatus: ShortcutStatus = .starting
     var presentedSheet: AppSheet?
-    var showInMenuBar = true { didSet { defaults.set(showInMenuBar, forKey: Keys.showInMenuBar) } }
+    private(set) var showInMenuBar = true { didSet { defaults.set(showInMenuBar, forKey: Keys.showInMenuBar) } }
+    var hideDockIconAfterMainWindowCloses = false {
+        didSet {
+            defaults.set(hideDockIconAfterMainWindowCloses, forKey: Keys.hideDockIconAfterMainWindowCloses)
+            if hideDockIconAfterMainWindowCloses { showInMenuBar = true }
+        }
+    }
     var launchAtLogin = false
     var qwenRegion: QwenRegion = .beijing { didSet { defaults.set(qwenRegion.rawValue, forKey: Keys.qwenRegion) } }
     var qwenWorkspaceID = "" { didSet { defaults.set(qwenWorkspaceID, forKey: Keys.qwenWorkspace) } }
@@ -163,6 +169,11 @@ final class AppState {
     func text(_ chinese: String, _ english: String) -> String { usesChineseUI ? chinese : english }
     var voiceInputTitle: String { text("语音输入", "Voice Input") }
     var voiceAgentTitle: String { text("语音 Agent", "Voice Agent") }
+
+    func setShowInMenuBar(_ isVisible: Bool) {
+        guard isVisible || !hideDockIconAfterMainWindowCloses else { return }
+        showInMenuBar = isVisible
+    }
 
     func startDictation() {
         beginVoiceWorkflow(mode: .dictation)
@@ -930,6 +941,8 @@ final class AppState {
         browserPageAllowed = defaults.bool(forKey: Keys.browserPage)
         storeVoiceAudio = defaults.object(forKey: Keys.storeVoiceAudio).map { _ in defaults.bool(forKey: Keys.storeVoiceAudio) } ?? true
         showInMenuBar = defaults.object(forKey: Keys.showInMenuBar).map { _ in defaults.bool(forKey: Keys.showInMenuBar) } ?? true
+        hideDockIconAfterMainWindowCloses = defaults.object(forKey: Keys.hideDockIconAfterMainWindowCloses)
+            .map { _ in defaults.bool(forKey: Keys.hideDockIconAfterMainWindowCloses) } ?? false
     }
 
     private enum Keys {
@@ -942,6 +955,7 @@ final class AppState {
         static let selectedText = "privacy.selectedText", currentApp = "privacy.currentApp", windowTitle = "privacy.windowTitle"
         static let clipboard = "privacy.clipboard", browserPage = "privacy.browserPage"
         static let historyRetention = "historyRetention", storeVoiceAudio = "storeVoiceAudio", showInMenuBar = "showInMenuBar"
+        static let hideDockIconAfterMainWindowCloses = "hideDockIconAfterMainWindowCloses"
         static let qwenRegion = "qwen.region", qwenWorkspace = "qwen.workspace", realtimeModel = "qwen.realtimeModel"
         static let reasoningModel = "qwen.reasoningModel", apiKey = "qwen.apiKey"
     }
