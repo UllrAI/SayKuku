@@ -151,6 +151,19 @@ struct KnowledgePipelineTests {
 
 @Suite("Configuration and persistence")
 struct PersistenceTests {
+    @Test("only the release bundle uses production storage")
+    func storageIdentity() {
+        let release = StorageIdentity(bundleIdentifier: "com.saykuku.app")
+        #expect(release.service == "com.saykuku.app.secure-storage")
+        #expect(release.directoryName == "SayKuku")
+
+        for bundleIdentifier in ["com.saykuku.dev", "com.example.other", nil] {
+            let development = StorageIdentity(bundleIdentifier: bundleIdentifier)
+            #expect(development.service == "com.saykuku.dev.secure-storage")
+            #expect(development.directoryName == "SayKuku Dev")
+        }
+    }
+
     @Test("regional endpoint uses legacy or workspace host")
     func endpoints() {
         var config = QwenConfiguration(region: .beijing, workspaceID: "", realtimeModel: "r", reasoningModel: "m")
@@ -254,10 +267,68 @@ struct PersistenceTests {
         )
         try await store.replace(.init(history: [entry]))
         let reloaded = LocalStore(root: root, keychain: keychain)
-        let snapshot = await reloaded.load()
+        let snapshot = try await reloaded.load()
         #expect(snapshot.history == [entry])
         let storedBytes = try Data(contentsOf: root.appendingPathComponent("store.data"))
         #expect(!String(decoding: storedBytes, as: UTF8.self).contains("hello"))
+    }
+
+    @Test("an unreadable snapshot cannot be overwritten")
+    func unreadableSnapshot() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let firstKeychain = makeTestKeychain()
+        let secondKeychain = makeTestKeychain()
+        defer {
+            try? FileManager.default.removeItem(at: root)
+            cleanTestKeychain(firstKeychain)
+            cleanTestKeychain(secondKeychain)
+        }
+
+        try await LocalStore(root: root, keychain: firstKeychain).replace(.init())
+        let snapshotURL = root.appendingPathComponent("store.data")
+        let original = try Data(contentsOf: snapshotURL)
+        let store = LocalStore(root: root, keychain: secondKeychain)
+
+        await #expect(throws: SecureStorageError.self) { try await store.load() }
+        await #expect(throws: SecureStorageError.self) { try await store.replace(.init()) }
+        await #expect(throws: SecureStorageError.self) { try await store.saveAudio(Data("audio".utf8), id: UUID()) }
+        #expect(try Data(contentsOf: snapshotURL) == original)
+    }
+
+    @Test("legacy development data is copied only with the matching key")
+    func developmentDataMigration() async throws {
+        let parent = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let legacyRoot = parent.appendingPathComponent("SayKuku")
+        let developmentRoot = parent.appendingPathComponent("SayKuku Dev")
+        let developmentKeychain = makeTestKeychain()
+        let otherKeychain = makeTestKeychain()
+        defer {
+            try? FileManager.default.removeItem(at: parent)
+            cleanTestKeychain(developmentKeychain)
+            cleanTestKeychain(otherKeychain)
+        }
+
+        let original = LocalStore(root: legacyRoot, keychain: developmentKeychain)
+        let id = UUID()
+        let audio = Data("recording".utf8)
+        let filename = try await original.saveAudio(audio, id: id)
+        let entry = HistoryEntry(
+            id: id, mode: .dictation, app: "Tests",
+            createdAt: Date(timeIntervalSince1970: 1_700_000_000), durationSeconds: 1,
+            input: "hello", output: "", audioFilename: filename
+        )
+        try await original.replace(.init(history: [entry]))
+
+        LocalStore.migrateDevelopmentDataIfNeeded(from: legacyRoot, to: developmentRoot, keychain: otherKeychain)
+        #expect(!FileManager.default.fileExists(atPath: developmentRoot.path))
+
+        LocalStore.migrateDevelopmentDataIfNeeded(from: legacyRoot, to: developmentRoot, keychain: developmentKeychain)
+        let migrated = LocalStore(root: developmentRoot, keychain: developmentKeychain)
+        #expect(FileManager.default.fileExists(atPath: developmentRoot.appendingPathComponent("store.data").path))
+        let migratedSnapshot = try await migrated.load()
+        #expect(migratedSnapshot.history == [entry])
+        #expect(try await migrated.audio(named: filename) == audio)
+        #expect(FileManager.default.fileExists(atPath: legacyRoot.appendingPathComponent("store.data").path))
     }
 
     @Test("legacy history without a status remains readable")

@@ -30,7 +30,7 @@ Scripts/package-app.sh debug
 open Build/SayKuku.app
 ```
 
-`swift run` 不具备稳定的 App Bundle 与签名身份，不能用于判断 TCC 权限或 Keychain ACL 行为。
+`swift run` 不具备稳定的 App Bundle 与签名身份，不能用于判断 TCC 权限或 Keychain ACL 行为；它使用开发版的 Keychain 服务和数据目录。
 
 ## 文档
 

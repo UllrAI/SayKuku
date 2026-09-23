@@ -5,26 +5,48 @@ import Security
 enum SecureStorageError: LocalizedError {
     case keychain(OSStatus)
     case invalidData
+    case unreadableSnapshot
 
     var errorDescription: String? {
         switch self {
         case .keychain(let status): "Keychain error (\(status))"
         case .invalidData: "Stored data is invalid"
+        case .unreadableSnapshot: "Stored data could not be read; changes were not saved"
+        }
+    }
+}
+
+enum StorageIdentity: Equatable {
+    case release
+    case development
+
+    init(bundleIdentifier: String? = Bundle.main.bundleIdentifier) {
+        self = bundleIdentifier == "com.saykuku.app" ? .release : .development
+    }
+
+    var service: String {
+        switch self {
+        case .release: "com.saykuku.app.secure-storage"
+        case .development: "com.saykuku.dev.secure-storage"
+        }
+    }
+
+    var directoryName: String {
+        switch self {
+        case .release: "SayKuku"
+        case .development: "SayKuku Dev"
         }
     }
 }
 
 struct KeychainStore: Sendable {
-    private static let releaseBundleIdentifier = "com.saykuku.app"
-
     private let service: String
     private let legacyServices: [String]
 
     init() {
-        let bundleIdentifier = Bundle.main.bundleIdentifier
-        let isDevelopmentBuild = bundleIdentifier == "com.saykuku.dev"
-        service = isDevelopmentBuild ? "com.saykuku.dev.secure-storage" : "com.saykuku.app.secure-storage"
-        legacyServices = isDevelopmentBuild ? [] : [Self.releaseBundleIdentifier]
+        let identity = StorageIdentity()
+        service = identity.service
+        legacyServices = identity == .release ? ["com.saykuku.app"] : []
     }
 
     init(service: String, legacyServices: [String] = []) {
@@ -128,30 +150,49 @@ actor LocalStore {
     private let audioDirectory: URL
     private let keychain: KeychainStore
     private var snapshot: Snapshot
+    private let snapshotIsReadable: Bool
     private var latestGeneration = 0
 
     init(root: URL? = nil, keychain: KeychainStore = KeychainStore()) {
-        let base = root ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("SayKuku", isDirectory: true)
+        let base: URL
+        if let root {
+            base = root
+        } else {
+            let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            let identity = StorageIdentity()
+            base = support.appendingPathComponent(identity.directoryName, isDirectory: true)
+            if identity == .development {
+                Self.migrateDevelopmentDataIfNeeded(
+                    from: support.appendingPathComponent("SayKuku", isDirectory: true),
+                    to: base,
+                    keychain: keychain
+                )
+            }
+        }
         self.root = base
         snapshotURL = base.appendingPathComponent("store.data")
         audioDirectory = base.appendingPathComponent("Audio", isDirectory: true)
         self.keychain = keychain
-        snapshot = Self.loadSnapshot(from: snapshotURL, keychain: keychain)
+        (snapshot, snapshotIsReadable) = Self.loadSnapshot(from: snapshotURL, keychain: keychain)
     }
 
-    func load() -> Snapshot { snapshot }
+    func load() throws -> Snapshot {
+        guard snapshotIsReadable else { throw SecureStorageError.unreadableSnapshot }
+        return snapshot
+    }
 
     func replace(_ newValue: Snapshot, generation: Int? = nil) throws {
+        guard snapshotIsReadable else { throw SecureStorageError.unreadableSnapshot }
         if let generation {
             guard generation >= latestGeneration else { return }
             latestGeneration = generation
         }
+        try persist(newValue)
         snapshot = newValue
-        try persist()
     }
 
     func saveAudio(_ wavData: Data, id: UUID) throws -> String {
+        guard snapshotIsReadable else { throw SecureStorageError.unreadableSnapshot }
         try prepareDirectories()
         let key = try encryptionKey()
         let sealed = try AES.GCM.seal(wavData, using: key)
@@ -172,12 +213,12 @@ actor LocalStore {
         if FileManager.default.fileExists(atPath: url.path) { try FileManager.default.removeItem(at: url) }
     }
 
-    private func persist() throws {
+    private func persist(_ value: Snapshot) throws {
         try prepareDirectories()
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .millisecondsSince1970
         encoder.outputFormatting = [.sortedKeys]
-        let plaintext = try encoder.encode(snapshot)
+        let plaintext = try encoder.encode(value)
         let sealed = try AES.GCM.seal(plaintext, using: encryptionKey())
         guard let encrypted = sealed.combined else { throw SecureStorageError.invalidData }
         try encrypted.write(to: snapshotURL, options: .atomic)
@@ -206,13 +247,45 @@ actor LocalStore {
         return SymmetricKey(data: existing)
     }
 
-    private static func loadSnapshot(from url: URL, keychain: KeychainStore) -> Snapshot {
+    static func migrateDevelopmentDataIfNeeded(from legacyRoot: URL, to destination: URL, keychain: KeychainStore) {
+        let files = FileManager.default
+        guard !files.fileExists(atPath: destination.path) else { return }
+        let legacySnapshot = legacyRoot.appendingPathComponent("store.data")
+        guard files.fileExists(atPath: legacySnapshot.path) else { return }
+        let (snapshot, readable) = loadSnapshot(from: legacySnapshot, keychain: keychain)
+        guard readable else { return }
+
+        let staging = destination.deletingLastPathComponent()
+            .appendingPathComponent(".SayKuku-Dev-\(UUID().uuidString)", isDirectory: true)
+        do {
+            try files.createDirectory(at: staging, withIntermediateDirectories: true)
+            try files.copyItem(at: legacySnapshot, to: staging.appendingPathComponent("store.data"))
+            let audioNames = Set(snapshot.history.compactMap(\.audioFilename))
+            if !audioNames.isEmpty {
+                let audioDirectory = staging.appendingPathComponent("Audio", isDirectory: true)
+                try files.createDirectory(at: audioDirectory, withIntermediateDirectories: true)
+                for name in audioNames {
+                    let source = legacyRoot.appendingPathComponent("Audio", isDirectory: true).appendingPathComponent(name)
+                    if files.fileExists(atPath: source.path) {
+                        try files.copyItem(at: source, to: audioDirectory.appendingPathComponent(name))
+                    }
+                }
+            }
+            try files.moveItem(at: staging, to: destination)
+        } catch {
+            try? files.removeItem(at: staging)
+        }
+    }
+
+    private static func loadSnapshot(from url: URL, keychain: KeychainStore) -> (Snapshot, Bool) {
+        guard FileManager.default.fileExists(atPath: url.path) else { return (Snapshot(), true) }
         guard let encrypted = try? Data(contentsOf: url),
               let key = try? encryptionKey(keychain: keychain),
               let box = try? AES.GCM.SealedBox(combined: encrypted),
-              let data = try? AES.GCM.open(box, using: key) else { return Snapshot() }
+              let data = try? AES.GCM.open(box, using: key) else { return (Snapshot(), false) }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .millisecondsSince1970
-        return (try? decoder.decode(Snapshot.self, from: data)) ?? Snapshot()
+        guard let snapshot = try? decoder.decode(Snapshot.self, from: data) else { return (Snapshot(), false) }
+        return (snapshot, true)
     }
 }

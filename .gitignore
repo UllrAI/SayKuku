@@ -11,3 +11,8 @@ xcuserdata/
 
 # Swift Package Manager
 .swiftpm/
+
+# Signing credentials
+*.p8
+*.p12
+*.keychain-db

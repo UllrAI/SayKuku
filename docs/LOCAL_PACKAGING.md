@@ -78,7 +78,7 @@ xcrun notarytool store-credentials 'SayKuku-Notary' \
 xcrun notarytool history --keychain-profile 'SayKuku-Notary'
 ```
 
-本机当前已创建并验证 `SayKuku-Notary`；后续提交、查询历史和下载公证日志都使用这个 profile，不需要再把 `.p8` 路径写进命令：
+保存并验证 `SayKuku-Notary` 后，后续提交、查询历史和下载公证日志都使用这个 profile，不需要再把 `.p8` 路径写进命令：
 
 ```bash
 xcrun notarytool submit Dist/SayKuku-1.0.0-notarization.zip \
@@ -348,14 +348,14 @@ codesign -dvvv /Applications/SayKuku.app 2>&1 | \
 
 ## 8. Keychain 与签名身份
 
-开发版和正式版还使用不同的 Keychain 服务：
+开发版和正式版使用不同的 Keychain 服务与本地数据目录：
 
-| 版本 | 当前 Keychain service | 旧 service |
-| --- | --- | --- |
-| Dev | `com.saykuku.dev.secure-storage` | 无 |
-| Release | `com.saykuku.app.secure-storage` | `com.saykuku.app`，仅用于迁移 |
+| 版本 | 当前 Keychain service | 数据目录 | 旧 service |
+| --- | --- | --- | --- |
+| Dev（含 `swift run`） | `com.saykuku.dev.secure-storage` | `~/Library/Application Support/SayKuku Dev/` | 无 |
+| Release | `com.saykuku.app.secure-storage` | `~/Library/Application Support/SayKuku/` | `com.saykuku.app`，仅用于迁移 |
 
-正式版第一次读取旧 service 中的 API Key 或 `history-encryption-key` 时，会通过 Security Framework 把值复制到当前 service，同时保留旧条目。旧条目若由命令行工具或其他签名创建，迁移时可能出现一次授权提示；迁移成功后的读取不应持续提示。
+正式版第一次读取旧 service 中的 API Key 或 `history-encryption-key` 时，会通过 Security Framework 把值复制到当前 service，同时保留旧条目。旧条目若由命令行工具或其他签名创建，迁移时可能出现一次授权提示；迁移成功后的读取不应持续提示。正式版沿用原有数据目录；开发版使用独立目录。若旧共享目录中的数据能由开发版密钥解密，开发版首次启动时会将快照与相关录音复制到新目录，并保留旧文件。
 
 不要为了消除弹窗而删除或重新生成 `history-encryption-key`。该密钥用于解密已有 History、Memory、Knowledge 和录音，丢失后现有加密数据无法恢复。也不要用开发包读取或修改正式 service。
 

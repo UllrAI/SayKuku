@@ -867,7 +867,13 @@ final class AppState {
     private func loadStoredData() async {
         guard !isLoaded else { return }
         isLoaded = true
-        let snapshot = await store.load()
+        let snapshot: LocalStore.Snapshot
+        do {
+            snapshot = try await store.load()
+        } catch {
+            showToast(text("本地数据无法读取，未保存新更改", "Local data could not be read; new changes were not saved"), symbol: "exclamationmark.triangle.fill")
+            return
+        }
         historyEntries = snapshot.history.sorted { $0.createdAt > $1.createdAt }
         knowledgeEntities = snapshot.entities
         knowledgeRelationships = snapshot.relationships
