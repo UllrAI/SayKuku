@@ -112,7 +112,9 @@ final class AppState {
     var agentCommand = ""
     var liveTranscript = ""
     var inputLevel = 0.0
-    var pendingCopyText = ""
+    var pendingCopyText = "" { didSet { hasCopiedPendingText = false } }
+    /// Whether `pendingCopyText` is on the pasteboard, so the copy fallback can say so.
+    private(set) var hasCopiedPendingText = false
     var pendingAnswerText = ""
     var pendingAnswerStatus: String?
     var resultCanUndo = false
@@ -314,7 +316,7 @@ final class AppState {
         guard !pendingCopyText.isEmpty else { return }
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
-        pasteboard.setString(pendingCopyText, forType: .string)
+        hasCopiedPendingText = pasteboard.setString(pendingCopyText, forType: .string)
     }
 
     var canUndoLastWrite: Bool { lastVerifiedWrite != nil }

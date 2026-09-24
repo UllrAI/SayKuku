@@ -304,7 +304,7 @@ private struct HistoryRow: View {
         .padding(.vertical, 13)
         .padding(.horizontal, 10)
         .contentShape(Rectangle())
-        .background(hovering ? Color.white.opacity(0.48) : .clear, in: RoundedRectangle(cornerRadius: KukuLayout.radiusMedium, style: .continuous))
+        .background(hovering ? KukuColor.highlight.opacity(0.48) : .clear, in: RoundedRectangle(cornerRadius: KukuLayout.radiusMedium, style: .continuous))
         .onHover { hovering = $0 }
         .animation(Motion.snappy, value: hovering)
         .contextMenu {

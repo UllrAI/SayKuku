@@ -10,7 +10,7 @@ final class FloatingOverlayController {
         self.appState = appState
 
         panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 380, height: 92),
+            contentRect: NSRect(origin: .zero, size: Self.panelSize(answerVisible: false)),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -28,14 +28,17 @@ final class FloatingOverlayController {
         panel.contentView = NSHostingView(
             rootView: FloatingSystemOverlay()
                 .environment(appState)
-                .preferredColorScheme(.light)
         )
+    }
+
+    /// Shared by the panel and its SwiftUI root so both always agree on the overlay bounds.
+    nonisolated static func panelSize(answerVisible: Bool) -> NSSize {
+        answerVisible ? NSSize(width: 460, height: 300) : NSSize(width: 380, height: 92)
     }
 
     func refresh() {
         guard let appState else { return }
-        let answerVisible = appState.agentPhase == .answerReady
-        panel.setContentSize(NSSize(width: answerVisible ? 460 : 380, height: answerVisible ? 300 : 92))
+        panel.setContentSize(Self.panelSize(answerVisible: appState.agentPhase == .answerReady))
         let shouldShow = appState.overlayError != nil
             || appState.dictationPhase != .idle
             || appState.agentPhase != .hidden
@@ -67,6 +70,7 @@ private struct FloatingSystemOverlay: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
+        let size = FloatingOverlayController.panelSize(answerVisible: appState.agentPhase == .answerReady)
         ZStack(alignment: .bottom) {
             Color.clear
 
@@ -77,19 +81,13 @@ private struct FloatingSystemOverlay: View {
                 Label(error, systemImage: appState.overlayErrorSymbol)
                     .font(.system(size: 11, weight: .medium, design: .rounded))
                     .foregroundStyle(KukuColor.ink.opacity(0.72))
-                    .lineLimit(1)
+                    .lineLimit(2)
+                    .truncationMode(.tail)
+                    .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 12)
-                    .frame(
-                        width: KukuPillLayout.width(
-                            for: error,
-                            minimum: 120,
-                            fixedContentWidth: 46,
-                            maximum: 260,
-                            fontSize: 11,
-                            fontWeight: .medium
-                        ),
-                        height: 32
-                    )
+                    .padding(.vertical, 8)
+                    .frame(width: KukuPillLayout.errorWidth(for: error))
+                    .frame(minHeight: 32)
                     .kukuGlassPill()
                     .transition(.scale(scale: 0.94, anchor: .bottom).combined(with: .opacity))
             } else if appState.agentPhase != .hidden {
@@ -101,10 +99,7 @@ private struct FloatingSystemOverlay: View {
             }
         }
         .padding(.bottom, 16)
-        .frame(
-            width: appState.agentPhase == .answerReady ? 460 : 380,
-            height: appState.agentPhase == .answerReady ? 300 : 92
-        )
+        .frame(width: size.width, height: size.height)
         .animation(Motion.panel, value: appState.agentPhase)
         .animation(Motion.panel, value: appState.dictationPhase)
         .animation(Motion.panel, value: appState.overlayError)
@@ -150,6 +145,6 @@ private struct AgentAnswerCard: View {
         }
         .padding(18)
         .frame(width: 440, height: 270)
-        .kukuSurface(radius: KukuLayout.radiusLarge, elevated: true)
+        .kukuSurface(radius: KukuLayout.radiusLarge, elevated: true, fill: KukuColor.overlaySurface)
     }
 }

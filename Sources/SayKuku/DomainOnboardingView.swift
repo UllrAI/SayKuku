@@ -70,7 +70,7 @@ struct DomainOnboardingView: View {
                     Image(systemName: "xmark")
                         .font(.system(size: 10, weight: .bold))
                         .frame(width: 26, height: 26)
-                        .background(Color.black.opacity(0.055), in: Circle())
+                        .background(KukuColor.shade.opacity(0.055), in: Circle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(appState.text("关闭", "Close"))
