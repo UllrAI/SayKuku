@@ -74,8 +74,8 @@ struct GlobalShortcut: Hashable, Sendable {
         return modifiers + (Self.keys[Int(keyCode)]?.name ?? "?")
     }
 
-    var eventModifiers: EventModifiers {
-        var result: EventModifiers = []
+    var eventModifiers: SwiftUI.EventModifiers {
+        var result: SwiftUI.EventModifiers = []
         if carbonModifiers & UInt32(controlKey) != 0 { result.insert(.control) }
         if carbonModifiers & UInt32(optionKey) != 0 { result.insert(.option) }
         if carbonModifiers & UInt32(shiftKey) != 0 { result.insert(.shift) }

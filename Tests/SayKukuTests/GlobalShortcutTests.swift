@@ -56,7 +56,7 @@ struct GlobalShortcutTests {
     func keyboardShortcut() {
         let letter = GlobalShortcut.defaultVoiceInput.keyboardShortcut
         #expect(letter?.key.character == "v")
-        #expect(letter?.modifiers == EventModifiers([.control, .option, .command]))
+        #expect(letter?.modifiers == SwiftUI.EventModifiers([.control, .option, .command]))
 
         let space = GlobalShortcut(keyCode: UInt32(kVK_Space), carbonModifiers: UInt32(optionKey | shiftKey))
         #expect(space.keyboardShortcut?.key.character == " ")
