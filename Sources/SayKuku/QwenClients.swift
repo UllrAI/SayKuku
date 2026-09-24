@@ -163,10 +163,6 @@ enum KnowledgePrompt {
         return result
     }
 
-    private static func clipped(_ value: String, to limit: Int) -> String {
-        value.count > limit ? String(value.prefix(limit)) + "…" : value
-    }
-
     private static func quoted(_ value: String) -> String {
         guard let data = try? JSONEncoder().encode(value) else { return "\"\"" }
         return String(decoding: data, as: UTF8.self)
@@ -517,7 +513,7 @@ struct QwenReasoningClient: Sendable {
             [Turn \(index + 1)]
             \(turn.contextSummary)
             Command: \(turn.userCommand)
-            Response: \(excerpt(turn.response, limit: 2_000))
+            Response: \(clipped(turn.response, to: 2_000))
             """
         }.joined(separator: "\n\n")
         let selectedTextSection = selectedText.map { "<selected_text>\n\($0)\n</selected_text>" } ?? "<selected_text none />"
@@ -546,13 +542,9 @@ struct QwenReasoningClient: Sendable {
         if response.target == .previous {
             lines.append("Target: previous SayKuku output")
         } else if let selectedText = context.first(where: { $0.kind == .selectedText })?.value {
-            lines.append("Selected text:\n\(excerpt(selectedText, limit: 600))")
+            lines.append("Selected text:\n\(clipped(selectedText, to: 600))")
         }
         return lines.joined(separator: "\n")
-    }
-
-    private static func excerpt(_ text: String, limit: Int) -> String {
-        text.count > limit ? "\(text.prefix(limit))…" : text
     }
 
     func transcribeAudio(
@@ -896,11 +888,7 @@ private struct KnowledgeExtractionResponse: Decodable {
     }
 }
 
-/// Decodes a value or yields nil, so one bad array element does not fail the whole array.
-private struct Lossy<Value: Decodable>: Decodable {
-    let value: Value?
-
-    init(from decoder: Decoder) throws {
-        value = try? Value(from: decoder)
-    }
+/// Shortens `value` to `limit` characters, marking the cut with an ellipsis.
+private func clipped(_ value: String, to limit: Int) -> String {
+    value.count > limit ? String(value.prefix(limit)) + "…" : value
 }
