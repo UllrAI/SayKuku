@@ -30,11 +30,14 @@ struct MemoryView: View {
                 KukuPageContent {
                     VStack(spacing: 14) {
                         if selectedScope == .corrections {
-                            CorrectionSummary()
-                            ForEach(appState.corrections.filter { $0.status == .pending }) { item in
-                                CorrectionRow(item: item)
+                            if appState.corrections.allSatisfy({ $0.status != .pending }) {
+                                emptyView
+                            } else {
+                                CorrectionSummary()
+                                ForEach(appState.corrections.filter { $0.status == .pending }) { item in
+                                    CorrectionRow(item: item)
+                                }
                             }
-                            if appState.corrections.allSatisfy({ $0.status != .pending }) { emptyView }
                         } else if selectedScope == .shortTerm {
                             SessionMemoryView()
                         } else {
@@ -77,12 +80,10 @@ private struct CorrectionSummary: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(appState.text("纠正建议", "Correction suggestions"))
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
-                Text(pendingCorrections.isEmpty
-                    ? appState.text("没有待确认的纠正建议。", "No corrections need your review.")
-                    : appState.text(
-                        "有 \(pendingCorrections.count) 条建议待确认，确认后才会保存。",
-                        "\(pendingCorrections.count) suggestions need your review before they are saved."
-                    ))
+                Text(appState.text(
+                    "有 \(pendingCorrections.count) 条建议待确认，确认后才会保存。",
+                    "\(pendingCorrections.count) suggestions need your review before they are saved."
+                ))
                     .font(.system(size: 11))
                     .foregroundStyle(KukuColor.stone)
             }
