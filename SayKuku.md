@@ -81,7 +81,7 @@ App 图标不放文字，使用珊瑚红圆角底板与暖白 Lucide Bird 线稿
 History    All / Voice Input / Voice Agent
 Knowledge  All / People / Organizations / Projects / Terms
 Memory     Corrections / Short-term / Long-term
-Settings   General / Voice Input / Voice Agent / History / Privacy / Qwen connection
+Settings   General / Voice Input / Voice Agent / History / Privacy / Qwen Connection
 ```
 
 Knowledge 与 Memory 是一级侧栏页面，不再重复出现在 Settings 内。设置卡片中的每一行必须撑满卡片宽度并左对齐；只有明确的右侧值、Picker 或 Toggle 才使用尾部对齐。
@@ -1221,7 +1221,7 @@ Knowledge Prompt 只作为模型的参考数据；模型必须在语音明确指
 Settings 不再使用第二套左侧导航。所有设置统一使用页面顶部水平 Tab：
 
 ```text
-General | Voice Input | Voice Agent | History | Privacy | Qwen connection
+General | Voice Input | Voice Agent | History | Privacy | Qwen Connection
 ```
 
 Knowledge 与 Memory 保持为一级侧栏目的地，不在 Settings 中重复。MVP 不提供 Advanced 空壳页面。
@@ -1292,7 +1292,7 @@ MVP 支持用户填写自己的 Qwen API Key。两个模型版本都使用下拉
 保存录音（默认开启）
 ```
 
-History 是输入记录，不是编辑器或录音资料库。录音停止后立即创建记录并显示处理中状态；开启原始语音保存时，先将完整音频作为 WAV 文件落盘，再等待识别或 Agent 输出。网络超时、无语音、模型错误或执行失败都不会丢弃已经采集的输入，而是保留音频和明确的失败状态。每条记录包含触发模式、目标 App、时间、原始语音（若开启）、输入转写和最终写回文本。用户可以在“输入”位置播放原始语音、复制输出、加星标或取消星标；带录音的失败听写可重新识别，重试结果留在 History 供复制，不自动写回旧目标。如果 App 在处理中退出，下次启动时这些记录会标为“上次处理被中断”的失败状态，录音保留以便重试。星标记录不参与自动清理。History 支持按输入、输出和 App 名本地搜索；右键或悬停可删除单条记录及其录音，设置中的“清空全部历史”经确认后执行，并可选择保留星标记录。
+History 是输入记录，不是编辑器或录音资料库。录音停止后立即创建记录并显示处理中状态；开启原始语音保存时，先将完整音频作为 WAV 文件落盘，再等待识别或 Agent 输出。网络超时、无语音、模型错误或执行失败都不会丢弃已经采集的输入，而是保留音频和明确的失败状态。每条记录包含触发模式、目标 App、时间、原始语音（若开启）、输入转写和最终写回文本。用户可以在“输入”位置播放原始语音、复制输出、加星标或取消星标；带录音的失败听写可重新识别，重试结果留在 History 供复制，不自动写回旧目标。如果 App 在处理中退出，下次启动时这些记录会标为“SayKuku 退出时还没处理完”的失败状态，录音保留以便重试。星标记录不参与自动清理。History 支持按输入、输出和 App 名本地搜索；右键或悬停可删除单条记录及其录音，设置中的“清空全部历史”经确认后执行，并可选择保留星标记录。
 
 History 默认仅保存在本机 Application Support，记录为 JSON，录音为 WAV；不使用 Keychain 或额外加密。关闭“保存录音”后，新记录只保留转写与最终输出；修改保留期限后，后台清理任务按新规则执行，但不删除任何星标记录。目标为安全输入（`AXSecureTextField` 或系统安全输入模式）或已知密码管理器时，流程不会启动，也就不产生 History 记录。无痕浏览窗口不做单独识别，与普通窗口同样处理。`store.json` 中个别记录无法解码时跳过该条并先复制备份原文件；整体无法解析时将原文件重命名为 `store.corrupt-<timestamp>.json` 后以空数据继续，原文件绝不被覆盖或删除，History 页会提示备份位置。检测到旧版加密数据（`store.data` 或 `Audio/*.audio`）时只做一次性提示，不解密、不迁移、不删除。
 

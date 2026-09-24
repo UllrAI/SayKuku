@@ -17,9 +17,14 @@ enum KukuColor {
     static let stone = adaptive(light: KukuTone(0.43, 0.415, 0.39), dark: KukuTone(0.64, 0.625, 0.60))
     static let line = shade.opacity(0.085)
     static let coral = adaptive(light: KukuTone(0.93, 0.255, 0.18), dark: KukuTone(0.97, 0.36, 0.29))
+    /// Fill behind white labels; deeper than `coral` so the text keeps about 4.5:1 contrast.
+    static let coralFill = adaptive(light: KukuTone(0.85, 0.22, 0.15), dark: KukuTone(0.80, 0.25, 0.19))
     static let coralSoft = adaptive(light: KukuTone(0.985, 0.895, 0.855), dark: KukuTone(0.32, 0.15, 0.12))
+    /// `mint` and `amber` are for icons and fills. Use the `…Text` variants for text.
     static let mint = adaptive(light: KukuTone(0.23, 0.63, 0.46), dark: KukuTone(0.34, 0.75, 0.56))
     static let amber = adaptive(light: KukuTone(0.91, 0.61, 0.20), dark: KukuTone(0.96, 0.69, 0.30))
+    static let mintText = adaptive(light: KukuTone(0.14, 0.47, 0.33), dark: KukuTone(0.34, 0.75, 0.56))
+    static let amberText = adaptive(light: KukuTone(0.62, 0.38, 0.05), dark: KukuTone(0.96, 0.69, 0.30))
 
     private static func adaptive(light: KukuTone, dark: KukuTone) -> Color {
         Color(nsColor: NSColor(name: nil) { appearance in
@@ -126,9 +131,11 @@ struct HoverFillButtonStyle: ButtonStyle {
     private struct HoverButtonBody: View {
         let configuration: ButtonStyle.Configuration
         let prominent: Bool
+        @Environment(\.isEnabled) private var isEnabled
         @State private var hovering = false
 
         var body: some View {
+            let pressed = isEnabled && configuration.isPressed
             configuration.label
                 .foregroundStyle(prominent ? Color.white : KukuColor.ink)
                 .font(.system(size: 12, weight: .semibold))
@@ -136,7 +143,9 @@ struct HoverFillButtonStyle: ButtonStyle {
                 .frame(minHeight: KukuLayout.controlHeight)
                 .background {
                     RoundedRectangle(cornerRadius: KukuLayout.radiusSmall, style: .continuous)
-                        .fill(prominent ? KukuColor.coral.opacity(configuration.isPressed ? 0.86 : 1) : KukuColor.shade.opacity(hovering ? 0.075 : 0.045))
+                        .fill(prominent
+                              ? KukuColor.coralFill.opacity(pressed ? 0.86 : 1)
+                              : KukuColor.shade.opacity(isEnabled && hovering ? 0.075 : 0.045))
                 }
                 .overlay {
                     if !prominent {
@@ -144,9 +153,10 @@ struct HoverFillButtonStyle: ButtonStyle {
                             .stroke(KukuColor.line, lineWidth: 1)
                     }
                 }
-                .scaleEffect(configuration.isPressed ? 0.975 : 1)
+                .scaleEffect(pressed ? 0.975 : 1)
+                .opacity(isEnabled ? 1 : 0.45)
                 .animation(Motion.snappy, value: hovering)
-                .animation(Motion.snappy, value: configuration.isPressed)
+                .animation(Motion.snappy, value: pressed)
                 .onHover { hovering = $0 }
         }
     }
@@ -154,19 +164,34 @@ struct HoverFillButtonStyle: ButtonStyle {
 
 struct TintButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 11, weight: .semibold))
-            .foregroundStyle(KukuColor.coral)
-            .padding(.horizontal, 12)
-            .frame(minHeight: KukuLayout.controlHeight)
-            .background(
-                KukuColor.coral.opacity(configuration.isPressed ? 0.14 : 0.075),
-                in: RoundedRectangle(cornerRadius: KukuLayout.radiusSmall, style: .continuous)
-            )
-            .overlay {
-                RoundedRectangle(cornerRadius: KukuLayout.radiusSmall, style: .continuous)
-                    .stroke(KukuColor.coral.opacity(0.16), lineWidth: 1)
-            }
+        TintButtonBody(configuration: configuration)
+    }
+
+    private struct TintButtonBody: View {
+        let configuration: ButtonStyle.Configuration
+        @Environment(\.isEnabled) private var isEnabled
+        @State private var hovering = false
+
+        var body: some View {
+            let pressed = isEnabled && configuration.isPressed
+            configuration.label
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(KukuColor.coral)
+                .padding(.horizontal, 12)
+                .frame(minHeight: KukuLayout.controlHeight)
+                .background(
+                    KukuColor.coral.opacity(pressed ? 0.14 : (isEnabled && hovering ? 0.11 : 0.075)),
+                    in: RoundedRectangle(cornerRadius: KukuLayout.radiusSmall, style: .continuous)
+                )
+                .overlay {
+                    RoundedRectangle(cornerRadius: KukuLayout.radiusSmall, style: .continuous)
+                        .stroke(KukuColor.coral.opacity(0.16), lineWidth: 1)
+                }
+                .opacity(isEnabled ? 1 : 0.45)
+                .animation(Motion.snappy, value: hovering)
+                .animation(Motion.snappy, value: pressed)
+                .onHover { hovering = $0 }
+        }
     }
 }
 
@@ -238,6 +263,7 @@ struct Waveform: View {
     }
 }
 
+/// Uppercased, so keep it to a word or two. Longer section titles read better as plain text.
 struct SectionEyebrow: View {
     let text: String
 
@@ -274,11 +300,11 @@ struct ScreenHeader<Accessory: View>: View {
                 Text(title).kukuSectionTitle()
                 if let subtitle {
                     Text(subtitle)
-                        .font(.system(size: 10))
+                        .font(.system(size: 11))
                         .foregroundStyle(KukuColor.stone)
                 } else {
                     Text(" ")
-                        .font(.system(size: 10))
+                        .font(.system(size: 11))
                         .hidden()
                         .accessibilityHidden(true)
                 }
@@ -291,6 +317,56 @@ struct ScreenHeader<Accessory: View>: View {
         .padding(.horizontal, KukuLayout.pageGutter)
         .padding(.top, KukuLayout.pageTop)
         .padding(.bottom, KukuLayout.headerBottom)
+    }
+}
+
+/// Standard sheet header: icon tile, optional eyebrow, title and a one-sentence description.
+/// Sheets close from their footer buttons, so the header has no close button.
+struct KukuSheetHeader<Icon: View>: View {
+    var eyebrow: String? = nil
+    let title: String
+    let description: String
+    @ViewBuilder let icon: Icon
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 14) {
+            icon
+                .accessibilityHidden(true)
+                .frame(width: 48, height: 48)
+                .background(
+                    KukuColor.coralSoft,
+                    in: RoundedRectangle(cornerRadius: KukuLayout.radiusMedium, style: .continuous)
+                )
+
+            VStack(alignment: .leading, spacing: 5) {
+                if let eyebrow {
+                    SectionEyebrow(text: eyebrow)
+                }
+                Text(title)
+                    .font(.system(size: 20, weight: .semibold, design: .rounded))
+                    .foregroundStyle(KukuColor.ink)
+                Text(description)
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(KukuColor.stone)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 16)
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, 22)
+        .padding(.bottom, 18)
+    }
+}
+
+/// SF Symbol drawn in the sheet header's icon tile.
+struct KukuSheetIcon: View {
+    let symbol: String
+
+    var body: some View {
+        Image(systemName: symbol)
+            .font(.system(size: 20, weight: .semibold))
+            .foregroundStyle(KukuColor.coral)
     }
 }
 
@@ -323,7 +399,7 @@ struct KukuTabBar<Item: Hashable>: View {
                         .frame(minWidth: 68, minHeight: 29)
                         .background {
                             if selection == item {
-                                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                RoundedRectangle(cornerRadius: KukuLayout.radiusSmall, style: .continuous)
                                     .fill(KukuColor.surfaceStrong)
                                     .shadow(color: Color.black.opacity(0.06), radius: 2, y: 1)
                             }
@@ -331,12 +407,13 @@ struct KukuTabBar<Item: Hashable>: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityAddTraits(selection == item ? .isSelected : [])
             }
         }
         .padding(3)
-        .background(KukuColor.shade.opacity(0.045), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .background(KukuColor.shade.opacity(0.045), in: RoundedRectangle(cornerRadius: KukuLayout.radiusMedium, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
+            RoundedRectangle(cornerRadius: KukuLayout.radiusMedium, style: .continuous)
                 .stroke(KukuColor.line, lineWidth: 1)
         }
     }

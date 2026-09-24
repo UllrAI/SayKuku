@@ -20,7 +20,7 @@ private struct HomeReadyState: View {
             ScreenHeader(
                 eyebrow: appState.text("快速开始", "Quick start"),
                 title: appState.text("在当前输入框，直接开口", "Speak right where you type"),
-                subtitle: appState.text("无需打开 SayKuku，在任意输入框按下 Fn 即可。", "No need to open SayKuku. Just press Fn in any text field.")
+                subtitle: appState.text("在任意输入框按 Fn 即可，不用打开 SayKuku。", "Press Fn in any text field. No need to open SayKuku.")
             )
 
             Spacer()
@@ -44,10 +44,10 @@ private struct HomeReadyState: View {
                         Text(appState.text("试写区", "Try it here"))
                             .font(.system(size: 12, weight: .semibold))
                         Text(appState.text(
-                            "点按上方卡片聚焦这里，再用 Fn 输入或 Fn Fn 修改选中文字。",
-                            "Choose a card to focus this field, then use Fn to dictate or Fn Fn to edit selected text."
+                            "点这里，按 Fn 说句话；选中文字后连按两次 Fn，让语音 Agent 改写。",
+                            "Click here and press Fn to talk. Select text and press Fn twice to have Voice Agent rewrite it."
                         ))
-                        .font(.system(size: 10.5))
+                        .font(.system(size: 11))
                         .foregroundStyle(KukuColor.stone)
                         TextEditor(text: $practiceText)
                             .focused($practiceFocused)
@@ -55,7 +55,7 @@ private struct HomeReadyState: View {
                             .scrollContentBackground(.hidden)
                             .frame(height: 70)
                             .padding(8)
-                            .background(KukuColor.canvas, in: RoundedRectangle(cornerRadius: 9))
+                            .background(KukuColor.canvas, in: RoundedRectangle(cornerRadius: KukuLayout.radiusSmall, style: .continuous))
                             .accessibilityLabel(appState.text("语音试写区", "Voice practice field"))
                     }
                     .padding(16)
@@ -63,7 +63,7 @@ private struct HomeReadyState: View {
                     .kukuSurface(radius: KukuLayout.radiusLarge)
 
                     Label(
-                        appState.text("语音仅在你主动触发后发送", "Audio is sent only when you invoke it"),
+                        appState.text("只在你按下 Fn 或快捷键后才录音并发送", "SayKuku only records and sends audio after you press Fn or your shortcut"),
                         systemImage: "lock.fill"
                     )
                     .font(.system(size: 10, weight: .medium))
@@ -81,8 +81,9 @@ private struct HomeReadyState: View {
             key: "Fn",
             title: appState.voiceInputTitle,
             subtitle: appState.inputMode == .hold
-                ? appState.text("按住说话，松开后写入当前光标", "Hold to speak, release to type")
-                : appState.text("单击开始，再次单击后写入当前光标", "Tap to start, tap again to type"),
+                ? appState.text("按住说话，松开即输入", "Hold to talk, release to insert")
+                : appState.text("单击开始说话，再单击即输入", "Tap to start, tap again to insert"),
+            shortcut: appState.globalShortcut(for: .voiceInput),
             symbol: "mic.fill",
             accent: KukuColor.coral
         ) {
@@ -94,7 +95,8 @@ private struct HomeReadyState: View {
         HomeGestureRow(
             key: "Fn Fn",
             title: appState.voiceAgentTitle,
-            subtitle: appState.text("说出意图，获取回答、写回或执行动作", "Say what you need to get an answer, write text, or run an action"),
+            subtitle: appState.text("改写选中文字、提问或打开网页", "Rewrite selected text, ask questions, or open pages"),
+            shortcut: appState.globalShortcut(for: .voiceAgent),
             symbol: "sparkles",
             accent: KukuColor.ink
         ) {
@@ -108,6 +110,8 @@ private struct HomeGestureRow: View {
     let key: String
     let title: String
     let subtitle: String
+    /// The optional global shortcut, shown for people without an Fn key.
+    let shortcut: GlobalShortcut?
     let symbol: String
     let accent: Color
     let action: () -> Void
@@ -121,7 +125,7 @@ private struct HomeGestureRow: View {
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(accent)
                         .frame(width: 34, height: 34)
-                        .background(accent.opacity(0.09), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                        .background(accent.opacity(0.09), in: RoundedRectangle(cornerRadius: KukuLayout.radiusSmall, style: .continuous))
 
                     Spacer()
 
@@ -129,7 +133,7 @@ private struct HomeGestureRow: View {
                         .font(.system(size: 9.5, weight: .bold, design: .monospaced))
                         .padding(.horizontal, 7)
                         .frame(height: 20)
-                        .background(KukuColor.shade.opacity(0.055), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        .background(KukuColor.shade.opacity(0.055), in: RoundedRectangle(cornerRadius: KukuLayout.radiusSmall, style: .continuous))
                 }
 
                 VStack(alignment: .leading, spacing: 5) {
@@ -141,12 +145,11 @@ private struct HomeGestureRow: View {
                         .lineLimit(2)
                 }
 
-                HStack(spacing: 5) {
-                    Text(appState.text("在下方试试", "Try it below"))
-                    Image(systemName: "arrow.down")
+                if let shortcut {
+                    Text(appState.text("或 \(shortcut.displayString)", "or \(shortcut.displayString)"))
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(KukuColor.stone)
                 }
-                .font(.system(size: 9.5, weight: .semibold))
-                .foregroundStyle(accent.opacity(hovering ? 1 : 0.72))
             }
             .padding(16)
             .frame(maxWidth: .infinity, minHeight: 140, alignment: .topLeading)
@@ -212,27 +215,21 @@ struct AgentPill: View {
             if appState.agentPhase == .copyReady {
                 CopyFallbackContent()
             } else if appState.agentPhase == .listening {
-                Button(action: appState.dismissAgent) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(KukuColor.stone.opacity(0.82))
-                        .frame(width: 26, height: 26)
-                        .background { Circle().fill(KukuColor.shade.opacity(0.05)) }
-                }
-                .buttonStyle(PressScaleStyle())
-                .accessibilityLabel(appState.text("取消语音 Agent", "Cancel Voice Agent"))
-                .help(appState.text("取消语音 Agent", "Cancel Voice Agent"))
+                PillCancelButton(
+                    label: appState.text("取消语音 Agent", "Cancel Voice Agent"),
+                    action: appState.dismissAgent
+                )
 
                 HStack(spacing: 4) {
                     Button { showingContext.toggle() } label: {
-                        Image(systemName: "sparkle")
+                        Image(systemName: "doc.text.magnifyingglass")
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(KukuColor.coral.opacity(0.82))
                             .frame(width: 16, height: 22)
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel(appState.text("查看本次会使用的内容", "Show what will be used"))
-                    .help(appState.text("查看本次会使用的内容", "Show what will be used"))
+                    .accessibilityLabel(appState.text("查看本次会发送的内容", "Review what’s sent"))
+                    .help(appState.text("查看本次会发送的内容", "Review what’s sent"))
                     .popover(isPresented: $showingContext, arrowEdge: .bottom) {
                         AgentContextPopover()
                     }
@@ -254,16 +251,10 @@ struct AgentPill: View {
 
                 Spacer(minLength: 0)
 
-                Button(action: appState.finishAgentListening) {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(Color.white.opacity(0.94))
-                        .frame(width: 26, height: 26)
-                        .background { Circle().fill(KukuColor.coral.opacity(0.84)) }
-                }
-                .buttonStyle(PressScaleStyle())
-                .accessibilityLabel(appState.text("结束录音并执行", "Stop recording and run"))
-                .help(appState.text("结束录音并执行", "Stop recording and run"))
+                PillConfirmButton(
+                    label: appState.text("结束录音并执行", "Stop recording and run"),
+                    action: appState.finishAgentListening
+                )
             } else if appState.agentPhase == .transcribing || appState.agentPhase == .processing {
                 AgentActivityIndicator()
                 Text(appState.agentPhase == .transcribing
@@ -328,7 +319,7 @@ private struct AgentActivityIndicator: View {
     }
 }
 
-/// Stops work that is still processing; nothing is written afterwards.
+/// Cancels recording or processing; nothing is written afterwards.
 private struct PillCancelButton: View {
     let label: String
     let action: @MainActor () -> Void
@@ -347,14 +338,39 @@ private struct PillCancelButton: View {
     }
 }
 
+/// Ends recording and hands the audio off for processing.
+private struct PillConfirmButton: View {
+    let label: String
+    let action: @MainActor () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "checkmark")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(Color.white.opacity(0.94))
+                .frame(width: 25, height: 25)
+                .background(KukuColor.coral.opacity(0.84), in: Circle())
+        }
+        .buttonStyle(PressScaleStyle())
+        .accessibilityLabel(label)
+        .help(label)
+    }
+}
+
 private struct AgentContextPopover: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(appState.text("本次会使用的内容", "Used this time"))
+            Text(appState.text("本次会发送的内容", "What’s sent"))
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(KukuColor.stone)
+
+            if appState.contextItems.isEmpty {
+                Text(appState.text("本次只发送你的语音", "Only your voice will be sent"))
+                    .font(.system(size: 12))
+                    .foregroundStyle(KukuColor.stone)
+            }
 
             ForEach(appState.contextItems) { item in
                 HStack(spacing: 9) {
@@ -362,24 +378,41 @@ private struct AgentContextPopover: View {
                         .foregroundStyle(KukuColor.coral)
                         .frame(width: 16)
                     Text(item.title)
-                    .font(.system(size: 12, weight: .medium))
+                        .font(.system(size: 12, weight: .medium))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
                     Spacer()
                     if appState.agentPhase == .listening {
+                        let removeLabel = appState.text("移除“\(item.title)”", "Remove \(item.title)")
                         Button {
                             appState.contextItems.removeAll { $0.id == item.id }
                         } label: {
                             Image(systemName: "xmark")
-                                .font(.system(size: 8, weight: .bold))
+                                .font(.system(size: 9, weight: .bold))
                                 .foregroundStyle(KukuColor.stone)
+                                .frame(width: 20, height: 20)
+                                .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel(appState.text("移除 \(item.title)", "Remove \(item.title)"))
+                        .accessibilityLabel(removeLabel)
+                        .help(removeLabel)
                     }
                 }
+                .help(Self.preview(of: item) ?? "")
             }
         }
         .padding(14)
         .frame(width: 230)
+    }
+
+    /// Lets people check the actual text; app, knowledge and conversation values are internal summaries.
+    private static func preview(of item: ContextItem) -> String? {
+        switch item.kind {
+        case .selectedText, .previousOutput, .window, .clipboard, .browser, .domain:
+            return item.value.count > 200 ? "\(item.value.prefix(200))…" : item.value
+        case .app, .session, .knowledge:
+            return nil
+        }
     }
 }
 
@@ -390,7 +423,7 @@ struct DictationPill: View {
         switch appState.dictationPhase {
         case .idle: 0
         case .listening:
-            KukuPillLayout.width(for: listeningLabel, minimum: 160, fixedContentWidth: 108, maximum: 340)
+            KukuPillLayout.width(for: listeningLabel, minimum: 160, fixedContentWidth: 141, maximum: 340)
         case .copyReady:
             CopyFallbackContent.width(appState)
         case .processing:
@@ -411,8 +444,8 @@ struct DictationPill: View {
     // Only verified writes can be undone, so an unverified paste asks the user to take a look.
     private var successLabel: String {
         appState.canUndoLastWrite
-            ? appState.text("已输入", "Done")
-            : appState.text("已发送，请检查", "Sent—check it")
+            ? appState.text("已输入", "Inserted")
+            : appState.text("已输入，请核对", "Inserted. Check it.")
     }
 
     var body: some View {
@@ -421,21 +454,19 @@ struct DictationPill: View {
             case .idle:
                 EmptyView()
             case .listening:
+                PillCancelButton(
+                    label: appState.text("取消语音输入", "Cancel Voice Input"),
+                    action: appState.cancelDictation
+                )
                 Waveform(color: KukuColor.coral.opacity(0.82), level: appState.inputLevel, barCount: 6, height: 16)
                 Text(listeningLabel)
                     .lineLimit(1)
                     .truncationMode(.tail)
                 Spacer(minLength: 0)
-                Button(action: appState.finishDictation) {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 10, weight: .bold))
-                        .frame(width: 25, height: 25)
-                        .background(KukuColor.coral.opacity(0.84), in: Circle())
-                        .foregroundStyle(Color.white.opacity(0.94))
-                }
-                .buttonStyle(PressScaleStyle())
-                .accessibilityLabel(appState.text("结束录音并输入", "Stop recording and insert"))
-                .help(appState.text("结束录音并输入", "Stop recording and insert"))
+                PillConfirmButton(
+                    label: appState.text("结束录音并输入", "Stop recording and insert"),
+                    action: appState.finishDictation
+                )
             case .processing:
                 ProgressView().controlSize(.small)
                 Text(processingLabel)
@@ -483,8 +514,8 @@ private struct CopyFallbackContent: View {
 
     private static func status(_ appState: AppState) -> String {
         appState.hasCopiedPendingText
-            ? appState.text("已复制，按 ⌘V 粘贴", "Copied. Press ⌘V to paste")
-            : appState.text("点按复制结果", "Click to copy the result")
+            ? appState.text("已复制，按 ⌘V 粘贴", "Copied. Press ⌘V to paste.")
+            : appState.text("点按复制结果", "Click to copy")
     }
 
     var body: some View {

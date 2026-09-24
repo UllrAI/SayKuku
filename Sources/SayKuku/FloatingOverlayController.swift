@@ -17,7 +17,6 @@ final class FloatingOverlayController {
         )
         panel.level = .floating
         panel.title = "SayKuku Voice Overlay"
-        panel.setAccessibilityLabel("SayKuku Voice Overlay")
         panel.backgroundColor = .clear
         panel.isOpaque = false
         panel.hasShadow = false
@@ -38,6 +37,8 @@ final class FloatingOverlayController {
 
     func refresh() {
         guard let appState else { return }
+        // Set here so the label follows the current UI language.
+        panel.setAccessibilityLabel(appState.text("SayKuku 语音浮层", "SayKuku voice overlay"))
         panel.setContentSize(Self.panelSize(answerVisible: appState.agentPhase == .answerReady))
         let shouldShow = appState.overlayError != nil
             || appState.dictationPhase != .idle
@@ -112,15 +113,17 @@ private struct AgentAnswerCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Label(appState.text("语音 Agent 的回答", "Voice Agent answer"), systemImage: "sparkles")
+                Label(appState.text("回答", "Answer"), systemImage: "sparkles")
                     .font(.system(size: 12, weight: .semibold))
                 Spacer()
                 Button(action: appState.dismissAnswer) {
                     Image(systemName: "xmark")
                         .frame(width: 28, height: 28)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(appState.text("关闭回答", "Close answer"))
+                .accessibilityLabel(appState.text("关闭", "Close"))
+                .help(appState.text("关闭", "Close"))
             }
             ScrollView {
                 Text(appState.pendingAnswerText)
@@ -131,12 +134,13 @@ private struct AgentAnswerCard: View {
             }
             .frame(maxHeight: .infinity)
             HStack {
-                Text(appState.pendingAnswerStatus ?? appState.text("回答未写入当前应用", "The answer has not been inserted"))
+                Text(appState.pendingAnswerStatus ?? appState.text("可复制，或写入刚才的输入位置", "Copy it, or insert it where you were typing"))
                     .font(.system(size: 10.5))
                     .foregroundStyle(KukuColor.stone)
+                    .lineLimit(2)
                 Spacer()
                 Button(appState.text("复制", "Copy"), action: appState.copyAnswer)
-                    .buttonStyle(TintButtonStyle())
+                    .buttonStyle(HoverFillButtonStyle())
                 Button(appState.text("写入", "Insert")) {
                     Task { await appState.insertAnswer() }
                 }

@@ -17,8 +17,8 @@ enum QwenRegion: String, Codable, CaseIterable, Identifiable {
 
     func title(isChineseUI: Bool) -> String {
         switch self {
-        case .beijing: isChineseUI ? "北京" : "China (Beijing)"
-        case .singapore: isChineseUI ? "新加坡" : "International (Singapore)"
+        case .beijing: isChineseUI ? "中国内地（北京）" : "China (Beijing)"
+        case .singapore: isChineseUI ? "国际（新加坡）" : "International (Singapore)"
         }
     }
 }
@@ -100,7 +100,7 @@ enum RecognitionLanguage: String, CaseIterable, Identifiable, Sendable {
 
     func title(isChineseUI: Bool) -> String {
         switch self {
-        case .automatic: isChineseUI ? "自动 · 中英混合" : "Auto · Chinese & English"
+        case .automatic: isChineseUI ? "自动（中英混合）" : "Auto (Chinese & English)"
         case .chinese: "简体中文"
         case .english: "English"
         }
@@ -331,7 +331,10 @@ enum HistoryRetention: String, Codable, CaseIterable, Identifiable {
         case .forever: "Forever"
         }
     }
-    @MainActor func title(_ appState: AppState) -> String { appState.usesChineseUI ? chineseTitle : englishTitle }
+    /// Option label for the "Delete history after" picker, where keeping history forever reads as "Never".
+    @MainActor func title(_ appState: AppState) -> String {
+        self == .forever ? appState.text("永不", "Never") : appState.text(chineseTitle, englishTitle)
+    }
 }
 
 enum HistoryMode: String, Codable {
@@ -382,8 +385,6 @@ struct HistoryEntry: Identifiable, Codable, Equatable {
         self.errorMessage = errorMessage
     }
 
-    var time: String { createdAt.formatted(date: .omitted, time: .shortened) }
-    var duration: String { durationSeconds > 0 ? String(format: "%.1fs", durationSeconds) : "—" }
     var hasAudio: Bool { audioFilename != nil }
 
     private enum CodingKeys: String, CodingKey {
@@ -413,11 +414,11 @@ enum EntityType: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .person: appState.text("人物", "Person")
         case .organization: appState.text("组织", "Organization")
-        case .orgUnit: appState.text("部门", "Org unit")
+        case .orgUnit: appState.text("部门", "Department")
         case .project: appState.text("项目", "Project")
         case .product: appState.text("产品", "Product")
         case .term: appState.text("术语", "Term")
-        case .unknown: appState.text("未分类", "Unknown")
+        case .unknown: appState.text("未分类", "Uncategorized")
         }
     }
     var symbol: String {
@@ -436,6 +437,14 @@ enum EntityType: String, Codable, CaseIterable, Identifiable {
         case .project: Color(red: 0.58, green: 0.43, blue: 0.72)
         case .product: KukuColor.amber
         case .term, .unknown: KukuColor.mint
+        }
+    }
+    /// `color` for small labels, using the darker text variants of mint and amber.
+    var textColor: Color {
+        switch self {
+        case .product: KukuColor.amberText
+        case .term, .unknown: KukuColor.mintText
+        default: color
         }
     }
     var filter: KnowledgeFilter {
@@ -482,6 +491,21 @@ struct KnowledgeEntity: Identifiable, Codable, Equatable {
     }
 }
 
+enum KnowledgeSaveError: Error, Equatable {
+    /// The name has no letters or digits left after normalization.
+    case emptyName
+    case duplicate(existingName: String)
+
+    @MainActor func message(_ appState: AppState) -> String {
+        switch self {
+        case .emptyName:
+            appState.text("名称里要有文字或数字", "A name needs at least one letter or number")
+        case .duplicate(let name):
+            appState.text("已有同名条目“\(name)”", "“\(name)” is already in Knowledge")
+        }
+    }
+}
+
 enum RelationshipType: String, Codable, CaseIterable {
     case belongsTo, worksOn, owns, relatedTo
 
@@ -509,7 +533,7 @@ enum ImportStatus: String, Codable {
     @MainActor func title(_ appState: AppState) -> String {
         switch self {
         case .new: appState.text("新增", "New")
-        case .merge: appState.text("更新已有项", "Update existing")
+        case .merge: appState.text("更新已有条目", "Updates existing")
         case .conflict: appState.text("可能重复", "Possible duplicate")
         case .ignored: appState.text("已忽略", "Ignored")
         }

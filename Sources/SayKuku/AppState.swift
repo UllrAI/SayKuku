@@ -63,12 +63,15 @@ final class AppState {
                     : appState.text("全局快捷键可用 · Fn 需要辅助功能权限", "Global shortcuts ready · Fn needs Accessibility")
             case .hotKeyConflict(let actions):
                 guard actions.count == 1, let action = actions.first else {
-                    return appState.text("两组全局快捷键都被其他 App 占用，请换一组", "Both global shortcuts are taken by other apps. Choose new ones.")
+                    return appState.text(
+                        "两个全局快捷键都已被其他 App 占用，请重新设置",
+                        "Both global shortcuts are already in use by other apps. Record new ones."
+                    )
                 }
                 let keys = appState.globalShortcut(for: action)?.displayString ?? ""
                 return appState.text(
-                    "\(keys)（\(action.title(appState))）已被其他 App 占用，请换一个",
-                    "\(keys) for \(action.title(appState)) is taken by another app. Choose another."
+                    "\(keys)（\(action.title(appState))）已被其他 App 占用，请重新设置",
+                    "\(keys) for \(action.title(appState)) is already in use by another app. Record a new one."
                 )
             }
         }
@@ -138,6 +141,8 @@ final class AppState {
         // Covers every close path (buttons, Esc, dismiss()) without relying on sheet onDismiss.
         didSet { if presentedSheet == nil, oldValue != nil { presentNextSetupStep() } }
     }
+    /// Where the sheet on screen sits in the first-run flow; nil outside that flow.
+    private(set) var setupProgress: SetupProgress?
     private(set) var showInMenuBar = true { didSet { defaults.set(showInMenuBar, forKey: Keys.showInMenuBar) } }
     var hideDockIconAfterMainWindowCloses = false {
         didSet {
@@ -335,13 +340,16 @@ final class AppState {
             if agentPhase == .result { agentPhase = .hidden }
             showOverlayFeedback(
                 outcome == .verified
-                    ? text("已撤销上次写入", "Last voice insertion undone")
-                    : text("已发送撤销，请检查结果", "Undo sent; check the result"),
+                    ? text("已撤销", "Undone")
+                    : text("已尝试撤销，请核对", "Tried to undo. Check the text."),
                 symbol: "arrow.uturn.backward"
             )
         } catch {
             if generation == workflowGeneration, self.lastVerifiedWrite?.id == lastVerifiedWrite.id {
-                showOverlayFeedback(text("原输入已变化或应用不支持撤销", "The target changed or does not support undo"), symbol: "exclamationmark.triangle")
+                showOverlayFeedback(
+                    text("无法撤销，文字已被改动，或这个 App 不支持撤销", "Can’t undo. The text changed, or this app doesn’t support it."),
+                    symbol: "exclamationmark.triangle"
+                )
             }
         }
     }
@@ -372,12 +380,12 @@ final class AppState {
             showOverlayFeedback(
                 outcome == .verified
                     ? text("已写入回答", "Answer inserted")
-                    : text("已发送写入，请检查结果", "Insertion sent; check the result"),
+                    : text("已写入，请核对", "Inserted. Check it."),
                 symbol: "checkmark"
             )
         } catch {
             if generation == workflowGeneration, pendingAnswerText == answer {
-                pendingAnswerStatus = text("输入位置已变化，可复制回答", "The target changed; copy the answer instead")
+                pendingAnswerStatus = text("输入位置变了，请复制回答后手动粘贴", "The text field changed. Copy the answer instead.")
             }
         }
     }
@@ -430,29 +438,25 @@ final class AppState {
         })
     }
 
-    @discardableResult
-    func addKnowledge(name: String, type: EntityType, detail: String? = nil, aliases: [String] = []) -> Bool {
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return false }
-        let candidate = KnowledgeEntity(name: trimmed, detail: detail ?? "", type: type, aliases: aliases)
-        guard !knowledgeEntities.contains(where: { $0.normalizedKey == candidate.normalizedKey }) else {
-            showToast(text("该条目已存在", "This item already exists"), symbol: "exclamationmark.circle")
-            return false
-        }
+    /// Returns why the item couldn't be saved, or `nil` once it's added.
+    func addKnowledge(name: String, type: EntityType, detail: String? = nil, aliases: [String] = []) -> KnowledgeSaveError? {
+        let candidate = KnowledgeEntity(name: name, detail: detail ?? "", type: type, aliases: aliases)
+        if let error = validateKnowledge(candidate) { return error }
         knowledgeEntities.insert(candidate, at: 0)
         showToast(text("已加入知识", "Added to Knowledge"), symbol: "checkmark.circle.fill")
-        return true
+        return nil
     }
 
-    @discardableResult
+    /// Returns why the edit couldn't be saved, or `nil` once it's applied.
     func updateKnowledge(
         id: UUID,
         name: String,
         type: EntityType,
         detail: String,
         aliases: [String]
-    ) -> Bool {
-        guard let index = knowledgeEntities.firstIndex(where: { $0.id == id }) else { return false }
+    ) -> KnowledgeSaveError? {
+        // The item was removed elsewhere; there is nothing left to update.
+        guard let index = knowledgeEntities.firstIndex(where: { $0.id == id }) else { return nil }
 
         let candidate = KnowledgeEntity(
             id: id,
@@ -463,18 +467,19 @@ final class AppState {
             source: knowledgeEntities[index].source,
             createdAt: knowledgeEntities[index].createdAt
         )
-        guard !candidate.name.isEmpty, !candidate.normalizedKey.isEmpty else {
-            showToast(text("名称不能为空", "Name cannot be empty"), symbol: "exclamationmark.circle")
-            return false
-        }
-        guard !knowledgeEntities.contains(where: { $0.id != id && $0.normalizedKey == candidate.normalizedKey }) else {
-            showToast(text("该名称已存在", "This name already exists"), symbol: "exclamationmark.circle")
-            return false
-        }
+        if let error = validateKnowledge(candidate) { return error }
 
         knowledgeEntities[index] = candidate
         showToast(text("已更新知识", "Knowledge updated"), symbol: "checkmark.circle.fill")
-        return true
+        return nil
+    }
+
+    private func validateKnowledge(_ candidate: KnowledgeEntity) -> KnowledgeSaveError? {
+        guard !candidate.normalizedKey.isEmpty else { return .emptyName }
+        if let existing = knowledgeEntities.first(where: { $0.id != candidate.id && $0.normalizedKey == candidate.normalizedKey }) {
+            return .duplicate(existingName: existing.name)
+        }
+        return nil
     }
 
     func suggestEntityType(for name: String) async throws -> EntityType {
@@ -561,7 +566,7 @@ final class AppState {
     }
 
     func playAudio(for entry: HistoryEntry) async throws -> Data {
-        guard let filename = entry.audioFilename else { throw TextInteractionError.writeFailed }
+        guard let filename = entry.audioFilename else { throw LocalStoreError.invalidAudioFilename }
         return try await store.audio(named: filename)
     }
 
@@ -571,7 +576,7 @@ final class AppState {
               historyEntries[index].status == .failed,
               let filename = historyEntries[index].audioFilename else { return }
         guard !apiKey.isEmpty else {
-            showToast(text("请先保存 Qwen API Key", "Save your Qwen API Key first"), symbol: "key.fill")
+            showToast(localizedError(QwenError.missingConfiguration), symbol: "key.fill")
             return
         }
         historyEntries[index].status = .processing
@@ -596,7 +601,7 @@ final class AppState {
             guard !result.isEmpty else { throw QwenError.noSpeech }
             let cleaned = SpeechDisfluencyCleaner.clean(result, mode: dictationCleanup)
             updateHistory(id, input: cleaned, output: cleaned, status: .completed)
-            showToast(text("识别成功，可从历史复制", "Transcribed; copy it from History"), symbol: "checkmark")
+            showToast(text("已重新识别", "Transcribed again"), symbol: "checkmark")
         } catch {
             updateHistory(id, status: .failed, errorMessage: localizedError(error))
         }
@@ -622,8 +627,8 @@ final class AppState {
         removeHistory { !keepingStarred || !$0.isStarred }
         showToast(
             keepingStarred
-                ? text("已删除，星标记录都还在", "Deleted everything except starred items")
-                : text("历史已清空", "History cleared"),
+                ? text("已清空历史，星标记录已保留", "History cleared. Starred items were kept.")
+                : text("已清空历史", "History cleared"),
             symbol: "trash"
         )
     }
@@ -656,17 +661,23 @@ final class AppState {
 
     /// Walks the remaining first-run steps after a sheet closes.
     private func presentNextSetupStep() {
-        guard !pendingSetupSteps.isEmpty else { return }
+        guard !pendingSetupSteps.isEmpty else {
+            setupProgress = nil
+            return
+        }
         Task { @MainActor [weak self] in
             try? await Task.sleep(for: .milliseconds(350))
             guard let self, self.presentedSheet == nil else { return }
             while !self.pendingSetupSteps.isEmpty {
                 let step = self.pendingSetupSteps.removeFirst()
                 if self.isSetupStepNeeded(step) {
+                    let number = (self.setupProgress?.step ?? 0) + 1
+                    self.setupProgress = SetupProgress(step: number, total: max(self.setupProgress?.total ?? number, number))
                     self.presentedSheet = step
                     return
                 }
             }
+            self.setupProgress = nil
         }
     }
 
@@ -700,7 +711,10 @@ final class AppState {
             launchAtLogin = SMAppService.mainApp.status == .enabled
         } catch {
             launchAtLogin = SMAppService.mainApp.status == .enabled
-            showToast(text("无法更新登录项，请在系统设置中检查", "Could not update Login Items; check System Settings"), symbol: "exclamationmark.triangle.fill")
+            showToast(
+                text("无法更新登录项，请在“系统设置 › 通用 › 登录项”中检查", "Couldn’t update Login Items. Check System Settings › General › Login Items."),
+                symbol: "exclamationmark.triangle.fill"
+            )
         }
     }
     func setGlobalShortcutsPaused(_ paused: Bool) { shortcutController?.setHotKeysPaused(paused) }
@@ -752,9 +766,10 @@ final class AppState {
             return
         }
         guard !apiKey.isEmpty else {
-            showOverlayFeedback(text("请先添加 Qwen API Key", "Add your Qwen API Key first"), symbol: "key.fill", duration: .seconds(4))
+            let message = localizedError(QwenError.missingConfiguration)
+            showOverlayFeedback(message, symbol: "key.fill", duration: .seconds(4))
             showQwenSettings()
-            showToast(text("请先在 Qwen 连接中保存 API Key", "Save your API Key in Qwen connection first"), symbol: "key.fill")
+            showToast(message, symbol: "key.fill")
             return
         }
         do {
@@ -790,7 +805,8 @@ final class AppState {
                     contextItems.append(ContextItem(
                         kind: .previousOutput,
                         symbol: "arrow.uturn.backward",
-                        title: text("上次写入 · \(lastVerifiedWrite.text.count) 字", "Previous output · \(lastVerifiedWrite.text.count) chars"),
+                        title: text("上次输入", "Last insertion")
+                            + " · " + ContextCollector.characterCount(lastVerifiedWrite.text.count, isChineseUI: usesChineseUI),
                         value: lastVerifiedWrite.text
                     ))
                 }
@@ -1162,10 +1178,11 @@ final class AppState {
         } catch {
             saveFailed = true
         }
+        // The user is usually in another app, where only the overlay is visible.
         if saveFailed {
-            showToast(
-                text("输入记录保存失败，识别仍会继续", "Could not save the input record; recognition will continue"),
-                symbol: "exclamationmark.triangle.fill"
+            showOverlayFeedback(
+                text("这条历史没能保存，识别不受影响", "Couldn’t save this to History. Transcription will continue."),
+                symbol: "exclamationmark.triangle"
             )
         }
     }
@@ -1239,7 +1256,8 @@ final class AppState {
         showOverlayFeedback(message, symbol: "exclamationmark", duration: .seconds(4))
         if Self.needsSettings(error) {
             showQwenSettings()
-            showToast(message, symbol: "exclamationmark.triangle.fill")
+            // The overlay already says what went wrong; the toast explains why Settings opened.
+            showToast(text("已打开“设置 › Qwen 连接”", "Opened Settings › Qwen Connection"), symbol: "gearshape")
         } else if NSApplication.shared.isActive {
             showToast(message, symbol: "exclamationmark.triangle.fill")
         }
@@ -1296,58 +1314,65 @@ final class AppState {
             case .noFocusedElement:
                 return text("请先点一下要输入文字的位置", "Click where you want to type first")
             case .sensitiveTarget:
-                return text("为保护隐私，SayKuku 不会读写敏感输入框", "SayKuku does not read or write sensitive fields")
+                return text("为保护隐私，SayKuku 不在密码框和密码管理器中使用", "SayKuku doesn’t work in password fields or password managers.")
             case .targetChanged:
-                return text("输入位置已改变，请重新触发", "The text target changed; trigger SayKuku again")
+                return text("输入位置变了，请回到输入框再试一次", "The text field changed. Click back into it and try again.")
             case .writeFailed:
-                return text("目标应用未接受文字，内容已复制", "The target app did not accept the text; it was copied")
+                return text("这个 App 没有接收文字，请重试", "This app didn’t accept the text. Try again.")
             }
         }
         if let qwenError = error as? QwenError {
             switch qwenError {
             case .missingConfiguration:
-                return text("请先填写 Qwen API Key", "Enter your Qwen API Key first")
+                return text("请先添加 Qwen API Key", "Add your Qwen API Key first")
             case .invalidEndpoint:
-                return text("Qwen 连接设置有误，请检查地域和业务空间 ID", "Check your Qwen region and workspace ID")
+                return text(
+                    "无法连接 Qwen，请在“设置 › Qwen 连接”中检查地域和业务空间 ID",
+                    "Couldn’t reach Qwen. Check the Region and Workspace ID in Settings › Qwen Connection."
+                )
             case .invalidResponse:
-                return text("未获得可用结果，请重试", "No usable result was returned. Try again")
+                return text("没有拿到结果，请重试", "Couldn’t get a result. Try again.")
             case .noSpeech:
-                return text("没有听清，请重试", "Didn't catch that. Try again")
+                return text("没有听清，请再说一次", "Didn’t catch that. Try again.")
             case .server(let status, _):
                 if status == 401 || status == 403 {
-                    return text("API Key 无效或没有权限，请检查 Qwen 设置", "Check your Qwen API Key and access")
+                    return text("API Key 无效或没有权限，请在“设置 › Qwen 连接”中检查", "Your API Key was rejected. Check Settings › Qwen Connection.")
                 }
                 if status == 429 {
-                    return text("请求太频繁，请稍后重试", "Too many requests. Try again shortly")
+                    return text("请求太频繁，请稍后再试", "Too many requests. Try again in a moment.")
                 }
                 if status == 400 {
-                    return text("请求设置有误，请检查 Qwen 模型和业务空间 ID", "Check your Qwen model and workspace ID")
+                    // Often content inspection or unreadable audio, so Settings is only the last resort.
+                    return text(
+                        "Qwen 没有接受这次请求，请重试，或在“设置 › Qwen 连接”中检查模型",
+                        "Qwen rejected this request. Try again, or check the model in Settings › Qwen Connection."
+                    )
                 }
-                return text("Qwen 暂时无法处理请求，请重试", "Qwen could not process the request. Try again")
+                return text("Qwen 暂时无法处理，请重试", "Qwen couldn’t handle the request. Try again.")
             case .protocolError:
-                return text("Qwen 连接中断，请重试", "The Qwen connection was interrupted. Try again")
+                return text("与 Qwen 的连接中断了，请重试", "Lost connection to Qwen. Try again.")
             case .timeout:
-                return text("等待 Qwen 响应超时，请重试", "Qwen took too long to respond. Try again")
+                return text("Qwen 响应超时，请重试", "Qwen took too long to respond. Try again.")
             case .recordingTooLong:
-                return text("录音太长了，请分几段说", "That recording is too long. Try breaking it into shorter parts")
+                return text("录音太长了，请分成几段说", "That recording is too long. Try shorter parts.")
             }
         }
         if error is AudioCaptureError {
-            return text("无法使用麦克风，请检查设备和权限", "Could not use the microphone. Check the device and permission")
+            return text("无法使用麦克风，请检查输入设备和麦克风权限", "Couldn’t use the microphone. Check your input device and microphone access.")
         }
         if error is LocalStoreError {
-            return text("无法读取本机记录，请重启 SayKuku 后重试", "Could not read local history. Restart SayKuku and try again")
+            return text("无法读取本机数据，请重启 SayKuku 后重试", "Couldn’t read local data. Restart SayKuku and try again.")
         }
         if error is SecureStorageError {
-            return text("无法保存 API Key，请检查这台 Mac 的钥匙串", "Could not save the API Key. Check this Mac's Keychain")
+            return text("无法保存 API Key，请检查这台 Mac 的钥匙串", "Couldn’t save the API Key. Check Keychain on this Mac.")
         }
         if error is URLError {
-            return text("网络连接失败，请检查网络后重试", "Could not connect. Check your network and try again")
+            return text("无法连接网络，请检查网络后重试", "Couldn’t connect. Check your network and try again.")
         }
         if error is AgentActionError {
-            return text("快捷指令没有运行成功", "The shortcut didn't run successfully")
+            return text("快捷指令运行失败，请在“快捷指令”App 中检查", "Couldn’t run the shortcut. Check it in the Shortcuts app.")
         }
-        return text("操作失败，请重试", "Something went wrong. Try again")
+        return text("出了点问题，请重试", "Something went wrong. Try again.")
     }
 
     /// Earlier builds saved these placeholders as detail; clear them so they stay out of the UI and prompts.
@@ -1365,14 +1390,14 @@ final class AppState {
             snapshot = try await store.load()
         } catch {
             showToast(
-                text("本地数据无法读取，新的更改暂不保存，详情见“历史”", "Couldn't read local data, so new changes won't be saved. See History for details"),
+                text("无法读取本机数据，新的更改暂时不会保存，详情见“历史”", "Couldn’t read local data, so new changes won’t be saved. See History for details."),
                 symbol: "exclamationmark.triangle.fill"
             )
             return
         }
         historyEntries = Self.recoveringInterruptedHistory(
             snapshot.history,
-            message: text("上次处理被中断", "Processing was interrupted")
+            message: text("SayKuku 退出时还没处理完", "SayKuku quit before this finished")
         ).sorted { $0.createdAt > $1.createdAt }
         knowledgeEntities = snapshot.entities.map { entity in
             var entity = entity
@@ -1385,7 +1410,7 @@ final class AppState {
         cleanExpiredHistory()
         if localDataIssue != nil {
             showToast(
-                text("读取本地数据时出了问题，原文件已备份，详情见“历史”", "There was a problem reading local data. The original file was backed up; see History"),
+                text("读取本机数据时出了问题，原文件已备份，详情见“历史”", "There was a problem reading local data. The original file was backed up. See History for details."),
                 symbol: "exclamationmark.triangle.fill"
             )
         }
@@ -1500,19 +1525,36 @@ final class AppState {
     }
 
     private func presentStartupExperienceIfNeeded() {
-        if didCompleteOnboarding { presentPermissionGuideIfNeeded() }
-        else { presentedSheet = .onboarding }
+        if didCompleteOnboarding {
+            presentPermissionGuideIfNeeded()
+        } else {
+            let laterSteps = [AppSheet.permissions, .qwenSetup].filter { isSetupStepNeeded($0) }
+            setupProgress = SetupProgress(step: 1, total: 1 + laterSteps.count)
+            presentedSheet = .onboarding
+        }
     }
+
+    nonisolated static let maxDomainTerms = 20
+    nonisolated static let maxDomainTermLength = 64
 
     nonisolated static func normalizedDomainTerms(_ terms: [String]) -> [String] {
         var seen = Set<String>()
         return terms.compactMap { term in
             let value = term.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !value.isEmpty, value.count <= 64 else { return nil }
+            guard !value.isEmpty, value.count <= maxDomainTermLength else { return nil }
             let key = value.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
             guard seen.insert(key).inserted else { return nil }
             return value
-        }.prefix(20).map { $0 }
+        }.prefix(maxDomainTerms).map { $0 }
+    }
+}
+
+struct SetupProgress: Equatable {
+    let step: Int
+    let total: Int
+
+    @MainActor func title(_ appState: AppState) -> String {
+        appState.text("第 \(step) 步，共 \(total) 步", "Step \(step) of \(total)")
     }
 }
 
@@ -1526,7 +1568,7 @@ enum AppLanguage: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     func title(isChineseUI: Bool) -> String {
         switch self {
-        case .system: isChineseUI ? "跟随系统" : "Follow System"
+        case .system: isChineseUI ? "跟随系统" : "System Default"
         case .chinese: "简体中文"
         case .english: "English"
         }

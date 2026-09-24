@@ -1,2 +1,2 @@
-"NSMicrophoneUsageDescription" = "SayKuku records only when you start Voice Input or Voice Agent. Audio is sent to your selected Qwen region for processing. If “Save recordings” is on, recordings are kept on this Mac. Microphone test audio is never saved or uploaded.";
+"NSMicrophoneUsageDescription" = "SayKuku uses the microphone only for Voice Input, Voice Agent, and the microphone test. Audio is sent to your selected Qwen region for processing. If “Save recordings” is on, recordings stay on this Mac. Microphone test audio is never saved or uploaded.";
 "NSAppleEventsUsageDescription" = "SayKuku reads the current Safari or Chrome page URL only when “Browser page” is turned on and you use Voice Agent.";

@@ -4,10 +4,10 @@
 <dict>
     <key>CFBundleDisplayName</key>
     <string>SayKuku</string>
-	<key>CFBundleExecutable</key>
-	<string>SayKuku</string>
-	<key>CFBundleIconFile</key>
-	<string>AppIcon</string>
+    <key>CFBundleExecutable</key>
+    <string>SayKuku</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
     <key>CFBundleIdentifier</key>
     <string>com.saykuku.app</string>
     <key>CFBundleDevelopmentRegion</key>
@@ -34,7 +34,7 @@
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>NSMicrophoneUsageDescription</key>
-    <string>SayKuku records only when you start Voice Input or Voice Agent. Audio is sent to your selected Qwen region for processing. If “Save recordings” is on, recordings are kept on this Mac. Microphone test audio is never saved or uploaded.</string>
+    <string>SayKuku uses the microphone only for Voice Input, Voice Agent, and the microphone test. Audio is sent to your selected Qwen region for processing. If “Save recordings” is on, recordings stay on this Mac. Microphone test audio is never saved or uploaded.</string>
     <key>NSAppleEventsUsageDescription</key>
     <string>SayKuku reads the current Safari or Chrome page URL only when “Browser page” is turned on and you use Voice Agent.</string>
 </dict>
