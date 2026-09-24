@@ -569,7 +569,7 @@ final class AppState {
     }
 
     func playAudio(for entry: HistoryEntry) async throws -> Data {
-        guard let filename = entry.audioFilename else { throw TextInteractionError.writeFailed }
+        guard let filename = entry.audioFilename else { throw LocalStoreError.invalidAudioFilename }
         return try await store.audio(named: filename)
     }
 

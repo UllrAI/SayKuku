@@ -382,8 +382,6 @@ struct HistoryEntry: Identifiable, Codable, Equatable {
         self.errorMessage = errorMessage
     }
 
-    var time: String { createdAt.formatted(date: .omitted, time: .shortened) }
-    var duration: String { durationSeconds > 0 ? String(format: "%.1fs", durationSeconds) : "—" }
     var hasAudio: Bool { audioFilename != nil }
 
     private enum CodingKeys: String, CodingKey {
