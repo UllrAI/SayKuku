@@ -509,9 +509,11 @@ enum ContextCollector {
         session: AgentSession?,
         domains: Set<DomainPreset>,
         customDomainTerms: [String],
-        knowledge: [KnowledgeEntity]
+        knowledge: [KnowledgeEntity],
+        isChineseUI: Bool
     ) -> [ContextItem] {
         guard !snapshot.isSensitive else { return [] }
+        func title(_ chinese: String, _ english: String) -> String { isChineseUI ? chinese : english }
         var items: [ContextItem] = []
         if currentAppAllowed {
             items.append(ContextItem(kind: .app, symbol: "app", title: snapshot.appName, value: snapshot.bundleID))
@@ -520,28 +522,28 @@ enum ContextCollector {
             items.append(ContextItem(
                 kind: .selectedText,
                 symbol: "text.quote",
-                title: "Selected text · \(snapshot.selectedText.count)",
+                title: title("选中文字 · \(snapshot.selectedText.count) 字", "Selected text · \(snapshot.selectedText.count) chars"),
                 value: snapshot.selectedText
             ))
         }
         if windowTitleAllowed, !snapshot.windowTitle.isEmpty {
-            items.append(ContextItem(kind: .window, symbol: "macwindow", title: "Window", value: snapshot.windowTitle))
+            items.append(ContextItem(kind: .window, symbol: "macwindow", title: title("窗口标题", "Window title"), value: snapshot.windowTitle))
         }
         if clipboardAllowed, let clipboard = NSPasteboard.general.string(forType: .string), !clipboard.isEmpty {
-            items.append(ContextItem(kind: .clipboard, symbol: "clipboard", title: "Clipboard · \(clipboard.count)", value: clipboard))
+            items.append(ContextItem(kind: .clipboard, symbol: "clipboard", title: title("剪贴板 · \(clipboard.count) 字", "Clipboard · \(clipboard.count) chars"), value: clipboard))
         }
         if browserPageAllowed, let url = browserURL(bundleID: snapshot.bundleID), !url.isEmpty {
-            items.append(ContextItem(kind: .browser, symbol: "globe", title: "Browser page", value: url))
+            items.append(ContextItem(kind: .browser, symbol: "globe", title: title("浏览器页面", "Browser page"), value: url))
         }
         if let session, session.expiresAt > .now {
-            items.append(ContextItem(kind: .session, symbol: "bubble.left.and.bubble.right", title: "Recent session", value: session.contextSummary))
+            items.append(ContextItem(kind: .session, symbol: "bubble.left.and.bubble.right", title: title("最近的交流", "Recent conversation"), value: session.contextSummary))
         }
         if !domains.isEmpty || !customDomainTerms.isEmpty {
             let domainNames = DomainPreset.allCases.filter(domains.contains).map(\.promptName)
             items.append(ContextItem(
                 kind: .domain,
                 symbol: "text.bubble",
-                title: "Domains & vocabulary",
+                title: title("常用领域与词汇", "Domains & vocabulary"),
                 value: (domainNames + customDomainTerms).joined(separator: ", ")
             ))
         }
@@ -549,7 +551,7 @@ enum ContextCollector {
             items.append(ContextItem(
                 kind: .knowledge,
                 symbol: "books.vertical",
-                title: "Knowledge base",
+                title: title("已保存的知识", "Saved knowledge"),
                 value: knowledge.map { entity in
                     let aliases = entity.aliases.isEmpty ? "(none)" : entity.aliases.joined(separator: ", ")
                     let detail = entity.detail.isEmpty ? "(none)" : entity.detail
