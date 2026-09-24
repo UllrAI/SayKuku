@@ -53,7 +53,7 @@ struct QwenSettingsTests {
     @Test("saved API Key persists in the Keychain and clearing it removes the key")
     @MainActor
     func apiKeyPersistence() throws {
-        let environment = QwenSettingsTestEnvironment()
+        let environment = AppStateTestEnvironment()
         defer { environment.clean() }
 
         let state = environment.makeState()
@@ -70,7 +70,7 @@ struct QwenSettingsTests {
     @Test("retired stored models migrate while custom models survive reloads")
     @MainActor
     func modelMigration() {
-        let environment = QwenSettingsTestEnvironment()
+        let environment = AppStateTestEnvironment()
         defer { environment.clean() }
 
         environment.defaults.set("qwen3-asr-flash-realtime", forKey: "qwen.realtimeModel")
@@ -86,7 +86,7 @@ struct QwenSettingsTests {
     @Test("connection-affecting edits reset the test result")
     @MainActor
     func connectionStateResets() {
-        let environment = QwenSettingsTestEnvironment()
+        let environment = AppStateTestEnvironment()
         defer { environment.clean() }
 
         let state = environment.makeState()
@@ -101,29 +101,5 @@ struct QwenSettingsTests {
             edit(state)
             #expect(state.connectionState == .idle)
         }
-    }
-}
-
-@MainActor
-private struct QwenSettingsTestEnvironment {
-    let suite: String
-    let defaults: UserDefaults
-    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-    let keychain = KeychainStore(service: "com.saykuku.tests.\(UUID().uuidString)")
-
-    init() {
-        let suite = "SayKukuTests.\(UUID().uuidString)"
-        self.suite = suite
-        defaults = UserDefaults(suiteName: suite)!
-    }
-
-    func makeState() -> AppState {
-        AppState(defaults: defaults, store: LocalStore(root: root), keychain: keychain)
-    }
-
-    func clean() {
-        defaults.removePersistentDomain(forName: suite)
-        try? FileManager.default.removeItem(at: root)
-        try? keychain.remove("qwen.apiKey")
     }
 }

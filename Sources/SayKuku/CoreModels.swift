@@ -640,3 +640,12 @@ enum KnowledgeNormalizer {
             .lowercased()
     }
 }
+
+/// Decodes a value or yields nil, so one bad array element does not fail the whole array.
+struct Lossy<Value: Decodable>: Decodable {
+    let value: Value?
+
+    init(from decoder: Decoder) throws {
+        value = try? Value(from: decoder)
+    }
+}
