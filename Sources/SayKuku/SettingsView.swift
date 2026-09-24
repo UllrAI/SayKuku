@@ -70,7 +70,7 @@ private struct VoiceInputSettings: View {
             }
 
             SettingsGroup(title: appState.text("结束与输出", "Stop & output")) {
-                SettingsToggle(title: appState.text("停顿后自动结束", "Stop after a pause"), subtitle: appState.text("停顿约 1 秒后结束录音", "Ends recording after about 1 second of silence"), isOn: $appState.autoStop)
+                SettingsToggle(title: appState.text("停顿后自动结束", "Stop after a pause"), subtitle: autoStopSubtitle, isOn: $appState.autoStop)
                 SettingsDivider()
                 SettingsOptionRow(
                     title: appState.text("识别语言", "Recognition language"),
@@ -122,6 +122,13 @@ private struct VoiceInputSettings: View {
                 .frame(maxWidth: .infinity, minHeight: 58, alignment: .leading)
             }
         }
+    }
+
+    /// Pause detection runs on the realtime session, which needs a workspace ID.
+    private var autoStopSubtitle: String {
+        appState.configuration.realtimeURL == nil
+            ? appState.text("需先在“Qwen 连接”中填写业务空间 ID", "Requires a Workspace ID in Qwen Connection")
+            : appState.text("停顿约 1 秒后结束录音", "Ends recording after about 1 second of silence")
     }
 
     private var domainSummary: String {
@@ -266,11 +273,7 @@ struct QwenConnectionForm: View {
                     Text("API Key").font(.system(size: 12.5, weight: .medium))
                     keyCaption(keyState)
                         .font(.system(size: 10.5))
-                    Link(destination: apiKeyHelpURL) {
-                        Label(appState.text("获取 API Key", "Get an API Key"), systemImage: "arrow.up.right.square")
-                    }
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(KukuColor.coral)
+                    helpLink(appState.text("获取 API Key", "Get an API Key"), page: "get-api-key")
                 }
                 Spacer()
                 SecureField("sk-…", text: $apiKeyDraft)
@@ -287,13 +290,17 @@ struct QwenConnectionForm: View {
             .padding(14)
             SettingsDivider()
             HStack {
-                SettingsRowLabel(
-                    title: appState.text("业务空间 ID", "Workspace ID"),
-                    caption: appState.text(
-                        "可选，仅在阿里云百炼中使用了业务空间时填写",
-                        "Optional. Only needed if you use a workspace in Alibaba Cloud Model Studio."
+                VStack(alignment: .leading, spacing: 3) {
+                    SettingsRowLabel(
+                        title: appState.text("业务空间 ID", "Workspace ID"),
+                        caption: appState.text(
+                            "可选，填写后语音输入会边说边识别，不用等你说完",
+                            "Optional. Lets Voice Input transcribe as you speak instead of after you stop."
+                        )
                     )
-                )
+                    .fixedSize(horizontal: false, vertical: true)
+                    helpLink(appState.text("查看业务空间 ID", "Find Your Workspace ID"), page: "obtain-the-app-id-and-workspace-id")
+                }
                 Spacer()
                 TextField("ws-…", text: $appState.qwenWorkspaceID)
                     .textFieldStyle(.roundedBorder)
@@ -320,10 +327,15 @@ struct QwenConnectionForm: View {
         }
     }
 
-    private var apiKeyHelpURL: URL {
-        URL(string: appState.usesChineseUI
-            ? "https://help.aliyun.com/zh/model-studio/get-api-key"
-            : "https://www.alibabacloud.com/help/en/model-studio/get-api-key")!
+    private func helpLink(_ title: String, page: String) -> some View {
+        Link(destination: URL(string: appState.usesChineseUI
+            ? "https://help.aliyun.com/zh/model-studio/\(page)"
+            : "https://www.alibabacloud.com/help/en/model-studio/\(page)")!
+        ) {
+            Label(title, systemImage: "arrow.up.right.square")
+        }
+        .font(.system(size: 11, weight: .semibold))
+        .foregroundStyle(KukuColor.coral)
     }
 
     private func saveKey() {
@@ -342,15 +354,9 @@ struct QwenConnectionStatus: View {
     var body: some View {
         switch appState.connectionState {
         case .connected(let realtime, let chat):
-            StatusLabel(
-                text: appState.text(
-                    "连接正常 · 语音输入 \(realtime) ms · 语音 Agent \(chat) ms",
-                    "Connected · Voice Input \(realtime) ms · Voice Agent \(chat) ms"
-                ),
-                symbol: "checkmark.circle.fill",
-                tint: KukuColor.mint
-            )
-            .font(.system(size: 11, weight: .semibold))
+            StatusLabel(text: connectedMessage(realtime: realtime, chat: chat), symbol: "checkmark.circle.fill", tint: KukuColor.mint)
+                .font(.system(size: 11, weight: .semibold))
+                .lineLimit(2)
         case .failed(let message):
             StatusLabel(text: message, symbol: "exclamationmark.triangle.fill", tint: KukuColor.amber)
                 .font(.system(size: 11, weight: .medium))
@@ -358,6 +364,19 @@ struct QwenConnectionStatus: View {
         case .idle, .testing:
             EmptyView()
         }
+    }
+
+    private func connectedMessage(realtime: Int?, chat: Int) -> String {
+        guard let realtime else {
+            return appState.text(
+                "连接正常 · 语音 Agent \(chat) ms · 未填写业务空间 ID，语音输入会在说完后识别",
+                "Connected · Voice Agent \(chat) ms · Without a Workspace ID, Voice Input transcribes after you stop"
+            )
+        }
+        return appState.text(
+            "连接正常 · 语音输入 \(realtime) ms · 语音 Agent \(chat) ms",
+            "Connected · Voice Input \(realtime) ms · Voice Agent \(chat) ms"
+        )
     }
 }
 

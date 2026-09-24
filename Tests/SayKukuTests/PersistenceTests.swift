@@ -26,11 +26,20 @@ struct PersistenceTests {
         }
     }
 
-    @Test("regional endpoint uses legacy or workspace host")
+    @Test("realtime needs a workspace host while chat keeps the legacy host")
     func endpoints() {
         var config = QwenConfiguration(region: .beijing, workspaceID: "", realtimeModel: "r", reasoningModel: "m")
-        #expect(config.realtimeURL?.host == "dashscope.aliyuncs.com")
+        #expect(config.realtimeURL == nil)
+        #expect(config.chatCompletionsURL?.absoluteString == "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions")
+        config.region = .singapore
+        #expect(config.realtimeURL == nil)
+        #expect(config.chatCompletionsURL?.host == "dashscope-intl.aliyuncs.com")
+
         config.workspaceID = "ws123"
+        #expect(config.realtimeURL?.absoluteString == "wss://ws123.ap-southeast-1.maas.aliyuncs.com/api-ws/v1/realtime?model=r")
+        #expect(config.chatCompletionsURL?.host == "ws123.ap-southeast-1.maas.aliyuncs.com")
+        config.region = .beijing
+        #expect(config.realtimeURL?.absoluteString == "wss://ws123.cn-beijing.maas.aliyuncs.com/api-ws/v1/realtime?model=r")
         #expect(config.chatCompletionsURL?.host == "ws123.cn-beijing.maas.aliyuncs.com")
     }
 
