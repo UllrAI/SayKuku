@@ -21,6 +21,24 @@ actor LocalStore {
         var sessions: [AgentSession] = []
     }
 
+    /// How a damaged `store.json` was handled at launch. The original bytes are never overwritten.
+    enum DataIssue: Equatable, Sendable {
+        /// Some records could not be decoded and were skipped; the untouched original was copied to `backup`.
+        case skippedRecords(count: Int, backup: URL)
+        /// The file could not be read at all; it was moved to `backup` and an empty store was started.
+        case movedAside(backup: URL)
+        /// The file could not be read or backed up, so the store stays read-only to protect it.
+        case readOnly(file: URL)
+
+        var fileURL: URL {
+            switch self {
+            case .skippedRecords(_, let backup), .movedAside(let backup): backup
+            case .readOnly(let file): file
+            }
+        }
+    }
+
+    nonisolated let dataIssue: DataIssue?
     private let root: URL
     private let snapshotURL: URL
     private let audioDirectory: URL
@@ -31,10 +49,14 @@ actor LocalStore {
     init(root: URL? = nil) {
         let base = root ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent(StorageIdentity().directoryName, isDirectory: true)
+        let url = base.appendingPathComponent("store.json")
         self.root = base
-        snapshotURL = base.appendingPathComponent("store.json")
+        snapshotURL = url
         audioDirectory = base.appendingPathComponent("Audio", isDirectory: true)
-        (snapshot, snapshotIsReadable) = Self.loadSnapshot(from: snapshotURL)
+        let loaded = Self.loadSnapshot(from: url)
+        snapshot = loaded.snapshot
+        snapshotIsReadable = loaded.isReadable
+        dataIssue = loaded.issue
     }
 
     func load() throws -> Snapshot {
@@ -76,6 +98,15 @@ actor LocalStore {
         }
     }
 
+    /// Where files from the old encrypted format remain, if any. They are never read, migrated, or deleted here.
+    func legacyEncryptedDataURL() -> URL? {
+        let files = FileManager.default
+        let legacySnapshot = root.appendingPathComponent("store.data")
+        if files.fileExists(atPath: legacySnapshot.path) { return legacySnapshot }
+        let audio = (try? files.contentsOfDirectory(at: audioDirectory, includingPropertiesForKeys: nil)) ?? []
+        return audio.contains { $0.pathExtension == "audio" } ? audioDirectory : nil
+    }
+
     private func audioURL(named filename: String) throws -> URL {
         let name = URL(fileURLWithPath: filename)
         guard name.lastPathComponent == filename,
@@ -98,12 +129,89 @@ actor LocalStore {
         try FileManager.default.setAttributes([.posixPermissions: permissions], ofItemAtPath: url.path)
     }
 
-    private static func loadSnapshot(from url: URL) -> (Snapshot, Bool) {
-        guard FileManager.default.fileExists(atPath: url.path) else { return (Snapshot(), true) }
-        guard let data = try? Data(contentsOf: url) else { return (Snapshot(), false) }
+    private struct LoadResult {
+        var snapshot = Snapshot()
+        var isReadable = true
+        var issue: DataIssue?
+    }
+
+    private static func loadSnapshot(from url: URL) -> LoadResult {
+        guard FileManager.default.fileExists(atPath: url.path) else { return LoadResult() }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .millisecondsSince1970
-        guard let value = try? decoder.decode(Snapshot.self, from: data) else { return (Snapshot(), false) }
-        return (value, true)
+        if let data = try? Data(contentsOf: url),
+           let decoded = try? decoder.decode(TolerantSnapshot.self, from: data) {
+            guard decoded.skippedCount > 0 else { return LoadResult(snapshot: decoded.snapshot) }
+            // Copy rather than move: the next save rewrites store.json without the skipped records.
+            guard let backup = try? backUp(url, keepingOriginal: true) else {
+                return LoadResult(isReadable: false, issue: .readOnly(file: url))
+            }
+            return LoadResult(
+                snapshot: decoded.snapshot,
+                issue: .skippedRecords(count: decoded.skippedCount, backup: backup)
+            )
+        }
+        guard let backup = try? backUp(url, keepingOriginal: false) else {
+            return LoadResult(isReadable: false, issue: .readOnly(file: url))
+        }
+        return LoadResult(issue: .movedAside(backup: backup))
+    }
+
+    /// Saves the file as `store.corrupt-<timestamp>.json` next to it, never replacing an existing backup.
+    private static func backUp(_ url: URL, keepingOriginal: Bool) throws -> URL {
+        let files = FileManager.default
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyyMMdd-HHmmss"
+        let stamp = formatter.string(from: Date())
+        let directory = url.deletingLastPathComponent()
+        var backup = directory.appendingPathComponent("store.corrupt-\(stamp).json")
+        var suffix = 2
+        while files.fileExists(atPath: backup.path) {
+            backup = directory.appendingPathComponent("store.corrupt-\(stamp)-\(suffix).json")
+            suffix += 1
+        }
+        if keepingOriginal {
+            try files.copyItem(at: url, to: backup)
+        } else {
+            try files.moveItem(at: url, to: backup)
+        }
+        return backup
+    }
+}
+
+/// Decodes each record on its own so one damaged or newer-format record does not hide the rest.
+private struct TolerantSnapshot: Decodable {
+    let snapshot: LocalStore.Snapshot
+    let skippedCount: Int
+
+    private enum CodingKeys: String, CodingKey {
+        case history, entities, relationships, corrections, sessions
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        var skipped = 0
+        func records<Record: Decodable>(_ key: CodingKeys) throws -> [Record] {
+            let decoded = try container.decodeIfPresent([TolerantRecord<Record>].self, forKey: key) ?? []
+            skipped += decoded.filter { $0.value == nil }.count
+            return decoded.compactMap(\.value)
+        }
+        snapshot = try LocalStore.Snapshot(
+            history: records(.history),
+            entities: records(.entities),
+            relationships: records(.relationships),
+            corrections: records(.corrections),
+            sessions: records(.sessions)
+        )
+        skippedCount = skipped
+    }
+}
+
+private struct TolerantRecord<Value: Decodable>: Decodable {
+    let value: Value?
+
+    init(from decoder: Decoder) throws {
+        value = try? Value(from: decoder)
     }
 }
