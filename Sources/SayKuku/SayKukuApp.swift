@@ -31,7 +31,7 @@ struct SayKukuApp: App {
         .windowToolbarStyle(.unifiedCompact)
         .commands {
             CommandGroup(replacing: .newItem) { }
-            CommandMenu("Voice") {
+            CommandMenu(appState.text("语音", "Voice")) {
                 Button(appState.text("开始语音输入    ⇧⌘D", "Start Voice Input    ⇧⌘D")) { appState.toggleDictation() }
                 Button(appState.text("打开语音 Agent    ⇧⌘A", "Open Voice Agent    ⇧⌘A")) { appState.startAgent() }
             }

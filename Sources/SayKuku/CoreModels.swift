@@ -109,12 +109,68 @@ enum DictationCleanup: String, CaseIterable, Identifiable, Sendable {
         case .light:
             """
             LIGHT CLEANUP: Return the cleaned final utterance, not the raw speech trace. Silently remove clear, meaningless fillers (嗯、呃、啊、额、那个、就是、然后、uh、um、you know), accidental immediate repeats, and abandoned starts. For a clear self-correction, keep the final wording. Do this cleanup even when the audio model initially recognizes those filler words.
-            Examples: "嗯，我觉得，呃，这个方案可以" → "我觉得这个方案可以。"; "我我觉得，那个，明天开会" → "我觉得明天开会。"; "周三，不对，周四见" → "周四见。"
+            Remove adjacent repeats of hesitation words and short fragments, even without a pause: "这个这个新版本" → "这个新版本", "我我觉得" → "我觉得", "然后，然后再提交" → "然后再提交". Also: "嗯，我觉得，呃，这个方案可以" → "我觉得这个方案可以。"; "周三，不对，周四见" → "周四见。"
             Keep meaningful uses of the same words: "那个方案" keeps 那个, "这就是原因" keeps 就是, and "然后提交" keeps 然后 when it marks sequence. Keep deliberate repetition, quoted speech, uncertainty, and all meaningful content. If unsure whether a word is filler or content, keep it. Never paraphrase or add information.
             """
         case .verbatim:
             "VERBATIM: Keep fillers, repetitions, false starts, and self-corrections as spoken. Add punctuation, but do not clean up or rewrite the speech."
         }
+    }
+}
+
+enum SpeechDisfluencyCleaner {
+    private static let repeatedLeadIn = try! NSRegularExpression(
+        pattern: #"(这个|那个|就是|然后|其实|所以|我)(?:[ \t，,、]*\1)+"#
+    )
+
+    static func clean(_ text: String, mode: DictationCleanup) -> String {
+        var result = ""
+        var segment = ""
+        var closingQuote: Character?
+        let quotes: [Character: Character] = ["“": "”", "「": "」", "『": "』", "\"": "\"", "`": "`"]
+
+        for character in text {
+            if let quote = closingQuote {
+                result.append(character)
+                if character == quote { closingQuote = nil }
+            } else if let close = quotes[character] {
+                result += cleanSegment(segment, deduplicate: mode == .light)
+                segment = ""
+                result.append(character)
+                closingQuote = close
+            } else {
+                segment.append(character)
+            }
+        }
+        result += cleanSegment(segment, deduplicate: mode == .light)
+        return result
+    }
+
+    private static func cleanSegment(_ segment: String, deduplicate: Bool) -> String {
+        let range = NSRange(segment.startIndex..<segment.endIndex, in: segment)
+        let text = deduplicate
+            ? repeatedLeadIn.stringByReplacingMatches(in: segment, range: range, withTemplate: "$1")
+            : segment
+        let characters = Array(text)
+        return String(characters.indices.map { index in
+            let character = characters[index]
+            let previous = index > 0 ? characters[index - 1] : nil
+            let next = index + 1 < characters.count ? characters[index + 1] : nil
+            guard isChinese(previous) || isChinese(next) else { return character }
+            switch character {
+            case ",": return "，"
+            case "?": return "？"
+            case "!": return "！"
+            case ";": return "；"
+            case ":": return "："
+            case "." where isChinese(previous): return "。"
+            default: return character
+            }
+        })
+    }
+
+    private static func isChinese(_ character: Character?) -> Bool {
+        character?.unicodeScalars.contains { (0x4E00...0x9FFF).contains($0.value) } ?? false
     }
 }
 
@@ -372,6 +428,15 @@ struct KnowledgeEntity: Identifiable, Codable, Equatable {
 
 enum RelationshipType: String, Codable, CaseIterable {
     case belongsTo, worksOn, owns, relatedTo
+
+    @MainActor func title(_ appState: AppState) -> String {
+        switch self {
+        case .belongsTo: appState.text("属于", "belongs to")
+        case .worksOn: appState.text("参与", "works on")
+        case .owns: appState.text("负责", "owns")
+        case .relatedTo: appState.text("相关", "related to")
+        }
+    }
 }
 
 struct KnowledgeRelationship: Identifiable, Codable, Equatable {
@@ -382,7 +447,18 @@ struct KnowledgeRelationship: Identifiable, Codable, Equatable {
     var evidence: String
 }
 
-enum ImportStatus: String, Codable { case new = "NEW", merge = "MERGE", conflict = "CONFLICT", ignored = "IGNORED" }
+enum ImportStatus: String, Codable {
+    case new = "NEW", merge = "MERGE", conflict = "CONFLICT", ignored = "IGNORED"
+
+    @MainActor func title(_ appState: AppState) -> String {
+        switch self {
+        case .new: appState.text("新增", "New")
+        case .merge: appState.text("更新已有项", "Update existing")
+        case .conflict: appState.text("可能重复", "Possible duplicate")
+        case .ignored: appState.text("已忽略", "Ignored")
+        }
+    }
+}
 
 struct ImportCandidate: Identifiable, Equatable {
     var id: UUID = UUID()

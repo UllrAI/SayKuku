@@ -9,7 +9,7 @@ struct MemoryView: View {
 
         VStack(spacing: 0) {
             ScreenHeader(
-                eyebrow: "Memory",
+                eyebrow: appState.text("记忆", "Memory"),
                 title: appState.text("越用越准，但始终由你决定", "Gets better, always on your terms")
             ) {
                 Toggle(appState.text("从纠正中学习", "Learn from corrections"), isOn: $appState.learnFromCorrections)
@@ -49,9 +49,9 @@ struct MemoryView: View {
 
     private var emptyView: some View {
         ContentUnavailableView(
-            appState.text("暂无记忆", "No memory yet"),
+            appState.text("还没有纠正建议", "No correction suggestions yet"),
             systemImage: "sparkles",
-            description: Text(appState.text("使用语音输入和语音 Agent 后，这里会显示真实记录。", "Real records appear here after you use Voice Input and Voice Agent."))
+            description: Text(appState.text("当你纠正识别结果时，建议会显示在这里，确认后才会保存。", "Corrections to recognition results appear here for your review before they are saved."))
         )
         .foregroundStyle(KukuColor.stone)
         .frame(maxWidth: .infinity, minHeight: 180)
@@ -77,10 +77,12 @@ private struct CorrectionSummary: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(appState.text("纠正建议", "Correction suggestions"))
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
-                Text(appState.text(
-                    "发现 \(pendingCorrections.count) 条待确认纠正，只有你确认后才会进入长期知识。",
-                    "\(pendingCorrections.count) corrections await confirmation. Only confirmed items enter long-term Knowledge."
-                ))
+                Text(pendingCorrections.isEmpty
+                    ? appState.text("没有待确认的纠正建议。", "No corrections need your review.")
+                    : appState.text(
+                        "有 \(pendingCorrections.count) 条建议待确认，确认后才会保存。",
+                        "\(pendingCorrections.count) suggestions need your review before they are saved."
+                    ))
                     .font(.system(size: 11))
                     .foregroundStyle(KukuColor.stone)
             }
@@ -146,8 +148,8 @@ private struct SessionMemoryView: View {
                 appState.text("暂无短期记忆", "No short-term memory"),
                 systemImage: "clock.arrow.circlepath",
                 description: Text(appState.text(
-                    "语音 Agent 完成一次操作后，会保留同一 App 的上一轮对话 30 分钟。",
-                    "After Voice Agent completes an action, its previous turn is kept for the same app for 30 minutes."
+                    "使用语音 Agent 后，最近的交流会在这里保留 30 分钟。",
+                    "Recent Voice Agent exchanges appear here for 30 minutes."
                 ))
             )
             .foregroundStyle(KukuColor.stone)
@@ -155,8 +157,8 @@ private struct SessionMemoryView: View {
         } else {
             VStack(alignment: .leading, spacing: 14) {
                 Text(appState.text(
-                    "这些对话会自动加入同一 App 的下一次语音 Agent 请求，并在 30 分钟后过期。",
-                    "These turns are added to the next Voice Agent request in the same app and expire after 30 minutes."
+                    "下次在同一应用中使用语音 Agent 时，会参考这些交流；30 分钟后自动清除。",
+                    "Voice Agent can use these exchanges in the same app. They expire after 30 minutes."
                 ))
                     .font(.system(size: 11))
                     .foregroundStyle(KukuColor.stone)
@@ -209,7 +211,7 @@ private struct LongTermMemoryView: View {
         let relationships = appState.knowledgeRelationships.prefix(8).compactMap { relationship -> String? in
             guard let from = appState.knowledgeEntities.first(where: { $0.id == relationship.fromEntityID }),
                   let to = appState.knowledgeEntities.first(where: { $0.id == relationship.toEntityID }) else { return nil }
-            return "\(from.name) → \(relationship.type.rawValue) → \(to.name)"
+            return "\(from.name) · \(relationship.type.title(appState)) · \(to.name)"
         }.joined(separator: " · ")
         return [
             (appState.text("固定拼写", "Confirmed spellings"), spellings, "character.cursor.ibeam"),
@@ -223,8 +225,8 @@ private struct LongTermMemoryView: View {
                 appState.text("暂无长期知识", "No long-term knowledge"),
                 systemImage: "books.vertical",
                 description: Text(appState.text(
-                    "确认纠正建议或导入知识后，它们会进入识别和 Agent prompt。",
-                    "Confirmed corrections and imported knowledge are added to recognition and Agent prompts."
+                    "添加常用名称或确认纠正建议后，SayKuku 会在识别时参考它们。",
+                    "Add familiar names or confirm corrections so SayKuku can recognize them next time."
                 ))
             )
             .foregroundStyle(KukuColor.stone)
