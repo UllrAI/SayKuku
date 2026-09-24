@@ -1,9 +1,9 @@
 import ApplicationServices
 import AppKit
 import Carbon.HIToolbox
-import CryptoKit
 import Foundation
 import os
+import UniformTypeIdentifiers
 
 enum TextInteractionError: LocalizedError {
     case accessibilityRequired
@@ -37,7 +37,6 @@ struct TextTargetSnapshot: @unchecked Sendable {
     let textElement: AXUIElement?
     let selectedRange: CFRange?
     let selectedText: String
-    let selectedTextHash: String
     let valueBefore: String?
     let isSensitive: Bool
 }
@@ -84,26 +83,31 @@ final class TextInteraction {
     )
     private static let pasteSessionType = NSPasteboard.PasteboardType("com.saykuku.paste-session")
     private static let textRoles = Set(["AXTextArea", "AXTextField", "AXComboBox", "AXSearchField"])
-    private let sensitiveBundleFragments = [
-        "1password", "lastpass", "bitwarden", "dashlane", "keepass", "bank", "wallet"
-    ]
+    /// Keeps a slow or hung target app from stalling the main thread for the default ~6 s per AX call.
+    private static let messagingTimeout: Float = 0.4
+    /// Upper bound for searching a focused container for its text field.
+    private static let elementSearchBudget = Duration.milliseconds(250)
+    /// Delays between reads while verifying a write; roughly the same 0.5 s window with fewer AX round trips.
+    private static let verificationDelays = [50, 75, 100, 125, 150]
 
-    func captureTarget() throws -> TextTargetSnapshot {
+    /// Dictation needs a window to write into; the Agent can also answer, open links or run shortcuts
+    /// from the desktop, so `requiringWindow: false` returns a snapshot without a window or text field.
+    func captureTarget(requiringWindow: Bool = true) throws -> TextTargetSnapshot {
         guard AXIsProcessTrusted() else { throw TextInteractionError.accessibilityRequired }
         guard let app = NSWorkspace.shared.frontmostApplication else { throw TextInteractionError.noFocusedElement }
-        let application = AXUIElementCreateApplication(app.processIdentifier)
+        let application = applicationElement(for: app.processIdentifier)
         let focusedElement = focusedElement(for: app.processIdentifier)
         let element = focusedElement.flatMap(preferredTextElement(from:))
         let window = element.flatMap(window(of:))
             ?? focusedElement.flatMap(window(of:))
             ?? copyAttribute(application, kAXFocusedWindowAttribute)
-        guard element != nil || window != nil else { throw TextInteractionError.noFocusedElement }
+        if requiringWindow, element == nil, window == nil { throw TextInteractionError.noFocusedElement }
         let title: String = window.flatMap { copyAttribute($0, kAXTitleAttribute) } ?? ""
         let bundleID = app.bundleIdentifier ?? ""
         let range = element.flatMap(selectedRange(of:))
         let value = element.flatMap { normalizedValue(of: $0, selectedRange: range) }
         let selectedText = element.map { selectedText(of: $0, value: value, range: range) } ?? ""
-        let sensitive = isSensitive(element: element, bundleID: bundleID, windowTitle: title)
+        let sensitive = isSensitive(element: element, bundleID: bundleID)
 
         Self.logger.info(
             "Captured target bundle=\(bundleID, privacy: .public) role=\(element.map(self.role(of:)) ?? "unavailable", privacy: .public) readable=\(value != nil, privacy: .public)"
@@ -117,45 +121,43 @@ final class TextInteraction {
             textElement: element,
             selectedRange: range,
             selectedText: selectedText,
-            selectedTextHash: Self.hash(selectedText),
             valueBefore: value,
             isSensitive: sensitive
         )
     }
 
-    private func validate(_ snapshot: TextTargetSnapshot) throws -> AXUIElement? {
+    /// Returns the text field to write into. Without one there is nowhere safe to paste,
+    /// so callers fall back to copying instead of sending Command-V into an empty spot.
+    private func validate(_ snapshot: TextTargetSnapshot) throws -> AXUIElement {
         guard !snapshot.isSensitive else { throw TextInteractionError.sensitiveTarget }
         guard !IsSecureEventInputEnabled() else { throw TextInteractionError.sensitiveTarget }
         guard let app = NSWorkspace.shared.frontmostApplication,
               app.processIdentifier == snapshot.appPID,
               app.bundleIdentifier == snapshot.bundleID else { throw TextInteractionError.targetChanged }
 
-        let application = AXUIElementCreateApplication(snapshot.appPID)
-        let focusedElement = focusedElement(for: snapshot.appPID)
-        let element = focusedElement.flatMap(preferredTextElement(from:))
-        let currentWindow = element.flatMap(window(of:))
-            ?? focusedElement.flatMap(window(of:))
-            ?? copyAttribute(application, kAXFocusedWindowAttribute)
-        guard element != nil || currentWindow != nil else { throw TextInteractionError.targetChanged }
+        guard let focusedElement = focusedElement(for: snapshot.appPID),
+              let element = preferredTextElement(from: focusedElement) else {
+            throw TextInteractionError.noFocusedElement
+        }
+        let currentWindow = window(of: element)
+            ?? window(of: focusedElement)
+            ?? copyAttribute(applicationElement(for: snapshot.appPID), kAXFocusedWindowAttribute)
         guard sameWindow(snapshot.windowElement, currentWindow) else {
             throw TextInteractionError.targetChanged
         }
-        if let original = snapshot.textElement {
-            guard let element, CFEqual(original, element) else { throw TextInteractionError.targetChanged }
+        if let original = snapshot.textElement, !CFEqual(original, element) {
+            throw TextInteractionError.targetChanged
         }
-        let currentTitle: String = currentWindow.flatMap { copyAttribute($0, kAXTitleAttribute) } ?? ""
-        guard !isSensitive(element: element, bundleID: snapshot.bundleID, windowTitle: currentTitle) else {
+        guard !isSensitive(element: element, bundleID: snapshot.bundleID) else {
             throw TextInteractionError.sensitiveTarget
         }
 
-        let range = element.flatMap(selectedRange(of:))
-        let value = element.flatMap { normalizedValue(of: $0, selectedRange: range) }
         if snapshot.valueBefore != nil, snapshot.selectedRange != nil {
-            guard let element else { throw TextInteractionError.targetChanged }
-            let selectedText = selectedText(of: element, value: value, range: range)
+            let range = selectedRange(of: element)
+            let value = normalizedValue(of: element, selectedRange: range)
             guard value == snapshot.valueBefore,
                   range == snapshot.selectedRange,
-                  Self.hash(selectedText) == snapshot.selectedTextHash else {
+                  selectedText(of: element, value: value, range: range) == snapshot.selectedText else {
                 throw TextInteractionError.targetChanged
             }
         }
@@ -169,7 +171,7 @@ final class TextInteraction {
         let expectedValue = Self.expectedValue(afterWriting: text, to: snapshot)
         var settable = DarwinBoolean(false)
 
-        if let element, let expectedValue,
+        if let expectedValue,
            AXUIElementIsAttributeSettable(
                element,
                kAXSelectedTextAttribute as CFString,
@@ -183,7 +185,7 @@ final class TextInteraction {
                 text as CFTypeRef
             )
             if setStatus == .success {
-                if try await waitForExpectedValue(expectedValue, in: snapshot) {
+                if try await waitForExpectedValue(expectedValue, in: element, snapshot: snapshot) {
                     Self.logger.info("Text delivered with verified Accessibility insertion")
                     return .verified
                 }
@@ -241,7 +243,7 @@ final class TextInteraction {
     }
 
     private func paste(_ text: String, to snapshot: TextTargetSnapshot) async throws -> TextWriteOutcome {
-        _ = try validate(snapshot)
+        let element = try validate(snapshot)
         let pasteboard = NSPasteboard.general
         let previous = Self.snapshot(of: pasteboard)
         let sessionID = UUID().uuidString
@@ -249,6 +251,9 @@ final class TextInteraction {
         let item = NSPasteboardItem()
         item.setString(text, forType: .string)
         item.setString(sessionID, forType: Self.pasteSessionType)
+        // Tell clipboard history tools this short-lived, app-generated content is not worth keeping.
+        item.setData(Data(), forType: PasteboardPolicy.transientType)
+        item.setData(Data(), forType: PasteboardPolicy.autoGeneratedType)
         guard pasteboard.writeObjects([item]), pasteboard.string(forType: .string) == text else {
             throw TextInteractionError.writeFailed
         }
@@ -263,7 +268,7 @@ final class TextInteraction {
         }
 
         let expectedValue = Self.expectedValue(afterWriting: text, to: snapshot)
-        if let expectedValue, try await waitForExpectedValue(expectedValue, in: snapshot) {
+        if let expectedValue, try await waitForExpectedValue(expectedValue, in: element, snapshot: snapshot) {
             try? await Task.sleep(for: .milliseconds(180))
             restore(previous, ifOwnedBy: sessionID, on: pasteboard)
             Self.logger.info("Text delivered with verified synthetic paste")
@@ -299,9 +304,19 @@ final class TextInteraction {
         }
     }
 
-    private func waitForExpectedValue(_ expectedValue: String, in snapshot: TextTargetSnapshot) async throws -> Bool {
-        for _ in 0..<10 {
-            try await Task.sleep(for: .milliseconds(50))
+    private func waitForExpectedValue(
+        _ expectedValue: String, in element: AXUIElement, snapshot: TextTargetSnapshot
+    ) async throws -> Bool {
+        let expectedLength = (expectedValue as NSString).length
+        for (index, delay) in Self.verificationDelays.enumerated() {
+            try await Task.sleep(for: .milliseconds(delay))
+            // A cheap length check skips reading the whole field while the app is still catching up.
+            // The last attempt always does the full read in case an app counts characters differently.
+            let isLastAttempt = index == Self.verificationDelays.count - 1
+            if !isLastAttempt, let count: NSNumber = copyAttribute(element, kAXNumberOfCharactersAttribute),
+               count.intValue != expectedLength {
+                continue
+            }
             if currentValue(in: snapshot) == expectedValue { return true }
         }
         return false
@@ -313,8 +328,8 @@ final class TextInteraction {
               app.bundleIdentifier == snapshot.bundleID,
               let focusedElement = focusedElement(for: snapshot.appPID) else { return nil }
         guard let element = preferredTextElement(from: focusedElement) else { return nil }
-        let application = AXUIElementCreateApplication(snapshot.appPID)
-        let currentWindow = window(of: element) ?? copyAttribute(application, kAXFocusedWindowAttribute)
+        let currentWindow = window(of: element)
+            ?? copyAttribute(applicationElement(for: snapshot.appPID), kAXFocusedWindowAttribute)
         guard sameWindow(snapshot.windowElement, currentWindow) else { return nil }
         if let original = snapshot.textElement, !CFEqual(original, element) { return nil }
         let range = selectedRange(of: element)
@@ -340,14 +355,21 @@ final class TextInteraction {
 
     private func focusedElement(for expectedPID: pid_t) -> AXUIElement? {
         let systemWide = AXUIElementCreateSystemWide()
+        // Setting the timeout on the system-wide element makes it the default for every AX call.
+        AXUIElementSetMessagingTimeout(systemWide, Self.messagingTimeout)
         if let element: AXUIElement = copyAttribute(systemWide, kAXFocusedUIElementAttribute),
            processID(of: element) == expectedPID {
             return element
         }
-        let application = AXUIElementCreateApplication(expectedPID)
-        guard let element: AXUIElement = copyAttribute(application, kAXFocusedUIElementAttribute),
+        guard let element: AXUIElement = copyAttribute(applicationElement(for: expectedPID), kAXFocusedUIElementAttribute),
               processID(of: element) == expectedPID else { return nil }
         return element
+    }
+
+    private func applicationElement(for pid: pid_t) -> AXUIElement {
+        let application = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(application, Self.messagingTimeout)
+        return application
     }
 
     private func processID(of element: AXUIElement) -> pid_t? {
@@ -361,7 +383,8 @@ final class TextInteraction {
         var seen: [AXUIElement] = []
         var candidates: [AXUIElement] = []
         var visited = 0
-        while !queue.isEmpty, visited < 80 {
+        let deadline = ContinuousClock.now + Self.elementSearchBudget
+        while !queue.isEmpty, visited < 80, ContinuousClock.now < deadline {
             let current = queue.removeFirst()
             guard !seen.contains(where: { CFEqual($0, current.element) }) else { continue }
             seen.append(current.element)
@@ -445,23 +468,18 @@ final class TextInteraction {
         )
     }
 
-    private func isSensitive(element: AXUIElement?, bundleID: String, windowTitle: String) -> Bool {
+    private func isSensitive(element: AXUIElement?, bundleID: String) -> Bool {
         let elementRole = element.map(role(of:)) ?? ""
         let subrole: String = element.flatMap { copyAttribute($0, kAXSubroleAttribute) } ?? ""
-        let lowerBundle = bundleID.lowercased()
-        let lowerTitle = windowTitle.lowercased()
         return IsSecureEventInputEnabled()
             || elementRole == "AXSecureTextField"
             || subrole.lowercased().contains("secure")
-            || sensitiveBundleFragments.contains(where: lowerBundle.contains)
-            || lowerTitle.contains("private browsing")
-            || lowerTitle.contains("incognito")
-            || lowerTitle.contains("隐私浏览")
+            || SensitiveApps.contains(bundleID: bundleID)
     }
 
     static func snapshot(of pasteboard: NSPasteboard) -> PasteboardSnapshot {
         (pasteboard.pasteboardItems ?? []).map { item in
-            Dictionary(uniqueKeysWithValues: item.types.compactMap { type in
+            Dictionary(uniqueKeysWithValues: PasteboardPolicy.backupTypes(item.types).compactMap { type in
                 item.data(forType: type).map { (type, $0) }
             })
         }
@@ -491,9 +509,47 @@ final class TextInteraction {
         guard AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success else { return nil }
         return value as? T
     }
+}
 
-    private static func hash(_ value: String) -> String {
-        SHA256.hash(data: Data(value.utf8)).map { String(format: "%02x", $0) }.joined()
+/// Apps whose windows SayKuku never reads from or writes into, matched by bundle ID prefix.
+enum SensitiveApps {
+    static let bundlePrefixes = [
+        "com.1password", "com.agilebits", "com.bitwarden", "com.lastpass", "com.dashlane",
+        "org.keepassxc", "com.apple.keychainaccess", "com.apple.passwords"
+    ]
+
+    static func contains(bundleID: String) -> Bool {
+        let lowercased = bundleID.lowercased()
+        return bundlePrefixes.contains { lowercased.hasPrefix($0) }
+    }
+}
+
+/// Clipboard conventions from nspasteboard.org shared by password managers and clipboard history tools.
+enum PasteboardPolicy {
+    static let concealedType = NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType")
+    static let transientType = NSPasteboard.PasteboardType("org.nspasteboard.TransientType")
+    static let autoGeneratedType = NSPasteboard.PasteboardType("org.nspasteboard.AutoGeneratedType")
+
+    /// Secrets and short-lived content are marked by their source and never used as Agent context.
+    static func isPrivate(_ types: [NSPasteboard.PasteboardType]) -> Bool {
+        types.contains(concealedType) || types.contains(transientType)
+    }
+
+    /// Types worth backing up before a temporary paste. Reading a type forces its owner to produce
+    /// lazily provided data, so file promises are skipped (they cannot be restored without their
+    /// provider anyway) and only the owner's first, preferred image representation is kept instead
+    /// of making it render every image format it offers.
+    static func backupTypes(_ types: [NSPasteboard.PasteboardType]) -> [NSPasteboard.PasteboardType] {
+        var result: [NSPasteboard.PasteboardType] = []
+        var hasImage = false
+        for type in types where !type.rawValue.localizedCaseInsensitiveContains("promise") {
+            if UTType(type.rawValue)?.conforms(to: .image) == true {
+                guard !hasImage else { continue }
+                hasImage = true
+            }
+            result.append(type)
+        }
+        return result
     }
 }
 
@@ -529,7 +585,8 @@ enum ContextCollector {
         if windowTitleAllowed, !snapshot.windowTitle.isEmpty {
             items.append(ContextItem(kind: .window, symbol: "macwindow", title: title("窗口标题", "Window title"), value: snapshot.windowTitle))
         }
-        if clipboardAllowed, let clipboard = NSPasteboard.general.string(forType: .string), !clipboard.isEmpty {
+        if clipboardAllowed, !PasteboardPolicy.isPrivate(NSPasteboard.general.types ?? []),
+           let clipboard = NSPasteboard.general.string(forType: .string), !clipboard.isEmpty {
             items.append(ContextItem(kind: .clipboard, symbol: "clipboard", title: title("剪贴板 · \(clipboard.count) 字", "Clipboard · \(clipboard.count) chars"), value: clipboard))
         }
         if browserPageAllowed, let url = browserURL(bundleID: snapshot.bundleID), !url.isEmpty {
@@ -548,15 +605,12 @@ enum ContextCollector {
             ))
         }
         if !knowledge.isEmpty {
+            // Only marks knowledge as enabled for this run; the prompt is rendered from AppState's entities.
             items.append(ContextItem(
                 kind: .knowledge,
                 symbol: "books.vertical",
                 title: title("已保存的知识", "Saved knowledge"),
-                value: knowledge.map { entity in
-                    let aliases = entity.aliases.isEmpty ? "(none)" : entity.aliases.joined(separator: ", ")
-                    let detail = entity.detail.isEmpty ? "(none)" : entity.detail
-                    return "\(entity.name) [\(entity.type.rawValue)] aliases: \(aliases) detail: \(detail)"
-                }.joined(separator: "\n")
+                value: "\(knowledge.count)"
             ))
         }
         return items
@@ -579,9 +633,18 @@ enum ContextCollector {
     }
 }
 
+enum AgentActionError: Error {
+    case shortcutFailed
+}
+
 enum AgentActionExecutor {
+    /// RFC 3986 unreserved characters; everything else, including `&`, `+` and `=`, is percent-encoded.
+    private static let queryValueAllowed = CharacterSet(
+        charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~"
+    )
+
     @MainActor
-    static func execute(_ response: AgentResponse) throws {
+    static func execute(_ response: AgentResponse) async throws {
         switch response.action {
         case .writeText, .answer:
             return
@@ -591,16 +654,33 @@ enum AgentActionExecutor {
             }
             NSWorkspace.shared.open(url)
         case .webSearch:
-            guard let query = response.query?.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-                  let url = URL(string: "https://www.google.com/search?q=\(query)") else { throw QwenError.invalidResponse }
+            guard let query = response.query, let url = webSearchURL(for: query) else { throw QwenError.invalidResponse }
             NSWorkspace.shared.open(url)
         case .runShortcut:
             guard let name = response.shortcutName, !name.isEmpty else { throw QwenError.invalidResponse }
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/usr/bin/shortcuts")
-            process.arguments = ["run", name]
-            try process.run()
+            try await runShortcut(named: name)
         }
+    }
+
+    static func webSearchURL(for query: String) -> URL? {
+        guard let encoded = query.addingPercentEncoding(withAllowedCharacters: queryValueAllowed) else { return nil }
+        return URL(string: "https://www.google.com/search?q=\(encoded)")
+    }
+
+    /// Waits for `shortcuts run` off the main thread so a failing shortcut is reported instead of shown as done.
+    private static func runShortcut(named name: String) async throws {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/shortcuts")
+        process.arguments = ["run", name]
+        let status: Int32 = try await withCheckedThrowingContinuation { continuation in
+            process.terminationHandler = { continuation.resume(returning: $0.terminationStatus) }
+            do {
+                try process.run()
+            } catch {
+                continuation.resume(throwing: error)
+            }
+        }
+        guard status == 0 else { throw AgentActionError.shortcutFailed }
     }
 }
 

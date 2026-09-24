@@ -625,7 +625,7 @@ final class AppState {
             return
         }
         do {
-            let snapshot = try textInteraction.captureTarget()
+            let snapshot = try textInteraction.captureTarget(requiringWindow: mode == .dictation)
             guard !snapshot.isSensitive else { throw TextInteractionError.sensitiveTarget }
             targetSnapshot = snapshot
             liveTranscript = ""
@@ -919,10 +919,8 @@ final class AppState {
             let output: String
             var needsCopyFallback = false
             if response.action == .writeText {
-                guard let generated = response.output, !generated.isEmpty else { throw QwenError.invalidResponse }
-                let text = response.target != .previous && !context.contains(where: { $0.kind == .selectedText })
-                    ? SpeechDisfluencyCleaner.clean(generated, mode: .light)
-                    : generated
+                // Generated text is final prose, not a speech trace; cleaning it could alter names or code.
+                guard let text = response.output, !text.isEmpty else { throw QwenError.invalidResponse }
                 if automaticAgentWriteBack {
                     do {
                         let writeTarget: TextTargetSnapshot
@@ -951,7 +949,7 @@ final class AppState {
                 output = text
             } else {
                 resultCanUndo = false
-                try AgentActionExecutor.execute(response)
+                try await AgentActionExecutor.execute(response)
                 output = response.url ?? response.query ?? response.shortcutName ?? response.intent
             }
             updateHistory(historyID, input: command, output: output, status: .completed)
@@ -964,6 +962,8 @@ final class AppState {
                     expiresAt: .now.addingTimeInterval(30 * 60)
                 ), to: sessions)
             }
+            // Actions such as shortcuts can outlive a dismissed or newer workflow.
+            guard generation == workflowGeneration else { return }
             if needsCopyFallback {
                 presentCopyFallback(output, agent: true, copyImmediately: automaticAgentWriteBack)
                 return
@@ -1225,6 +1225,9 @@ final class AppState {
         }
         if error is URLError {
             return text("网络连接失败，请检查网络后重试", "Could not connect. Check your network and try again")
+        }
+        if error is AgentActionError {
+            return text("快捷指令没有运行成功", "The shortcut didn't run successfully")
         }
         return text("操作失败，请重试", "Something went wrong. Try again")
     }
