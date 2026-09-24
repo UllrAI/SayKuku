@@ -47,7 +47,7 @@ App 图标不放文字，使用珊瑚红圆角底板与暖白 Lucide Bird 线稿
 | 原生 App 外壳与统一设计系统 | ✅ 已完成 | SwiftUI 原生窗口、固定侧栏、统一页面宽度、标题、Tab、卡片、间距、圆角与阴影 | 持续做逐页视觉回归 |
 | App 图标与打包 | ✅ 已完成 | Lucide Bird 品牌母形、ICNS、菜单栏 template 资源、固定 Bundle ID、开发/正式身份隔离，以及强制 Developer ID 的 Release 签名脚本 | 每次正式分发按发布文档完成公证、装订和最终 ZIP |
 | 菜单栏常驻入口 | ✅ 已完成 | 18 × 18 pt template 画布内放置约 15 × 13.5 pt Lucide Bird，使用原生 template 渲染自动适配明暗与按下态；包含 Voice Input、Voice Agent、显示主窗口、设置、状态与退出菜单；可选在关闭主窗口后隐藏 Dock 图标，从菜单栏重开时恢复 | 后续增加连接延迟与录音态图标 |
-| 全局快捷键 | ✅ 已完成 | `⇧⌘D` Voice Input、`⇧⌘A` Voice Agent，通过 Carbon 注册且不需要任何隐私权限 | 增加可配置按键 |
+| 全局快捷键 | ✅ 已完成 | 默认 `⌃⌥⌘V` Voice Input、`⌃⌥⌘A` Voice Agent，可在设置中录制或关闭；通过 Carbon 注册且不需要任何隐私权限，注册失败时提示冲突 | — |
 | Fn Gesture Router | ✅ 已完成 | Hold Fn、Tap Fn、Double Fn、活动语音流程下 Esc 取消、组合键取消、超时恢复、冲突检测、系统 Fn 行为引导与全局快捷键 fallback；复用写回所需的辅助功能权限，不申请输入监控 | 增加真实设备与外接键盘回归测试 |
 | 权限引导与麦克风测试 | ✅ 已完成 | 启动时缺失权限自动展示引导；麦克风与辅助功能实时状态、快捷开启、回到 App 自动复查；设置页可重新打开；AVAudioEngine 实时输入电平测试 | 增加多输入设备切换回归测试 |
 | 首页与两种浮层 | ✅ 已完成 | Voice Input / Voice Agent 的真实录音、识别、自动执行与结果状态，以及跨桌面非激活浮层 | — |
@@ -167,7 +167,7 @@ Knowledge 不是被砍掉，而是先把输入渠道收窄到“粘贴文本”�
 
 ## 2. Fn 交互设计
 
-> 实现状态：`✅ 已完成`。当前 App 已包含统一 Fn Gesture Router。普通组合键通过 Carbon 注册，不需要隐私权限；Fn 是纯修饰键，无法作为普通 HotKey 注册，因此在 Accessibility 已授权后使用 AppKit `NSEvent` 全局/本地 monitor。实现不创建 CGEvent tap，不调用 Input Monitoring API，也不声明相关权限。`NSEvent` 全局 monitor 只能观察事件，不能阻止系统同时执行 Fn / Globe 动作；设置页提供入口，引导将 macOS“按 Fn 键时”设为“无操作”。`⇧⌘D` 与 `⇧⌘A` 始终作为无权限 fallback。
+> 实现状态：`✅ 已完成`。当前 App 已包含统一 Fn Gesture Router。普通组合键通过 Carbon 注册，不需要隐私权限；Fn 是纯修饰键，无法作为普通 HotKey 注册，因此在 Accessibility 已授权后使用 AppKit `NSEvent` 全局/本地 monitor。实现不创建 CGEvent tap，不调用 Input Monitoring API，也不声明相关权限。`NSEvent` 全局 monitor 只能观察事件，不能阻止系统同时执行 Fn / Globe 动作；设置页提供入口，引导将 macOS“按 Fn 键时”设为“无操作”，并在连按两次 Fn 会触发系统听写时更改听写快捷键。可配置的全局快捷键（默认 `⌃⌥⌘V` 与 `⌃⌥⌘A`）作为无权限 fallback，可在设置中关闭。
 
 ### 2.1 用户可选择两种输入习惯
 
@@ -1632,7 +1632,7 @@ Pindrop 是 MIT License，而且目前工程结构已经把 Services、Transcrip
 | [VoiceInk](https://github.com/Beingpax/VoiceInk/blob/main/VoiceInk/Features/Shortcuts/Coordination/ShortcutMonitor.swift) | `.defaultTap` active CGEvent tap | 使用 Accessibility，可识别单独 Fn |
 | [RedWhisper](https://github.com/redoyan/RedWhisper/blob/main/voxtape.py) | active Quartz event tap | 使用 Accessibility，可识别 Fn flags |
 
-SayKuku 因此采用两层策略：`⇧⌘D` 与 `⇧⌘A` 使用 Carbon，永远不依赖隐私权限；单独 Fn / Fn Fn 在 Accessibility 已授权后使用 `NSEvent.addGlobalMonitorForEvents`，并用 local monitor 覆盖 App 自身前台事件。应用不创建 CGEvent tap，也不申请 Input Monitoring。
+SayKuku 因此采用两层策略：可配置的全局快捷键（默认 `⌃⌥⌘V` 与 `⌃⌥⌘A`）使用 Carbon，永远不依赖隐私权限；单独 Fn / Fn Fn 在 Accessibility 已授权后使用 `NSEvent.addGlobalMonitorForEvents`，并用 local monitor 覆盖 App 自身前台事件。应用不创建 CGEvent tap，也不申请 Input Monitoring。
 
 ### 21.1 Looped Whisper 更值得参考的部分
 

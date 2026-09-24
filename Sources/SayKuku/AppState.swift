@@ -38,7 +38,9 @@ final class AppState {
     }
 
     enum ShortcutStatus: Equatable {
-        case starting, ready, accessibilityRequired, hotKeyConflict
+        case starting, ready, accessibilityRequired
+        /// Enabled shortcuts that could not be registered, usually because another app owns them.
+        case hotKeyConflict([GlobalShortcutAction])
         var symbol: String {
             switch self {
             case .starting: "clock"
@@ -47,11 +49,27 @@ final class AppState {
             }
         }
         @MainActor func title(_ appState: AppState) -> String {
+            let shortcutsOff = GlobalShortcutAction.allCases.allSatisfy { appState.globalShortcut(for: $0) == nil }
             switch self {
-            case .starting: appState.text("正在启动快捷键…", "Starting shortcuts…")
-            case .ready: appState.text("Fn 与全局快捷键已就绪", "Fn and global shortcuts ready")
-            case .accessibilityRequired: appState.text("全局快捷键可用 · Fn 需要辅助功能权限", "Global shortcuts ready · Fn needs Accessibility")
-            case .hotKeyConflict: appState.text("快捷键被其他 App 占用，请检查冲突", "Shortcuts are in use by another app; check for conflicts")
+            case .starting:
+                return appState.text("正在启动快捷键…", "Starting shortcuts…")
+            case .ready:
+                return shortcutsOff
+                    ? appState.text("Fn 已就绪 · 全局快捷键已关闭", "Fn ready · Global shortcuts off")
+                    : appState.text("Fn 与全局快捷键已就绪", "Fn and global shortcuts ready")
+            case .accessibilityRequired:
+                return shortcutsOff
+                    ? appState.text("Fn 需要辅助功能权限 · 全局快捷键已关闭", "Fn needs Accessibility · Global shortcuts off")
+                    : appState.text("全局快捷键可用 · Fn 需要辅助功能权限", "Global shortcuts ready · Fn needs Accessibility")
+            case .hotKeyConflict(let actions):
+                guard actions.count == 1, let action = actions.first else {
+                    return appState.text("两组全局快捷键都被其他 App 占用，请换一组", "Both global shortcuts are taken by other apps. Choose new ones.")
+                }
+                let keys = appState.globalShortcut(for: action)?.displayString ?? ""
+                return appState.text(
+                    "\(keys)（\(action.title(appState))）已被其他 App 占用，请换一个",
+                    "\(keys) for \(action.title(appState)) is taken by another app. Choose another."
+                )
             }
         }
     }
@@ -144,6 +162,13 @@ final class AppState {
     var isAnalyzingKnowledge = false
     let systemPermissions = SystemPermissionController()
     let microphoneTest = MicrophoneTestController()
+    // nil means the shortcut is turned off; Fn gestures keep working either way.
+    var voiceInputShortcut: GlobalShortcut? = .defaultVoiceInput {
+        didSet { saveGlobalShortcut(voiceInputShortcut, forKey: Keys.voiceInputShortcut) }
+    }
+    var voiceAgentShortcut: GlobalShortcut? = .defaultVoiceAgent {
+        didSet { saveGlobalShortcut(voiceAgentShortcut, forKey: Keys.voiceAgentShortcut) }
+    }
 
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let keychain: KeychainStore
@@ -674,6 +699,11 @@ final class AppState {
             launchAtLogin = SMAppService.mainApp.status == .enabled
             showToast(text("无法更新登录项，请在系统设置中检查", "Could not update Login Items; check System Settings"), symbol: "exclamationmark.triangle.fill")
         }
+    }
+    func setGlobalShortcutsPaused(_ paused: Bool) { shortcutController?.setHotKeysPaused(paused) }
+    private func saveGlobalShortcut(_ shortcut: GlobalShortcut?, forKey key: String) {
+        defaults.set(shortcut?.storageValue ?? "", forKey: key)
+        shortcutController?.reloadHotKeys()
     }
     func openKeyboardSettings() {
         if let url = URL(string: "x-apple.systempreferences:com.apple.Keyboard-Settings.extension") { NSWorkspace.shared.open(url) }
@@ -1434,6 +1464,13 @@ final class AppState {
         showInMenuBar = defaults.object(forKey: Keys.showInMenuBar).map { _ in defaults.bool(forKey: Keys.showInMenuBar) } ?? true
         hideDockIconAfterMainWindowCloses = defaults.object(forKey: Keys.hideDockIconAfterMainWindowCloses)
             .map { _ in defaults.bool(forKey: Keys.hideDockIconAfterMainWindowCloses) } ?? false
+        // Earlier builds hard-coded ⇧⌘D / ⇧⌘A without saving them, so upgrades start from the new defaults.
+        if let raw = defaults.string(forKey: Keys.voiceInputShortcut) {
+            voiceInputShortcut = GlobalShortcut.restored(from: raw, fallback: .defaultVoiceInput)
+        }
+        if let raw = defaults.string(forKey: Keys.voiceAgentShortcut) {
+            voiceAgentShortcut = GlobalShortcut.restored(from: raw, fallback: .defaultVoiceAgent)
+        }
     }
 
     private enum Keys {
@@ -1451,6 +1488,7 @@ final class AppState {
         static let legacyDataNoticeDismissed = "history.legacyDataNoticeDismissed"
         static let qwenRegion = "qwen.region", qwenWorkspace = "qwen.workspace", realtimeModel = "qwen.realtimeModel"
         static let reasoningModel = "qwen.reasoningModel", apiKey = "qwen.apiKey"
+        static let voiceInputShortcut = "shortcuts.voiceInput", voiceAgentShortcut = "shortcuts.voiceAgent"
     }
 
     private func presentStartupExperienceIfNeeded() {
