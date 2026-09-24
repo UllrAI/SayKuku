@@ -21,23 +21,17 @@ struct SettingsView: View {
                 title: { $0.title(appState) }
             )
 
-            Divider().opacity(0.55)
+            KukuDivider(inset: 0)
 
-            ScrollView {
-                KukuPageContent {
-                    Group {
-                        switch selection {
-                        case .general: GeneralSettings()
-                        case .voiceInput: VoiceInputSettings()
-                        case .voiceAgent: VoiceAgentSettings()
-                        case .history: HistorySettings()
-                        case .privacy: PrivacySettings()
-                        case .qwen: QwenSettings()
-                        }
-                    }
+            KukuPageScroll {
+                switch selection {
+                case .general: GeneralSettings()
+                case .voiceInput: VoiceInputSettings()
+                case .voiceAgent: VoiceAgentSettings()
+                case .history: HistorySettings()
+                case .privacy: PrivacySettings()
+                case .qwen: QwenSettings()
                 }
-                .padding(.vertical, 20)
-                .padding(.bottom, 24)
             }
         }
     }
@@ -49,43 +43,44 @@ private struct VoiceInputSettings: View {
     var body: some View {
         @Bindable var appState = appState
         SettingsStack(title: appState.voiceInputTitle, subtitle: appState.text("说什么就输入什么，不改你的意思。", "Types what you say, without changing what you mean.")) {
-            SettingsGroup(title: appState.text("输入方式", "Input gesture")) {
-                VStack(spacing: 0) {
-                    ForEach(InputMode.allCases) { mode in
-                        ChoiceRow(
-                            title: mode == .hold ? appState.text("按住 Fn", "Hold Fn") : appState.text("单击 Fn", "Tap Fn"),
-                            subtitle: mode == .hold
-                                ? appState.text("按住片刻开始录音，松开即输入", "Hold briefly to start, release to insert")
-                                : appState.text("单击开始录音，再次单击即输入", "Tap to start, tap again to insert"),
-                            selected: appState.inputMode == mode
-                        ) {
-                            appState.inputMode = mode
-                        }
+            KukuGroup(appState.text("输入方式", "Input gesture")) {
+                ForEach(InputMode.allCases) { mode in
+                    if mode != InputMode.allCases.first {
+                        KukuDivider()
+                    }
+                    KukuChoiceRow(
+                        title: mode == .hold ? appState.text("按住 Fn", "Hold Fn") : appState.text("单击 Fn", "Tap Fn"),
+                        caption: mode == .hold
+                            ? appState.text("按住片刻开始录音，松开即输入", "Hold briefly to start, release to insert")
+                            : appState.text("单击开始录音，再次单击即输入", "Tap to start, tap again to insert"),
+                        isSelected: appState.inputMode == mode
+                    ) {
+                        appState.inputMode = mode
                     }
                 }
             }
 
-            SettingsGroup(title: appState.text("麦克风测试", "Microphone test")) {
+            KukuGroup(appState.text("麦克风测试", "Microphone test")) {
                 MicrophoneTestPanel()
             }
 
-            SettingsGroup(title: appState.text("结束与输出", "Stop & output")) {
-                SettingsToggle(title: appState.text("停顿后自动结束", "Stop after a pause"), subtitle: autoStopSubtitle, isOn: $appState.autoStop)
-                SettingsDivider()
+            KukuGroup(appState.text("结束与输出", "Stop & output")) {
+                KukuToggleRow(title: appState.text("停顿后自动结束", "Stop after a pause"), caption: autoStopSubtitle, isOn: $appState.autoStop)
+                KukuDivider()
                 SettingsOptionRow(
                     title: appState.text("识别语言", "Recognition language"),
                     selection: $appState.recognitionLanguage
                 ) { language in
                     language.title(isChineseUI: appState.usesChineseUI)
                 }
-                SettingsDivider()
+                KukuDivider()
                 SettingsOptionRow(
                     title: appState.text("数字格式", "Number format"),
                     selection: $appState.dictationNumberFormat
                 ) { format in
                     format.title(isChineseUI: appState.usesChineseUI)
                 }
-                SettingsDivider()
+                KukuDivider()
                 SettingsOptionRow(
                     title: appState.text("口语整理", "Speech cleanup"),
                     selection: $appState.dictationCleanup
@@ -96,30 +91,21 @@ private struct VoiceInputSettings: View {
                     "轻整理会去掉无意义口癖和紧邻重复；原样保留说话时的停顿与重复。",
                     "Light cleanup removes fillers and accidental repeats. Verbatim keeps hesitations and repeats."
                 ))
-                .font(.system(size: 10.5))
-                .foregroundStyle(KukuColor.stone)
-                .padding(.horizontal, 14)
-                .padding(.bottom, 10)
+                .font(.kuku(.subheadline))
+                .foregroundStyle(KukuColor.textSecondary)
+                .padding(.horizontal, KukuLayout.rowPadding)
+                .padding(.bottom, KukuSpacing.md)
             }
 
-            SettingsGroup(title: appState.text("词汇", "Vocabulary")) {
-                HStack(spacing: 14) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(appState.text("常用领域与词汇", "Domains & Vocabulary"))
-                            .font(.system(size: 12.5, weight: .medium))
-                        Text(domainSummary)
-                            .font(.system(size: 10.5))
-                            .foregroundStyle(KukuColor.stone)
-                            .lineLimit(2)
-                    }
-                    Spacer(minLength: 16)
+            KukuGroup(appState.text("词汇", "Vocabulary")) {
+                KukuRow(appState.text("常用领域与词汇", "Domains & Vocabulary"), caption: domainSummary) {
                     Button(appState.text("编辑…", "Edit…")) {
                         appState.showDomainOnboarding()
                     }
-                    .buttonStyle(TintButtonStyle())
+                    .buttonStyle(.kukuSecondary)
                 }
-                .padding(.horizontal, 14)
-                .frame(maxWidth: .infinity, minHeight: 58, alignment: .leading)
+                // Long custom vocabularies would otherwise stretch the row.
+                .lineLimit(2)
             }
         }
     }
@@ -148,19 +134,19 @@ private struct VoiceAgentSettings: View {
     var body: some View {
         @Bindable var appState = appState
         SettingsStack(title: appState.voiceAgentTitle, subtitle: appState.text("连按两次 Fn，说出要写、修改或查询的内容。", "Press Fn twice to write, edit, or ask by voice.")) {
-            SettingsGroup(title: appState.text("交互", "Interaction")) {
-                SettingsToggle(
+            KukuGroup(appState.text("交互", "Interaction")) {
+                KukuToggleRow(
                     title: appState.text("连续对话", "Continuous conversation"),
-                    subtitle: appState.text(
+                    caption: appState.text(
                         "记住同一个 App 中最近的对话，30 分钟后自动清除，可在“记忆 › 短期”中查看",
                         "Remembers recent conversations in the same app for 30 minutes. See Memory › Short-Term."
                     ),
                     isOn: $appState.continuousConversation
                 )
-                SettingsDivider()
-                SettingsToggle(
+                KukuDivider()
+                KukuToggleRow(
                     title: appState.text("自动写入", "Insert automatically"),
-                    subtitle: appState.text(
+                    caption: appState.text(
                         "把结果直接写入你正在用的输入框；关闭后结果留在浮层，供你复制",
                         "Puts results right into the text field you’re using. When off, they stay in the overlay for you to copy."
                     ),
@@ -177,31 +163,31 @@ private struct PrivacySettings: View {
     var body: some View {
         @Bindable var appState = appState
         SettingsStack(title: appState.text("语音 Agent 可使用的内容", "What Voice Agent can use"), subtitle: appState.text("说话时，可在浮层中查看本次会发送的内容。", "While you talk, the overlay shows what’s sent.")) {
-            SettingsGroup(title: appState.text("允许使用", "Allow access to")) {
-                SettingsToggle(title: appState.text("选中文字", "Selected text"), subtitle: appState.text("用于改写选中的文字，或针对它提问", "Used to rewrite or ask about the text you’ve selected"), isOn: $appState.selectedTextAllowed)
-                SettingsDivider()
-                SettingsToggle(title: appState.text("当前 App", "Current app"), subtitle: appState.text("你正在使用的 App 名称", "Name of the app you’re using"), isOn: $appState.currentAppAllowed)
-                SettingsDivider()
-                SettingsToggle(title: appState.text("窗口标题", "Window title"), subtitle: appState.text("包括无痕窗口", "Includes private windows"), isOn: $appState.windowTitleAllowed)
-                SettingsDivider()
-                SettingsToggle(title: appState.text("剪贴板", "Clipboard"), subtitle: appState.text("剪贴板中的文字，密码类内容除外", "Text on your clipboard, excluding passwords"), isOn: $appState.clipboardAllowed)
-                SettingsDivider()
-                SettingsToggle(title: appState.text("浏览器页面", "Browser page"), subtitle: appState.text("Safari 或 Chrome 当前页面的网址", "URL of the current Safari or Chrome page"), isOn: $appState.browserPageAllowed)
+            KukuGroup(appState.text("允许使用", "Allow access to")) {
+                KukuToggleRow(title: appState.text("选中文字", "Selected text"), caption: appState.text("用于改写选中的文字，或针对它提问", "Used to rewrite or ask about the text you’ve selected"), isOn: $appState.selectedTextAllowed)
+                KukuDivider()
+                KukuToggleRow(title: appState.text("当前 App", "Current app"), caption: appState.text("你正在使用的 App 名称", "Name of the app you’re using"), isOn: $appState.currentAppAllowed)
+                KukuDivider()
+                KukuToggleRow(title: appState.text("窗口标题", "Window title"), caption: appState.text("包括无痕窗口", "Includes private windows"), isOn: $appState.windowTitleAllowed)
+                KukuDivider()
+                KukuToggleRow(title: appState.text("剪贴板", "Clipboard"), caption: appState.text("剪贴板中的文字，密码类内容除外", "Text on your clipboard, excluding passwords"), isOn: $appState.clipboardAllowed)
+                KukuDivider()
+                KukuToggleRow(title: appState.text("浏览器页面", "Browser page"), caption: appState.text("Safari 或 Chrome 当前页面的网址", "URL of the current Safari or Chrome page"), isOn: $appState.browserPageAllowed)
             }
-            SettingsGroup(title: appState.text("始终不读取或写入", "Always off-limits")) {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(spacing: 10) {
-                        PrivacyApp(name: appState.text("密码框", "Password fields"), symbol: "lock.fill")
-                        PrivacyApp(name: appState.text("密码管理器", "Password managers"), symbol: "key.fill")
+            KukuGroup(appState.text("始终不读取或写入", "Always off-limits")) {
+                VStack(alignment: .leading, spacing: KukuSpacing.sm) {
+                    HStack(spacing: KukuSpacing.sm) {
+                        KukuBadge(text: appState.text("密码框", "Password fields"), symbol: "lock.fill")
+                        KukuBadge(text: appState.text("密码管理器", "Password managers"), symbol: "key.fill")
                     }
                     Text(appState.text(
                         "密码管理器包括 1Password、Bitwarden、LastPass、Dashlane、KeePassXC、钥匙串访问和“密码”。",
                         "Password managers include 1Password, Bitwarden, LastPass, Dashlane, KeePassXC, Keychain Access, and Passwords."
                     ))
-                    .font(.system(size: 10.5))
-                    .foregroundStyle(KukuColor.stone)
+                    .font(.kuku(.subheadline))
+                    .foregroundStyle(KukuColor.textSecondary)
                 }
-                .padding(14)
+                .padding(KukuLayout.rowPadding)
             }
         }
     }
@@ -214,17 +200,17 @@ private struct QwenSettings: View {
     var body: some View {
         @Bindable var appState = appState
         SettingsStack(title: appState.text("Qwen 连接", "Qwen Connection"), subtitle: appState.text("连接 Qwen，并选择语音输入和语音 Agent 使用的模型。", "Connect Qwen and choose models for Voice Input and Voice Agent.")) {
-            SettingsGroup(title: appState.text("连接", "Connection")) {
+            KukuGroup(appState.text("连接", "Connection")) {
                 QwenConnectionForm(apiKeyDraft: $apiKeyDraft)
             }
-            SettingsGroup(title: appState.text("模型", "Models")) {
+            KukuGroup(appState.text("模型", "Models")) {
                 ModelPickerRow(
                     title: appState.voiceInputTitle,
                     caption: appState.text("实时识别语音", "Real-time transcription"),
                     value: $appState.realtimeModel,
                     presets: QwenModelCatalog.realtimeModels
                 )
-                SettingsDivider()
+                KukuDivider()
                 ModelPickerRow(
                     title: appState.voiceAgentTitle,
                     caption: appState.text("也用于整理知识和重新识别录音", "Also used to organize Knowledge and retry recordings"),
@@ -252,8 +238,8 @@ struct QwenConnectionForm: View {
         @Bindable var appState = appState
         let keyState = APIKeyDraftState(draft: apiKeyDraft, saved: appState.apiKey)
         VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                SettingsRowLabel(
+            HStack(spacing: KukuSpacing.md) {
+                KukuRowLabel(
                     title: appState.text("地域", "Region"),
                     caption: appState.text("需与 API Key 所属地域一致", "Must match where your API Key was created")
                 )
@@ -264,34 +250,35 @@ struct QwenConnectionForm: View {
                     }
                 }
                 .labelsHidden()
-                .frame(width: SettingsMetrics.pickerWidth)
+                .frame(width: KukuLayout.pickerWidth)
             }
-            .padding(14)
-            SettingsDivider()
-            HStack {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("API Key").font(.system(size: 12.5, weight: .medium))
+            .kukuRowFrame()
+            KukuDivider()
+            HStack(spacing: KukuSpacing.md) {
+                VStack(alignment: .leading, spacing: KukuSpacing.xxs) {
+                    Text("API Key").font(.kuku(.body)).foregroundStyle(KukuColor.textPrimary)
                     keyCaption(keyState)
-                        .font(.system(size: 10.5))
+                        .font(.kuku(.subheadline))
                     helpLink(appState.text("获取 API Key", "Get an API Key"), page: "get-api-key")
                 }
                 Spacer()
                 SecureField("sk-…", text: $apiKeyDraft)
                     .textFieldStyle(.roundedBorder)
+                    // Narrower than a picker so the Save button fits beside it.
                     .frame(width: 160)
                     .onSubmit(saveKey)
                     .accessibilityLabel("API Key")
                 if showsSaveButton {
                     Button(appState.text("保存", "Save"), action: saveKey)
-                        .buttonStyle(HoverFillButtonStyle())
+                        .buttonStyle(.kukuSecondary)
                         .disabled(!keyState.hasChanges)
                 }
             }
-            .padding(14)
-            SettingsDivider()
-            HStack {
-                VStack(alignment: .leading, spacing: 3) {
-                    SettingsRowLabel(
+            .kukuRowFrame()
+            KukuDivider()
+            HStack(spacing: KukuSpacing.md) {
+                VStack(alignment: .leading, spacing: KukuSpacing.xxs) {
+                    KukuRowLabel(
                         title: appState.text("业务空间 ID", "Workspace ID"),
                         caption: appState.text(
                             "可选，填写后语音输入会边说边识别，不用等你说完",
@@ -302,12 +289,12 @@ struct QwenConnectionForm: View {
                     helpLink(appState.text("查看业务空间 ID", "Find Your Workspace ID"), page: "obtain-the-app-id-and-workspace-id")
                 }
                 Spacer()
-                TextField("ws-…", text: $appState.qwenWorkspaceID)
+                TextField("llm-…", text: $appState.qwenWorkspaceID)
                     .textFieldStyle(.roundedBorder)
-                    .frame(width: SettingsMetrics.pickerWidth)
+                    .frame(width: KukuLayout.pickerWidth)
                     .accessibilityLabel(appState.text("业务空间 ID", "Workspace ID"))
             }
-            .padding(14)
+            .kukuRowFrame()
         }
         .onChange(of: appState.apiKey, initial: true) { _, saved in apiKeyDraft = saved }
     }
@@ -317,25 +304,20 @@ struct QwenConnectionForm: View {
         switch state {
         case .empty:
             Text(appState.text("保存在这台 Mac 的钥匙串中", "Stored in this Mac’s Keychain"))
-                .foregroundStyle(KukuColor.stone)
+                .foregroundStyle(KukuColor.textSecondary)
         case .saved:
-            StatusLabel(text: appState.text("已保存到钥匙串", "Saved to Keychain"), symbol: "checkmark.circle.fill", tint: KukuColor.mint)
+            KukuStatusLabel(text: appState.text("已保存到钥匙串", "Saved to Keychain"), tone: .success)
         case .modified:
-            StatusLabel(text: appState.text("尚未保存", "Not saved yet"), symbol: "exclamationmark.circle.fill", tint: KukuColor.amber)
+            KukuStatusLabel(text: appState.text("尚未保存", "Not saved yet"), tone: .warning)
         case .cleared:
-            StatusLabel(text: appState.text("保存后将移除", "Will be removed when you save"), symbol: "exclamationmark.circle.fill", tint: KukuColor.amber)
+            KukuStatusLabel(text: appState.text("保存后将移除", "Will be removed when you save"), tone: .warning)
         }
     }
 
     private func helpLink(_ title: String, page: String) -> some View {
-        Link(destination: URL(string: appState.usesChineseUI
+        KukuExternalLink(title: title, destination: URL(string: appState.usesChineseUI
             ? "https://help.aliyun.com/zh/model-studio/\(page)"
-            : "https://www.alibabacloud.com/help/en/model-studio/\(page)")!
-        ) {
-            Label(title, systemImage: "arrow.up.right.square")
-        }
-        .font(.system(size: 11, weight: .semibold))
-        .foregroundStyle(KukuColor.coral)
+            : "https://www.alibabacloud.com/help/en/model-studio/\(page)")!)
     }
 
     private func saveKey() {
@@ -354,12 +336,14 @@ struct QwenConnectionStatus: View {
     var body: some View {
         switch appState.connectionState {
         case .connected(let realtime, let chat):
-            StatusLabel(text: connectedMessage(realtime: realtime, chat: chat), symbol: "checkmark.circle.fill", tint: KukuColor.mint)
-                .font(.system(size: 11, weight: .semibold))
-                .lineLimit(2)
+            KukuStatusLabel(
+                text: connectedMessage(realtime: realtime, chat: chat),
+                tone: .success,
+                font: .kuku(.subheadline, weight: .medium)
+            )
+            .lineLimit(2)
         case .failed(let message):
-            StatusLabel(text: message, symbol: "exclamationmark.triangle.fill", tint: KukuColor.amber)
-                .font(.system(size: 11, weight: .medium))
+            KukuStatusLabel(text: message, tone: .danger, font: .kuku(.subheadline, weight: .medium))
                 .lineLimit(2)
         case .idle, .testing:
             EmptyView()
@@ -389,7 +373,7 @@ struct QwenTestButton: View {
         Button(isTesting ? appState.text("正在测试…", "Testing…") : appState.text("保存并测试", "Save & Test")) {
             Task { await appState.testQwenConnection(apiKey: apiKeyDraft) }
         }
-        .buttonStyle(HoverFillButtonStyle(prominent: true))
+        .buttonStyle(.kukuPrimary)
         .disabled(isTesting || apiKeyDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
     }
 }
@@ -405,20 +389,18 @@ private struct ModelPickerRow: View {
     @State private var customDraft: String?
 
     var body: some View {
-        HStack {
-            SettingsRowLabel(title: title, caption: caption)
-            Spacer()
+        KukuRow(title, caption: caption) {
             if let draft = customDraft {
                 TextField(
                     appState.text("模型 ID", "Model ID"),
                     text: Binding(get: { draft }, set: { customDraft = $0 })
                 )
                 .textFieldStyle(.roundedBorder)
-                .frame(width: 170)
+                .frame(width: KukuLayout.pickerWidth)
                 .onSubmit(applyCustomModel)
                 .onExitCommand { customDraft = nil }
                 Button(appState.text("使用", "Use"), action: applyCustomModel)
-                    .buttonStyle(HoverFillButtonStyle())
+                    .buttonStyle(.kukuSecondary)
             } else {
                 Picker(title, selection: selection) {
                     ForEach(QwenModelCatalog.options(presets, including: value), id: \.self) { model in
@@ -428,11 +410,9 @@ private struct ModelPickerRow: View {
                     Text(appState.text("自定义…", "Custom…")).tag(Choice.custom)
                 }
                 .labelsHidden()
-                .frame(width: SettingsMetrics.pickerWidth)
+                .frame(width: KukuLayout.pickerWidth)
             }
         }
-        .padding(.horizontal, 14)
-        .frame(maxWidth: .infinity, minHeight: 54, alignment: .leading)
     }
 
     private var selection: Binding<Choice> {
@@ -461,57 +441,50 @@ private struct GeneralSettings: View {
         @Bindable var appState = appState
 
         SettingsStack(title: appState.text("通用", "General"), subtitle: appState.text("语言、权限、启动方式和快捷键。", "Language, permissions, startup, and shortcuts.")) {
-            SettingsGroup(title: appState.text("语言", "Language")) {
-                HStack {
-                    SettingsRowLabel(
-                        title: appState.text("界面语言", "Interface language"),
-                        caption: appState.text("默认跟随 macOS，可随时切换", "Follows macOS by default. Change it anytime.")
-                    )
-                    Spacer()
+            KukuGroup(appState.text("语言", "Language")) {
+                KukuRow(
+                    appState.text("界面语言", "Interface language"),
+                    caption: appState.text("默认跟随 macOS，可随时切换", "Follows macOS by default. Change it anytime.")
+                ) {
                     Picker(appState.text("界面语言", "Interface language"), selection: $appState.appLanguage) {
                         ForEach(AppLanguage.allCases) { language in
                             Text(language.title(isChineseUI: appState.usesChineseUI)).tag(language)
                         }
                     }
                     .labelsHidden()
-                    .frame(width: SettingsMetrics.pickerWidth)
+                    .frame(width: KukuLayout.pickerWidth)
                 }
-                .padding(14)
             }
 
-            SettingsGroup(title: appState.text("系统权限", "System permissions")) {
+            KukuGroup(appState.text("系统权限", "System permissions")) {
                 PermissionActionRow(kind: .microphone)
-                SettingsDivider()
+                KukuDivider()
                 PermissionActionRow(kind: .accessibility)
-                SettingsDivider()
-                HStack(spacing: 12) {
-                    SettingsRowLabel(
-                        title: appState.text("权限引导", "Permission guide"),
-                        caption: appState.text("重新检查状态、开启权限并测试麦克风", "Recheck status, enable access, and test the microphone")
-                    )
-                    Spacer()
+                KukuDivider()
+                KukuRow(
+                    appState.text("权限引导", "Permission guide"),
+                    caption: appState.text("重新检查状态、开启权限并测试麦克风", "Recheck status, enable access, and test the microphone")
+                ) {
                     Button(appState.text("打开引导", "Open Guide")) {
                         appState.showPermissionGuide()
                     }
-                    .buttonStyle(TintButtonStyle())
+                    .buttonStyle(.kukuSecondary)
                 }
-                .padding(.horizontal, 14)
-                .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
             }
 
-            SettingsGroup(title: appState.text("启动与后台", "Startup & background")) {
-                SettingsToggle(
+            KukuGroup(appState.text("启动与后台", "Startup & background")) {
+                KukuToggleRow(
                     title: appState.text("登录时打开", "Open at login"),
-                    subtitle: appState.text("确保 Fn 手势随时可用", "Keep Fn gestures ready"),
+                    caption: appState.text("确保 Fn 手势随时可用", "Keep Fn gestures ready"),
                     isOn: Binding(
                         get: { appState.launchAtLogin },
                         set: { appState.setLaunchAtLogin($0) }
                     )
                 )
-                SettingsDivider()
-                SettingsToggle(
+                KukuDivider()
+                KukuToggleRow(
                     title: appState.text("在菜单栏显示", "Show in menu bar"),
-                    subtitle: appState.hideDockIconAfterMainWindowCloses
+                    caption: appState.hideDockIconAfterMainWindowCloses
                         ? appState.text("开启“关闭窗口后隐藏 Dock 图标”时需保留", "Required while the Dock icon is hidden")
                         : appState.text("快速开始输入、打开窗口并查看快捷键状态", "Start input, open the app, and check shortcut status"),
                     isOn: Binding(
@@ -520,10 +493,10 @@ private struct GeneralSettings: View {
                     )
                 )
                 .disabled(appState.hideDockIconAfterMainWindowCloses)
-                SettingsDivider()
-                SettingsToggle(
+                KukuDivider()
+                KukuToggleRow(
                     title: appState.text("关闭窗口后隐藏 Dock 图标", "Hide Dock icon when window is closed"),
-                    subtitle: appState.text(
+                    caption: appState.text(
                         "SayKuku 仍在菜单栏运行，重新打开窗口时 Dock 图标会恢复",
                         "SayKuku keeps running in the menu bar. Reopening the window brings the Dock icon back."
                     ),
@@ -531,7 +504,7 @@ private struct GeneralSettings: View {
                 )
             }
 
-            SettingsGroup(title: appState.text("快捷键", "Shortcuts")) {
+            KukuGroup(appState.text("快捷键", "Shortcuts")) {
                 GlobalShortcutSettings()
             }
         }
@@ -544,9 +517,9 @@ private struct GlobalShortcutSettings: View {
     var body: some View {
         VStack(spacing: 0) {
             ShortcutStatusRow()
-            SettingsDivider()
+            KukuDivider()
             GlobalShortcutRow(action: .voiceInput, recorder: recorder)
-            SettingsDivider()
+            KukuDivider()
             GlobalShortcutRow(action: .voiceAgent, recorder: recorder)
         }
         .onDisappear { recorder.stop() }
@@ -561,24 +534,24 @@ private struct GlobalShortcutRow: View {
     var body: some View {
         let issue = recorder.action == action ? recorder.issue : nil
 
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 3) {
+        HStack(spacing: KukuSpacing.md) {
+            VStack(alignment: .leading, spacing: KukuSpacing.xxs) {
                 Text(action.title(appState))
-                    .font(.system(size: 12.5, weight: .medium))
+                    .font(.kuku(.body))
+                    .foregroundStyle(KukuColor.textPrimary)
                 Group {
                     if let issue {
-                        StatusLabel(text: issue.message(for: action, appState), symbol: "exclamationmark.triangle.fill", tint: KukuColor.amber)
+                        KukuStatusLabel(text: issue.message(for: action, appState), tone: .warning)
                     } else {
-                        Text(subtitle).foregroundStyle(KukuColor.stone)
+                        Text(subtitle).foregroundStyle(KukuColor.textSecondary)
                     }
                 }
-                .font(.system(size: 10.5))
+                .font(.kuku(.subheadline))
             }
-            Spacer(minLength: 12)
+            Spacer(minLength: KukuSpacing.md)
             ShortcutRecorderButton(action: action, recorder: recorder)
         }
-        .padding(.horizontal, 14)
-        .frame(maxWidth: .infinity, minHeight: 54, alignment: .leading)
+        .kukuRowFrame()
     }
 
     private var subtitle: String {
@@ -597,18 +570,20 @@ private struct ShortcutStatusRow: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: KukuSpacing.md) {
             Image(systemName: appState.shortcutStatus.symbol)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(appState.shortcutStatus == .ready ? KukuColor.mint : KukuColor.amber)
+                .font(.kukuIcon(.regular, weight: .semibold))
+                .foregroundStyle((appState.shortcutStatus == .ready ? KukuStatusTone.success : .warning).iconColor)
+                // Fixed icon column so the text doesn't shift when the symbol changes.
                 .frame(width: 18)
 
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: KukuSpacing.xxs) {
                 Text(appState.text("快捷键状态", "Shortcut status"))
-                    .font(.system(size: 12.5, weight: .medium))
+                    .font(.kuku(.body))
+                    .foregroundStyle(KukuColor.textPrimary)
                 Text(appState.shortcutStatus.title(appState))
-                    .font(.system(size: 10.5))
-                    .foregroundStyle(KukuColor.stone)
+                    .font(.kuku(.subheadline))
+                    .foregroundStyle(KukuColor.textSecondary)
                 Group {
                     Text(appState.text(
                         "若按 Fn 会切换输入法，请在键盘设置中将“按下 fn 键时”设为“不执行任何操作”。",
@@ -619,28 +594,26 @@ private struct ShortcutStatusRow: View {
                         "If pressing Fn twice starts Dictation, change the Dictation shortcut."
                     ))
                 }
-                .font(.system(size: 10.5))
-                .foregroundStyle(KukuColor.stone)
+                .font(.kuku(.subheadline))
+                .foregroundStyle(KukuColor.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
             }
 
-            Spacer(minLength: 12)
+            Spacer(minLength: KukuSpacing.md)
 
             if appState.shortcutStatus == .accessibilityRequired {
                 Button(appState.text("启用 Fn", "Enable Fn")) {
                     Task { await appState.requestPermission(.accessibility) }
                 }
-                .buttonStyle(TintButtonStyle())
+                .buttonStyle(.kukuSecondary)
             } else {
                 Button(appState.text("键盘设置", "Keyboard Settings")) {
                     appState.openKeyboardSettings()
                 }
-                .buttonStyle(HoverFillButtonStyle())
+                .buttonStyle(.kukuSecondary)
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
+        .kukuRowFrame()
     }
 }
 
@@ -658,28 +631,25 @@ private struct HistorySettings: View {
                 "History and recordings stay on this Mac and are deleted on schedule."
             )
         ) {
-            SettingsGroup(title: appState.text("存储", "Storage")) {
-                HStack {
-                    SettingsRowLabel(
-                        title: appState.text("自动删除", "Delete history after"),
-                        caption: appState.text("星标记录不受此期限影响", "Starred items are never deleted automatically")
-                    )
-                    Spacer()
+            KukuGroup(appState.text("存储", "Storage")) {
+                KukuRow(
+                    appState.text("自动删除", "Delete history after"),
+                    caption: appState.text("星标记录不受此期限影响", "Starred items are never deleted automatically")
+                ) {
                     Picker(appState.text("自动删除", "Delete history after"), selection: $appState.historyRetention) {
                         ForEach(HistoryRetention.allCases) { retention in
                             Text(retention.title(appState)).tag(retention)
                         }
                     }
                     .labelsHidden()
-                    .frame(width: SettingsMetrics.pickerWidth)
+                    .frame(width: KukuLayout.pickerWidth)
                 }
-                .padding(14)
 
-                SettingsDivider()
+                KukuDivider()
 
-                SettingsToggle(
+                KukuToggleRow(
                     title: appState.text("保存录音", "Save recordings"),
-                    subtitle: appState.text(
+                    caption: appState.text(
                         "保留录音，方便回放和重新识别，并随对应的历史记录一起删除",
                         "Keep recordings so you can replay or retry them. They’re deleted with their history items."
                     ),
@@ -687,19 +657,15 @@ private struct HistorySettings: View {
                 )
             }
 
-            SettingsGroup(title: appState.text("管理", "Manage")) {
-                HStack {
-                    SettingsRowLabel(
-                        title: appState.text("清空全部历史", "Clear all history"),
-                        caption: appState.text("删除这台 Mac 上的所有历史记录和录音", "Remove every history item and recording from this Mac")
-                    )
-                    Spacer()
+            KukuGroup(appState.text("管理", "Manage")) {
+                KukuRow(
+                    appState.text("清空全部历史", "Clear all history"),
+                    caption: appState.text("删除这台 Mac 上的所有历史记录和录音", "Remove every history item and recording from this Mac")
+                ) {
                     Button(appState.text("清空…", "Clear…")) { isConfirmingClear = true }
-                        .buttonStyle(HoverFillButtonStyle())
+                        .buttonStyle(.kukuSecondary)
                         .disabled(appState.historyEntries.isEmpty)
                 }
-                .padding(.horizontal, 14)
-                .frame(maxWidth: .infinity, minHeight: 54, alignment: .leading)
             }
         }
         .confirmationDialog(
@@ -747,82 +713,18 @@ private struct SettingsStack<Content: View>: View {
     @ViewBuilder let content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            VStack(alignment: .leading, spacing: 5) {
+        VStack(alignment: .leading, spacing: KukuLayout.sectionSpacing) {
+            VStack(alignment: .leading, spacing: KukuSpacing.xs) {
                 Text(title)
-                    .font(.system(size: 19, weight: .semibold, design: .rounded))
+                    .font(.kuku(.title))
+                    .foregroundStyle(KukuColor.textPrimary)
                 Text(subtitle)
-                    .font(.system(size: 11.5))
-                    .foregroundStyle(KukuColor.stone)
+                    .font(.kuku(.callout))
+                    .foregroundStyle(KukuColor.textSecondary)
             }
             content
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-}
-
-private struct SettingsGroup<Content: View>: View {
-    let title: String
-    @ViewBuilder let content: Content
-    var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            Text(title.uppercased())
-                .font(.system(size: 10, weight: .bold, design: .rounded))
-                .tracking(0.9)
-                .foregroundStyle(KukuColor.stone)
-                .padding(.leading, 4)
-            VStack(alignment: .leading, spacing: 0) { content }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .kukuSurface(radius: KukuLayout.radiusMedium)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-}
-
-private enum SettingsMetrics {
-    static let pickerWidth: CGFloat = 220
-}
-
-/// Row title with its caption, in the sizes every settings row shares.
-private struct SettingsRowLabel: View {
-    let title: String
-    let caption: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(title).font(.system(size: 12.5, weight: .medium))
-            Text(caption).font(.system(size: 10.5)).foregroundStyle(KukuColor.stone)
-        }
-    }
-}
-
-/// Ink text with a tinted icon; mint and amber are too light for small text.
-private struct StatusLabel: View {
-    let text: String
-    let symbol: String
-    let tint: Color
-
-    var body: some View {
-        Label {
-            Text(text).foregroundStyle(KukuColor.ink)
-        } icon: {
-            Image(systemName: symbol).foregroundStyle(tint)
-        }
-    }
-}
-
-private struct SettingsToggle: View {
-    let title: String
-    let subtitle: String
-    @Binding var isOn: Bool
-    var body: some View {
-        HStack {
-            SettingsRowLabel(title: title, caption: subtitle)
-            Spacer()
-            Toggle(title, isOn: $isOn).labelsHidden().toggleStyle(.switch).controlSize(.small)
-        }
-        .padding(.horizontal, 14)
-        .frame(maxWidth: .infinity, minHeight: 54, alignment: .leading)
     }
 }
 
@@ -833,64 +735,15 @@ where Option.AllCases: RandomAccessCollection {
     let label: (Option) -> String
 
     var body: some View {
-        HStack {
-            Text(title).font(.system(size: 12.5, weight: .medium))
-            Spacer()
+        KukuRow(title) {
             Picker(title, selection: $selection) {
                 ForEach(Option.allCases) { option in
                     Text(label(option)).tag(option)
                 }
             }
             .labelsHidden()
-            .frame(width: SettingsMetrics.pickerWidth)
+            .frame(width: KukuLayout.pickerWidth)
         }
-        .padding(.horizontal, 14)
-        .frame(maxWidth: .infinity, minHeight: 50, alignment: .leading)
-    }
-}
-
-private struct SettingsDivider: View {
-    var body: some View { Divider().padding(.leading, 14).opacity(0.5) }
-}
-
-private struct ChoiceRow: View {
-    let title: String
-    let subtitle: String
-    let selected: Bool
-    let action: () -> Void
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 12) {
-                Image(systemName: selected ? "largecircle.fill.circle" : "circle")
-                    .font(.system(size: 15))
-                    .foregroundStyle(selected ? KukuColor.coral : KukuColor.stone)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(title).font(.system(size: 12.5, weight: .semibold))
-                    Text(subtitle).font(.system(size: 10.5)).foregroundStyle(KukuColor.stone)
-                }
-                Spacer()
-            }
-            .padding(.horizontal, 14)
-            .frame(minHeight: 56)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(selected ? KukuColor.coralSoft.opacity(0.34) : .clear, in: RoundedRectangle(cornerRadius: KukuLayout.radiusSmall, style: .continuous))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(selected ? .isSelected : [])
-    }
-}
-
-private struct PrivacyApp: View {
-    let name: String
-    let symbol: String
-    var body: some View {
-        Label(name, systemImage: symbol)
-            .font(.system(size: 10, weight: .semibold))
-            .foregroundStyle(KukuColor.stone)
-            .padding(.horizontal, 10)
-            .frame(height: 28)
-            .background(KukuColor.shade.opacity(0.045), in: Capsule())
     }
 }
 

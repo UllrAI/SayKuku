@@ -1,5 +1,4 @@
 import Foundation
-import SwiftUI
 
 enum QwenRegion: String, Codable, CaseIterable, Identifiable {
     case beijing
@@ -13,6 +12,13 @@ enum QwenRegion: String, Codable, CaseIterable, Identifiable {
         return self == .beijing
             ? "\(workspaceID).cn-beijing.maas.aliyuncs.com"
             : "\(workspaceID).ap-southeast-1.maas.aliyuncs.com"
+    }
+
+    /// Model Studio console, where API Keys and Workspace IDs are managed.
+    var consoleURL: URL {
+        URL(string: self == .beijing
+            ? "https://bailian.console.aliyun.com/"
+            : "https://modelstudio.console.alibabacloud.com/")!
     }
 
     func title(isChineseUI: Bool) -> String {
@@ -436,23 +442,6 @@ enum EntityType: String, Codable, CaseIterable, Identifiable {
         case .project: "folder.fill"
         case .product: "shippingbox.fill"
         case .term, .unknown: "character.book.closed.fill"
-        }
-    }
-    var color: Color {
-        switch self {
-        case .person: KukuColor.coral
-        case .organization, .orgUnit: Color(red: 0.34, green: 0.50, blue: 0.75)
-        case .project: Color(red: 0.58, green: 0.43, blue: 0.72)
-        case .product: KukuColor.amber
-        case .term, .unknown: KukuColor.mint
-        }
-    }
-    /// `color` for small labels, using the darker text variants of mint and amber.
-    var textColor: Color {
-        switch self {
-        case .product: KukuColor.amberText
-        case .term, .unknown: KukuColor.mintText
-        default: color
         }
     }
     var filter: KnowledgeFilter {

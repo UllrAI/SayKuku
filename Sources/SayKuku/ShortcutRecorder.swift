@@ -104,24 +104,26 @@ struct ShortcutRecorderButton: View {
         let isRecording = recorder.action == action
         let shortcut = appState.globalShortcut(for: action)
 
-        HStack(spacing: 6) {
+        let shape = RoundedRectangle(cornerRadius: KukuLayout.radiusSmall, style: .continuous)
+
+        HStack(spacing: KukuSpacing.iconText) {
             Button {
                 if isRecording { recorder.stop() } else { recorder.start(action, appState: appState) }
             } label: {
                 Text(isRecording
                      ? appState.text("按下快捷键…", "Press keys…")
                      : shortcut?.displayString ?? appState.text("录制快捷键", "Record Shortcut"))
-                    .font(.system(size: 11.5, weight: .semibold))
-                    .foregroundStyle(isRecording ? KukuColor.coral : shortcut == nil ? KukuColor.stone : KukuColor.ink)
-                    .padding(.horizontal, 10)
-                    .frame(minWidth: 104, minHeight: 28)
-                    .background(
-                        isRecording ? KukuColor.coral.opacity(0.075) : KukuColor.shade.opacity(0.045),
-                        in: RoundedRectangle(cornerRadius: KukuLayout.radiusSmall, style: .continuous)
-                    )
+                    .font(.kuku(.callout, weight: .semibold))
+                    .foregroundStyle(isRecording ? KukuColor.accentText : shortcut == nil ? KukuColor.textSecondary : KukuColor.textPrimary)
+                    .padding(.horizontal, KukuSpacing.md)
+                    // Wide enough for "Record Shortcut" so the button doesn't resize while recording.
+                    .frame(minWidth: 104, minHeight: KukuLayout.controlHeight)
+                    .background(isRecording ? KukuColor.accentSubtle : KukuColor.fill, in: shape)
                     .overlay {
-                        RoundedRectangle(cornerRadius: KukuLayout.radiusSmall, style: .continuous)
-                            .stroke(isRecording ? KukuColor.coral.opacity(0.4) : KukuColor.line, lineWidth: 1)
+                        shape.strokeBorder(
+                            isRecording ? KukuColor.focusRing : KukuColor.border,
+                            lineWidth: isRecording ? KukuBorder.focusWidth : KukuBorder.width
+                        )
                     }
                     .contentShape(Rectangle())
             }
@@ -130,19 +132,17 @@ struct ShortcutRecorderButton: View {
             .accessibilityLabel(spokenLabel(isRecording: isRecording, shortcut: shortcut))
 
             if shortcut != nil, !isRecording {
-                Button {
+                KukuIconButton(
+                    symbol: "xmark.circle.fill",
+                    label: appState.text(
+                        "关闭\(action.title(appState))快捷键",
+                        "Turn off \(action.title(appState)) shortcut"
+                    ),
+                    size: .small,
+                    tint: KukuColor.textTertiary
+                ) {
                     appState.setGlobalShortcut(nil, for: action)
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 13))
-                        .foregroundStyle(KukuColor.stone)
                 }
-                .buttonStyle(.plain)
-                .help(appState.text("关闭这个快捷键", "Turn off this shortcut"))
-                .accessibilityLabel(appState.text(
-                    "关闭\(action.title(appState))快捷键",
-                    "Turn off \(action.title(appState)) shortcut"
-                ))
             }
         }
     }

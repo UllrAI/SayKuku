@@ -15,9 +15,9 @@ struct AgentPill: View {
         case .answerReady:
             0
         case .transcribing:
-            KukuPillLayout.width(for: transcribingLabel, minimum: 145, fixedContentWidth: 81, maximum: 233)
+            KukuPillLayout.width(for: transcribingLabel, minimum: 145, fixedContentWidth: 82, maximum: 233)
         case .processing:
-            KukuPillLayout.width(for: processingLabel, minimum: 145, fixedContentWidth: 81)
+            KukuPillLayout.width(for: processingLabel, minimum: 145, fixedContentWidth: 82)
         case .result:
             KukuPillLayout.width(for: resultLabel, minimum: 78, fixedContentWidth: appState.resultCanUndo ? 96 : 38, maximum: 200)
         }
@@ -47,7 +47,7 @@ struct AgentPill: View {
     }
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: KukuSpacing.sm) {
             if appState.agentPhase == .copyReady {
                 CopyFallbackContent()
             } else if appState.agentPhase == .listening {
@@ -56,11 +56,12 @@ struct AgentPill: View {
                     action: appState.dismissAgent
                 )
 
-                HStack(spacing: 4) {
+                // Fixed-size glyphs below are counted in the listening `fixedContentWidth`.
+                HStack(spacing: KukuSpacing.xs) {
                     Button { showingContext.toggle() } label: {
                         Image(systemName: "doc.text.magnifyingglass")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(KukuColor.coral.opacity(0.82))
+                            .font(.kukuIcon(.small, weight: .semibold))
+                            .foregroundStyle(KukuColor.textSecondary)
                             .frame(width: 16, height: 22)
                     }
                     .buttonStyle(.plain)
@@ -71,7 +72,7 @@ struct AgentPill: View {
                     }
 
                     Waveform(
-                        color: KukuColor.stone.opacity(0.58),
+                        color: KukuColor.coral,
                         level: appState.inputLevel,
                         barCount: 5,
                         height: 15
@@ -80,8 +81,8 @@ struct AgentPill: View {
                 }
 
                 Text(listeningLabel)
-                    .font(.system(size: 11.5, weight: .semibold, design: .rounded))
-                    .foregroundStyle(KukuColor.ink.opacity(0.78))
+                    .font(.kuku(.callout, weight: .semibold))
+                    .foregroundStyle(KukuColor.textPrimary)
                     .lineLimit(1)
                     .truncationMode(.tail)
 
@@ -96,8 +97,8 @@ struct AgentPill: View {
                 Text(appState.agentPhase == .transcribing
                      ? transcribingLabel
                      : processingLabel)
-                    .font(.system(size: 11.5, weight: .semibold, design: .rounded))
-                    .foregroundStyle(KukuColor.ink.opacity(0.78))
+                    .font(.kuku(.callout, weight: .semibold))
+                    .foregroundStyle(KukuColor.textPrimary)
                     .lineLimit(1)
                     .truncationMode(.tail)
                 Spacer(minLength: 0)
@@ -106,52 +107,74 @@ struct AgentPill: View {
                     action: appState.dismissAgent
                 )
             } else if appState.agentPhase == .result {
-                Label(resultLabel, systemImage: "checkmark")
-                    .font(.system(size: 11.5, weight: .semibold, design: .rounded))
-                    .foregroundStyle(KukuColor.ink.opacity(0.64))
-                    .lineLimit(1)
+                Label {
+                    Text(resultLabel)
+                } icon: {
+                    Image(systemName: "checkmark")
+                        .foregroundStyle(KukuColor.success)
+                }
+                .font(.kuku(.callout, weight: .semibold))
+                .foregroundStyle(KukuColor.textSecondary)
+                .lineLimit(1)
                 if appState.resultCanUndo {
                     Spacer(minLength: 0)
-                    Button(appState.text("撤销", "Undo")) {
-                        Task { await appState.undoLastWrite() }
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(KukuColor.coral)
+                    PillUndoButton()
                 }
             }
         }
         .contentTransition(.interpolate)
         .animation(Motion.snappy, value: appState.agentPhase)
         .animation(Motion.snappy, value: appState.liveTranscript.isEmpty)
-        .padding(.horizontal, 7)
-        .frame(width: width, height: 40)
+        .padding(.horizontal, KukuSpacing.sm)
+        .frame(width: width, height: KukuLayout.pillHeight)
         .kukuGlassPill()
         .animation(Motion.pill, value: width)
     }
 }
 
+/// Spins and pulses while the agent works; holds still when Reduce Motion is on.
 private struct AgentActivityIndicator: View {
-    var body: some View {
-        TimelineView(.animation(minimumInterval: 1 / 30)) { timeline in
-            let progress = timeline.date.timeIntervalSinceReferenceDate
-                .truncatingRemainder(dividingBy: 1.6) / 1.6
-            let pulse = 0.76 + 0.24 * (0.5 - 0.5 * cos(progress * 2 * .pi))
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-            Image(systemName: "sparkle")
-                .font(.system(size: 14, weight: .bold))
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [KukuColor.stone, KukuColor.coral.opacity(0.88), KukuColor.amber],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .rotationEffect(.degrees(progress * 180))
-                .scaleEffect(pulse)
-                .shadow(color: KukuColor.coral.opacity(0.2), radius: 3)
+    var body: some View {
+        Group {
+            if reduceMotion {
+                icon
+            } else {
+                TimelineView(.animation(minimumInterval: 1 / 30)) { timeline in
+                    let progress = timeline.date.timeIntervalSinceReferenceDate
+                        .truncatingRemainder(dividingBy: 1.6) / 1.6
+                    let pulse = 0.76 + 0.24 * (0.5 - 0.5 * cos(progress * 2 * .pi))
+
+                    icon
+                        .rotationEffect(.degrees(progress * 180))
+                        .scaleEffect(pulse)
+                }
+            }
         }
+        // Fixed so the rotating symbol never nudges the pill layout; part of `fixedContentWidth`.
         .frame(width: 18, height: 18)
         .accessibilityHidden(true)
+    }
+
+    private var icon: some View {
+        Image(systemName: "sparkle")
+            .font(.kukuIcon(.regular, weight: .semibold))
+            .foregroundStyle(KukuColor.coral)
+    }
+}
+
+/// Reverts the last verified write. The only accent-colored text in a pill.
+private struct PillUndoButton: View {
+    @Environment(AppState.self) private var appState
+
+    var body: some View {
+        Button(appState.text("撤销", "Undo")) {
+            Task { await appState.undoLastWrite() }
+        }
+        .buttonStyle(.plain)
+        .font(.kuku(.callout, weight: .semibold))
+        .foregroundStyle(KukuColor.accentText)
     }
 }
 
@@ -163,10 +186,10 @@ private struct PillCancelButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: "xmark")
-                .font(.system(size: 9, weight: .bold))
-                .foregroundStyle(KukuColor.stone.opacity(0.82))
-                .frame(width: 25, height: 25)
-                .background(KukuColor.shade.opacity(0.05), in: Circle())
+                .font(.kukuIcon(.mini, weight: .semibold))
+                .foregroundStyle(KukuColor.textSecondary)
+                .frame(width: KukuLayout.pillButton, height: KukuLayout.pillButton)
+                .background(KukuColor.fill, in: Circle())
         }
         .buttonStyle(PressScaleStyle())
         .accessibilityLabel(label)
@@ -182,10 +205,10 @@ private struct PillConfirmButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: "checkmark")
-                .font(.system(size: 10, weight: .bold))
-                .foregroundStyle(Color.white.opacity(0.94))
-                .frame(width: 25, height: 25)
-                .background(KukuColor.coral.opacity(0.84), in: Circle())
+                .font(.kukuIcon(.mini, weight: .semibold))
+                .foregroundStyle(KukuColor.onAccent)
+                .frame(width: KukuLayout.pillButton, height: KukuLayout.pillButton)
+                .background(KukuColor.accentFill, in: Circle())
         }
         .buttonStyle(PressScaleStyle())
         .accessibilityLabel(label)
@@ -197,47 +220,45 @@ private struct AgentContextPopover: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: KukuSpacing.sm) {
             Text(appState.text("本次会发送的内容", "What’s sent"))
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(KukuColor.stone)
+                .font(.kuku(.subheadline, weight: .semibold))
+                .foregroundStyle(KukuColor.textSecondary)
 
             if appState.contextItems.isEmpty {
                 Text(appState.text("本次只发送你的语音", "Only your voice will be sent"))
-                    .font(.system(size: 12))
-                    .foregroundStyle(KukuColor.stone)
+                    .font(.kuku(.callout))
+                    .foregroundStyle(KukuColor.textSecondary)
             }
 
             ForEach(appState.contextItems) { item in
-                HStack(spacing: 9) {
+                HStack(spacing: KukuSpacing.sm) {
                     Image(systemName: item.symbol)
-                        .foregroundStyle(KukuColor.coral)
+                        .font(.kukuIcon(.regular))
+                        .foregroundStyle(KukuColor.textSecondary)
+                        // Fixed icon column so titles line up.
                         .frame(width: 16)
                     Text(item.title)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.kuku(.callout, weight: .medium))
+                        .foregroundStyle(KukuColor.textPrimary)
                         .lineLimit(1)
                         .truncationMode(.tail)
                     Spacer()
                     if appState.agentPhase == .listening {
-                        let removeLabel = appState.text("移除“\(item.title)”", "Remove \(item.title)")
-                        Button {
+                        KukuIconButton(
+                            symbol: "xmark",
+                            label: appState.text("移除“\(item.title)”", "Remove \(item.title)"),
+                            size: .small
+                        ) {
                             appState.contextItems.removeAll { $0.id == item.id }
-                        } label: {
-                            Image(systemName: "xmark")
-                                .font(.system(size: 9, weight: .bold))
-                                .foregroundStyle(KukuColor.stone)
-                                .frame(width: 20, height: 20)
-                                .contentShape(Rectangle())
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(removeLabel)
-                        .help(removeLabel)
                     }
                 }
                 .help(Self.preview(of: item) ?? "")
             }
         }
-        .padding(14)
+        .padding(KukuSpacing.md)
+        // Narrow enough to sit above the pill; long titles truncate.
         .frame(width: 230)
     }
 
@@ -259,11 +280,12 @@ struct DictationPill: View {
         switch appState.dictationPhase {
         case .idle: 0
         case .listening:
-            KukuPillLayout.width(for: listeningLabel, minimum: 160, fixedContentWidth: 141, maximum: 340)
+            KukuPillLayout.width(for: listeningLabel, minimum: 160, fixedContentWidth: 135, maximum: 340)
         case .copyReady:
             CopyFallbackContent.width(appState)
         case .processing:
-            KukuPillLayout.width(for: processingLabel, minimum: 145, fixedContentWidth: 81, maximum: 340)
+            // Padding 2×8, spinner 16, three 8 pt gaps and the 24 pt cancel button.
+            KukuPillLayout.width(for: processingLabel, minimum: 145, fixedContentWidth: 80, maximum: 340)
         case .success:
             KukuPillLayout.width(for: successLabel, minimum: 78, fixedContentWidth: appState.canUndoLastWrite ? 100 : 42, maximum: 200)
         }
@@ -282,7 +304,7 @@ struct DictationPill: View {
     }
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: KukuSpacing.sm) {
             switch appState.dictationPhase {
             case .idle:
                 EmptyView()
@@ -291,7 +313,7 @@ struct DictationPill: View {
                     label: appState.text("取消语音输入", "Cancel Voice Input"),
                     action: appState.cancelDictation
                 )
-                Waveform(color: KukuColor.coral.opacity(0.82), level: appState.inputLevel, barCount: 6, height: 16)
+                Waveform(color: KukuColor.coral, level: appState.inputLevel, barCount: 6, height: 16)
                 Text(listeningLabel)
                     .lineLimit(1)
                     .truncationMode(.tail)
@@ -312,14 +334,11 @@ struct DictationPill: View {
                 )
             case .success:
                 Image(systemName: "checkmark")
+                    .foregroundStyle(KukuColor.success)
                 Text(successLabel)
                 if appState.canUndoLastWrite {
                     Spacer(minLength: 0)
-                    Button(appState.text("撤销", "Undo")) {
-                        Task { await appState.undoLastWrite() }
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(KukuColor.coral)
+                    PillUndoButton()
                 }
             case .copyReady:
                 CopyFallbackContent()
@@ -328,10 +347,10 @@ struct DictationPill: View {
         .contentTransition(.interpolate)
         .animation(Motion.snappy, value: appState.dictationPhase)
         .animation(Motion.snappy, value: appState.liveTranscript.isEmpty)
-        .font(.system(size: 11.5, weight: .semibold, design: .rounded))
-        .foregroundStyle(KukuColor.ink.opacity(appState.dictationPhase == .success ? 0.62 : 0.78))
-        .padding(.horizontal, 10)
-        .frame(width: width, height: appState.dictationPhase == .copyReady ? 40 : 34)
+        .font(.kuku(.callout, weight: .semibold))
+        .foregroundStyle(appState.dictationPhase == .success ? KukuColor.textSecondary : KukuColor.textPrimary)
+        .padding(.horizontal, KukuSpacing.sm)
+        .frame(width: width, height: KukuLayout.pillHeight)
         .kukuGlassPill()
         .animation(Motion.pill, value: width)
     }
@@ -352,11 +371,11 @@ private struct CopyFallbackContent: View {
     }
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: KukuSpacing.sm) {
             Button(action: appState.copyPendingText) {
-                HStack(spacing: 6) {
+                HStack(spacing: KukuSpacing.iconText) {
                     Image(systemName: appState.hasCopiedPendingText ? "checkmark" : "doc.on.doc")
-                        .foregroundStyle(KukuColor.coral.opacity(0.82))
+                        .foregroundStyle(appState.hasCopiedPendingText ? KukuColor.success : KukuColor.textSecondary)
                         .contentTransition(.symbolEffect(.replace))
                     Text(Self.status(appState))
                         .lineLimit(1)
@@ -368,19 +387,11 @@ private struct CopyFallbackContent: View {
             .help(appState.pendingCopyText)
             .accessibilityLabel(Self.status(appState))
             .accessibilityValue(appState.pendingCopyText)
-            Spacer(minLength: 4)
-            Button(action: appState.dismissCopyFallback) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 9, weight: .bold))
-                    .frame(width: 25, height: 25)
-                    .background(KukuColor.shade.opacity(0.05), in: Circle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(appState.text("关闭", "Close"))
-            .help(appState.text("关闭", "Close"))
+            Spacer(minLength: KukuSpacing.xs)
+            PillCancelButton(label: appState.text("关闭", "Close"), action: appState.dismissCopyFallback)
         }
-        .font(.system(size: 11.5, weight: .semibold, design: .rounded))
-        .foregroundStyle(KukuColor.ink.opacity(0.76))
+        .font(.kuku(.callout, weight: .semibold))
+        .foregroundStyle(KukuColor.textPrimary)
         .frame(maxWidth: .infinity)
         .onHover { hovering = $0 }
         .task(id: hovering) {
