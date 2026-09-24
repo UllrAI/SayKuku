@@ -16,9 +16,9 @@ enum TextInteractionError: LocalizedError {
         switch self {
         case .accessibilityRequired: "Accessibility permission is required"
         case .noFocusedElement: "No editable text field is focused"
-        case .sensitiveTarget: "SayKuku never reads or writes sensitive fields"
-        case .targetChanged: "The text target changed. Trigger SayKuku again."
-        case .writeFailed: "The target app did not accept the text"
+        case .sensitiveTarget: "SayKuku doesn’t work in password fields or password managers."
+        case .targetChanged: "The text field changed. Click back into it and try again."
+        case .writeFailed: "This app didn’t accept the text. Try again."
         }
     }
 }
@@ -561,6 +561,12 @@ enum PasteboardPolicy {
 }
 
 enum ContextCollector {
+    /// Length label for context items, e.g. "12 字" or "1 character".
+    static func characterCount(_ count: Int, isChineseUI: Bool) -> String {
+        if isChineseUI { return "\(count) 字" }
+        return count == 1 ? "1 character" : "\(count) characters"
+    }
+
     @MainActor
     static func collect(
         snapshot: TextTargetSnapshot,
@@ -585,7 +591,7 @@ enum ContextCollector {
             items.append(ContextItem(
                 kind: .selectedText,
                 symbol: "text.quote",
-                title: title("选中文字 · \(snapshot.selectedText.count) 字", "Selected text · \(snapshot.selectedText.count) chars"),
+                title: title("选中文字", "Selected text") + " · " + characterCount(snapshot.selectedText.count, isChineseUI: isChineseUI),
                 value: snapshot.selectedText
             ))
         }
@@ -594,13 +600,18 @@ enum ContextCollector {
         }
         if clipboardAllowed, !PasteboardPolicy.isPrivate(NSPasteboard.general.types ?? []),
            let clipboard = NSPasteboard.general.string(forType: .string), !clipboard.isEmpty {
-            items.append(ContextItem(kind: .clipboard, symbol: "clipboard", title: title("剪贴板 · \(clipboard.count) 字", "Clipboard · \(clipboard.count) chars"), value: clipboard))
+            items.append(ContextItem(
+                kind: .clipboard,
+                symbol: "clipboard",
+                title: title("剪贴板", "Clipboard") + " · " + characterCount(clipboard.count, isChineseUI: isChineseUI),
+                value: clipboard
+            ))
         }
         if browserPageAllowed, let url = browserURL(bundleID: snapshot.bundleID), !url.isEmpty {
             items.append(ContextItem(kind: .browser, symbol: "globe", title: title("浏览器页面", "Browser page"), value: url))
         }
         if let session, session.expiresAt > .now {
-            items.append(ContextItem(kind: .session, symbol: "bubble.left.and.bubble.right", title: title("最近的交流", "Recent conversation"), value: session.contextSummary))
+            items.append(ContextItem(kind: .session, symbol: "bubble.left.and.bubble.right", title: title("最近对话", "Recent conversation"), value: session.contextSummary))
         }
         if !domains.isEmpty || !customDomainTerms.isEmpty {
             let domainNames = DomainPreset.allCases.filter(domains.contains).map(\.promptName)

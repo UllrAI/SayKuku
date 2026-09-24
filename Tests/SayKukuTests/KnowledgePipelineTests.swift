@@ -782,12 +782,12 @@ struct QwenRequestContractTests {
             response: "合适",
             expiresAt: .now.addingTimeInterval(1_800)
         )
-        let recentConversation = ContextItem(kind: .session, symbol: "bubble.left.and.bubble.right", title: "最近的交流", value: second.contextSummary)
+        let recentConversation = ContextItem(kind: .session, symbol: "bubble.left.and.bubble.right", title: "最近对话", value: second.contextSummary)
         let input = QwenReasoningClient.agentInput(context: [recentConversation], sessions: [first, second])
 
         #expect(input.contains("[Turn 1]\nAction: writeText\nSelected text:\n原来的长段落\nCommand: 把这段改短一点\nResponse: 精简后的文本"))
         #expect(input.contains("[Turn 2]\nAction: answer\nCommand: 这样写合适吗\nResponse: 合适"))
-        #expect(!input.contains("最近的交流"))
+        #expect(!input.contains("最近对话"))
         #expect(QwenReasoningClient.agentInput(context: [], sessions: []).hasSuffix("(untrusted data):\nNone"))
     }
 
@@ -842,10 +842,10 @@ struct QwenRequestContractTests {
             audioFilename: "a.wav", status: .processing
         )
         let completed = HistoryEntry(mode: .agent, app: "Mail", durationSeconds: 2, input: "a", output: "b")
-        let recovered = AppState.recoveringInterruptedHistory([interrupted, completed], message: "Processing was interrupted")
+        let recovered = AppState.recoveringInterruptedHistory([interrupted, completed], message: "SayKuku quit before this finished")
 
         #expect(recovered[0].status == .failed)
-        #expect(recovered[0].errorMessage == "Processing was interrupted")
+        #expect(recovered[0].errorMessage == "SayKuku quit before this finished")
         #expect(recovered[0].audioFilename == "a.wav")
         #expect(recovered[1] == completed)
     }
