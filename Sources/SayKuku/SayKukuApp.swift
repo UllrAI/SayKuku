@@ -4,6 +4,7 @@ import SwiftUI
 enum AppSheet: String, Identifiable {
     case onboarding
     case permissions
+    case qwenSetup
 
     var id: String { rawValue }
 }

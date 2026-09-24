@@ -50,6 +50,9 @@ struct RootView: View {
             case .permissions:
                 PermissionGuideView()
                     .environment(appState)
+            case .qwenSetup:
+                QwenSetupView()
+                    .environment(appState)
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
