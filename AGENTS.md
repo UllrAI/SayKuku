@@ -49,7 +49,7 @@ SAYKUKU_SIGNING_IDENTITY='Developer ID Application: Name (TEAMID)' \
 - Release 必须使用稳定的 `Developer ID Application` 身份、Hardened Runtime 和时间戳；禁止 ad-hoc 发布包。
 - App 运行时只能通过 Security Framework 访问 Keychain，不能启动 `/usr/bin/security` 读取用户机密。打包脚本可用 `security find-identity` 检查签名证书。
 - 正式和开发 Keychain 服务必须隔离。正式服务为 `com.saykuku.app.secure-storage`，旧 `com.saykuku.app` 仅用于向新服务迁移。
-- 不得删除或重新生成已有的 `history-encryption-key` 来解决授权问题，否则现有 History、Memory、Knowledge 和录音会无法解密。迁移必须先保留原值，并覆盖 API Key 与历史加密密钥两类数据。
+- History、Memory、Knowledge 保存在 Application Support 的 `store.json`，录音保存在 `Audio/*.wav`；只有 API Key 使用 Keychain。旧 `history-encryption-key` 不再参与运行时读写，旧数据的迁移或清理需有用户明确授权。
 - 麦克风权限使用 `AVAudioApplication`；正式 entitlement 中必须保留音频输入和 Apple Events 声明。
 - TCC 权限与 Bundle ID、签名身份绑定。不要让开发构建复用正式 Bundle ID，也不要建议无差别执行全局 `tccutil reset`。
 

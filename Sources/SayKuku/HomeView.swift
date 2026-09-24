@@ -368,7 +368,7 @@ struct DictationPill: View {
         switch appState.dictationPhase {
         case .idle: 0
         case .listening:
-            KukuPillLayout.width(for: listeningLabel, minimum: 132, fixedContentWidth: 86, maximum: 340)
+            KukuPillLayout.width(for: listeningLabel, minimum: 160, fixedContentWidth: 108, maximum: 340)
         case .copyReady:
             KukuPillLayout.width(for: appState.pendingCopyText, minimum: 180, fixedContentWidth: 136)
         case .processing:
@@ -453,15 +453,16 @@ private struct CopyFallbackContent: View {
             Text(appState.pendingCopyText)
                 .lineLimit(1)
                 .truncationMode(.tail)
+                .help(appState.pendingCopyText)
             Spacer(minLength: 4)
             Button(action: appState.copyPendingText) {
-                Label(appState.text("复制", "Copy"), systemImage: "doc.on.doc")
-                    .font(.system(size: 10.5, weight: .semibold))
-                    .padding(.horizontal, 9)
-                    .frame(height: 25)
+                Image(systemName: "doc.on.doc")
+                    .font(.system(size: 12, weight: .semibold))
+                    .frame(width: 30, height: 25)
                     .background(Color.black.opacity(0.055), in: Capsule())
             }
             .buttonStyle(.plain)
+            .accessibilityLabel(appState.text("复制", "Copy"))
             .help(appState.text("复制", "Copy"))
             Button(action: appState.dismissCopyFallback) {
                 Image(systemName: "xmark")

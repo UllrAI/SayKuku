@@ -451,8 +451,8 @@ private struct HistorySettings: View {
             }
 
             Text(appState.text(
-                "历史仅保存在本机。关闭“保存原始语音”后，新记录只保留转写和最终输出。",
-                "History stays on this Mac. Turn off Save original voice to keep only transcripts and final outputs."
+                "历史和录音作为普通文件保存在本机，不额外加密。关闭录音保存后，新记录只保留文字。",
+                "History and audio are stored as regular files on this Mac without extra encryption. Turn off audio saving to keep only text."
             ))
             .font(.system(size: 10))
             .foregroundStyle(KukuColor.stone)
