@@ -44,8 +44,8 @@ struct QwenSettingsTests {
 
     @Test("region titles follow the interface language")
     func regionTitles() {
-        #expect(QwenRegion.beijing.title(isChineseUI: true) == "北京")
-        #expect(QwenRegion.singapore.title(isChineseUI: true) == "新加坡")
+        #expect(QwenRegion.beijing.title(isChineseUI: true) == "中国内地（北京）")
+        #expect(QwenRegion.singapore.title(isChineseUI: true) == "国际（新加坡）")
         #expect(QwenRegion.beijing.title(isChineseUI: false) == "China (Beijing)")
         #expect(QwenRegion.singapore.title(isChineseUI: false) == "International (Singapore)")
     }

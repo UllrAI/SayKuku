@@ -1344,8 +1344,8 @@ final class AppState {
                 if status == 400 {
                     // Often content inspection or unreadable audio, so Settings is only the last resort.
                     return text(
-                        "Qwen 没有接受这次请求，请重试；如果反复出现，请在“设置 › Qwen 连接”中检查模型",
-                        "Qwen rejected this request. Try again. If it keeps happening, check the model in Settings › Qwen Connection."
+                        "Qwen 没有接受这次请求，请重试，或在“设置 › Qwen 连接”中检查模型",
+                        "Qwen rejected this request. Try again, or check the model in Settings › Qwen Connection."
                     )
                 }
                 return text("Qwen 暂时无法处理，请重试", "Qwen couldn’t handle the request. Try again.")
@@ -1568,7 +1568,7 @@ enum AppLanguage: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     func title(isChineseUI: Bool) -> String {
         switch self {
-        case .system: isChineseUI ? "跟随系统" : "Follow System"
+        case .system: isChineseUI ? "跟随系统" : "System Default"
         case .chinese: "简体中文"
         case .english: "English"
         }
