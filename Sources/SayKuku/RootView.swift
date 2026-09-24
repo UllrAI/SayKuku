@@ -9,7 +9,6 @@ struct RootView: View {
     @State private var knowledgeSearch = ""
     @State private var knowledgeFilter: KnowledgeFilter = .all
     @State private var memoryScope: MemoryScope = .corrections
-    @State private var settingsSection: SettingsSection = .general
 
     var body: some View {
         @Bindable var appState = appState
@@ -32,7 +31,7 @@ struct RootView: View {
                     case .memory:
                         MemoryView(selectedScope: $memoryScope)
                     case .settings:
-                        SettingsView(selection: $settingsSection)
+                        SettingsView(selection: $appState.settingsSection)
                     }
                 }
                 .id(appState.destination)
