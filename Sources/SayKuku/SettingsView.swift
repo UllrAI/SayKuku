@@ -421,6 +421,7 @@ private struct ShortcutStatusRow: View {
 
 private struct HistorySettings: View {
     @Environment(AppState.self) private var appState
+    @State private var isConfirmingClear = false
 
     var body: some View {
         @Bindable var appState = appState
@@ -457,7 +458,61 @@ private struct HistorySettings: View {
                     isOn: $appState.storeVoiceAudio
                 )
             }
+
+            SettingsGroup(title: appState.text("管理", "Manage")) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(appState.text("清空全部历史", "Clear all history"))
+                            .font(.system(size: 12.5, weight: .medium))
+                        Text(appState.text("删除这台 Mac 上的所有输入记录和录音", "Remove every history item and recording from this Mac"))
+                            .font(.system(size: 10.5))
+                            .foregroundStyle(KukuColor.stone)
+                    }
+                    Spacer()
+                    Button(appState.text("清空…", "Clear…")) { isConfirmingClear = true }
+                        .buttonStyle(HoverFillButtonStyle())
+                        .disabled(appState.historyEntries.isEmpty)
+                }
+                .padding(.horizontal, 14)
+                .frame(maxWidth: .infinity, minHeight: 54, alignment: .leading)
+            }
         }
+        .confirmationDialog(
+            appState.text("清空全部历史？", "Clear all history?"),
+            isPresented: $isConfirmingClear,
+            titleVisibility: .visible
+        ) {
+            Button(appState.text("全部删除", "Delete All"), role: .destructive) {
+                appState.clearHistory(keepingStarred: false)
+            }
+            if starredCount > 0 {
+                Button(appState.text("保留星标，删除其余", "Delete All but Starred")) {
+                    appState.clearHistory(keepingStarred: true)
+                }
+            }
+            Button(appState.text("取消", "Cancel"), role: .cancel) {}
+        } message: {
+            Text(clearMessage)
+        }
+    }
+
+    private var starredCount: Int {
+        appState.historyEntries.filter(\.isStarred).count
+    }
+
+    private var clearMessage: String {
+        let count = starredCount
+        guard count > 0 else {
+            return appState.text(
+                "所有输入记录和录音都会从这台 Mac 上删除，且无法恢复。",
+                "All history and recordings will be removed from this Mac. This can't be undone."
+            )
+        }
+        let starredItems = count == 1 ? "1 starred item" : "\(count) starred items"
+        return appState.text(
+            "“全部删除”会连同 \(count) 条星标记录和所有录音一起删除，且无法恢复。想留下星标内容，请选“保留星标，删除其余”。",
+            "Delete All also removes \(starredItems) and every recording. This can't be undone. To keep starred items, choose Delete All but Starred."
+        )
     }
 }
 
