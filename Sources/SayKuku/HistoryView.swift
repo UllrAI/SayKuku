@@ -181,8 +181,16 @@ private struct HistoryRow: View {
             }
             .foregroundStyle(KukuColor.stone)
         case .failed:
-            Label(entry.errorMessage ?? appState.text("处理失败", "Processing failed"), systemImage: "exclamationmark.circle")
-                .foregroundStyle(KukuColor.stone)
+            VStack(alignment: .leading, spacing: 8) {
+                Label(entry.errorMessage ?? appState.text("处理失败", "Processing failed"), systemImage: "exclamationmark.circle")
+                    .foregroundStyle(KukuColor.stone)
+                if entry.mode == .dictation && entry.hasAudio {
+                    Button(appState.text("重试识别", "Retry")) {
+                        Task { await appState.retryDictation(entry.id) }
+                    }
+                    .buttonStyle(TintButtonStyle())
+                }
+            }
         case .cancelled:
             Label(appState.text("已取消", "Cancelled"), systemImage: "xmark.circle")
                 .foregroundStyle(KukuColor.stone)
@@ -193,6 +201,17 @@ private struct HistoryRow: View {
                     .lineLimit(shouldCollapseOutput && !isOutputExpanded ? 4 : nil)
                     .fixedSize(horizontal: false, vertical: true)
                     .textSelection(.enabled)
+
+                if !entry.output.isEmpty {
+                    Button {
+                        appState.copyHistoryOutput(entry.output)
+                    } label: {
+                        Label(appState.text("复制输出", "Copy output"), systemImage: "doc.on.doc")
+                            .font(.system(size: 10.5, weight: .semibold))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(KukuColor.coral)
+                }
 
                 if shouldCollapseOutput {
                     Button {
