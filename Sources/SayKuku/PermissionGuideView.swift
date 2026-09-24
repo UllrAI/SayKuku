@@ -169,7 +169,7 @@ struct PermissionActionRow: View {
         case .microphone:
             appState.text("仅在开始语音输入、语音 Agent 或输入测试时访问", "Used only for Voice Input, Voice Agent, or the input test")
         case .accessibility:
-            appState.text("用于响应 Fn，并把文字写入当前输入框；不会读取其他键盘输入", "Used for Fn and typing into the current field; other keystrokes are not read")
+            appState.text("识别 Fn 手势和取消键，并把文字写入当前输入框；不会记录或上传你输入的其他内容", "Detects Fn gestures and the cancel key, and types into the current field; nothing else you type is recorded or uploaded")
         }
     }
 

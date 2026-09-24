@@ -161,17 +161,24 @@ private struct PrivacySettings: View {
                 SettingsDivider()
                 SettingsToggle(title: appState.text("当前应用", "Current app"), subtitle: appState.text("应用名称及标识符", "App name and identifier"), isOn: $appState.currentAppAllowed)
                 SettingsDivider()
-                SettingsToggle(title: appState.text("窗口标题", "Window title"), subtitle: appState.text("不会读取无痕浏览窗口", "Private browsing windows are excluded"), isOn: $appState.windowTitleAllowed)
+                SettingsToggle(title: appState.text("窗口标题", "Window title"), subtitle: appState.text("包括无痕窗口", "Includes private windows"), isOn: $appState.windowTitleAllowed)
                 SettingsDivider()
                 SettingsToggle(title: appState.text("剪贴板", "Clipboard"), subtitle: appState.text("仅在使用语音 Agent 时读取", "Read only when using Voice Agent"), isOn: $appState.clipboardAllowed)
                 SettingsDivider()
                 SettingsToggle(title: appState.text("浏览器页面", "Browser page"), subtitle: appState.text("读取 Safari 或 Chrome 当前页面的网址", "Read the current Safari or Chrome page URL"), isOn: $appState.browserPageAllowed)
             }
-            SettingsGroup(title: appState.text("永不访问", "Never access")) {
-                HStack(spacing: 10) {
-                    PrivacyApp(name: "1Password", symbol: "key.fill")
-                    PrivacyApp(name: appState.text("银行应用", "Banking apps"), symbol: "building.columns.fill")
-                    PrivacyApp(name: appState.text("无痕浏览", "Private browsing"), symbol: "eye.slash.fill")
+            SettingsGroup(title: appState.text("始终不读取或写入", "Always off-limits")) {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 10) {
+                        PrivacyApp(name: appState.text("密码输入框", "Password fields"), symbol: "lock.fill")
+                        PrivacyApp(name: appState.text("密码管理器", "Password managers"), symbol: "key.fill")
+                    }
+                    Text(appState.text(
+                        "密码管理器包括 1Password、Bitwarden、LastPass、Dashlane、KeePassXC、钥匙串访问和“密码”。",
+                        "Password managers include 1Password, Bitwarden, LastPass, Dashlane, KeePassXC, Keychain Access, and Passwords."
+                    ))
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(KukuColor.stone)
                 }
                 .padding(14)
             }

@@ -40,7 +40,7 @@ App 图标不放文字，使用珊瑚红圆角底板与暖白 Lucide Bird 线稿
 
 ## 0. 当前实现进度与界面基线
 
-> 最后更新：2026-09-23。`✅ 已完成` 表示已经进入当前可运行 App；`🟡 部分完成` 表示已有可用实现，但仍有明确范围尚未完成；`⬜ 待实现` 表示尚未开始生产实现；`⏸ 后续版本` 表示不进入 MVP。
+> 最后更新：2026-09-24。`✅ 已完成` 表示已经进入当前可运行 App；`🟡 部分完成` 表示已有可用实现，但仍有明确范围尚未完成；`⬜ 待实现` 表示尚未开始生产实现；`⏸ 后续版本` 表示不进入 MVP。
 
 | 模块 | 状态 | 当前已经完成 | 下一步 |
 | --- | --- | --- | --- |
@@ -48,7 +48,7 @@ App 图标不放文字，使用珊瑚红圆角底板与暖白 Lucide Bird 线稿
 | App 图标与打包 | ✅ 已完成 | Lucide Bird 品牌母形、ICNS、菜单栏 template 资源、固定 Bundle ID、开发/正式身份隔离，以及强制 Developer ID 的 Release 签名脚本 | 每次正式分发按发布文档完成公证、装订和最终 ZIP |
 | 菜单栏常驻入口 | ✅ 已完成 | 18 × 18 pt template 画布内放置约 15 × 13.5 pt Lucide Bird，使用原生 template 渲染自动适配明暗与按下态；包含 Voice Input、Voice Agent、显示主窗口、设置、状态与退出菜单；可选在关闭主窗口后隐藏 Dock 图标，从菜单栏重开时恢复 | 后续增加连接延迟与录音态图标 |
 | 全局快捷键 | ✅ 已完成 | 默认 `⌃⌥⌘V` Voice Input、`⌃⌥⌘A` Voice Agent，可在设置中录制或关闭；通过 Carbon 注册且不需要任何隐私权限，注册失败时提示冲突 | — |
-| Fn Gesture Router | ✅ 已完成 | Hold Fn、Tap Fn、Double Fn、活动语音流程下 Esc 取消、组合键取消、超时恢复、冲突检测、系统 Fn 行为引导与全局快捷键 fallback；复用写回所需的辅助功能权限，不申请输入监控 | 增加真实设备与外接键盘回归测试 |
+| Fn Gesture Router | 🟡 部分完成 | Hold Fn、Tap Fn、Double Fn、活动语音流程下 Esc 取消、组合键取消、录音时长上限、睡眠唤醒后重建监听、系统 Fn 行为引导与全局快捷键 fallback；复用写回所需的辅助功能权限，不申请输入监控 | 不检测 Fn 与其他 App 或系统功能的冲突；增加真实设备与外接键盘回归测试 |
 | 权限引导与麦克风测试 | ✅ 已完成 | 启动时缺失权限自动展示引导；麦克风与辅助功能实时状态、快捷开启、回到 App 自动复查；设置页可重新打开；AVAudioEngine 实时输入电平测试 | 增加多输入设备切换回归测试 |
 | 首页与两种浮层 | ✅ 已完成 | Voice Input / Voice Agent 的真实录音、识别、自动执行与结果状态，以及跨桌面非激活浮层 | — |
 | History | ✅ 已完成 | 停止录音即创建历史；原始语音优先落盘；识别或 Agent 失败仍保留输入及失败状态；支持回放、搜索、筛选、星标、删除、清空和按期限清理；本地数据损坏时先备份再恢复 | — |
@@ -167,7 +167,7 @@ Knowledge 不是被砍掉，而是先把输入渠道收窄到“粘贴文本”�
 
 ## 2. Fn 交互设计
 
-> 实现状态：`✅ 已完成`。当前 App 已包含统一 Fn Gesture Router。普通组合键通过 Carbon 注册，不需要隐私权限；Fn 是纯修饰键，无法作为普通 HotKey 注册，因此在 Accessibility 已授权后使用 AppKit `NSEvent` 全局/本地 monitor。实现不创建 CGEvent tap，不调用 Input Monitoring API，也不声明相关权限。`NSEvent` 全局 monitor 只能观察事件，不能阻止系统同时执行 Fn / Globe 动作；设置页提供入口，引导将 macOS“按 Fn 键时”设为“无操作”，并在连按两次 Fn 会触发系统听写时更改听写快捷键。可配置的全局快捷键（默认 `⌃⌥⌘V` 与 `⌃⌥⌘A`）作为无权限 fallback，可在设置中关闭。
+> 实现状态：`🟡 部分完成`。当前 App 已包含统一 Fn Gesture Router，Fn 与系统功能的冲突检测尚未实现。普通组合键通过 Carbon 注册，不需要隐私权限；Fn 是纯修饰键，无法作为普通 HotKey 注册，因此在 Accessibility 已授权后使用 AppKit `NSEvent` 全局/本地 monitor。实现不创建 CGEvent tap，不调用 Input Monitoring API，也不声明相关权限。`NSEvent` 全局 monitor 只能观察事件，不能阻止系统同时执行 Fn / Globe 动作；设置页提供入口，引导将 macOS“按 Fn 键时”设为“无操作”，并在连按两次 Fn 会触发系统听写时更改听写快捷键。可配置的全局快捷键（默认 `⌃⌥⌘V` 与 `⌃⌥⌘A`）作为无权限 fallback，可在设置中关闭。
 
 ### 2.1 用户可选择两种输入习惯
 
@@ -1294,7 +1294,7 @@ MVP 支持用户填写自己的 Qwen API Key。两个模型版本都使用下拉
 
 History 是输入记录，不是编辑器或录音资料库。录音停止后立即创建记录并显示处理中状态；开启原始语音保存时，先将完整音频作为 WAV 文件落盘，再等待识别或 Agent 输出。网络超时、无语音、模型错误或执行失败都不会丢弃已经采集的输入，而是保留音频和明确的失败状态。每条记录包含触发模式、目标 App、时间、原始语音（若开启）、输入转写和最终写回文本。用户可以在“输入”位置播放原始语音、复制输出、加星标或取消星标；带录音的失败听写可重新识别，重试结果留在 History 供复制，不自动写回旧目标。如果 App 在处理中退出，下次启动时这些记录会标为“上次处理被中断”的失败状态，录音保留以便重试。星标记录不参与自动清理。History 支持按输入、输出和 App 名本地搜索；右键或悬停可删除单条记录及其录音，设置中的“清空全部历史”经确认后执行，并可选择保留星标记录。
 
-History 默认仅保存在本机 Application Support，记录为 JSON，录音为 WAV；不使用 Keychain 或额外加密。关闭“保存录音”后，新记录只保留转写与最终输出；修改保留期限后，后台清理任务按新规则执行，但不删除任何星标记录。`AXSecureTextField`、密码管理器、银行应用与隐私浏览窗口永不写入 History。`store.json` 中个别记录无法解码时跳过该条并先复制备份原文件；整体无法解析时将原文件重命名为 `store.corrupt-<timestamp>.json` 后以空数据继续，原文件绝不被覆盖或删除，History 页会提示备份位置。检测到旧版加密数据（`store.data` 或 `Audio/*.audio`）时只做一次性提示，不解密、不迁移、不删除。
+History 默认仅保存在本机 Application Support，记录为 JSON，录音为 WAV；不使用 Keychain 或额外加密。关闭“保存录音”后，新记录只保留转写与最终输出；修改保留期限后，后台清理任务按新规则执行，但不删除任何星标记录。目标为安全输入（`AXSecureTextField` 或系统安全输入模式）或已知密码管理器时，流程不会启动，也就不产生 History 记录。无痕浏览窗口不做单独识别，与普通窗口同样处理。`store.json` 中个别记录无法解码时跳过该条并先复制备份原文件；整体无法解析时将原文件重命名为 `store.corrupt-<timestamp>.json` 后以空数据继续，原文件绝不被覆盖或删除，History 页会提示备份位置。检测到旧版加密数据（`store.data` 或 `Audio/*.audio`）时只做一次性提示，不解密、不迁移、不删除。
 
 ### Context & Privacy
 
@@ -1311,25 +1311,24 @@ History 默认仅保存在本机 Application Support，记录为 JSON，录音�
 再显示固定的敏感目标阻断类别：
 
 ```text
-Never Access Apps
+Always Off-limits
 ```
 
-例如：
+包括：
 
 ```text
-1Password
-银行 App
-Private Browser
+密码输入框（`AXSecureTextField`、系统安全输入模式）
+密码管理器（1Password、Bitwarden、LastPass、Dashlane、KeePassXC、钥匙串访问、密码）
 ```
 
-这些是当前代码中的固定安全策略，不是可编辑的自定义排除列表。
+这些是当前代码中的固定安全策略，不是可编辑的自定义排除列表；密码管理器按 Bundle ID 前缀匹配。银行类应用没有可靠的 Bundle ID 清单，不在阻断范围内。无痕浏览窗口同样无法可靠识别，界面不承诺阻断，只在“窗口标题”开关下注明包括无痕窗口。
 
 MVP 数据规则：
 
 * Context 只在用户触发 Fn Fn 时采集，不后台持续扫描。
 * Voice Input 发送音频、听写 instruction 和已确认的 Knowledge Prompt，默认不携带窗口内容。
 * Voice Agent 发送音频、Selected Text / App / Window 等用户允许的 Context、短期 Session 和已确认的 Knowledge Prompt；发送前可从聆听 Pill 的 scope 图标查看并删除 Context 项，Knowledge Prompt 作为单独的可见 Knowledge base 项。
-* `AXSecureTextField`、密码管理器、银行应用和隐私浏览窗口为硬性阻断，不仅是可配置开关。
+* 安全输入（`AXSecureTextField` 或系统安全输入模式）与已知密码管理器为硬性阻断：不开始录音、不读取 Context、不写回，不是可配置开关。
 * 进入 Listening 后，录音音频先保存在内存；停止录音后，只要“保存录音”开启且目标非敏感环境，就在请求完成前将 WAV 文件存入本地 History，不以模型或写回成功为前提。
 * History 默认保留 30 天，可选 1 / 7 / 30 / 90 天或永久；星标记录不自动删除。
 * History 与 Memory 分离：History 保存可回看的输入/输出记录，Memory 只保存明确的短期 Session、纠错与用户确认的长期知识。
