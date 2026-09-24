@@ -65,7 +65,7 @@ struct GlobalShortcut: Hashable, Sendable {
             && Self.keys[Int(keyCode)] != nil
     }
 
-    /// Standard macOS notation, e.g. "⌃⌥⌘V" or "⌥⇧Space".
+    /// Standard macOS notation, e.g. "⌃⌥⌘V" or "⌃⇧Space".
     var displayString: String {
         let modifiers = Self.modifierSymbols
             .filter { carbonModifiers & $0.mask != 0 }
@@ -129,7 +129,9 @@ struct GlobalShortcut: Hashable, Sendable {
         return .record(shortcut)
     }
 
-    private static let requiredModifiers = UInt32(cmdKey | optionKey | controlKey)
+    // ⌥ and ⌥⇧ alone type special characters, and macOS 15 refuses to register
+    // hot keys that use only them, so every shortcut needs ⌘ or ⌃.
+    private static let requiredModifiers = UInt32(cmdKey | controlKey)
     private static let supportedModifiers = UInt32(cmdKey | optionKey | controlKey | shiftKey)
 
     // Apple's canonical order: Control, Option, Shift, Command.
