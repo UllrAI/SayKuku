@@ -16,7 +16,11 @@ struct RootView: View {
 
         NavigationSplitView {
             Sidebar(selection: $appState.destination)
-                .navigationSplitViewColumnWidth(min: 176, ideal: 176, max: 176)
+                .navigationSplitViewColumnWidth(
+                    min: KukuLayout.sidebarWidth,
+                    ideal: KukuLayout.sidebarWidth,
+                    max: KukuLayout.sidebarWidth
+                )
         } detail: {
             ZStack {
                 KukuColor.canvas.ignoresSafeArea()
@@ -41,7 +45,7 @@ struct RootView: View {
                     VStack {
                         Spacer()
                         ToastView(toast: toast)
-                            .padding(.bottom, 26)
+                            .padding(.bottom, KukuSpacing.xxl)
                     }
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
@@ -75,106 +79,87 @@ private struct Sidebar: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 10) {
-                BrandMark(size: 27)
-                VStack(alignment: .leading, spacing: 1) {
+            HStack(spacing: KukuSpacing.sm) {
+                BrandMark()
+                VStack(alignment: .leading, spacing: KukuSpacing.xxs) {
                     HStack(alignment: .firstTextBaseline, spacing: 0) {
                         Text("SayKuku")
-                            .foregroundStyle(KukuColor.ink)
+                            .foregroundStyle(KukuColor.textPrimary)
                         Text(".")
                             .foregroundStyle(KukuColor.coral)
                     }
-                    .font(.system(size: 17, weight: .bold, design: .rounded))
+                    .font(.kuku(.title))
                     Text("Just Say It")
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(KukuColor.stone)
+                        .font(.kuku(.caption))
+                        .foregroundStyle(KukuColor.textSecondary)
                 }
             }
-            .padding(.top, 17)
-            .padding(.horizontal, 16)
-            .padding(.bottom, 22)
+            .padding(.top, KukuSpacing.lg)
+            .padding(.horizontal, KukuSpacing.lg)
+            .padding(.bottom, KukuSpacing.xl)
 
-            VStack(spacing: 4) {
+            VStack(spacing: KukuSpacing.xs) {
                 ForEach(AppState.Destination.allCases.filter { $0 != .settings }) { destination in
                     navigationButton(destination)
                 }
             }
-            .padding(.horizontal, 9)
+            .padding(.horizontal, KukuSpacing.sm)
 
             Spacer()
 
-            Divider()
-                .opacity(0.45)
-                .padding(.horizontal, 16)
-                .padding(.bottom, 8)
+            KukuDivider(inset: 0)
+                .padding(.horizontal, KukuSpacing.lg)
+                .padding(.bottom, KukuSpacing.sm)
 
             navigationButton(.settings)
-                .padding(.horizontal, 9)
-                .padding(.bottom, 12)
+                .padding(.horizontal, KukuSpacing.sm)
+                .padding(.bottom, KukuSpacing.md)
         }
         .background(KukuColor.sidebar)
         .toolbar(removing: .sidebarToggle)
     }
 
     private func navigationButton(_ destination: AppState.Destination) -> some View {
-        Button {
+        let isSelected = selection == destination
+        let isHovered = hovered == destination
+        return Button {
             selection = destination
         } label: {
-            HStack(spacing: 10) {
+            HStack(spacing: KukuSpacing.sm) {
                 Image(systemName: destination.symbol)
-                    .symbolVariant(selection == destination ? .fill : .none)
-                    .font(.system(size: 13, weight: .medium))
+                    .symbolVariant(isSelected ? .fill : .none)
+                    .font(.kukuIcon(.regular))
+                    // Fixed icon column so titles line up whatever the symbol's width.
                     .frame(width: 18)
                 Text(destination.title(appState))
-                    .font(.system(size: 13, weight: selection == destination ? .semibold : .medium))
+                    .font(.kuku(.body, weight: isSelected ? .semibold : .medium))
                 Spacer()
             }
-            .foregroundStyle(selection == destination || hovered == destination ? KukuColor.ink : KukuColor.stone)
-            .padding(.horizontal, 11)
-            .frame(maxWidth: .infinity, minHeight: 36)
+            .foregroundStyle(isSelected || isHovered ? KukuColor.textPrimary : KukuColor.textSecondary)
+            .padding(.horizontal, KukuSpacing.md)
+            .frame(maxWidth: .infinity, minHeight: KukuLayout.controlHeight)
             .contentShape(Rectangle())
-            .background {
-                RoundedRectangle(cornerRadius: KukuLayout.radiusSmall, style: .continuous)
-                    .fill(selection == destination
-                          ? KukuColor.surfaceStrong
-                          : (hovered == destination ? KukuColor.highlight.opacity(0.38) : Color.clear))
-            }
-            .overlay {
-                if selection == destination {
-                    RoundedRectangle(cornerRadius: KukuLayout.radiusSmall, style: .continuous)
-                        .stroke(KukuColor.highlight.opacity(0.7), lineWidth: 1)
-                }
-            }
+            .background(
+                isSelected ? KukuColor.selectedFill : (isHovered ? KukuColor.rowHover : Color.clear),
+                in: RoundedRectangle(cornerRadius: KukuLayout.radiusSmall, style: .continuous)
+            )
         }
         .buttonStyle(.plain)
         .accessibilityLabel(destination.title(appState))
-        .accessibilityAddTraits(selection == destination ? .isSelected : [])
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
         .onHover { inside in hovered = inside ? destination : nil }
         .animation(Motion.snappy, value: hovered)
     }
-
 }
 
 private struct ToastView: View {
     let toast: ToastMessage
 
     var body: some View {
-        Label(toast.text, systemImage: toast.symbol)
-            .font(.system(size: 13, weight: .semibold))
-            .foregroundStyle(Color.white)
-            .lineLimit(2)
-            .fixedSize(horizontal: false, vertical: true)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .frame(minHeight: 34)
-            .background(
-                KukuColor.graphite.opacity(0.96),
-                in: RoundedRectangle(cornerRadius: KukuLayout.radiusLarge, style: .continuous)
-            )
-            .shadow(color: Color.black.opacity(0.14), radius: 12, y: 5)
+        KukuToast(text: toast.text, symbol: toast.symbol)
             // Caps the wrap width; the pill itself stays as narrow as its text.
             .frame(maxWidth: 480)
-            .padding(.horizontal, 24)
+            .padding(.horizontal, KukuSpacing.xxl)
             .onChange(of: toast.id, initial: true) {
                 AccessibilityNotification.Announcement(toast.text).post()
             }
