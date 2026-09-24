@@ -31,7 +31,7 @@ final class AppState {
     }
 
     enum DictationPhase: Equatable { case idle, listening, processing, success, copyReady }
-    enum AgentPhase: Equatable { case hidden, listening, transcribing, processing, result, copyReady }
+    enum AgentPhase: Equatable { case hidden, listening, transcribing, processing, result, copyReady, answerReady }
     enum ConnectionState: Equatable { case idle, testing, connected(milliseconds: Int), failed(String) }
 
     enum ShortcutStatus: Equatable {
@@ -65,6 +65,9 @@ final class AppState {
     var dictationNumberFormat: DictationNumberFormat = .preferDigits {
         didSet { defaults.set(dictationNumberFormat.rawValue, forKey: Keys.dictationNumberFormat) }
     }
+    var dictationCleanup: DictationCleanup = .light {
+        didSet { defaults.set(dictationCleanup.rawValue, forKey: Keys.dictationCleanup) }
+    }
     var selectedDomains: Set<DomainPreset> = [] {
         didSet { defaults.set(selectedDomains.map(\.rawValue).sorted(), forKey: Keys.selectedDomains) }
     }
@@ -89,6 +92,9 @@ final class AppState {
     var liveTranscript = ""
     var inputLevel = 0.0
     var pendingCopyText = ""
+    var pendingAnswerText = ""
+    var pendingAnswerStatus: String?
+    var resultCanUndo = false
     var overlayErrorSymbol = "exclamationmark"
     var overlayError: String? { didSet { overlayController?.refresh() } }
     var toast: ToastMessage?
@@ -135,8 +141,10 @@ final class AppState {
     @ObservationIgnored private var uploadTask: Task<Void, Error>?
     @ObservationIgnored private var chunkContinuation: AsyncStream<Data>.Continuation?
     @ObservationIgnored private var targetSnapshot: TextTargetSnapshot?
-    @ObservationIgnored private var activeAgentTranscript = ""
     @ObservationIgnored private var activeAgentSession: AgentSession?
+    @ObservationIgnored private var lastVerifiedWrite: VerifiedWrite?
+    @ObservationIgnored private var pendingAnswerTarget: TextTargetSnapshot?
+    @ObservationIgnored private var workflowGeneration = 0
     @ObservationIgnored private var didEvaluateStartupPermissions = false
     @ObservationIgnored private var isLoaded = false
     @ObservationIgnored private var persistenceGeneration = 0
@@ -196,8 +204,17 @@ final class AppState {
         chunkContinuation?.finish()
         chunkContinuation = nil
         let historyID = beginHistoryEntry(mode: .dictation, recording: recording)
+        let snapshot = targetSnapshot
+        let upload = uploadTask
+        targetSnapshot = nil
+        let generation = workflowGeneration
         withAnimation(Motion.snappy) { dictationPhase = .processing }
-        workflowTask = Task { [weak self] in await self?.completeDictation(recording, historyID: historyID) }
+        workflowTask = Task { [weak self] in
+            await self?.completeDictation(
+                recording, historyID: historyID, snapshot: snapshot,
+                upload: upload, generation: generation
+            )
+        }
     }
 
     func startAgent() {
@@ -215,8 +232,19 @@ final class AppState {
         chunkContinuation?.finish()
         chunkContinuation = nil
         let historyID = beginHistoryEntry(mode: .agent, recording: recording)
+        let snapshot = targetSnapshot
+        let context = contextItems
+        let session = activeAgentSession
+        targetSnapshot = nil
+        activeAgentSession = nil
+        let generation = workflowGeneration
         withAnimation(Motion.snappy) { agentPhase = .transcribing }
-        workflowTask = Task { [weak self] in await self?.processAgentRecording(recording, historyID: historyID) }
+        workflowTask = Task { [weak self] in
+            await self?.processAgentRecording(
+                recording, historyID: historyID, snapshot: snapshot,
+                context: context, session: session, generation: generation
+            )
+        }
     }
 
     func dismissAgent() {
@@ -238,6 +266,68 @@ final class AppState {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.setString(pendingCopyText, forType: .string)
+    }
+
+    var canUndoLastWrite: Bool { lastVerifiedWrite != nil }
+
+    func undoLastWrite() async {
+        guard let lastVerifiedWrite else { return }
+        let generation = workflowGeneration
+        do {
+            let replacement = try textInteraction.replacementSnapshot(for: lastVerifiedWrite)
+            let outcome = try await textInteraction.write(lastVerifiedWrite.target.selectedText, to: replacement)
+            guard self.lastVerifiedWrite?.id == lastVerifiedWrite.id else { return }
+            self.lastVerifiedWrite = nil
+            guard generation == workflowGeneration else { return }
+            if dictationPhase == .success { dictationPhase = .idle }
+            if agentPhase == .result { agentPhase = .hidden }
+            showOverlayFeedback(
+                outcome == .verified
+                    ? text("已撤销上次写入", "Last voice insertion undone")
+                    : text("已发送撤销，请检查结果", "Undo sent; check the result"),
+                symbol: "arrow.uturn.backward"
+            )
+        } catch {
+            if generation == workflowGeneration, self.lastVerifiedWrite?.id == lastVerifiedWrite.id {
+                showOverlayFeedback(text("原输入已变化或应用不支持撤销", "The target changed or does not support undo"), symbol: "exclamationmark.triangle")
+            }
+        }
+    }
+
+    func dismissAnswer() {
+        pendingAnswerText = ""
+        pendingAnswerStatus = nil
+        pendingAnswerTarget = nil
+        agentPhase = .hidden
+    }
+
+    func copyAnswer() {
+        guard !pendingAnswerText.isEmpty else { return }
+        pendingCopyText = pendingAnswerText
+        copyPendingText()
+        pendingAnswerStatus = text("已复制回答", "Answer copied")
+    }
+
+    func insertAnswer() async {
+        guard let snapshot = pendingAnswerTarget, !pendingAnswerText.isEmpty else { return }
+        let answer = pendingAnswerText
+        let generation = workflowGeneration
+        do {
+            let outcome = try await textInteraction.write(answer, to: snapshot)
+            guard generation == workflowGeneration, pendingAnswerText == answer else { return }
+            lastVerifiedWrite = outcome == .verified ? VerifiedWrite(target: snapshot, text: answer) : nil
+            dismissAnswer()
+            showOverlayFeedback(
+                outcome == .verified
+                    ? text("已写入回答", "Answer inserted")
+                    : text("已发送写入，请检查结果", "Insertion sent; check the result"),
+                symbol: "checkmark"
+            )
+        } catch {
+            if generation == workflowGeneration, pendingAnswerText == answer {
+                pendingAnswerStatus = text("输入位置已变化，可复制回答", "The target changed; copy the answer instead")
+            }
+        }
     }
 
     func dismissCopyFallback() {
@@ -397,6 +487,49 @@ final class AppState {
         return try await store.audio(named: filename)
     }
 
+    func retryDictation(_ id: UUID) async {
+        guard let index = historyEntries.firstIndex(where: { $0.id == id }),
+              historyEntries[index].mode == .dictation,
+              historyEntries[index].status == .failed,
+              let filename = historyEntries[index].audioFilename else { return }
+        guard !apiKey.isEmpty else {
+            showToast(text("请先保存 Qwen API Key", "Save your Qwen API Key first"), symbol: "key.fill")
+            return
+        }
+        historyEntries[index].status = .processing
+        historyEntries[index].errorMessage = nil
+        do {
+            let wav = try await store.audio(named: filename)
+            let result = try await reasoningClient.transcribeAudio(
+                apiKey: apiKey,
+                configuration: configuration,
+                wav: wav,
+                recognitionLanguage: recognitionLanguage,
+                numberFormat: dictationNumberFormat,
+                cleanup: dictationCleanup,
+                knowledgePrompt: KnowledgePrompt.render(
+                    entities: knowledgeEntities,
+                    relationships: knowledgeRelationships,
+                    domains: selectedDomains,
+                    customTerms: customDomainTerms,
+                    purpose: .transcription
+                )
+            ).trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !result.isEmpty else { throw QwenError.noSpeech }
+            updateHistory(id, input: result, output: result, status: .completed)
+            showToast(text("识别成功，可从历史复制", "Transcribed; copy it from History"), symbol: "checkmark")
+        } catch {
+            updateHistory(id, status: .failed, errorMessage: localizedError(error))
+        }
+    }
+
+    func copyHistoryOutput(_ text: String) {
+        guard !text.isEmpty else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+        showToast(self.text("已复制", "Copied"), symbol: "doc.on.doc")
+    }
+
     func presentPermissionGuideIfNeeded() {
         systemPermissions.refresh()
         guard !didEvaluateStartupPermissions else { return }
@@ -453,6 +586,8 @@ final class AppState {
 
     private func beginVoiceWorkflow(mode: VoiceWorkflowMode) {
         cancelWorkflow()
+        dictationPhase = .idle
+        agentPhase = .hidden
         guard systemPermissions.microphoneStatus == .authorized else {
             showPermissionGuide()
             return
@@ -469,7 +604,6 @@ final class AppState {
             liveTranscript = ""
             inputLevel = 0
             pendingCopyText = ""
-            activeAgentTranscript = ""
             activeAgentSession = nil
             if mode == .agent {
                 let session = continuousConversation
@@ -488,6 +622,17 @@ final class AppState {
                     customDomainTerms: customDomainTerms,
                     knowledge: knowledgeEntities
                 )
+                if let lastVerifiedWrite, lastVerifiedWrite.isRecent,
+                   let expected = lastVerifiedWrite.expectedValue,
+                   snapshot.valueBefore == expected,
+                   textInteraction.currentValue(of: lastVerifiedWrite.target) == expected {
+                    contextItems.append(ContextItem(
+                        kind: .previousOutput,
+                        symbol: "arrow.uturn.backward",
+                        title: text("上次写入 · \(lastVerifiedWrite.text.count) 字", "Previous output · \(lastVerifiedWrite.text.count) chars"),
+                        value: lastVerifiedWrite.text
+                    ))
+                }
                 agentCommand = text("正在听…", "Listening…")
                 dictationPhase = .idle
                 agentPhase = .listening
@@ -497,6 +642,7 @@ final class AppState {
             }
 
             if mode == .dictation {
+                let generation = workflowGeneration
                 let (stream, continuation) = AsyncStream<Data>.makeStream()
                 chunkContinuation = continuation
                 try startAudioCapture { continuation.yield($0) }
@@ -504,6 +650,7 @@ final class AppState {
                 let shouldAutoStop = autoStop
                 let selectedRecognitionLanguage = recognitionLanguage
                 let selectedNumberFormat = dictationNumberFormat
+                let selectedCleanup = dictationCleanup
                 let knowledgePrompt = KnowledgePrompt.render(
                     entities: knowledgeEntities,
                     relationships: knowledgeRelationships,
@@ -511,17 +658,26 @@ final class AppState {
                     customTerms: customDomainTerms,
                     purpose: .transcription
                 )
-                uploadTask = Task { [weak self, realtimeClient, apiKey, configuration, selectedRecognitionLanguage, selectedNumberFormat, knowledgePrompt] in
+                uploadTask = Task { [weak self, realtimeClient, apiKey, configuration, selectedRecognitionLanguage, selectedNumberFormat, selectedCleanup, knowledgePrompt] in
                     try await realtimeClient.connect(
                         apiKey: apiKey,
                         configuration: configuration,
                         autoStop: shouldAutoStop,
                         onSpeechStopped: {
-                            Task { @MainActor in self?.finishDictation() }
+                            Task { @MainActor in
+                                guard self?.workflowGeneration == generation else { return }
+                                self?.finishDictation()
+                            }
                         },
-                        onDelta: { transcript in Task { @MainActor in self?.liveTranscript = transcript } },
+                        onDelta: { transcript in
+                            Task { @MainActor in
+                                guard self?.workflowGeneration == generation else { return }
+                                self?.liveTranscript = transcript
+                            }
+                        },
                         recognitionLanguage: selectedRecognitionLanguage,
                         numberFormat: selectedNumberFormat,
+                        cleanup: selectedCleanup,
                         knowledgePrompt: knowledgePrompt
                     )
                     for await chunk in stream { try await realtimeClient.append(chunk) }
@@ -546,46 +702,63 @@ final class AppState {
         )
     }
 
-    private func completeDictation(_ recording: AudioCapture.Recording, historyID: UUID?) async {
-        defer { targetSnapshot = nil }
+    private func completeDictation(
+        _ recording: AudioCapture.Recording, historyID: UUID?,
+        snapshot: TextTargetSnapshot?, upload: Task<Void, Error>?, generation: Int
+    ) async {
         await persistHistoryAudio(recording, historyID: historyID)
         do {
-            let raw = try await transcribe(recording)
-            guard !raw.isEmpty else { throw QwenError.invalidResponse }
-            updateHistory(historyID, input: raw, output: raw)
-            guard let snapshot = targetSnapshot else { throw TextInteractionError.targetChanged }
+            let transcript = try await transcribe(recording, upload: upload, generation: generation)
+            try Task.checkCancellation()
+            guard generation == workflowGeneration else { throw CancellationError() }
+            guard !transcript.isEmpty else { throw QwenError.invalidResponse }
+            guard let snapshot else { throw TextInteractionError.targetChanged }
+            let raw = DictationTextJoiner.join(transcript, to: snapshot)
+            updateHistory(historyID, input: transcript, output: raw)
             do {
                 let outcome = try await textInteraction.write(raw, to: snapshot)
-                if outcome == .verified {
-                    observeCorrection(writtenText: raw, snapshot: snapshot)
+                updateHistory(historyID, status: .completed)
+                try Task.checkCancellation()
+                guard generation == workflowGeneration else { throw CancellationError() }
+                let verifiedWrite = outcome == .verified ? VerifiedWrite(target: snapshot, text: raw) : nil
+                lastVerifiedWrite = verifiedWrite
+                if let verifiedWrite {
+                    observeCorrection(writtenText: raw, snapshot: snapshot, writeID: verifiedWrite.id)
                 }
             } catch is TextInteractionError {
                 updateHistory(historyID, status: .completed)
                 presentCopyFallback(raw, agent: false)
-                await realtimeClient.cancel()
+                if generation == workflowGeneration { await realtimeClient.cancel() }
                 return
             }
             updateHistory(historyID, status: .completed)
             withAnimation(Motion.spring) { dictationPhase = .success }
-            try? await Task.sleep(for: .milliseconds(850))
-            withAnimation(Motion.snappy) { dictationPhase = .idle }
+            try? await Task.sleep(for: .seconds(8))
+            if generation == workflowGeneration, dictationPhase == .success {
+                withAnimation(Motion.snappy) { dictationPhase = .idle }
+            }
         } catch is CancellationError {
             updateHistory(historyID, status: .cancelled)
-            dictationPhase = .idle
+            if generation == workflowGeneration, dictationPhase == .processing { dictationPhase = .idle }
         } catch {
             updateHistory(historyID, status: .failed, errorMessage: localizedError(error))
-            handleWorkflowError(error, agent: false)
+            if generation == workflowGeneration { handleWorkflowError(error, agent: false) }
         }
-        await realtimeClient.cancel()
+        if generation == workflowGeneration { await realtimeClient.cancel() }
     }
 
-    private func processAgentRecording(_ recording: AudioCapture.Recording, historyID: UUID?) async {
-        defer { targetSnapshot = nil }
+    private func processAgentRecording(
+        _ recording: AudioCapture.Recording, historyID: UUID?,
+        snapshot: TextTargetSnapshot?, context: [ContextItem],
+        session: AgentSession?, generation: Int
+    ) async {
         await persistHistoryAudio(recording, historyID: historyID)
         do {
+            try Task.checkCancellation()
+            guard generation == workflowGeneration else { throw CancellationError() }
             guard recording.hasSpeech else { throw QwenError.noSpeech }
-            let includesKnowledge = contextItems.contains { $0.kind == .knowledge }
-            let includesDomains = contextItems.contains { $0.kind == .domain }
+            let includesKnowledge = context.contains { $0.kind == .knowledge }
+            let includesDomains = context.contains { $0.kind == .domain }
             let knowledgePrompt = KnowledgePrompt.render(
                 entities: includesKnowledge ? knowledgeEntities : [],
                 relationships: includesKnowledge ? knowledgeRelationships : [],
@@ -597,34 +770,43 @@ final class AppState {
                 apiKey: apiKey,
                 configuration: configuration,
                 wav: recording.wav,
-                context: contextItems,
-                session: activeAgentSession,
+                context: context,
+                session: context.contains(where: { $0.kind == .session }) ? session : nil,
                 knowledgePrompt: knowledgePrompt
             )
+            try Task.checkCancellation()
+            guard generation == workflowGeneration else { throw CancellationError() }
             guard let command = response.transcript?.trimmingCharacters(in: .whitespacesAndNewlines),
                   !command.isEmpty else { throw QwenError.invalidResponse }
-            guard let snapshot = targetSnapshot else { throw TextInteractionError.targetChanged }
-            activeAgentTranscript = command
+            guard let snapshot else { throw TextInteractionError.targetChanged }
             updateHistory(historyID, input: command)
             agentCommand = response.intent
             withAnimation(Motion.panel) { agentPhase = .processing }
-            await executeAgent(response, snapshot: snapshot, historyID: historyID)
+            await executeAgent(
+                response, snapshot: snapshot, context: context,
+                command: command, historyID: historyID, generation: generation
+            )
         } catch is CancellationError {
             updateHistory(historyID, status: .cancelled)
-            agentPhase = .hidden
+            if generation == workflowGeneration, agentPhase == .transcribing || agentPhase == .processing {
+                agentPhase = .hidden
+            }
         } catch {
             updateHistory(historyID, status: .failed, errorMessage: localizedError(error))
-            handleWorkflowError(error, agent: true)
+            if generation == workflowGeneration { handleWorkflowError(error, agent: true) }
         }
-        await realtimeClient.cancel()
     }
 
-    private func transcribe(_ recording: AudioCapture.Recording) async throws -> String {
+    private func transcribe(
+        _ recording: AudioCapture.Recording, upload: Task<Void, Error>?, generation: Int
+    ) async throws -> String {
         guard recording.hasSpeech else {
             throw QwenError.noSpeech
         }
         do {
-            try await uploadTask?.value
+            try await upload?.value
+            try Task.checkCancellation()
+            guard generation == workflowGeneration else { throw CancellationError() }
             let result = try await realtimeClient.commit().trimmingCharacters(in: .whitespacesAndNewlines)
             guard !result.isEmpty else { throw QwenError.noSpeech }
             return result
@@ -633,6 +815,8 @@ final class AppState {
         } catch QwenError.noSpeech {
             throw QwenError.noSpeech
         } catch {
+            try Task.checkCancellation()
+            guard generation == workflowGeneration else { throw CancellationError() }
             await realtimeClient.cancel()
             let result = try await reasoningClient.transcribeAudio(
                 apiKey: apiKey,
@@ -640,6 +824,7 @@ final class AppState {
                 wav: recording.wav,
                 recognitionLanguage: recognitionLanguage,
                 numberFormat: dictationNumberFormat,
+                cleanup: dictationCleanup,
                 knowledgePrompt: KnowledgePrompt.render(
                     entities: knowledgeEntities,
                     relationships: knowledgeRelationships,
@@ -654,15 +839,33 @@ final class AppState {
         }
     }
 
-    private func executeAgent(_ response: AgentResponse, snapshot: TextTargetSnapshot, historyID: UUID?) async {
+    private func executeAgent(
+        _ response: AgentResponse, snapshot: TextTargetSnapshot,
+        context: [ContextItem], command: String, historyID: UUID?, generation: Int
+    ) async {
         do {
+            try Task.checkCancellation()
+            guard generation == workflowGeneration else { throw CancellationError() }
             let output: String
             var needsCopyFallback = false
             if response.action == .writeText {
                 guard let text = response.output, !text.isEmpty else { throw QwenError.invalidResponse }
                 if automaticAgentWriteBack {
                     do {
-                        try await textInteraction.write(text, to: snapshot)
+                        let writeTarget: TextTargetSnapshot
+                        if response.target == .previous {
+                            guard context.contains(where: { $0.kind == .previousOutput }),
+                                  let lastVerifiedWrite else { throw TextInteractionError.targetChanged }
+                            writeTarget = try textInteraction.replacementSnapshot(for: lastVerifiedWrite)
+                        } else {
+                            writeTarget = snapshot
+                        }
+                        let outcome = try await textInteraction.write(text, to: writeTarget)
+                        updateHistory(historyID, input: command, output: text, status: .completed)
+                        try Task.checkCancellation()
+                        guard generation == workflowGeneration else { throw CancellationError() }
+                        lastVerifiedWrite = outcome == .verified ? VerifiedWrite(target: writeTarget, text: text) : nil
+                        resultCanUndo = outcome == .verified
                     } catch is TextInteractionError {
                         needsCopyFallback = true
                     }
@@ -670,17 +873,21 @@ final class AppState {
                     needsCopyFallback = true
                 }
                 output = text
+            } else if response.action == .answer {
+                guard let text = response.output, !text.isEmpty else { throw QwenError.invalidResponse }
+                output = text
             } else {
+                resultCanUndo = false
                 try AgentActionExecutor.execute(response)
                 output = response.url ?? response.query ?? response.shortcutName ?? response.intent
             }
-            updateHistory(historyID, input: activeAgentTranscript, output: output, status: .completed)
+            updateHistory(historyID, input: command, output: output, status: .completed)
             if continuousConversation {
                 sessions.removeAll { $0.expiresAt <= .now || $0.app == snapshot.bundleID }
                 sessions.append(AgentSession(
                     app: snapshot.bundleID,
-                    contextSummary: contextItems.map(\.title).joined(separator: " · "),
-                    userCommand: activeAgentTranscript,
+                    contextSummary: context.map(\.title).joined(separator: " · "),
+                    userCommand: command,
                     response: output,
                     expiresAt: .now.addingTimeInterval(30 * 60)
                 ))
@@ -689,15 +896,23 @@ final class AppState {
                 presentCopyFallback(output, agent: true, copyImmediately: automaticAgentWriteBack)
                 return
             }
+            if response.action == .answer {
+                pendingAnswerText = output
+                pendingAnswerTarget = snapshot
+                withAnimation(Motion.panel) { agentPhase = .answerReady }
+                return
+            }
             withAnimation(Motion.panel) { agentPhase = .result }
-            try? await Task.sleep(for: .milliseconds(1_250))
-            withAnimation(Motion.snappy) { agentPhase = .hidden }
+            try? await Task.sleep(for: .seconds(8))
+            if generation == workflowGeneration, agentPhase == .result {
+                withAnimation(Motion.snappy) { agentPhase = .hidden }
+            }
         } catch is CancellationError {
             updateHistory(historyID, status: .cancelled)
-            agentPhase = .hidden
+            if generation == workflowGeneration { agentPhase = .hidden }
         } catch {
             updateHistory(historyID, status: .failed, errorMessage: localizedError(error))
-            handleWorkflowError(error, agent: true)
+            if generation == workflowGeneration { handleWorkflowError(error, agent: true) }
         }
     }
 
@@ -753,6 +968,7 @@ final class AppState {
     }
 
     private func cancelWorkflow() {
+        workflowGeneration += 1
         workflowTask?.cancel()
         workflowTask = nil
         uploadTask?.cancel()
@@ -763,9 +979,12 @@ final class AppState {
         inputLevel = 0
         Task { await realtimeClient.cancel() }
         targetSnapshot = nil
-        activeAgentTranscript = ""
         activeAgentSession = nil
         pendingCopyText = ""
+        pendingAnswerText = ""
+        pendingAnswerStatus = nil
+        pendingAnswerTarget = nil
+        resultCanUndo = false
         overlayError = nil
     }
 
@@ -787,11 +1006,15 @@ final class AppState {
         if agent { agentPhase = .hidden } else { dictationPhase = .idle }
         targetSnapshot = nil
         let message = localizedError(error)
-        overlayErrorSymbol = (error as? QwenError) == .noSpeech ? "waveform.slash" : "exclamationmark"
-        overlayError = message
+        showOverlayFeedback(message, symbol: (error as? QwenError) == .noSpeech ? "waveform.slash" : "exclamationmark")
         if (error as? QwenError) != .noSpeech {
             showToast(message, symbol: "exclamationmark.triangle.fill")
         }
+    }
+
+    private func showOverlayFeedback(_ message: String, symbol: String) {
+        overlayErrorSymbol = symbol
+        overlayError = message
         Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(2.4))
             guard self?.overlayError == message else { return }
@@ -799,14 +1022,15 @@ final class AppState {
         }
     }
 
-    private func observeCorrection(writtenText: String, snapshot: TextTargetSnapshot) {
+    private func observeCorrection(writtenText: String, snapshot: TextTargetSnapshot, writeID: UUID) {
         guard learnFromCorrections, let before = snapshot.valueBefore, let range = snapshot.selectedRange else { return }
         let source = before as NSString
         guard range.location >= 0, range.length >= 0, NSMaxRange(NSRange(location: range.location, length: range.length)) <= source.length else { return }
         let expected = source.replacingCharacters(in: NSRange(location: range.location, length: range.length), with: writtenText)
         Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(5))
-            guard let self, let actual = self.textInteraction.currentValue(of: snapshot), actual != expected,
+            guard let self, self.lastVerifiedWrite?.id == writeID,
+                  let actual = self.textInteraction.currentValue(of: snapshot), actual != expected,
                   let change = Self.changedSegments(expected: expected, actual: actual),
                   !change.before.isEmpty, !change.after.isEmpty,
                   change.before.count <= 100, change.after.count <= 100,
@@ -922,6 +1146,8 @@ final class AppState {
            let value = RecognitionLanguage(rawValue: raw) { recognitionLanguage = value }
         if let raw = defaults.string(forKey: Keys.dictationNumberFormat),
            let value = DictationNumberFormat(rawValue: raw) { dictationNumberFormat = value }
+        if let raw = defaults.string(forKey: Keys.dictationCleanup),
+           let value = DictationCleanup(rawValue: raw) { dictationCleanup = value }
         selectedDomains = Set((defaults.stringArray(forKey: Keys.selectedDomains) ?? []).compactMap(DomainPreset.init(rawValue:)))
         customDomainTerms = Self.normalizedDomainTerms(defaults.stringArray(forKey: Keys.customDomainTerms) ?? [])
         didCompleteOnboarding = defaults.bool(forKey: Keys.didCompleteOnboarding)
@@ -954,6 +1180,7 @@ final class AppState {
     private enum Keys {
         static let inputMode = "inputMode", language = "appLanguage", autoStop = "autoStop"
         static let recognitionLanguage = "dictation.recognitionLanguage", dictationNumberFormat = "dictation.numberFormat"
+        static let dictationCleanup = "dictation.cleanup"
         static let selectedDomains = "dictation.selectedDomains", customDomainTerms = "dictation.customDomainTerms"
         static let didCompleteOnboarding = "onboarding.completed"
         static let continuousConversation = "continuousConversation", learnCorrections = "learnFromCorrections"

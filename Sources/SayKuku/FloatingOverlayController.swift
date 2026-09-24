@@ -34,6 +34,8 @@ final class FloatingOverlayController {
 
     func refresh() {
         guard let appState else { return }
+        let answerVisible = appState.agentPhase == .answerReady
+        panel.setContentSize(NSSize(width: answerVisible ? 460 : 380, height: answerVisible ? 300 : 92))
         let shouldShow = appState.overlayError != nil
             || appState.dictationPhase != .idle
             || appState.agentPhase != .hidden
@@ -68,7 +70,10 @@ private struct FloatingSystemOverlay: View {
         ZStack(alignment: .bottom) {
             Color.clear
 
-            if let error = appState.overlayError {
+            if appState.agentPhase == .answerReady {
+                AgentAnswerCard()
+                    .transition(.scale(scale: 0.96, anchor: .bottom).combined(with: .opacity))
+            } else if let error = appState.overlayError {
                 Label(error, systemImage: appState.overlayErrorSymbol)
                     .font(.system(size: 11, weight: .medium, design: .rounded))
                     .foregroundStyle(KukuColor.ink.opacity(0.72))
@@ -96,9 +101,55 @@ private struct FloatingSystemOverlay: View {
             }
         }
         .padding(.bottom, 16)
-        .frame(width: 380, height: 92)
+        .frame(
+            width: appState.agentPhase == .answerReady ? 460 : 380,
+            height: appState.agentPhase == .answerReady ? 300 : 92
+        )
         .animation(Motion.panel, value: appState.agentPhase)
         .animation(Motion.panel, value: appState.dictationPhase)
         .animation(Motion.panel, value: appState.overlayError)
+    }
+}
+
+private struct AgentAnswerCard: View {
+    @Environment(AppState.self) private var appState
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Label(appState.text("语音 Agent 的回答", "Voice Agent answer"), systemImage: "sparkles")
+                    .font(.system(size: 12, weight: .semibold))
+                Spacer()
+                Button(action: appState.dismissAnswer) {
+                    Image(systemName: "xmark")
+                        .frame(width: 28, height: 28)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(appState.text("关闭回答", "Close answer"))
+            }
+            ScrollView {
+                Text(appState.pendingAnswerText)
+                    .font(.system(size: 13))
+                    .foregroundStyle(KukuColor.ink)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(maxHeight: .infinity)
+            HStack {
+                Text(appState.pendingAnswerStatus ?? appState.text("回答未写入当前应用", "The answer has not been inserted"))
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(KukuColor.stone)
+                Spacer()
+                Button(appState.text("复制", "Copy"), action: appState.copyAnswer)
+                    .buttonStyle(TintButtonStyle())
+                Button(appState.text("写入", "Insert")) {
+                    Task { await appState.insertAnswer() }
+                }
+                .buttonStyle(HoverFillButtonStyle(prominent: true))
+            }
+        }
+        .padding(18)
+        .frame(width: 440, height: 270)
+        .kukuSurface(radius: KukuLayout.radiusLarge, elevated: true)
     }
 }

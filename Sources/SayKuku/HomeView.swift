@@ -11,6 +11,8 @@ struct HomeView: View {
 
 private struct HomeReadyState: View {
     @Environment(AppState.self) private var appState
+    @State private var practiceText = ""
+    @FocusState private var practiceFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
@@ -37,6 +39,28 @@ private struct HomeReadyState: View {
                         }
                     }
 
+                    VStack(alignment: .leading, spacing: 9) {
+                        Text(appState.text("试写区", "Try it here"))
+                            .font(.system(size: 12, weight: .semibold))
+                        Text(appState.text(
+                            "点按上方卡片聚焦这里，再用 Fn 输入或 Fn Fn 修改选中文字。",
+                            "Choose a card to focus this field, then use Fn to dictate or Fn Fn to edit selected text."
+                        ))
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(KukuColor.stone)
+                        TextEditor(text: $practiceText)
+                            .focused($practiceFocused)
+                            .font(.system(size: 13))
+                            .scrollContentBackground(.hidden)
+                            .frame(height: 70)
+                            .padding(8)
+                            .background(KukuColor.canvas, in: RoundedRectangle(cornerRadius: 9))
+                            .accessibilityLabel(appState.text("语音试写区", "Voice practice field"))
+                    }
+                    .padding(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .kukuSurface(radius: KukuLayout.radiusLarge)
+
                     Label(
                         appState.text("语音仅在你主动触发后发送", "Audio is sent only when you invoke it"),
                         systemImage: "lock.fill"
@@ -55,11 +79,13 @@ private struct HomeReadyState: View {
         HomeGestureRow(
             key: "Fn",
             title: appState.voiceInputTitle,
-            subtitle: appState.text("按住说话，松开后写入当前光标", "Hold to speak, release to type"),
+            subtitle: appState.inputMode == .hold
+                ? appState.text("按住说话，松开后写入当前光标", "Hold to speak, release to type")
+                : appState.text("单击开始，再次单击后写入当前光标", "Tap to start, tap again to type"),
             symbol: "mic.fill",
             accent: KukuColor.coral
         ) {
-            appState.startDictation()
+            practiceFocused = true
         }
     }
 
@@ -67,11 +93,11 @@ private struct HomeReadyState: View {
         HomeGestureRow(
             key: "Fn Fn",
             title: appState.voiceAgentTitle,
-            subtitle: appState.text("说出意图，识别后直接执行或写回", "Say an intent to run it or write it back"),
+            subtitle: appState.text("说出意图，获取回答、写回或执行动作", "Say what you need to get an answer, write text, or run an action"),
             symbol: "sparkles",
             accent: KukuColor.graphite
         ) {
-            appState.startAgent()
+            practiceFocused = true
         }
     }
 }
@@ -115,7 +141,7 @@ private struct HomeGestureRow: View {
                 }
 
                 HStack(spacing: 5) {
-                    Text(appState.text("开始", "Open"))
+                    Text(appState.text("试写", "Try it"))
                     Image(systemName: "arrow.up.right")
                 }
                 .font(.system(size: 9.5, weight: .semibold))
@@ -144,12 +170,14 @@ struct AgentPill: View {
             KukuPillLayout.width(for: listeningLabel, minimum: 168, fixedContentWidth: 140)
         case .copyReady:
             KukuPillLayout.width(for: appState.pendingCopyText, minimum: 180, fixedContentWidth: 136)
+        case .answerReady:
+            0
         case .transcribing:
             KukuPillLayout.width(for: transcribingLabel, minimum: 112, fixedContentWidth: 48, maximum: 200)
         case .processing:
             KukuPillLayout.width(for: processingLabel, minimum: 112, fixedContentWidth: 48)
         case .result:
-            KukuPillLayout.width(for: resultLabel, minimum: 78, fixedContentWidth: 38, maximum: 320)
+            KukuPillLayout.width(for: resultLabel, minimum: 78, fixedContentWidth: appState.resultCanUndo ? 96 : 38, maximum: 320)
         }
     }
 
@@ -249,6 +277,14 @@ struct AgentPill: View {
                     .font(.system(size: 11.5, weight: .semibold, design: .rounded))
                     .foregroundStyle(KukuColor.ink.opacity(0.64))
                     .lineLimit(1)
+                if appState.resultCanUndo {
+                    Spacer(minLength: 0)
+                    Button(appState.text("撤销", "Undo")) {
+                        Task { await appState.undoLastWrite() }
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(KukuColor.coral)
+                }
             }
         }
         .contentTransition(.interpolate)
@@ -338,7 +374,7 @@ struct DictationPill: View {
         case .processing:
             KukuPillLayout.width(for: processingLabel, minimum: 112, fixedContentWidth: 48, maximum: 340)
         case .success:
-            KukuPillLayout.width(for: successLabel, minimum: 78, fixedContentWidth: 42, maximum: 160)
+            KukuPillLayout.width(for: successLabel, minimum: 78, fixedContentWidth: appState.canUndoLastWrite ? 100 : 42, maximum: 200)
         }
     }
 
@@ -383,6 +419,14 @@ struct DictationPill: View {
             case .success:
                 Image(systemName: "checkmark")
                 Text(successLabel)
+                if appState.canUndoLastWrite {
+                    Spacer(minLength: 0)
+                    Button(appState.text("撤销", "Undo")) {
+                        Task { await appState.undoLastWrite() }
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(KukuColor.coral)
+                }
             case .copyReady:
                 CopyFallbackContent()
             }

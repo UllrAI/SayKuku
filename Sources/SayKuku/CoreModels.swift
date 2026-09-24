@@ -91,6 +91,32 @@ enum DictationNumberFormat: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
+enum DictationCleanup: String, CaseIterable, Identifiable, Sendable {
+    case light
+    case verbatim
+
+    var id: String { rawValue }
+
+    func title(isChineseUI: Bool) -> String {
+        switch self {
+        case .light: isChineseUI ? "轻整理" : "Light cleanup"
+        case .verbatim: isChineseUI ? "原样" : "Verbatim"
+        }
+    }
+
+    var promptInstruction: String {
+        switch self {
+        case .light:
+            """
+            Remove only speech disfluencies that add no meaning: standalone fillers (such as 嗯, 呃, uh, um), habitual lead-ins (such as 那个, 就是, 然后, you know), accidental immediate repeats, and clearly abandoned false starts. If the speaker clearly corrects themself, keep the final wording. For example, "嗯，我觉得那个方案，呃，可以" becomes "我觉得那个方案可以".
+            Keep meaningful uses of those same words (such as 那个方案, 这就是原因, or 然后 marking sequence), deliberate repetition, quoted speech, and uncertainty. If unsure whether a word is filler or content, keep it. Do not omit any other spoken content.
+            """
+        case .verbatim:
+            "Keep fillers, repetitions, false starts, and self-corrections as spoken. Add punctuation, but do not clean up or rewrite the speech."
+        }
+    }
+}
+
 enum DomainPreset: String, CaseIterable, Identifiable, Sendable {
     case aiVibeCoding
     case softwareDevelopment
@@ -409,7 +435,7 @@ struct AgentSession: Identifiable, Codable, Equatable {
 }
 
 struct ContextItem: Identifiable, Equatable {
-    enum Kind: Equatable { case selectedText, app, window, clipboard, browser, session, domain, knowledge }
+    enum Kind: Equatable { case selectedText, previousOutput, app, window, clipboard, browser, session, domain, knowledge }
     var id = UUID()
     var kind: Kind
     var symbol: String
@@ -418,9 +444,11 @@ struct ContextItem: Identifiable, Equatable {
 }
 
 struct AgentResponse: Codable, Equatable {
-    enum Action: String, Codable { case writeText, openURL, webSearch, runShortcut }
+    enum Action: String, Codable { case writeText, answer, openURL, webSearch, runShortcut }
+    enum Target: String, Codable { case current, previous }
     var transcript: String?
     var action: Action
+    var target: Target?
     var intent: String
     var output: String?
     var url: String?

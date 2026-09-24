@@ -83,6 +83,21 @@ private struct VoiceInputSettings: View {
                 ) { format in
                     format.title(isChineseUI: appState.usesChineseUI)
                 }
+                SettingsDivider()
+                SettingsOptionRow(
+                    title: appState.text("口语整理", "Speech cleanup"),
+                    selection: $appState.dictationCleanup
+                ) { cleanup in
+                    cleanup.title(isChineseUI: appState.usesChineseUI)
+                }
+                Text(appState.text(
+                    "轻整理只去除无意义口癖；原样保留口癖与重复。两档都支持口述换行、段落和标点。",
+                    "Light cleanup removes only nonsemantic fillers. Verbatim keeps hesitations and repeats. Both support spoken line breaks, paragraphs, and punctuation."
+                ))
+                .font(.system(size: 10.5))
+                .foregroundStyle(KukuColor.stone)
+                .padding(.horizontal, 14)
+                .padding(.bottom, 10)
             }
 
             SettingsGroup(title: appState.text("识别上下文", "Recognition context")) {
