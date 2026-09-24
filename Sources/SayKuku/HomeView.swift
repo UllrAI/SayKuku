@@ -173,9 +173,9 @@ struct AgentPill: View {
         case .answerReady:
             0
         case .transcribing:
-            KukuPillLayout.width(for: transcribingLabel, minimum: 112, fixedContentWidth: 48, maximum: 200)
+            KukuPillLayout.width(for: transcribingLabel, minimum: 145, fixedContentWidth: 81, maximum: 233)
         case .processing:
-            KukuPillLayout.width(for: processingLabel, minimum: 112, fixedContentWidth: 48)
+            KukuPillLayout.width(for: processingLabel, minimum: 145, fixedContentWidth: 81)
         case .result:
             KukuPillLayout.width(for: resultLabel, minimum: 78, fixedContentWidth: appState.resultCanUndo ? 96 : 38, maximum: 320)
         }
@@ -272,6 +272,11 @@ struct AgentPill: View {
                     .foregroundStyle(KukuColor.ink.opacity(0.78))
                     .lineLimit(1)
                     .truncationMode(.tail)
+                Spacer(minLength: 0)
+                PillCancelButton(
+                    label: appState.text("取消语音 Agent", "Cancel Voice Agent"),
+                    action: appState.dismissAgent
+                )
             } else if appState.agentPhase == .result {
                 Label(resultLabel, systemImage: "checkmark")
                     .font(.system(size: 11.5, weight: .semibold, design: .rounded))
@@ -322,6 +327,25 @@ private struct AgentActivityIndicator: View {
     }
 }
 
+/// Stops work that is still processing; nothing is written afterwards.
+private struct PillCancelButton: View {
+    let label: String
+    let action: @MainActor () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "xmark")
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(KukuColor.stone.opacity(0.82))
+                .frame(width: 25, height: 25)
+                .background(Color.black.opacity(0.05), in: Circle())
+        }
+        .buttonStyle(PressScaleStyle())
+        .accessibilityLabel(label)
+        .help(label)
+    }
+}
+
 private struct AgentContextPopover: View {
     @Environment(AppState.self) private var appState
 
@@ -369,7 +393,7 @@ struct DictationPill: View {
         case .copyReady:
             KukuPillLayout.width(for: appState.pendingCopyText, minimum: 180, fixedContentWidth: 136)
         case .processing:
-            KukuPillLayout.width(for: processingLabel, minimum: 112, fixedContentWidth: 48, maximum: 340)
+            KukuPillLayout.width(for: processingLabel, minimum: 145, fixedContentWidth: 81, maximum: 340)
         case .success:
             KukuPillLayout.width(for: successLabel, minimum: 78, fixedContentWidth: appState.canUndoLastWrite ? 100 : 42, maximum: 200)
         }
@@ -413,6 +437,11 @@ struct DictationPill: View {
                 Text(processingLabel)
                     .lineLimit(1)
                     .truncationMode(.tail)
+                Spacer(minLength: 0)
+                PillCancelButton(
+                    label: appState.text("取消语音输入", "Cancel Voice Input"),
+                    action: appState.cancelDictation
+                )
             case .success:
                 Image(systemName: "checkmark")
                 Text(successLabel)

@@ -141,13 +141,24 @@ final class AppState {
     @ObservationIgnored private var uploadTask: Task<Void, Error>?
     @ObservationIgnored private var chunkContinuation: AsyncStream<Data>.Continuation?
     @ObservationIgnored private var targetSnapshot: TextTargetSnapshot?
-    @ObservationIgnored private var activeAgentSession: AgentSession?
+    @ObservationIgnored private var activeAgentSessions: [AgentSession] = []
     @ObservationIgnored private var lastVerifiedWrite: VerifiedWrite?
     @ObservationIgnored private var pendingAnswerTarget: TextTargetSnapshot?
     @ObservationIgnored private var workflowGeneration = 0
+    @ObservationIgnored private var realtimeSessionID = UUID()
+    @ObservationIgnored private var recordingLimitTask: Task<Void, Never>?
+    @ObservationIgnored private var overlayFeedbackGeneration = 0
+    @ObservationIgnored private var mainWindowOpener: OpenWindowAction?
     @ObservationIgnored private var didEvaluateStartupPermissions = false
     @ObservationIgnored private var isLoaded = false
     @ObservationIgnored private var persistenceGeneration = 0
+
+    static let mainWindowID = "main"
+    private static let dictationRecordingLimit: Duration = .seconds(600)
+    /// Keeps Agent audio under `QwenReasoningClient.maximumAudioBytes`.
+    private static let agentRecordingLimit: Duration = .seconds(210)
+    private static let recordingLimitWarning: Duration = .seconds(15)
+    private static let successDisplayDuration: Duration = .seconds(3)
 
     init(
         defaults: UserDefaults = .standard,
@@ -199,20 +210,18 @@ final class AppState {
 
     func finishDictation() {
         guard dictationPhase == .listening else { return }
-        let recording = audioCapture.stop()
-        inputLevel = 0
-        chunkContinuation?.finish()
-        chunkContinuation = nil
+        let recording = stopRecording()
         let historyID = beginHistoryEntry(mode: .dictation, recording: recording)
         let snapshot = targetSnapshot
         let upload = uploadTask
+        let realtimeSession = realtimeSessionID
         targetSnapshot = nil
         let generation = workflowGeneration
         withAnimation(Motion.snappy) { dictationPhase = .processing }
         workflowTask = Task { [weak self] in
             await self?.completeDictation(
                 recording, historyID: historyID, snapshot: snapshot,
-                upload: upload, generation: generation
+                upload: upload, realtimeSession: realtimeSession, generation: generation
             )
         }
     }
@@ -227,22 +236,19 @@ final class AppState {
 
     func finishAgentListening() {
         guard agentPhase == .listening else { return }
-        let recording = audioCapture.stop()
-        inputLevel = 0
-        chunkContinuation?.finish()
-        chunkContinuation = nil
+        let recording = stopRecording()
         let historyID = beginHistoryEntry(mode: .agent, recording: recording)
         let snapshot = targetSnapshot
         let context = contextItems
-        let session = activeAgentSession
+        let conversation = activeAgentSessions
         targetSnapshot = nil
-        activeAgentSession = nil
+        activeAgentSessions = []
         let generation = workflowGeneration
         withAnimation(Motion.snappy) { agentPhase = .transcribing }
         workflowTask = Task { [weak self] in
             await self?.processAgentRecording(
                 recording, historyID: historyID, snapshot: snapshot,
-                context: context, session: session, generation: generation
+                context: context, conversation: conversation, generation: generation
             )
         }
     }
@@ -454,22 +460,24 @@ final class AppState {
 
     func testQwenConnection() async {
         connectionState = .testing
+        let realtimeSession = UUID()
         do {
             try saveAPIKey(apiKey)
             let started = Date.now
             try await realtimeClient.connect(
+                session: realtimeSession,
                 apiKey: apiKey,
                 configuration: configuration,
                 autoStop: false,
                 onSpeechStopped: {},
                 onDelta: { _ in }
             )
-            await realtimeClient.cancel()
+            await realtimeClient.cancel(session: realtimeSession)
             _ = try await reasoningClient.testConnection(apiKey: apiKey, configuration: configuration)
             let latency = Date.now.timeIntervalSince(started)
             connectionState = .connected(milliseconds: Int(latency * 1_000))
         } catch {
-            await realtimeClient.cancel()
+            await realtimeClient.cancel(session: realtimeSession)
             connectionState = .failed(localizedError(error))
         }
     }
@@ -576,11 +584,25 @@ final class AppState {
         if let url = URL(string: "x-apple.systempreferences:com.apple.Keyboard-Settings.extension") { NSWorkspace.shared.open(url) }
     }
     func showToast(_ text: String, symbol: String) {
-        toast = ToastMessage(text: text, symbol: symbol)
+        let message = ToastMessage(text: text, symbol: symbol)
+        toast = message
         Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(2.4))
+            guard self?.toast?.id == message.id else { return }
             withAnimation(Motion.snappy) { self?.toast = nil }
         }
+    }
+
+    func registerMainWindowOpener(_ openWindow: OpenWindowAction) {
+        mainWindowOpener = openWindow
+    }
+
+    /// Brings the main window forward even when it was closed or the Dock icon is hidden.
+    func showMainWindow(destination: Destination? = nil) {
+        if let destination { self.destination = destination }
+        NSApplication.shared.setActivationPolicy(.regular)
+        mainWindowOpener?.callAsFunction(id: Self.mainWindowID)
+        NSApplication.shared.activate()
     }
 
     private enum VoiceWorkflowMode: Sendable { case dictation, agent }
@@ -589,12 +611,16 @@ final class AppState {
         cancelWorkflow()
         dictationPhase = .idle
         agentPhase = .hidden
+        // Shortcuts usually fire from another app, so explain on the overlay and open the fix.
         guard systemPermissions.microphoneStatus == .authorized else {
+            showOverlayFeedback(text("请先允许 SayKuku 使用麦克风", "Allow microphone access first"), symbol: "mic.slash", duration: .seconds(4))
             showPermissionGuide()
+            showMainWindow()
             return
         }
         guard !apiKey.isEmpty else {
-            destination = .settings
+            showOverlayFeedback(text("请先添加 Qwen API Key", "Add your Qwen API Key first"), symbol: "key.fill", duration: .seconds(4))
+            showMainWindow(destination: .settings)
             showToast(text("请先在 Qwen 连接中保存 API Key", "Save your API Key in Qwen connection first"), symbol: "key.fill")
             return
         }
@@ -605,12 +631,12 @@ final class AppState {
             liveTranscript = ""
             inputLevel = 0
             pendingCopyText = ""
-            activeAgentSession = nil
+            activeAgentSessions = []
             if mode == .agent {
-                let session = continuousConversation
-                    ? sessions.filter { $0.app == snapshot.bundleID && $0.expiresAt > .now }.max(by: { $0.createdAt < $1.createdAt })
-                    : nil
-                activeAgentSession = session
+                let conversation = continuousConversation
+                    ? AgentSession.conversation(in: sessions, app: snapshot.bundleID)
+                    : []
+                activeAgentSessions = conversation
                 contextItems = ContextCollector.collect(
                     snapshot: snapshot,
                     selectedTextAllowed: selectedTextAllowed,
@@ -618,7 +644,7 @@ final class AppState {
                     windowTitleAllowed: windowTitleAllowed,
                     clipboardAllowed: clipboardAllowed,
                     browserPageAllowed: browserPageAllowed,
-                    session: session,
+                    session: conversation.last,
                     domains: selectedDomains,
                     customDomainTerms: customDomainTerms,
                     knowledge: knowledgeEntities,
@@ -660,8 +686,11 @@ final class AppState {
                     customTerms: customDomainTerms,
                     purpose: .transcription
                 )
+                let realtimeSession = UUID()
+                realtimeSessionID = realtimeSession
                 uploadTask = Task { [weak self, realtimeClient, apiKey, configuration, selectedRecognitionLanguage, selectedNumberFormat, selectedCleanup, knowledgePrompt] in
                     try await realtimeClient.connect(
+                        session: realtimeSession,
                         apiKey: apiKey,
                         configuration: configuration,
                         autoStop: shouldAutoStop,
@@ -682,14 +711,49 @@ final class AppState {
                         cleanup: selectedCleanup,
                         knowledgePrompt: knowledgePrompt
                     )
-                    for await chunk in stream { try await realtimeClient.append(chunk) }
+                    for await chunk in stream { try await realtimeClient.append(chunk, session: realtimeSession) }
                 }
             } else {
                 try startAudioCapture { _ in }
             }
+            scheduleRecordingLimit(for: mode)
         } catch {
             handleWorkflowError(error, agent: mode == .agent)
         }
+    }
+
+    /// Warns shortly before the recording cap, then finishes the recording as if the user had stopped it.
+    private func scheduleRecordingLimit(for mode: VoiceWorkflowMode) {
+        let generation = workflowGeneration
+        let limit = mode == .agent ? Self.agentRecordingLimit : Self.dictationRecordingLimit
+        let warning = Self.recordingLimitWarning
+        recordingLimitTask = Task { @MainActor [weak self] in
+            do {
+                try await Task.sleep(for: limit - warning)
+                if let self, self.workflowGeneration == generation {
+                    let seconds = warning.components.seconds
+                    self.showOverlayFeedback(
+                        self.text("\(seconds) 秒后自动结束录音", "Recording stops in \(seconds) seconds"),
+                        symbol: "timer"
+                    )
+                }
+                try await Task.sleep(for: warning)
+            } catch {
+                return
+            }
+            guard let self, self.workflowGeneration == generation else { return }
+            if mode == .agent { self.finishAgentListening() } else { self.finishDictation() }
+        }
+    }
+
+    private func stopRecording() -> AudioCapture.Recording {
+        recordingLimitTask?.cancel()
+        recordingLimitTask = nil
+        let recording = audioCapture.stop()
+        inputLevel = 0
+        chunkContinuation?.finish()
+        chunkContinuation = nil
+        return recording
     }
 
     private func startAudioCapture(onChunk: @escaping @Sendable (Data) -> Void) throws {
@@ -706,11 +770,14 @@ final class AppState {
 
     private func completeDictation(
         _ recording: AudioCapture.Recording, historyID: UUID?,
-        snapshot: TextTargetSnapshot?, upload: Task<Void, Error>?, generation: Int
+        snapshot: TextTargetSnapshot?, upload: Task<Void, Error>?,
+        realtimeSession: UUID, generation: Int
     ) async {
         await persistHistoryAudio(recording, historyID: historyID)
         do {
-            let transcript = try await transcribe(recording, upload: upload, generation: generation)
+            let transcript = try await transcribe(
+                recording, upload: upload, realtimeSession: realtimeSession, generation: generation
+            )
             try Task.checkCancellation()
             guard generation == workflowGeneration else { throw CancellationError() }
             guard !transcript.isEmpty else { throw QwenError.invalidResponse }
@@ -730,12 +797,12 @@ final class AppState {
             } catch is TextInteractionError {
                 updateHistory(historyID, status: .completed)
                 presentCopyFallback(raw, agent: false)
-                if generation == workflowGeneration { await realtimeClient.cancel() }
+                await realtimeClient.cancel(session: realtimeSession)
                 return
             }
             updateHistory(historyID, status: .completed)
             withAnimation(Motion.spring) { dictationPhase = .success }
-            try? await Task.sleep(for: .seconds(8))
+            try? await Task.sleep(for: Self.successDisplayDuration)
             if generation == workflowGeneration, dictationPhase == .success {
                 withAnimation(Motion.snappy) { dictationPhase = .idle }
             }
@@ -743,16 +810,15 @@ final class AppState {
             updateHistory(historyID, status: .cancelled)
             if generation == workflowGeneration, dictationPhase == .processing { dictationPhase = .idle }
         } catch {
-            updateHistory(historyID, status: .failed, errorMessage: localizedError(error))
-            if generation == workflowGeneration { handleWorkflowError(error, agent: false) }
+            finishFailedWorkflow(error, historyID: historyID, agent: false, generation: generation)
         }
-        if generation == workflowGeneration { await realtimeClient.cancel() }
+        await realtimeClient.cancel(session: realtimeSession)
     }
 
     private func processAgentRecording(
         _ recording: AudioCapture.Recording, historyID: UUID?,
         snapshot: TextTargetSnapshot?, context: [ContextItem],
-        session: AgentSession?, generation: Int
+        conversation: [AgentSession], generation: Int
     ) async {
         await persistHistoryAudio(recording, historyID: historyID)
         do {
@@ -773,7 +839,7 @@ final class AppState {
                 configuration: configuration,
                 wav: recording.wav,
                 context: context,
-                session: context.contains(where: { $0.kind == .session }) ? session : nil,
+                sessions: context.contains(where: { $0.kind == .session }) ? conversation : [],
                 knowledgePrompt: knowledgePrompt
             )
             try Task.checkCancellation()
@@ -795,13 +861,13 @@ final class AppState {
                 agentPhase = .hidden
             }
         } catch {
-            updateHistory(historyID, status: .failed, errorMessage: localizedError(error))
-            if generation == workflowGeneration { handleWorkflowError(error, agent: true) }
+            finishFailedWorkflow(error, historyID: historyID, agent: true, generation: generation)
         }
     }
 
     private func transcribe(
-        _ recording: AudioCapture.Recording, upload: Task<Void, Error>?, generation: Int
+        _ recording: AudioCapture.Recording, upload: Task<Void, Error>?,
+        realtimeSession: UUID, generation: Int
     ) async throws -> String {
         guard recording.hasSpeech else {
             throw QwenError.noSpeech
@@ -810,17 +876,18 @@ final class AppState {
             try await upload?.value
             try Task.checkCancellation()
             guard generation == workflowGeneration else { throw CancellationError() }
-            let result = try await realtimeClient.commit().trimmingCharacters(in: .whitespacesAndNewlines)
+            let result = try await realtimeClient.commit(session: realtimeSession)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
             guard !result.isEmpty else { throw QwenError.noSpeech }
             return SpeechDisfluencyCleaner.clean(result, mode: dictationCleanup)
         } catch is CancellationError {
             throw CancellationError()
-        } catch QwenError.noSpeech {
-            throw QwenError.noSpeech
         } catch {
             try Task.checkCancellation()
             guard generation == workflowGeneration else { throw CancellationError() }
-            await realtimeClient.cancel()
+            // Batch recognition only helps with transport problems; configuration errors would fail twice.
+            guard QwenError.allowsBatchFallback(after: error) else { throw error }
+            await realtimeClient.cancel(session: realtimeSession)
             let result = try await reasoningClient.transcribeAudio(
                 apiKey: apiKey,
                 configuration: configuration,
@@ -889,14 +956,13 @@ final class AppState {
             }
             updateHistory(historyID, input: command, output: output, status: .completed)
             if continuousConversation {
-                sessions.removeAll { $0.expiresAt <= .now || $0.app == snapshot.bundleID }
-                sessions.append(AgentSession(
+                sessions = AgentSession.appending(AgentSession(
                     app: snapshot.bundleID,
-                    contextSummary: context.map(\.title).joined(separator: " · "),
+                    contextSummary: QwenReasoningClient.sessionContextSummary(context: context, response: response),
                     userCommand: command,
                     response: output,
                     expiresAt: .now.addingTimeInterval(30 * 60)
-                ))
+                ), to: sessions)
             }
             if needsCopyFallback {
                 presentCopyFallback(output, agent: true, copyImmediately: automaticAgentWriteBack)
@@ -909,7 +975,7 @@ final class AppState {
                 return
             }
             withAnimation(Motion.panel) { agentPhase = .result }
-            try? await Task.sleep(for: .seconds(8))
+            try? await Task.sleep(for: Self.successDisplayDuration)
             if generation == workflowGeneration, agentPhase == .result {
                 withAnimation(Motion.snappy) { agentPhase = .hidden }
             }
@@ -917,9 +983,18 @@ final class AppState {
             updateHistory(historyID, status: .cancelled)
             if generation == workflowGeneration { agentPhase = .hidden }
         } catch {
-            updateHistory(historyID, status: .failed, errorMessage: localizedError(error))
-            if generation == workflowGeneration { handleWorkflowError(error, agent: true) }
+            finishFailedWorkflow(error, historyID: historyID, agent: true, generation: generation)
         }
+    }
+
+    /// A workflow superseded by a cancel or a new recording is recorded as cancelled, not failed.
+    private func finishFailedWorkflow(_ error: Error, historyID: UUID?, agent: Bool, generation: Int) {
+        guard generation == workflowGeneration else {
+            updateHistory(historyID, status: .cancelled)
+            return
+        }
+        updateHistory(historyID, status: .failed, errorMessage: localizedError(error))
+        handleWorkflowError(error, agent: agent)
     }
 
     private func beginHistoryEntry(mode: HistoryMode, recording: AudioCapture.Recording) -> UUID? {
@@ -979,13 +1054,17 @@ final class AppState {
         workflowTask = nil
         uploadTask?.cancel()
         uploadTask = nil
+        recordingLimitTask?.cancel()
+        recordingLimitTask = nil
         chunkContinuation?.finish()
         chunkContinuation = nil
         audioCapture.cancel()
         inputLevel = 0
-        Task { await realtimeClient.cancel() }
+        // Scoped to the old session, so it cannot close a session started after this call.
+        let realtimeSession = realtimeSessionID
+        Task { [realtimeClient] in await realtimeClient.cancel(session: realtimeSession) }
         targetSnapshot = nil
-        activeAgentSession = nil
+        activeAgentSessions = []
         pendingCopyText = ""
         pendingAnswerText = ""
         pendingAnswerStatus = nil
@@ -1004,6 +1083,8 @@ final class AppState {
     }
 
     private func handleWorkflowError(_ error: Error, agent: Bool) {
+        recordingLimitTask?.cancel()
+        recordingLimitTask = nil
         audioCapture.cancel()
         inputLevel = 0
         chunkContinuation?.finish()
@@ -1012,18 +1093,37 @@ final class AppState {
         if agent { agentPhase = .hidden } else { dictationPhase = .idle }
         targetSnapshot = nil
         let message = localizedError(error)
-        showOverlayFeedback(message, symbol: (error as? QwenError) == .noSpeech ? "waveform.slash" : "exclamationmark")
-        if (error as? QwenError) != .noSpeech {
+        if (error as? QwenError) == .noSpeech {
+            showOverlayFeedback(message, symbol: "waveform.slash")
+            return
+        }
+        // The overlay is the only surface visible from other apps; the toast only helps inside SayKuku.
+        showOverlayFeedback(message, symbol: "exclamationmark", duration: .seconds(4))
+        if Self.needsSettings(error) {
+            showMainWindow(destination: .settings)
+            showToast(message, symbol: "exclamationmark.triangle.fill")
+        } else if NSApplication.shared.isActive {
             showToast(message, symbol: "exclamationmark.triangle.fill")
         }
     }
 
-    private func showOverlayFeedback(_ message: String, symbol: String) {
+    private static func needsSettings(_ error: Error) -> Bool {
+        guard let qwenError = error as? QwenError else { return false }
+        switch qwenError {
+        case .missingConfiguration, .invalidEndpoint: return true
+        case .server(let status, _): return [400, 401, 403].contains(status)
+        default: return false
+        }
+    }
+
+    private func showOverlayFeedback(_ message: String, symbol: String, duration: Duration = .seconds(2.4)) {
+        overlayFeedbackGeneration += 1
+        let generation = overlayFeedbackGeneration
         overlayErrorSymbol = symbol
         overlayError = message
         Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .seconds(2.4))
-            guard self?.overlayError == message else { return }
+            try? await Task.sleep(for: duration)
+            guard self?.overlayFeedbackGeneration == generation else { return }
             withAnimation(Motion.snappy) { self?.overlayError = nil }
         }
     }
@@ -1109,6 +1209,8 @@ final class AppState {
                 return text("Qwen 连接中断，请重试", "The Qwen connection was interrupted. Try again")
             case .timeout:
                 return text("等待 Qwen 响应超时，请重试", "Qwen took too long to respond. Try again")
+            case .recordingTooLong:
+                return text("录音太长了，请分几段说", "That recording is too long. Try shorter parts")
             }
         }
         if error is AudioCaptureError {
@@ -1136,12 +1238,26 @@ final class AppState {
             showToast(text("本地数据无法读取，未保存新更改", "Local data could not be read; new changes were not saved"), symbol: "exclamationmark.triangle.fill")
             return
         }
-        historyEntries = snapshot.history.sorted { $0.createdAt > $1.createdAt }
+        historyEntries = Self.recoveringInterruptedHistory(
+            snapshot.history,
+            message: text("上次处理被中断", "Processing was interrupted")
+        ).sorted { $0.createdAt > $1.createdAt }
         knowledgeEntities = snapshot.entities
         knowledgeRelationships = snapshot.relationships
         corrections = snapshot.corrections
         sessions = snapshot.sessions.filter { $0.expiresAt > .now }
         cleanExpiredHistory()
+    }
+
+    /// Entries still processing at launch were cut off by a quit or crash; keep their audio so they can be retried.
+    nonisolated static func recoveringInterruptedHistory(_ entries: [HistoryEntry], message: String) -> [HistoryEntry] {
+        entries.map { entry in
+            guard entry.status == .processing else { return entry }
+            var recovered = entry
+            recovered.status = .failed
+            recovered.errorMessage = message
+            return recovered
+        }
     }
 
     private func cleanExpiredHistory() {
@@ -1265,4 +1381,8 @@ enum AppLanguage: String, CaseIterable, Identifiable {
     }
 }
 
-struct ToastMessage: Equatable { let text: String; let symbol: String }
+struct ToastMessage: Equatable, Identifiable {
+    let id = UUID()
+    let text: String
+    let symbol: String
+}
