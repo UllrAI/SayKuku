@@ -40,11 +40,11 @@ App 图标不放文字，使用珊瑚红圆角底板与暖白 Lucide Bird 线稿
 
 ## 0. 当前实现进度与界面基线
 
-> 最后更新：2026-09-24。`✅ 已完成` 表示已经进入当前可运行 App；`🟡 部分完成` 表示已有可用实现，但仍有明确范围尚未完成；`⬜ 待实现` 表示尚未开始生产实现；`⏸ 后续版本` 表示不进入 MVP。
+> 最后更新：2026-09-25。`✅ 已完成` 表示已经进入当前可运行 App；`🟡 部分完成` 表示已有可用实现，但仍有明确范围尚未完成；`⬜ 待实现` 表示尚未开始生产实现；`⏸ 后续版本` 表示不进入 MVP。
 
 | 模块 | 状态 | 当前已经完成 | 下一步 |
 | --- | --- | --- | --- |
-| 原生 App 外壳与统一设计系统 | ✅ 已完成 | SwiftUI 原生窗口、固定侧栏、统一页面宽度、标题、Tab、卡片、间距、圆角与阴影 | 持续做逐页视觉回归 |
+| 原生 App 外壳与统一设计系统 | 🟡 部分完成 | SwiftUI 原生窗口、固定侧栏、统一页面宽度；设计 token（颜色、间距、字号、图标、阴影、描边、动效）与共享组件已落在 `Theme.swift` / `DesignSystem.swift` | 逐页替换为新 token 与组件，清零弃用别名 |
 | App 图标与打包 | ✅ 已完成 | Lucide Bird 品牌母形、ICNS、菜单栏 template 资源、固定 Bundle ID、开发/正式身份隔离，以及强制 Developer ID 的 Release 签名脚本 | 每次正式分发按发布文档完成公证、装订和最终 ZIP |
 | 菜单栏常驻入口 | ✅ 已完成 | 18 × 18 pt template 画布内放置约 15 × 13.5 pt Lucide Bird，使用原生 template 渲染自动适配明暗与按下态；包含 Voice Input、Voice Agent、显示主窗口、设置、状态与退出菜单；可选在关闭主窗口后隐藏 Dock 图标，从菜单栏重开时恢复 | 后续增加连接延迟与录音态图标 |
 | 全局快捷键 | ✅ 已完成 | 默认 `⌃⌥⌘V` Voice Input、`⌃⌥⌘A` Voice Agent，可在设置中录制或关闭；通过 Carbon 注册且不需要任何隐私权限，注册失败时提示冲突 | — |
@@ -62,20 +62,24 @@ App 图标不放文字，使用珊瑚红圆角底板与暖白 Lucide Bird 线稿
 
 ### 0.1 桌面端视觉与布局标准
 
-当前所有一级页面使用同一套布局，不允许各页面自行定义内容宽度或第二套 Tab：
+视觉语言：安静、克制、原生。中性色承载层级，珊瑚红（coral）是唯一强调色，只用于品牌、每个视图唯一的主操作、选中指示、焦点环和“正在录音”等进行中的关键状态；成功、警告、错误色只表达状态；分类（知识类型、导入状态、历史模式）一律用中性图标加文字徽标区分。不用渐变，不用彩色阴影。
+
+所有数值以代码为准：`Sources/SayKuku/Theme.swift` 定义 token（`KukuColor`、`KukuSpacing`、`KukuLayout`、`KukuTextStyle` / `Font.kuku`、`KukuIconSize`、`KukuShadow`、`KukuBorder`、`Motion`），`Sources/SayKuku/DesignSystem.swift` 提供共享组件（`KukuButtonStyle`、`KukuGroup`、`KukuRow`、`KukuBadge`、`KukuStatusLabel`、`KukuSearchField`、`KukuTextField`、`KukuEmptyState`、`KukuSheetHeader` / `KukuSheetFooter`、`KukuToast` 等）。页面不直接写颜色、字号、间距与圆角字面量。
 
 ```text
 默认窗口             1000 × 660 pt
 最小窗口              860 × 580 pt
 侧栏宽度              176 pt
 右侧内容最大宽度      760 pt
-页面水平边距           28 pt
-控件圆角               8 pt
-卡片圆角              12 pt
-主卡片 / 浮层圆角      16 pt
+页面水平边距           24 pt
+间距刻度              2 / 4 / 6 / 8 / 12 / 16 / 20 / 24 / 32 pt
+字号刻度              22 / 18 / 15 / 13 / 12 / 11 / 10 pt（无半号，仅标题用 rounded）
+圆角                  控件 8 / 卡片 12 / 主卡片与浮层 16，胶囊用于 pill、徽标、chip
+阴影                  raised / card / floating 三档，全部中性
+描边                  1 pt 发丝线，焦点环 1.5 pt
 ```
 
-右侧内容始终从同一条左侧基线开始；超宽窗口只在右侧留下弹性空间，不把内容居中漂移。所有二级导航统一使用顶部水平 `KukuPageTabs`：
+右侧内容始终从同一条左侧基线开始；超宽窗口只在右侧留下弹性空间，不把内容居中漂移。一级页面结构统一为 `ScreenHeader` → `KukuPageTabs`（如有）→ 分隔线 → `KukuPageScroll`。所有二级导航统一使用顶部水平 `KukuPageTabs`：
 
 ```text
 History    All / Voice Input / Voice Agent
@@ -84,7 +88,7 @@ Memory     Corrections / Short-term / Long-term
 Settings   General / Voice Input / Voice Agent / History / Privacy / Qwen Connection
 ```
 
-Knowledge 与 Memory 是一级侧栏页面，不再重复出现在 Settings 内。设置卡片中的每一行必须撑满卡片宽度并左对齐；只有明确的右侧值、Picker 或 Toggle 才使用尾部对齐。
+Knowledge 与 Memory 是一级侧栏页面，不再重复出现在 Settings 内。设置分组使用 `KukuGroup`，每一行使用 `KukuRow` 撑满卡片宽度并左对齐；只有明确的右侧值、Picker 或 Toggle 才使用尾部对齐。每个页头、sheet 底栏或卡片最多一个主按钮，列表行内的操作一律使用次按钮。
 
 ### 0.2 权限引导与输入测试标准
 
