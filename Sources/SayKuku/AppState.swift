@@ -138,6 +138,8 @@ final class AppState {
         // Covers every close path (buttons, Esc, dismiss()) without relying on sheet onDismiss.
         didSet { if presentedSheet == nil, oldValue != nil { presentNextSetupStep() } }
     }
+    /// Where the sheet on screen sits in the first-run flow; nil outside that flow.
+    private(set) var setupProgress: SetupProgress?
     private(set) var showInMenuBar = true { didSet { defaults.set(showInMenuBar, forKey: Keys.showInMenuBar) } }
     var hideDockIconAfterMainWindowCloses = false {
         didSet {
@@ -656,17 +658,23 @@ final class AppState {
 
     /// Walks the remaining first-run steps after a sheet closes.
     private func presentNextSetupStep() {
-        guard !pendingSetupSteps.isEmpty else { return }
+        guard !pendingSetupSteps.isEmpty else {
+            setupProgress = nil
+            return
+        }
         Task { @MainActor [weak self] in
             try? await Task.sleep(for: .milliseconds(350))
             guard let self, self.presentedSheet == nil else { return }
             while !self.pendingSetupSteps.isEmpty {
                 let step = self.pendingSetupSteps.removeFirst()
                 if self.isSetupStepNeeded(step) {
+                    let number = (self.setupProgress?.step ?? 0) + 1
+                    self.setupProgress = SetupProgress(step: number, total: max(self.setupProgress?.total ?? number, number))
                     self.presentedSheet = step
                     return
                 }
             }
+            self.setupProgress = nil
         }
     }
 
@@ -1500,19 +1508,36 @@ final class AppState {
     }
 
     private func presentStartupExperienceIfNeeded() {
-        if didCompleteOnboarding { presentPermissionGuideIfNeeded() }
-        else { presentedSheet = .onboarding }
+        if didCompleteOnboarding {
+            presentPermissionGuideIfNeeded()
+        } else {
+            let laterSteps = [AppSheet.permissions, .qwenSetup].filter { isSetupStepNeeded($0) }
+            setupProgress = SetupProgress(step: 1, total: 1 + laterSteps.count)
+            presentedSheet = .onboarding
+        }
     }
+
+    nonisolated static let maxDomainTerms = 20
+    nonisolated static let maxDomainTermLength = 64
 
     nonisolated static func normalizedDomainTerms(_ terms: [String]) -> [String] {
         var seen = Set<String>()
         return terms.compactMap { term in
             let value = term.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !value.isEmpty, value.count <= 64 else { return nil }
+            guard !value.isEmpty, value.count <= maxDomainTermLength else { return nil }
             let key = value.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
             guard seen.insert(key).inserted else { return nil }
             return value
-        }.prefix(20).map { $0 }
+        }.prefix(maxDomainTerms).map { $0 }
+    }
+}
+
+struct SetupProgress: Equatable {
+    let step: Int
+    let total: Int
+
+    @MainActor func title(_ appState: AppState) -> String {
+        appState.text("第 \(step) 步，共 \(total) 步", "Step \(step) of \(total)")
     }
 }
 

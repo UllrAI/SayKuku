@@ -5,43 +5,18 @@ struct PermissionGuideView: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
+        let allGranted = appState.systemPermissions.allRequiredPermissionsGranted
         VStack(spacing: 0) {
-            HStack(alignment: .top, spacing: 14) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 13, style: .continuous)
-                        .fill(KukuColor.coralSoft)
-                    BrandMark(size: 25)
-                }
-                .frame(width: 48, height: 48)
-
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(appState.text("准备好，说一句就开始", "Get ready to speak"))
-                        .font(.system(size: 22, weight: .semibold, design: .rounded))
-                    Text(appState.text(
-                        "SayKuku 需要麦克风来听你说话，并使用辅助功能把文字写入当前应用。",
-                        "SayKuku uses the microphone to hear you and Accessibility to type into the current app."
-                    ))
-                    .font(.system(size: 11.5))
-                    .foregroundStyle(KukuColor.stone)
-                    .fixedSize(horizontal: false, vertical: true)
-                }
-
-                Spacer(minLength: 16)
-
-                Button {
-                    close()
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 10, weight: .bold))
-                        .frame(width: 26, height: 26)
-                        .background(KukuColor.shade.opacity(0.055), in: Circle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(appState.text("关闭", "Close"))
+            KukuSheetHeader(
+                eyebrow: appState.setupProgress?.title(appState),
+                title: appState.text("开启两项权限，就能开口输入", "Two Permissions and You’re Ready to Talk"),
+                description: appState.text(
+                    "SayKuku 需要麦克风来听你说话，还需要辅助功能把文字写入输入框。",
+                    "SayKuku needs the microphone to hear you and Accessibility to type into text fields."
+                )
+            ) {
+                BrandMark(size: 25)
             }
-            .padding(.horizontal, 24)
-            .padding(.top, 22)
-            .padding(.bottom, 18)
 
             Divider().opacity(0.5)
 
@@ -68,29 +43,29 @@ struct PermissionGuideView: View {
             Divider().opacity(0.5)
 
             HStack(spacing: 10) {
-                Text(appState.text("权限可随时在设置中重新检查。", "You can recheck permissions anytime in Settings."))
+                Text(appState.text("可随时在“设置 › 通用”中重新检查权限。", "You can recheck permissions anytime in Settings › General."))
                     .font(.system(size: 10.5))
                     .foregroundStyle(KukuColor.stone)
                 Spacer()
-                Button(appState.text("稍后", "Later")) {
-                    close()
-                }
-                .buttonStyle(HoverFillButtonStyle())
-                Button(appState.systemPermissions.allRequiredPermissionsGranted
-                       ? appState.text("开始使用", "Start using")
-                       : appState.text("重新检查", "Recheck")) {
-                    if appState.systemPermissions.allRequiredPermissionsGranted {
-                        close()
-                    } else {
+                if allGranted {
+                    Button(appState.text("完成", "Done"), action: close)
+                        .buttonStyle(HoverFillButtonStyle(prominent: true))
+                        .keyboardShortcut(.defaultAction)
+                } else {
+                    Button(appState.text("以后再说", "Not Now"), action: close)
+                        .buttonStyle(HoverFillButtonStyle())
+                        .keyboardShortcut(.cancelAction)
+                    Button(appState.text("重新检查", "Recheck")) {
                         appState.refreshSystemPermissions()
                     }
+                    .buttonStyle(HoverFillButtonStyle(prominent: true))
+                    .keyboardShortcut(.defaultAction)
                 }
-                .buttonStyle(HoverFillButtonStyle(prominent: true))
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 14)
         }
-        .frame(width: 620, height: 590)
+        .frame(width: 640, height: 540)
         .background(KukuColor.canvas)
         .task { appState.refreshSystemPermissions() }
         .onDisappear { appState.microphoneTest.stop() }
@@ -116,7 +91,7 @@ struct PermissionActionRow: View {
                 .frame(width: 34, height: 34)
                 .background(
                     (status.isAuthorized ? KukuColor.mint : KukuColor.coral).opacity(0.09),
-                    in: RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    in: RoundedRectangle(cornerRadius: KukuLayout.radiusSmall, style: .continuous)
                 )
 
             VStack(alignment: .leading, spacing: 3) {
@@ -133,12 +108,8 @@ struct PermissionActionRow: View {
 
             Spacer(minLength: 14)
 
-            if status.isAuthorized {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 16))
-                    .foregroundStyle(KukuColor.mint)
-                    .accessibilityLabel(appState.text("已开启", "Enabled"))
-            } else {
+            // The badge already says it's on, so a granted row needs no trailing control.
+            if !status.isAuthorized {
                 Button(buttonTitle(for: status)) {
                     Task { await appState.requestPermission(kind) }
                 }
@@ -167,9 +138,12 @@ struct PermissionActionRow: View {
     private var subtitle: String {
         switch kind {
         case .microphone:
-            appState.text("仅在开始语音输入、语音 Agent 或输入测试时访问", "Used only for Voice Input, Voice Agent, or the input test")
+            appState.text("仅在语音输入、语音 Agent 和麦克风测试时使用", "Used only for Voice Input, Voice Agent, and the microphone test")
         case .accessibility:
-            appState.text("识别 Fn 手势和取消键，并把文字写入当前输入框；不会记录或上传你输入的其他内容", "Detects Fn gestures and the cancel key, and types into the current field; nothing else you type is recorded or uploaded")
+            appState.text(
+                "用来识别 Fn 手势、把文字写入输入框并核对结果，使用语音 Agent 时也会读取选中文字。SayKuku 不会记录你的按键。",
+                "Lets SayKuku detect Fn, type into text fields and check the result, and read selected text when you use Voice Agent. SayKuku never logs your keystrokes."
+            )
         }
     }
 
@@ -184,10 +158,10 @@ struct PermissionActionRow: View {
             return appState.text("开启", "Enable")
         case .denied, .restricted:
             return kind == .microphone
-                ? appState.text("打开设置", "Open Settings")
+                ? appState.text("打开系统设置", "Open System Settings")
                 : appState.text("开启", "Enable")
         case .authorized:
-            return appState.text("已开启", "Enabled")
+            return appState.text("已开启", "On")
         }
     }
 }
@@ -198,8 +172,8 @@ struct PermissionStatusBadge: View {
 
     var body: some View {
         Text(title)
-            .font(.system(size: 9.5, weight: .semibold))
-            .foregroundStyle(status.isAuthorized ? KukuColor.mint : KukuColor.stone)
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundStyle(status.isAuthorized ? KukuColor.mintText : KukuColor.stone)
             .padding(.horizontal, 7)
             .frame(height: 20)
             .background(
@@ -210,10 +184,9 @@ struct PermissionStatusBadge: View {
 
     private var title: String {
         switch status {
-        case .notDetermined: appState.text("未请求", "Not requested")
-        case .denied: appState.text("未开启", "Not enabled")
+        case .notDetermined, .denied: appState.text("未开启", "Off")
         case .restricted: appState.text("受限制", "Restricted")
-        case .authorized: appState.text("已开启", "Enabled")
+        case .authorized: appState.text("已开启", "On")
         }
     }
 }
@@ -238,22 +211,22 @@ struct MicrophoneTestPanel: View {
                     .frame(width: 7, height: 7)
                 Text(testStatus)
                     .font(.system(size: 10.5, weight: .medium))
-                    .foregroundStyle(test.isRunning ? KukuColor.mint : KukuColor.stone)
+                    .foregroundStyle(test.isRunning ? KukuColor.mintText : KukuColor.stone)
             }
 
             AudioLevelMeter(level: test.level)
 
             HStack(spacing: 10) {
                 Label(
-                    appState.text("只检测音量，不保存、不上传、不回放", "Level only; never saved, uploaded, or played back"),
+                    appState.text("只检测音量，不会保存、上传或回放", "Checks the level only. Nothing is saved, uploaded, or played back."),
                     systemImage: "lock.fill"
                 )
-                .font(.system(size: 9.5, weight: .medium))
+                .font(.system(size: 10.5, weight: .medium))
                 .foregroundStyle(KukuColor.stone)
 
                 Spacer()
 
-                Button(test.isRunning ? appState.text("停止测试", "Stop test") : startButtonTitle) {
+                Button(test.isRunning ? appState.text("停止测试", "Stop Test") : startButtonTitle) {
                     if test.isRunning {
                         test.stop()
                     } else {
@@ -286,8 +259,8 @@ struct MicrophoneTestPanel: View {
 
     private var startButtonTitle: String {
         appState.systemPermissions.microphoneStatus.isAuthorized
-            ? appState.text("开始测试", "Start test")
-            : appState.text("开启并测试", "Enable & test")
+            ? appState.text("开始测试", "Start Test")
+            : appState.text("开启并测试", "Enable & Test")
     }
 
     private var testStatus: String {
@@ -303,9 +276,9 @@ struct MicrophoneTestPanel: View {
         case .failed(.permissionRequired):
             return appState.text("需要麦克风权限", "Microphone permission required")
         case .failed(.noInputDevice):
-            return appState.text("未找到输入设备", "No input device")
+            return appState.text("未找到输入设备", "No input device found")
         case .failed(.couldNotStart):
-            return appState.text("无法启动", "Could not start")
+            return appState.text("无法启动", "Couldn’t start")
         }
     }
 }
