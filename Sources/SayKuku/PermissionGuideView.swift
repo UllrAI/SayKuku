@@ -18,8 +18,8 @@ struct PermissionGuideView: View {
                     Text(appState.text("准备好，说一句就开始", "Get ready to speak"))
                         .font(.system(size: 22, weight: .semibold, design: .rounded))
                     Text(appState.text(
-                        "SayKuku 需要麦克风来听见你，也需要辅助功能来响应 Fn 并把结果写回当前 App。",
-                        "SayKuku needs the microphone to hear you and Accessibility to respond to Fn and write results back."
+                        "SayKuku 需要麦克风来听你说话，并使用辅助功能把文字写入当前应用。",
+                        "SayKuku uses the microphone to hear you and Accessibility to type into the current app."
                     ))
                     .font(.system(size: 11.5))
                     .foregroundStyle(KukuColor.stone)
@@ -169,7 +169,7 @@ struct PermissionActionRow: View {
         case .microphone:
             appState.text("仅在开始语音输入、语音 Agent 或输入测试时访问", "Used only for Voice Input, Voice Agent, or the input test")
         case .accessibility:
-            appState.text("用于 Fn 手势与向当前输入框写回文字；不申请输入监控", "Used for Fn gestures and writing text at the caret; Input Monitoring is not requested")
+            appState.text("用于响应 Fn，并把文字写入当前输入框；不会读取其他键盘输入", "Used for Fn and typing into the current field; other keystrokes are not read")
         }
     }
 
@@ -226,7 +226,7 @@ struct MicrophoneTestPanel: View {
         VStack(alignment: .leading, spacing: 13) {
             HStack(spacing: 10) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(appState.text("输入电平", "Input level"))
+                    Text(appState.text("麦克风音量", "Microphone level"))
                         .font(.system(size: 12.5, weight: .semibold))
                     Text(deviceSubtitle)
                         .font(.system(size: 10.5))

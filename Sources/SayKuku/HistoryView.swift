@@ -16,7 +16,7 @@ struct HistoryView: View {
 
         VStack(spacing: 0) {
             ScreenHeader(
-                eyebrow: "History",
+                eyebrow: appState.text("历史", "History"),
                 title: appState.text("最近说过，也随时找得到", "Everything you said, easy to find"),
                 subtitle: appState.text(
                     "保留 \(appState.historyRetention.chineseTitle)，星标内容不会自动清理",
@@ -34,21 +34,34 @@ struct HistoryView: View {
 
             ScrollView {
                 KukuPageContent {
-                    LazyVStack(spacing: 0) {
-                        ForEach(Array(filteredIndices.enumerated()), id: \.element) { offset, index in
-                            if offset == 0 || dayLabel(for: index) != dayLabel(for: filteredIndices[offset - 1]) {
-                                Text(dayLabel(for: index))
-                                    .font(.system(size: 10, weight: .bold, design: .rounded))
-                                    .tracking(0.45)
-                                    .foregroundStyle(KukuColor.stone)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .padding(.top, offset == 0 ? 20 : 26)
-                                    .padding(.bottom, 7)
-                            }
+                    if filteredIndices.isEmpty {
+                        ContentUnavailableView(
+                            appState.historyEntries.isEmpty
+                                ? appState.text("还没有输入记录", "No voice history yet")
+                                : appState.text("这个分类还没有记录", "No history in this category"),
+                            systemImage: "waveform",
+                            description: Text(appState.historyEntries.isEmpty
+                                ? appState.text("用 Fn 开始语音输入，记录会显示在这里。", "Use Fn to start voice input. Your history will appear here.")
+                                : appState.text("切换到“全部”查看其他记录。", "Choose All to see your other history."))
+                        )
+                        .frame(maxWidth: .infinity, minHeight: 180)
+                    } else {
+                        LazyVStack(spacing: 0) {
+                            ForEach(Array(filteredIndices.enumerated()), id: \.element) { offset, index in
+                                if offset == 0 || dayLabel(for: index) != dayLabel(for: filteredIndices[offset - 1]) {
+                                    Text(dayLabel(for: index))
+                                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                                        .tracking(0.45)
+                                        .foregroundStyle(KukuColor.stone)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .padding(.top, offset == 0 ? 20 : 26)
+                                        .padding(.bottom, 7)
+                                }
 
-                            HistoryRow(entry: $appState.historyEntries[index])
-                                .id(appState.historyEntries[index].id)
-                            Divider().padding(.leading, 58).opacity(0.45)
+                                HistoryRow(entry: $appState.historyEntries[index])
+                                    .id(appState.historyEntries[index].id)
+                                Divider().padding(.leading, 58).opacity(0.45)
+                            }
                         }
                     }
                 }
@@ -98,8 +111,8 @@ private struct HistoryRow: View {
                 .foregroundStyle(KukuColor.stone)
 
                 VStack(alignment: .leading, spacing: 6) {
-                    historyLine(label: appState.text("输入", "Input")) { inputContent }
-                    historyLine(label: appState.text("输出", "Output")) { outputContent }
+                    historyLine(label: appState.text("你说的", "Spoken")) { inputContent }
+                    historyLine(label: appState.text("结果", "Result")) { outputContent }
                 }
             }
 
@@ -148,14 +161,14 @@ private struct HistoryRow: View {
                     .background(KukuColor.stone.opacity(0.09), in: Capsule())
                 }
                 .buttonStyle(PressScaleStyle())
-                .help(appState.text("播放原始语音", "Play original voice"))
+                .help(appState.text("播放录音", "Play recording"))
             } else {
                 Image(systemName: entry.status == .processing && appState.storeVoiceAudio ? "ellipsis" : "waveform.slash")
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(KukuColor.stone)
                 Text(entry.status == .processing && appState.storeVoiceAudio
                      ? appState.text("正在保存录音…", "Saving voice…")
-                     : appState.text("未保存原始语音", "Original voice not saved"))
+                     : appState.text("未保存录音", "Recording not saved"))
                     .font(.system(size: 11))
                     .foregroundStyle(KukuColor.stone)
             }
@@ -272,7 +285,7 @@ private struct HistoryRow: View {
                 player = nil
                 withAnimation(Motion.snappy) { isPlaying = false }
             } catch {
-                appState.showToast(error.localizedDescription, symbol: "exclamationmark.triangle.fill")
+                appState.showToast(appState.localizedError(error), symbol: "exclamationmark.triangle.fill")
             }
         }
     }

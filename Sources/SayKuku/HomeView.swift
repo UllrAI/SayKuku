@@ -230,8 +230,8 @@ struct AgentPill: View {
                             .frame(width: 16, height: 22)
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel(appState.text("查看本次上下文", "Show context"))
-                    .help(appState.text("查看本次上下文", "Show context"))
+                    .accessibilityLabel(appState.text("查看本次会使用的内容", "Show what will be used"))
+                    .help(appState.text("查看本次会使用的内容", "Show what will be used"))
                     .popover(isPresented: $showingContext, arrowEdge: .bottom) {
                         AgentContextPopover()
                     }
@@ -327,7 +327,7 @@ private struct AgentContextPopover: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(appState.text("本次使用的上下文", "Context used this time"))
+            Text(appState.text("本次会使用的内容", "Used this time"))
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(KukuColor.stone)
 
@@ -336,10 +336,7 @@ private struct AgentContextPopover: View {
                     Image(systemName: item.symbol)
                         .foregroundStyle(KukuColor.coral)
                         .frame(width: 16)
-                    Text(item.title.replacingOccurrences(
-                        of: "28 字",
-                        with: appState.text("28 字", "28 chars")
-                    ))
+                    Text(item.title)
                     .font(.system(size: 12, weight: .medium))
                     Spacer()
                     if appState.agentPhase == .listening {
@@ -351,7 +348,7 @@ private struct AgentContextPopover: View {
                                 .foregroundStyle(KukuColor.stone)
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel(appState.text("移除此上下文", "Remove this context"))
+                        .accessibilityLabel(appState.text("移除 \(item.title)", "Remove \(item.title)"))
                     }
                 }
             }

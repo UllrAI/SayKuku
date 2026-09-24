@@ -470,7 +470,7 @@ final class AppState {
             connectionState = .connected(milliseconds: Int(latency * 1_000))
         } catch {
             await realtimeClient.cancel()
-            connectionState = .failed(error.localizedDescription)
+            connectionState = .failed(localizedError(error))
         }
     }
 
@@ -516,7 +516,8 @@ final class AppState {
                 )
             ).trimmingCharacters(in: .whitespacesAndNewlines)
             guard !result.isEmpty else { throw QwenError.noSpeech }
-            updateHistory(id, input: result, output: result, status: .completed)
+            let cleaned = SpeechDisfluencyCleaner.clean(result, mode: dictationCleanup)
+            updateHistory(id, input: cleaned, output: cleaned, status: .completed)
             showToast(text("识别成功，可从历史复制", "Transcribed; copy it from History"), symbol: "checkmark")
         } catch {
             updateHistory(id, status: .failed, errorMessage: localizedError(error))
@@ -594,7 +595,7 @@ final class AppState {
         }
         guard !apiKey.isEmpty else {
             destination = .settings
-            showToast(text("请先在 Qwen & API 中保存 API Key", "Save your API Key in Qwen & API first"), symbol: "key.fill")
+            showToast(text("请先在 Qwen 连接中保存 API Key", "Save your API Key in Qwen connection first"), symbol: "key.fill")
             return
         }
         do {
@@ -620,7 +621,8 @@ final class AppState {
                     session: session,
                     domains: selectedDomains,
                     customDomainTerms: customDomainTerms,
-                    knowledge: knowledgeEntities
+                    knowledge: knowledgeEntities,
+                    isChineseUI: usesChineseUI
                 )
                 if let lastVerifiedWrite, lastVerifiedWrite.isRecent,
                    let expected = lastVerifiedWrite.expectedValue,
@@ -776,8 +778,9 @@ final class AppState {
             )
             try Task.checkCancellation()
             guard generation == workflowGeneration else { throw CancellationError() }
-            guard let command = response.transcript?.trimmingCharacters(in: .whitespacesAndNewlines),
-                  !command.isEmpty else { throw QwenError.invalidResponse }
+            guard let transcript = response.transcript?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !transcript.isEmpty else { throw QwenError.invalidResponse }
+            let command = SpeechDisfluencyCleaner.clean(transcript, mode: .light)
             guard let snapshot else { throw TextInteractionError.targetChanged }
             updateHistory(historyID, input: command)
             agentCommand = response.intent
@@ -809,7 +812,7 @@ final class AppState {
             guard generation == workflowGeneration else { throw CancellationError() }
             let result = try await realtimeClient.commit().trimmingCharacters(in: .whitespacesAndNewlines)
             guard !result.isEmpty else { throw QwenError.noSpeech }
-            return result
+            return SpeechDisfluencyCleaner.clean(result, mode: dictationCleanup)
         } catch is CancellationError {
             throw CancellationError()
         } catch QwenError.noSpeech {
@@ -835,7 +838,7 @@ final class AppState {
             )
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             guard !result.isEmpty else { throw QwenError.noSpeech }
-            return result
+            return SpeechDisfluencyCleaner.clean(result, mode: dictationCleanup)
         }
     }
 
@@ -849,7 +852,10 @@ final class AppState {
             let output: String
             var needsCopyFallback = false
             if response.action == .writeText {
-                guard let text = response.output, !text.isEmpty else { throw QwenError.invalidResponse }
+                guard let generated = response.output, !generated.isEmpty else { throw QwenError.invalidResponse }
+                let text = response.target != .previous && !context.contains(where: { $0.kind == .selectedText })
+                    ? SpeechDisfluencyCleaner.clean(generated, mode: .light)
+                    : generated
                 if automaticAgentWriteBack {
                     do {
                         let writeTarget: TextTargetSnapshot
@@ -1063,10 +1069,7 @@ final class AppState {
         )
     }
 
-    private func localizedError(_ error: Error) -> String {
-        if let qwenError = error as? QwenError, qwenError == .noSpeech {
-            return text("没有听清，请重试", "Didn't catch that. Try again")
-        }
+    func localizedError(_ error: Error) -> String {
         if let textError = error as? TextInteractionError {
             switch textError {
             case .accessibilityRequired:
@@ -1081,11 +1084,46 @@ final class AppState {
                 return text("目标应用未接受文字，内容已复制", "The target app did not accept the text; it was copied")
             }
         }
-        let message = error.localizedDescription
-        if usesChineseUI {
-            if error is QwenError { return "Qwen 请求失败：\(message)" }
+        if let qwenError = error as? QwenError {
+            switch qwenError {
+            case .missingConfiguration:
+                return text("请先填写 Qwen API Key", "Enter your Qwen API Key first")
+            case .invalidEndpoint:
+                return text("Qwen 连接设置有误，请检查地域和业务空间 ID", "Check your Qwen region and workspace ID")
+            case .invalidResponse:
+                return text("未获得可用结果，请重试", "No usable result was returned. Try again")
+            case .noSpeech:
+                return text("没有听清，请重试", "Didn't catch that. Try again")
+            case .server(let status, _):
+                if status == 401 || status == 403 {
+                    return text("API Key 无效或没有权限，请检查 Qwen 设置", "Check your Qwen API Key and access")
+                }
+                if status == 429 {
+                    return text("请求太频繁，请稍后重试", "Too many requests. Try again shortly")
+                }
+                if status == 400 {
+                    return text("请求设置有误，请检查 Qwen 模型和业务空间 ID", "Check your Qwen model and workspace ID")
+                }
+                return text("Qwen 暂时无法处理请求，请重试", "Qwen could not process the request. Try again")
+            case .protocolError:
+                return text("Qwen 连接中断，请重试", "The Qwen connection was interrupted. Try again")
+            case .timeout:
+                return text("等待 Qwen 响应超时，请重试", "Qwen took too long to respond. Try again")
+            }
         }
-        return message
+        if error is AudioCaptureError {
+            return text("无法使用麦克风，请检查设备和权限", "Could not use the microphone. Check the device and permission")
+        }
+        if error is LocalStoreError {
+            return text("无法读取本机记录，请重启 SayKuku 后重试", "Could not read local history. Restart SayKuku and try again")
+        }
+        if error is SecureStorageError {
+            return text("无法保存 API Key，请检查这台 Mac 的钥匙串", "Could not save the API Key. Check this Mac's Keychain")
+        }
+        if error is URLError {
+            return text("网络连接失败，请检查网络后重试", "Could not connect. Check your network and try again")
+        }
+        return text("操作失败，请重试", "Something went wrong. Try again")
     }
 
     private func loadStoredData() async {

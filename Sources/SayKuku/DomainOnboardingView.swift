@@ -153,7 +153,7 @@ struct DomainOnboardingView: View {
 
     private var privacyNote: some View {
         Label(
-            appState.text("标签和词汇会随识别请求发送给模型；不会上传其他行业资料。", "Labels and terms are sent with recognition requests; no other industry material is uploaded."),
+            appState.text("选中的领域和词汇会随语音请求发送给 Qwen。", "Your selected domains and terms are sent to Qwen with voice requests."),
             systemImage: "lock.fill"
         )
         .font(.system(size: 10.5, weight: .medium))

@@ -431,6 +431,17 @@ struct QwenRequestContractTests {
         #expect(prompt.contains("quoted passages exactly"))
     }
 
+    @Test("light cleanup removes accidental repeats and formats Chinese punctuation")
+    func finalSpeechCleanup() {
+        let source = "我们今天讲这个这个新版本的好不好?"
+        #expect(SpeechDisfluencyCleaner.clean(source, mode: .light) == "我们今天讲这个新版本的好不好？")
+        #expect(SpeechDisfluencyCleaner.clean("我我觉得，然后，然后再提交.", mode: .light) == "我觉得，然后再提交。")
+        #expect(SpeechDisfluencyCleaner.clean("他说“这个这个”，再写 `我我`。", mode: .light) == "他说“这个这个”，再写 `我我`。")
+        #expect(SpeechDisfluencyCleaner.clean("那个方案，然后提交。", mode: .light) == "那个方案，然后提交。")
+        #expect(SpeechDisfluencyCleaner.clean("Is it okay? 版本 3.14", mode: .light) == "Is it okay? 版本 3.14")
+        #expect(SpeechDisfluencyCleaner.clean(source, mode: .verbatim) == "我们今天讲这个这个新版本的好不好？")
+    }
+
     @Test("dictation preferences change only their prompt instructions")
     func dictationPreferences() {
         let prompt = QwenRealtimeClient.makeDictationInstructions(
@@ -452,6 +463,8 @@ struct QwenRequestContractTests {
 
     @Test("agent response carries the transcript and action in one result")
     func agentResponse() throws {
+        #expect(QwenReasoningClient.agentInstructions.contains("这个这个新版本"))
+        #expect(QwenReasoningClient.agentInstructions.contains("Chinese sentences use"))
         let json = #"{"transcript":"打开官网","action":"openURL","intent":"打开官网","output":null,"url":"https://example.com","query":null,"shortcutName":null}"#
         let response = try JSONDecoder().decode(AgentResponse.self, from: Data(json.utf8))
         #expect(response.transcript == "打开官网")
