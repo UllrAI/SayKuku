@@ -1222,7 +1222,7 @@ General | Voice Input | Voice Agent | History | Privacy | Qwen connection
 
 Knowledge 与 Memory 保持为一级侧栏目的地，不在 Settings 中重复。MVP 不提供 Advanced 空壳页面。
 
-首次启动先展示轻量领域 Onboarding，再进入系统权限引导。用户可以多选 AI / Vibe Coding、软件开发、产品设计、市场增长等常用领域，也可以手动添加产品名、项目名或技术词。选择会持久化为识别上下文，并以“仅用于词汇消歧、不得补写未说内容”的参考数据加入 Voice Input 与 Voice Agent Prompt；以后可在 Voice Input 设置中重新编辑。
+首次启动先展示轻量领域 Onboarding，再进入系统权限引导（权限齐全时跳过），最后引导连接 Qwen：填写 API Key、选择地域，可“保存并测试”或跳过；已保存 API Key 时跳过这一步。用户可以多选 AI / Vibe Coding、软件开发、产品设计、市场增长等常用领域，也可以手动添加产品名、项目名或技术词。选择会持久化为识别上下文，并以“仅用于词汇消歧、不得补写未说内容”的参考数据加入 Voice Input 与 Voice Agent Prompt；以后可在 Voice Input 设置中重新编辑。
 
 ### Voice Input
 
@@ -1235,7 +1235,6 @@ Knowledge 与 Memory 保持为一级侧栏目的地，不在 Settings 中重复�
 识别语言：自动中英混合 / 简体中文 / English
 数字格式：优先阿拉伯数字 / 保持口述
 口语整理：轻整理 / 原样
-输入位置：屏幕底部（当前固定）
 常用领域与词汇：编辑
 ```
 
@@ -1252,28 +1251,29 @@ Double Fn
 
 ```text
 地域
-- 北京
-- 新加坡
+- 北京 / China (Beijing)
+- 新加坡 / International (Singapore)
 
 API Key
-- 输入 Key
+- 输入 Key；点击“保存”或“保存并测试”后才写入 Keychain 并生效，未保存的修改有明确提示
 
 Workspace ID
 - 可选；填写后使用业务空间专属域名
 
 Realtime 模型版本
 - qwen3.5-omni-flash-realtime（默认）
-- qwen3.5-omni-flash-realtime-2026-03-15
+- 自定义…
 
 处理模型版本
 - qwen3.8-omni-flash（默认）
 - qwen3.5-omni-plus
 - qwen3.5-omni-flash
+- 自定义…
 
 测试连接
 ```
 
-MVP 支持用户填写自己的 Qwen API Key。两个模型版本都使用下拉选择，只展示 App 已验证支持的 Qwen 型号或快照版本，不允许自由输入任意 model ID。Voice Input 默认使用 Qwen3.5 Omni Realtime，Voice Agent 与批处理 fallback 使用 Qwen3.8 Omni Flash。
+MVP 支持用户填写自己的 Qwen API Key。两个模型版本都使用下拉选择，预置列表只展示 App 已验证支持的 Qwen 型号，不放带日期的快照版本；需要其他型号或快照时通过“自定义…”填写 model ID，当前值不在预置列表时也会显示在下拉中。已知无法用于实时会话的旧 Realtime ID 在启动时回落到默认值。测试连接分别报告 Voice Input（Realtime 会话就绪）与 Voice Agent（一次对话请求往返）的耗时；修改地域、业务空间 ID 或模型后，上次测试结果自动失效。Voice Input 默认使用 Qwen3.5 Omni Realtime，Voice Agent 与批处理 fallback 使用 Qwen3.8 Omni Flash。
 
 ### History
 
@@ -1497,7 +1497,7 @@ SayKukuApp / AppState
 └── UI
     ├── HomeView / FloatingOverlayController
     ├── HistoryView / KnowledgeView / MemoryView
-    └── SettingsView / PermissionGuideView / DomainOnboardingView
+    └── SettingsView / PermissionGuideView / DomainOnboardingView / QwenSetupView
 ```
 
 ### 18.5 Qwen 配置
@@ -1507,8 +1507,8 @@ SayKukuApp / AppState
 * 地域：北京或新加坡，由 App 自动匹配对应 API 地址。
 * API Key：用户填写，保存在本机 Keychain。
 * Workspace ID：可选；填写后使用对应地域的业务空间专属域名。
-* Realtime 模型版本：默认 `qwen3.5-omni-flash-realtime`，可选固定快照 `qwen3.5-omni-flash-realtime-2026-03-15`。
-* 处理模型版本：默认 `qwen3.8-omni-flash`，可选 `qwen3.5-omni-plus`、`qwen3.5-omni-flash`。
+* Realtime 模型版本：默认 `qwen3.5-omni-flash-realtime`，也可自定义 model ID（例如固定快照）。
+* 处理模型版本：默认 `qwen3.8-omni-flash`，可选 `qwen3.5-omni-plus`、`qwen3.5-omni-flash` 或自定义 model ID。
 
 提供一个简单的“测试连接”按钮即可。首版不做自定义 Base URL、账号体系、复杂密钥状态、安全策略页面或详细账单展示。
 
