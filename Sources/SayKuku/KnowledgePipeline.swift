@@ -60,7 +60,8 @@ enum KnowledgePipeline {
                     status: .ignored,
                     evidence: masked(value)
                 ))
-                redacted.replaceSubrange(swiftRange, with: "••••")
+                // Model-facing text only; a clear marker keeps extraction from treating it as content.
+                redacted.replaceSubrange(swiftRange, with: "[FILTERED]")
             }
         }
         return (redacted, ignored.reversed())
