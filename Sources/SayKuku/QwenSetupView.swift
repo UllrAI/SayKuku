@@ -11,8 +11,8 @@ struct QwenSetupView: View {
                 eyebrow: appState.setupProgress?.title(appState),
                 title: appState.text("连接 Qwen", "Connect to Qwen"),
                 description: appState.text(
-                    "SayKuku 通过 Qwen 识别语音、处理指令。填入阿里云百炼的 API Key，选好地域就能开始。",
-                    "SayKuku uses Qwen to transcribe your voice and handle commands. Add your Alibaba Cloud Model Studio API Key and pick a region to get started."
+                    "SayKuku 通过 Qwen 识别语音、处理指令。填入阿里云百炼的 API Key，选好地域就能开始；再填上业务空间 ID，语音输入会更快。",
+                    "SayKuku uses Qwen to transcribe your voice and handle commands. Add your Alibaba Cloud Model Studio API Key and pick a region to get started. Add your Workspace ID too for faster Voice Input."
                 )
             ) {
                 KukuSheetIcon(symbol: "bolt.horizontal.circle.fill")

@@ -34,11 +34,14 @@ struct QwenRequestContractTests {
         let expectedTranscript = ProcessInfo.processInfo.environment["SAYKUKU_TEST_PHRASE"] ?? "苹果"
         let selectedText = ProcessInfo.processInfo.environment["SAYKUKU_TEST_SELECTED_TEXT"]
         let expectedOutput = ProcessInfo.processInfo.environment["SAYKUKU_TEST_EXPECTED_OUTPUT"]
+        // Realtime is only served on workspace hosts, so the live test needs a workspace ID.
+        let workspaceID = try #require(ProcessInfo.processInfo.environment["SAYKUKU_TEST_WORKSPACE_ID"])
+        let region = ProcessInfo.processInfo.environment["SAYKUKU_TEST_REGION"].flatMap(QwenRegion.init(rawValue:)) ?? .beijing
         let configuration = QwenConfiguration(
-            region: .beijing,
-            workspaceID: "",
-            realtimeModel: "qwen3.5-omni-flash-realtime",
-            reasoningModel: "qwen3.8-omni-flash"
+            region: region,
+            workspaceID: workspaceID,
+            realtimeModel: QwenModelCatalog.defaultRealtimeModel,
+            reasoningModel: QwenModelCatalog.defaultReasoningModel
         )
         let wav = try Data(contentsOf: URL(fileURLWithPath: audioPath))
         let pcm = Data(wav.dropFirst(44))

@@ -34,7 +34,8 @@ final class AppState {
     enum AgentPhase: Equatable { case hidden, listening, transcribing, processing, result, copyReady, answerReady }
     enum ConnectionState: Equatable {
         case idle, testing, failed(String)
-        case connected(realtimeMilliseconds: Int, chatMilliseconds: Int)
+        /// `realtimeMilliseconds` is nil when realtime was skipped for lack of a workspace ID.
+        case connected(realtimeMilliseconds: Int?, chatMilliseconds: Int)
     }
 
     enum ShortcutStatus: Equatable {
@@ -203,9 +204,9 @@ final class AppState {
     @ObservationIgnored private var persistenceGeneration = 0
 
     static let mainWindowID = "main"
-    private static let dictationRecordingLimit: Duration = .seconds(600)
-    /// Keeps Agent audio under `QwenReasoningClient.maximumAudioBytes`.
-    private static let agentRecordingLimit: Duration = .seconds(210)
+    private static let streamingRecordingLimit: Duration = .seconds(600)
+    /// Keeps audio sent in one request (Agent, batch dictation) under `QwenReasoningClient.maximumAudioBytes`.
+    private static let batchRecordingLimit: Duration = .seconds(210)
     private static let recordingLimitWarning: Duration = .seconds(15)
     private static let successDisplayDuration: Duration = .seconds(3)
 
@@ -520,21 +521,25 @@ final class AppState {
         connectionState = .testing
         let realtimeSession = UUID()
         do {
-            let started = ContinuousClock.now
-            try await realtimeClient.connect(
-                session: realtimeSession,
-                apiKey: key,
-                configuration: tested,
-                autoStop: false,
-                onSpeechStopped: {},
-                onDelta: { _ in }
-            )
-            let realtimeLatency = started.duration(to: .now)
-            await realtimeClient.cancel(session: realtimeSession)
+            // Without a workspace ID there is no realtime endpoint to test; dictation uses batch recognition.
+            var realtimeMilliseconds: Int?
+            if tested.realtimeURL != nil {
+                let started = ContinuousClock.now
+                try await realtimeClient.connect(
+                    session: realtimeSession,
+                    apiKey: key,
+                    configuration: tested,
+                    autoStop: false,
+                    onSpeechStopped: {},
+                    onDelta: { _ in }
+                )
+                realtimeMilliseconds = Int(started.duration(to: .now) / Duration.milliseconds(1))
+                await realtimeClient.cancel(session: realtimeSession)
+            }
             let chatLatency = try await reasoningClient.testConnection(apiKey: key, configuration: tested)
             finishConnectionTest(
                 .connected(
-                    realtimeMilliseconds: Int(realtimeLatency / Duration.milliseconds(1)),
+                    realtimeMilliseconds: realtimeMilliseconds,
                     chatMilliseconds: Int(chatLatency / Duration.milliseconds(1))
                 ),
                 apiKey: key, configuration: tested
@@ -810,7 +815,9 @@ final class AppState {
                 dictationPhase = .idle
             }
 
-            if mode == .dictation {
+            // Realtime needs a workspace ID; without one the full recording goes to batch recognition.
+            let streamsAudio = mode == .dictation && configuration.realtimeURL != nil
+            if streamsAudio {
                 let generation = workflowGeneration
                 let (stream, continuation) = AsyncStream<Data>.makeStream()
                 chunkContinuation = continuation
@@ -850,17 +857,18 @@ final class AppState {
                 }
             } else {
                 try startAudioCapture { _ in }
+                if mode == .dictation { withAnimation(Motion.spring) { dictationPhase = .listening } }
             }
-            scheduleRecordingLimit(for: mode)
+            scheduleRecordingLimit(for: mode, streamsAudio: streamsAudio)
         } catch {
             handleWorkflowError(error, agent: mode == .agent)
         }
     }
 
     /// Warns shortly before the recording cap, then finishes the recording as if the user had stopped it.
-    private func scheduleRecordingLimit(for mode: VoiceWorkflowMode) {
+    private func scheduleRecordingLimit(for mode: VoiceWorkflowMode, streamsAudio: Bool) {
         let generation = workflowGeneration
-        let limit = mode == .agent ? Self.agentRecordingLimit : Self.dictationRecordingLimit
+        let limit = streamsAudio ? Self.streamingRecordingLimit : Self.batchRecordingLimit
         let warning = Self.recordingLimitWarning
         recordingLimitTask = Task { @MainActor [weak self] in
             do {
@@ -995,6 +1003,7 @@ final class AppState {
         }
     }
 
+    /// `upload` is nil when dictation skipped realtime, so the recording goes straight to batch recognition.
     private func transcribe(
         _ recording: AudioCapture.Recording, upload: Task<Void, Error>?,
         realtimeSession: UUID, generation: Int
@@ -1002,35 +1011,37 @@ final class AppState {
         guard recording.hasSpeech else {
             throw QwenError.noSpeech
         }
-        do {
-            try await upload?.value
-            try Task.checkCancellation()
-            guard generation == workflowGeneration else { throw CancellationError() }
-            let result = try await realtimeClient.commit(session: realtimeSession)
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !result.isEmpty else { throw QwenError.noSpeech }
-            return SpeechDisfluencyCleaner.clean(result, mode: dictationCleanup)
-        } catch is CancellationError {
-            throw CancellationError()
-        } catch {
-            try Task.checkCancellation()
-            guard generation == workflowGeneration else { throw CancellationError() }
-            // Batch recognition only helps with transport problems; configuration errors would fail twice.
-            guard QwenError.allowsBatchFallback(after: error) else { throw error }
-            await realtimeClient.cancel(session: realtimeSession)
-            let result = try await reasoningClient.transcribeAudio(
-                apiKey: apiKey,
-                configuration: configuration,
-                wav: recording.wav,
-                recognitionLanguage: recognitionLanguage,
-                numberFormat: dictationNumberFormat,
-                cleanup: dictationCleanup,
-                knowledgePrompt: renderKnowledgePrompt(.transcription)
-            )
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !result.isEmpty else { throw QwenError.noSpeech }
-            return SpeechDisfluencyCleaner.clean(result, mode: dictationCleanup)
+        if let upload {
+            do {
+                try await upload.value
+                try Task.checkCancellation()
+                guard generation == workflowGeneration else { throw CancellationError() }
+                let result = try await realtimeClient.commit(session: realtimeSession)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !result.isEmpty else { throw QwenError.noSpeech }
+                return SpeechDisfluencyCleaner.clean(result, mode: dictationCleanup)
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                try Task.checkCancellation()
+                guard generation == workflowGeneration else { throw CancellationError() }
+                // Batch recognition only helps with transport problems; configuration errors would fail twice.
+                guard QwenError.allowsBatchFallback(after: error) else { throw error }
+                await realtimeClient.cancel(session: realtimeSession)
+            }
         }
+        let result = try await reasoningClient.transcribeAudio(
+            apiKey: apiKey,
+            configuration: configuration,
+            wav: recording.wav,
+            recognitionLanguage: recognitionLanguage,
+            numberFormat: dictationNumberFormat,
+            cleanup: dictationCleanup,
+            knowledgePrompt: renderKnowledgePrompt(.transcription)
+        )
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !result.isEmpty else { throw QwenError.noSpeech }
+        return SpeechDisfluencyCleaner.clean(result, mode: dictationCleanup)
     }
 
     /// Saved knowledge and domain terms for a prompt; the Agent leaves out whichever the user removed from its context.
@@ -1469,7 +1480,12 @@ final class AppState {
         if let raw = defaults.string(forKey: Keys.historyRetention), let value = HistoryRetention(rawValue: raw) { historyRetention = value }
         if let raw = defaults.string(forKey: Keys.qwenRegion), let value = QwenRegion(rawValue: raw) { qwenRegion = value }
         qwenWorkspaceID = defaults.string(forKey: Keys.qwenWorkspace) ?? ""
-        realtimeModel = QwenModelCatalog.realtimeModel(stored: defaults.string(forKey: Keys.realtimeModel))
+        // One-time move from the old 3.5 default to 3.8; afterwards an explicit 3.5 choice sticks.
+        realtimeModel = QwenModelCatalog.realtimeModel(
+            stored: defaults.string(forKey: Keys.realtimeModel),
+            upgradesPreviousDefault: !defaults.bool(forKey: Keys.realtimeModelUpgraded)
+        )
+        defaults.set(true, forKey: Keys.realtimeModelUpgraded)
         reasoningModel = QwenModelCatalog.reasoningModel(stored: defaults.string(forKey: Keys.reasoningModel))
         autoStop = storedBool(Keys.autoStop, default: false)
         continuousConversation = storedBool(Keys.continuousConversation, default: true)
@@ -1513,6 +1529,7 @@ final class AppState {
         static let qwenRegion = "qwen.region", qwenWorkspace = "qwen.workspace", realtimeModel = "qwen.realtimeModel"
         static let reasoningModel = "qwen.reasoningModel", apiKey = "qwen.apiKey"
         static let voiceInputShortcut = "shortcuts.voiceInput", voiceAgentShortcut = "shortcuts.voiceAgent"
+        static let realtimeModelUpgraded = "qwen.realtimeModelUpgradedToQwen38"
     }
 
     private func presentStartupExperienceIfNeeded() {

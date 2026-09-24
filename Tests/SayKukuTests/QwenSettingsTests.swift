@@ -20,10 +20,14 @@ struct QwenSettingsTests {
     @Test("stored models fall back only when missing or retired")
     func storedModels() {
         let realtime = QwenModelCatalog.defaultRealtimeModel
+        #expect(realtime == "qwen3.8-omni-flash-realtime")
+        #expect(QwenModelCatalog.realtimeModels.first == realtime)
         #expect(QwenModelCatalog.realtimeModel(stored: nil) == realtime)
         #expect(QwenModelCatalog.realtimeModel(stored: "  ") == realtime)
         #expect(QwenModelCatalog.realtimeModel(stored: "qwen3.8-omni-flash-realtime") == realtime)
         #expect(QwenModelCatalog.realtimeModel(stored: "qwen3-asr-flash-realtime-2025-10-27") == realtime)
+        #expect(QwenModelCatalog.realtimeModel(stored: "qwen3.5-omni-flash-realtime", upgradesPreviousDefault: true) == realtime)
+        #expect(QwenModelCatalog.realtimeModel(stored: "qwen3.5-omni-flash-realtime") == "qwen3.5-omni-flash-realtime")
         #expect(QwenModelCatalog.realtimeModel(stored: "my-realtime-model") == "my-realtime-model")
         #expect(QwenModelCatalog.reasoningModel(stored: nil) == QwenModelCatalog.defaultReasoningModel)
         #expect(QwenModelCatalog.reasoningModel(stored: " qwen-custom ") == "qwen-custom")
@@ -81,6 +85,22 @@ struct QwenSettingsTests {
 
         state.realtimeModel = "qwen-custom-realtime"
         #expect(environment.makeState().realtimeModel == "qwen-custom-realtime")
+    }
+
+    @Test("the old 3.5 realtime default moves to 3.8 once, then an explicit 3.5 choice sticks")
+    @MainActor
+    func previousDefaultUpgrade() {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+
+        environment.defaults.set("qwen3.5-omni-flash-realtime", forKey: "qwen.realtimeModel")
+        let state = environment.makeState()
+        #expect(state.realtimeModel == "qwen3.8-omni-flash-realtime")
+        #expect(environment.defaults.string(forKey: "qwen.realtimeModel") == "qwen3.8-omni-flash-realtime")
+        #expect(environment.makeState().realtimeModel == "qwen3.8-omni-flash-realtime")
+
+        state.realtimeModel = "qwen3.5-omni-flash-realtime"
+        #expect(environment.makeState().realtimeModel == "qwen3.5-omni-flash-realtime")
     }
 
     @Test("connection-affecting edits reset the test result")
