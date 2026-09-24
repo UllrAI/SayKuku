@@ -390,13 +390,7 @@ final class AppState {
     func addKnowledge(name: String, type: EntityType, detail: String? = nil, aliases: [String] = []) -> Bool {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
-        let resolvedDetail = detail?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let candidate = KnowledgeEntity(
-            name: trimmed,
-            detail: resolvedDetail.isEmpty ? text("手动添加", "Added manually") : resolvedDetail,
-            type: type,
-            aliases: aliases
-        )
+        let candidate = KnowledgeEntity(name: trimmed, detail: detail ?? "", type: type, aliases: aliases)
         guard !knowledgeEntities.contains(where: { $0.normalizedKey == candidate.normalizedKey }) else {
             showToast(text("该条目已存在", "This item already exists"), symbol: "exclamationmark.circle")
             return false
@@ -448,7 +442,7 @@ final class AppState {
         guard let index = corrections.firstIndex(where: { $0.id == id }) else { return }
         corrections[index].status = .accepted
         let record = corrections[index]
-        let entity = KnowledgeEntity(name: record.corrected, detail: text("来自纠正记忆", "From correction memory"), type: .term, aliases: [record.raw], source: .correction)
+        let entity = KnowledgeEntity(name: record.corrected, type: .term, aliases: [record.raw], source: .correction)
         if let entityIndex = knowledgeEntities.firstIndex(where: { $0.normalizedKey == entity.normalizedKey }) {
             if !knowledgeEntities[entityIndex].aliases.contains(record.raw) { knowledgeEntities[entityIndex].aliases.append(record.raw) }
         } else {
@@ -458,6 +452,13 @@ final class AppState {
 
     func ignoreCorrection(_ id: UUID) {
         if let index = corrections.firstIndex(where: { $0.id == id }) { corrections[index].status = .ignored }
+    }
+
+    func clearSessions() {
+        sessions.removeAll()
+        // Also forget turns picked up by an Agent that is still listening.
+        activeAgentSessions = []
+        contextItems.removeAll { $0.kind == .session }
     }
 
     func testQwenConnection() async {
@@ -1171,15 +1172,12 @@ final class AppState {
         let source = before as NSString
         guard range.location >= 0, range.length >= 0, NSMaxRange(NSRange(location: range.location, length: range.length)) <= source.length else { return }
         let expected = source.replacingCharacters(in: NSRange(location: range.location, length: range.length), with: writtenText)
+        let writtenRange = range.location..<(range.location + (writtenText as NSString).length)
         Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(5))
             guard let self, self.lastVerifiedWrite?.id == writeID,
-                  let actual = self.textInteraction.currentValue(of: snapshot), actual != expected,
-                  let change = Self.changedSegments(expected: expected, actual: actual),
-                  !change.before.isEmpty, !change.after.isEmpty,
-                  change.before.count <= 100, change.after.count <= 100,
-                  change.range.lowerBound <= range.location + (writtenText as NSString).length,
-                  change.range.upperBound >= range.location else { return }
+                  let actual = self.textInteraction.currentValue(of: snapshot),
+                  let change = CorrectionExtractor.extract(expected: expected, actual: actual, writtenRange: writtenRange) else { return }
             if let index = self.corrections.firstIndex(where: { $0.raw == change.before && $0.corrected == change.after }) {
                 self.corrections[index].count += 1
                 self.corrections[index].lastSeenAt = .now
@@ -1188,23 +1186,6 @@ final class AppState {
                 self.corrections.append(CorrectionRecord(raw: change.before, corrected: change.after, lastApp: snapshot.appName))
             }
         }
-    }
-
-    private static func changedSegments(expected: String, actual: String) -> (before: String, after: String, range: Range<Int>)? {
-        let left = Array(expected.utf16), right = Array(actual.utf16)
-        var prefix = 0
-        while prefix < min(left.count, right.count), left[prefix] == right[prefix] { prefix += 1 }
-        var suffix = 0
-        while suffix < min(left.count - prefix, right.count - prefix),
-              left[left.count - 1 - suffix] == right[right.count - 1 - suffix] { suffix += 1 }
-        guard prefix < left.count || prefix < right.count else { return nil }
-        let oldUnits = Array(left[prefix..<(left.count - suffix)])
-        let newUnits = Array(right[prefix..<(right.count - suffix)])
-        return (
-            String(decoding: oldUnits, as: UTF16.self),
-            String(decoding: newUnits, as: UTF16.self),
-            prefix..<(left.count - suffix)
-        )
     }
 
     func localizedError(_ error: Error) -> String {
@@ -1269,6 +1250,9 @@ final class AppState {
         return text("操作失败，请重试", "Something went wrong. Try again")
     }
 
+    /// Earlier builds saved these placeholders as detail; clear them so they stay out of the UI and prompts.
+    private static let legacyPlaceholderDetails: Set<String> = ["手动添加", "Added manually", "来自纠正记忆", "From correction memory"]
+
     private func loadStoredData() async {
         guard !isLoaded else { return }
         isLoaded = true
@@ -1290,7 +1274,11 @@ final class AppState {
             snapshot.history,
             message: text("上次处理被中断", "Processing was interrupted")
         ).sorted { $0.createdAt > $1.createdAt }
-        knowledgeEntities = snapshot.entities
+        knowledgeEntities = snapshot.entities.map { entity in
+            var entity = entity
+            if Self.legacyPlaceholderDetails.contains(entity.detail) { entity.detail = "" }
+            return entity
+        }
         knowledgeRelationships = snapshot.relationships
         corrections = snapshot.corrections
         sessions = snapshot.sessions.filter { $0.expiresAt > .now }
