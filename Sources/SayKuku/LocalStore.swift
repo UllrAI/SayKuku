@@ -196,7 +196,7 @@ private struct TolerantSnapshot: Decodable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         var skipped = 0
         func records<Record: Decodable>(_ key: CodingKeys) throws -> [Record] {
-            let decoded = try container.decodeIfPresent([TolerantRecord<Record>].self, forKey: key) ?? []
+            let decoded = try container.decodeIfPresent([Lossy<Record>].self, forKey: key) ?? []
             skipped += decoded.filter { $0.value == nil }.count
             return decoded.compactMap(\.value)
         }
@@ -208,13 +208,5 @@ private struct TolerantSnapshot: Decodable {
             sessions: records(.sessions)
         )
         skippedCount = skipped
-    }
-}
-
-private struct TolerantRecord<Value: Decodable>: Decodable {
-    let value: Value?
-
-    init(from decoder: Decoder) throws {
-        value = try? Value(from: decoder)
     }
 }

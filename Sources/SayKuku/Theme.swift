@@ -62,7 +62,6 @@ enum KukuLayout {
     static let headerBottom: CGFloat = 16
     static let pageMaxWidth: CGFloat = 760
     static let controlHeight: CGFloat = 32
-    static let rowHeight: CGFloat = 56
     static let radiusSmall: CGFloat = 8
     static let radiusMedium: CGFloat = 12
     static let radiusLarge: CGFloat = 16
@@ -220,7 +219,6 @@ struct BrandMark: View {
 
 struct Waveform: View {
     var color: Color = KukuColor.coral
-    var isActive = true
     var level: Double? = nil
     var barCount = 18
     var height: CGFloat = 26
@@ -237,13 +235,11 @@ struct Waveform: View {
                 }
                 .animation(.linear(duration: 0.08), value: level)
             } else {
-                TimelineView(.animation(minimumInterval: 1 / 24, paused: !isActive)) { timeline in
+                TimelineView(.animation(minimumInterval: 1 / 24)) { timeline in
                     let t = timeline.date.timeIntervalSinceReferenceDate
                     bars { index in
                         let phase = Double(index) * 0.68
-                        let wave = isActive
-                            ? (sin(t * 6.2 + phase) + sin(t * 3.3 - phase * 0.5)) * 0.22 + 0.52
-                            : 0.14
+                        let wave = (sin(t * 6.2 + phase) + sin(t * 3.3 - phase * 0.5)) * 0.22 + 0.52
                         return max(3, height * wave)
                     }
                 }

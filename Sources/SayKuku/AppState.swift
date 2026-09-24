@@ -166,8 +166,6 @@ final class AppState {
     /// The saved key; edits stay in a view draft until `saveAPIKey` runs.
     private(set) var apiKey = ""
     var connectionState: ConnectionState = .idle
-    var knowledgeAnalysis: KnowledgeAnalysis?
-    var isAnalyzingKnowledge = false
     let systemPermissions = SystemPermissionController()
     let microphoneTest = MicrophoneTestController()
     // nil means the shortcut is turned off; Fn gestures keep working either way.
@@ -537,7 +535,7 @@ final class AppState {
             finishConnectionTest(
                 .connected(
                     realtimeMilliseconds: Int(realtimeLatency / Duration.milliseconds(1)),
-                    chatMilliseconds: Int(chatLatency * 1_000)
+                    chatMilliseconds: Int(chatLatency / Duration.milliseconds(1))
                 ),
                 apiKey: key, configuration: tested
             )
@@ -590,13 +588,7 @@ final class AppState {
                 recognitionLanguage: recognitionLanguage,
                 numberFormat: dictationNumberFormat,
                 cleanup: dictationCleanup,
-                knowledgePrompt: KnowledgePrompt.render(
-                    entities: knowledgeEntities,
-                    relationships: knowledgeRelationships,
-                    domains: selectedDomains,
-                    customTerms: customDomainTerms,
-                    purpose: .transcription
-                )
+                knowledgePrompt: renderKnowledgePrompt(.transcription)
             ).trimmingCharacters(in: .whitespacesAndNewlines)
             guard !result.isEmpty else { throw QwenError.noSpeech }
             let cleaned = SpeechDisfluencyCleaner.clean(result, mode: dictationCleanup)
@@ -828,13 +820,7 @@ final class AppState {
                 let selectedRecognitionLanguage = recognitionLanguage
                 let selectedNumberFormat = dictationNumberFormat
                 let selectedCleanup = dictationCleanup
-                let knowledgePrompt = KnowledgePrompt.render(
-                    entities: knowledgeEntities,
-                    relationships: knowledgeRelationships,
-                    domains: selectedDomains,
-                    customTerms: customDomainTerms,
-                    purpose: .transcription
-                )
+                let knowledgePrompt = renderKnowledgePrompt(.transcription)
                 let realtimeSession = UUID()
                 realtimeSessionID = realtimeSession
                 uploadTask = Task { [weak self, realtimeClient, apiKey, configuration, selectedRecognitionLanguage, selectedNumberFormat, selectedCleanup, knowledgePrompt] in
@@ -949,7 +935,6 @@ final class AppState {
                 await realtimeClient.cancel(session: realtimeSession)
                 return
             }
-            updateHistory(historyID, status: .completed)
             withAnimation(Motion.spring) { dictationPhase = .success }
             try? await Task.sleep(for: Self.successDisplayDuration)
             if generation == workflowGeneration, dictationPhase == .success {
@@ -974,14 +959,10 @@ final class AppState {
             try Task.checkCancellation()
             guard generation == workflowGeneration else { throw CancellationError() }
             guard recording.hasSpeech else { throw QwenError.noSpeech }
-            let includesKnowledge = context.contains { $0.kind == .knowledge }
-            let includesDomains = context.contains { $0.kind == .domain }
-            let knowledgePrompt = KnowledgePrompt.render(
-                entities: includesKnowledge ? knowledgeEntities : [],
-                relationships: includesKnowledge ? knowledgeRelationships : [],
-                domains: includesDomains ? selectedDomains : [],
-                customTerms: includesDomains ? customDomainTerms : [],
-                purpose: .agent
+            let knowledgePrompt = renderKnowledgePrompt(
+                .agent,
+                includesKnowledge: context.contains { $0.kind == .knowledge },
+                includesDomains: context.contains { $0.kind == .domain }
             )
             let response = try await reasoningClient.respondToAudio(
                 apiKey: apiKey,
@@ -1044,18 +1025,25 @@ final class AppState {
                 recognitionLanguage: recognitionLanguage,
                 numberFormat: dictationNumberFormat,
                 cleanup: dictationCleanup,
-                knowledgePrompt: KnowledgePrompt.render(
-                    entities: knowledgeEntities,
-                    relationships: knowledgeRelationships,
-                    domains: selectedDomains,
-                    customTerms: customDomainTerms,
-                    purpose: .transcription
-                )
+                knowledgePrompt: renderKnowledgePrompt(.transcription)
             )
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             guard !result.isEmpty else { throw QwenError.noSpeech }
             return SpeechDisfluencyCleaner.clean(result, mode: dictationCleanup)
         }
+    }
+
+    /// Saved knowledge and domain terms for a prompt; the Agent leaves out whichever the user removed from its context.
+    private func renderKnowledgePrompt(
+        _ purpose: KnowledgePrompt.Purpose, includesKnowledge: Bool = true, includesDomains: Bool = true
+    ) -> String {
+        KnowledgePrompt.render(
+            entities: includesKnowledge ? knowledgeEntities : [],
+            relationships: includesKnowledge ? knowledgeRelationships : [],
+            domains: includesDomains ? selectedDomains : [],
+            customTerms: includesDomains ? customDomainTerms : [],
+            purpose: purpose
+        )
     }
 
     private func executeAgent(
@@ -1446,25 +1434,24 @@ final class AppState {
     }
 
     private func schedulePersistence() {
-        guard isLoaded else { return }
-        persistenceGeneration += 1
-        let generation = persistenceGeneration
-        let value = LocalStore.Snapshot(
-            history: historyEntries, entities: knowledgeEntities,
-            relationships: knowledgeRelationships, corrections: corrections, sessions: sessions
-        )
-        Task { [store] in try? await store.replace(value, generation: generation) }
+        guard let snapshot = nextPersistedSnapshot() else { return }
+        Task { [store] in try? await store.replace(snapshot.value, generation: snapshot.generation) }
     }
 
     private func persistCurrentState() async throws {
-        guard isLoaded else { return }
+        guard let snapshot = nextPersistedSnapshot() else { return }
+        try await store.replace(snapshot.value, generation: snapshot.generation)
+    }
+
+    /// The state to save, numbered so an older write never replaces a newer one; nil until stored data has loaded.
+    private func nextPersistedSnapshot() -> (value: LocalStore.Snapshot, generation: Int)? {
+        guard isLoaded else { return nil }
         persistenceGeneration += 1
-        let generation = persistenceGeneration
         let value = LocalStore.Snapshot(
             history: historyEntries, entities: knowledgeEntities,
             relationships: knowledgeRelationships, corrections: corrections, sessions: sessions
         )
-        try await store.replace(value, generation: generation)
+        return (value, persistenceGeneration)
     }
 
     private func loadSettings() {
@@ -1484,19 +1471,18 @@ final class AppState {
         qwenWorkspaceID = defaults.string(forKey: Keys.qwenWorkspace) ?? ""
         realtimeModel = QwenModelCatalog.realtimeModel(stored: defaults.string(forKey: Keys.realtimeModel))
         reasoningModel = QwenModelCatalog.reasoningModel(stored: defaults.string(forKey: Keys.reasoningModel))
-        autoStop = defaults.object(forKey: Keys.autoStop).map { _ in defaults.bool(forKey: Keys.autoStop) } ?? false
-        continuousConversation = defaults.object(forKey: Keys.continuousConversation).map { _ in defaults.bool(forKey: Keys.continuousConversation) } ?? true
-        automaticAgentWriteBack = defaults.object(forKey: Keys.automaticAgentWriteBack).map { _ in defaults.bool(forKey: Keys.automaticAgentWriteBack) } ?? true
-        learnFromCorrections = defaults.object(forKey: Keys.learnCorrections).map { _ in defaults.bool(forKey: Keys.learnCorrections) } ?? true
-        selectedTextAllowed = defaults.object(forKey: Keys.selectedText).map { _ in defaults.bool(forKey: Keys.selectedText) } ?? true
-        currentAppAllowed = defaults.object(forKey: Keys.currentApp).map { _ in defaults.bool(forKey: Keys.currentApp) } ?? true
-        windowTitleAllowed = defaults.object(forKey: Keys.windowTitle).map { _ in defaults.bool(forKey: Keys.windowTitle) } ?? true
+        autoStop = storedBool(Keys.autoStop, default: false)
+        continuousConversation = storedBool(Keys.continuousConversation, default: true)
+        automaticAgentWriteBack = storedBool(Keys.automaticAgentWriteBack, default: true)
+        learnFromCorrections = storedBool(Keys.learnCorrections, default: true)
+        selectedTextAllowed = storedBool(Keys.selectedText, default: true)
+        currentAppAllowed = storedBool(Keys.currentApp, default: true)
+        windowTitleAllowed = storedBool(Keys.windowTitle, default: true)
         clipboardAllowed = defaults.bool(forKey: Keys.clipboard)
         browserPageAllowed = defaults.bool(forKey: Keys.browserPage)
-        storeVoiceAudio = defaults.object(forKey: Keys.storeVoiceAudio).map { _ in defaults.bool(forKey: Keys.storeVoiceAudio) } ?? true
-        showInMenuBar = defaults.object(forKey: Keys.showInMenuBar).map { _ in defaults.bool(forKey: Keys.showInMenuBar) } ?? true
-        hideDockIconAfterMainWindowCloses = defaults.object(forKey: Keys.hideDockIconAfterMainWindowCloses)
-            .map { _ in defaults.bool(forKey: Keys.hideDockIconAfterMainWindowCloses) } ?? false
+        storeVoiceAudio = storedBool(Keys.storeVoiceAudio, default: true)
+        showInMenuBar = storedBool(Keys.showInMenuBar, default: true)
+        hideDockIconAfterMainWindowCloses = storedBool(Keys.hideDockIconAfterMainWindowCloses, default: false)
         // Earlier builds hard-coded ⇧⌘D / ⇧⌘A without saving them, so upgrades start from the new defaults.
         if let raw = defaults.string(forKey: Keys.voiceInputShortcut) {
             voiceInputShortcut = GlobalShortcut.restored(from: raw, fallback: .defaultVoiceInput)
@@ -1504,6 +1490,11 @@ final class AppState {
         if let raw = defaults.string(forKey: Keys.voiceAgentShortcut) {
             voiceAgentShortcut = GlobalShortcut.restored(from: raw, fallback: .defaultVoiceAgent)
         }
+    }
+
+    /// The saved flag, or `fallback` when it was never saved.
+    private func storedBool(_ key: String, default fallback: Bool) -> Bool {
+        defaults.object(forKey: key) == nil ? fallback : defaults.bool(forKey: key)
     }
 
     private enum Keys {

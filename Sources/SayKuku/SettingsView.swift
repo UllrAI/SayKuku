@@ -888,14 +888,4 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .qwen: appState.text("Qwen 连接", "Qwen Connection")
         }
     }
-    var symbol: String {
-        switch self {
-        case .general: "switch.2"
-        case .voiceInput: "mic"
-        case .voiceAgent: "sparkles"
-        case .history: "clock.arrow.circlepath"
-        case .privacy: "hand.raised"
-        case .qwen: "bolt.horizontal.circle"
-        }
-    }
 }

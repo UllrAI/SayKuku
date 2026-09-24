@@ -1498,7 +1498,7 @@ SayKukuApp / AppState
 │   └── Keychain 中的 API Key
 │
 └── UI
-    ├── HomeView / FloatingOverlayController
+    ├── HomeView / FloatingOverlayController / DictationPill / AgentPill
     ├── HistoryView / KnowledgeView / MemoryView
     └── SettingsView / PermissionGuideView / DomainOnboardingView / QwenSetupView
 ```
