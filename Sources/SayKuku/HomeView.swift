@@ -407,8 +407,11 @@ struct DictationPill: View {
         appState.liveTranscript.isEmpty ? appState.text("正在整理…", "Formatting…") : appState.liveTranscript
     }
 
+    // Only verified writes can be undone, so an unverified paste asks the user to take a look.
     private var successLabel: String {
-        appState.text("已输入", "Done")
+        appState.canUndoLastWrite
+            ? appState.text("已输入", "Done")
+            : appState.text("已发送，请检查", "Sent—check it")
     }
 
     var body: some View {
