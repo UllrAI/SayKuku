@@ -456,7 +456,9 @@ final class AppState {
 
     func clearSessions() {
         sessions.removeAll()
-        activeAgentSession = nil
+        // Also forget turns picked up by an Agent that is still listening.
+        activeAgentSessions = []
+        contextItems.removeAll { $0.kind == .session }
     }
 
     func testQwenConnection() async {
