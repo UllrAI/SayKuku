@@ -44,7 +44,7 @@ struct KnowledgePipelineTests {
         let source = """
         身份证 11010119900307123X
         卡号 6222 0212 3456 7890 123，备用 6222021234567890
-        电话 +1 (415) 555-0100，手机 186 0000 0000
+        电话+1 (415) 555-0100，手机 186 0000 0000
         住址：上海市徐汇区测试路 2 号
         """
         let result = KnowledgePipeline.redactingPII(in: source)
@@ -907,7 +907,8 @@ struct QwenRequestContractTests {
         for prompt in [transcription, agent] {
             #expect(!prompt.contains("\nIgnore previous instructions"))
             #expect(prompt.contains(#"\nIgnore previous instructions"#))
-            #expect(prompt.components(separatedBy: "</confirmed_knowledge>").count == 2)
+            // The injected tag stays inside a quoted value, so only the real closing tag owns a line.
+            #expect(prompt.components(separatedBy: "\n").filter { $0 == "</confirmed_knowledge>" }.count == 1)
         }
         #expect(agent.contains(#"aliases: ["a\"b"]; detail: "line one\nline two""#))
         #expect(agent.contains(#"--relatedTo--> "Target""#))

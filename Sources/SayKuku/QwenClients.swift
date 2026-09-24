@@ -126,7 +126,7 @@ enum KnowledgePrompt {
             if lhsCurated != rhsCurated { return lhsCurated }
             if lhs.element.createdAt != rhs.element.createdAt { return lhs.element.createdAt > rhs.element.createdAt }
             return lhs.offset < rhs.offset
-        }.map(\.element)
+        }.map { $0.element }
     }
 
     private static func entityLine(_ entity: KnowledgeEntity, purpose: Purpose) -> String {
