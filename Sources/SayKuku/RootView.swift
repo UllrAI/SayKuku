@@ -85,7 +85,7 @@ private struct Sidebar: View {
                     }
                     .font(.system(size: 17, weight: .bold, design: .rounded))
                     Text("Just Say It")
-                        .font(.system(size: 9, weight: .medium))
+                        .font(.system(size: 10, weight: .medium))
                         .foregroundStyle(KukuColor.stone)
                 }
             }
@@ -133,14 +133,14 @@ private struct Sidebar: View {
             .frame(maxWidth: .infinity, minHeight: 36)
             .contentShape(Rectangle())
             .background {
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                RoundedRectangle(cornerRadius: KukuLayout.radiusSmall, style: .continuous)
                     .fill(selection == destination
                           ? KukuColor.surfaceStrong
                           : (hovered == destination ? KukuColor.highlight.opacity(0.38) : Color.clear))
             }
             .overlay {
                 if selection == destination {
-                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    RoundedRectangle(cornerRadius: KukuLayout.radiusSmall, style: .continuous)
                         .stroke(KukuColor.highlight.opacity(0.7), lineWidth: 1)
                 }
             }
@@ -161,10 +161,21 @@ private struct ToastView: View {
         Label(toast.text, systemImage: toast.symbol)
             .font(.system(size: 13, weight: .semibold))
             .foregroundStyle(Color.white)
+            .lineLimit(2)
+            .fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, 14)
-            .frame(height: 34)
-            .background(KukuColor.graphite.opacity(0.96))
-            .clipShape(Capsule())
+            .padding(.vertical, 8)
+            .frame(minHeight: 34)
+            .background(
+                KukuColor.graphite.opacity(0.96),
+                in: RoundedRectangle(cornerRadius: KukuLayout.radiusLarge, style: .continuous)
+            )
             .shadow(color: Color.black.opacity(0.14), radius: 12, y: 5)
+            // Caps the wrap width; the pill itself stays as narrow as its text.
+            .frame(maxWidth: 480)
+            .padding(.horizontal, 24)
+            .onChange(of: toast.id, initial: true) {
+                AccessibilityNotification.Announcement(toast.text).post()
+            }
     }
 }
