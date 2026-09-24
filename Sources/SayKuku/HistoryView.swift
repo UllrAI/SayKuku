@@ -182,7 +182,7 @@ private struct HistoryNotice: View {
     let title: String
     let message: String
     let fileURL: URL
-    let onDismiss: () -> Void
+    let onDismiss: @MainActor () -> Void
 
     var body: some View {
         HStack(alignment: .top, spacing: KukuSpacing.md) {
