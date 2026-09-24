@@ -289,7 +289,7 @@ struct QwenConnectionForm: View {
                     helpLink(appState.text("查看业务空间 ID", "Find Your Workspace ID"), page: "obtain-the-app-id-and-workspace-id")
                 }
                 Spacer()
-                TextField("ws-…", text: $appState.qwenWorkspaceID)
+                TextField("llm-…", text: $appState.qwenWorkspaceID)
                     .textFieldStyle(.roundedBorder)
                     .frame(width: KukuLayout.pickerWidth)
                     .accessibilityLabel(appState.text("业务空间 ID", "Workspace ID"))
@@ -315,14 +315,9 @@ struct QwenConnectionForm: View {
     }
 
     private func helpLink(_ title: String, page: String) -> some View {
-        Link(destination: URL(string: appState.usesChineseUI
+        KukuExternalLink(title: title, destination: URL(string: appState.usesChineseUI
             ? "https://help.aliyun.com/zh/model-studio/\(page)"
-            : "https://www.alibabacloud.com/help/en/model-studio/\(page)")!
-        ) {
-            Label(title, systemImage: "arrow.up.right.square")
-        }
-        .font(.kuku(.subheadline, weight: .medium))
-        .foregroundStyle(KukuColor.accentText)
+            : "https://www.alibabacloud.com/help/en/model-studio/\(page)")!)
     }
 
     private func saveKey() {

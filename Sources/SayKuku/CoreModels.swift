@@ -14,6 +14,13 @@ enum QwenRegion: String, Codable, CaseIterable, Identifiable {
             : "\(workspaceID).ap-southeast-1.maas.aliyuncs.com"
     }
 
+    /// Model Studio console, where API Keys and Workspace IDs are managed.
+    var consoleURL: URL {
+        URL(string: self == .beijing
+            ? "https://bailian.console.aliyun.com/"
+            : "https://modelstudio.console.alibabacloud.com/")!
+    }
+
     func title(isChineseUI: Bool) -> String {
         switch self {
         case .beijing: isChineseUI ? "中国内地（北京）" : "China (Beijing)"
