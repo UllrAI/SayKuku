@@ -903,6 +903,20 @@ struct KukuSheetFooter<Buttons: View>: View {
     }
 }
 
+/// Accent-colored link that opens a page in the browser.
+struct KukuExternalLink: View {
+    let title: String
+    let destination: URL
+
+    var body: some View {
+        Link(destination: destination) {
+            Label(title, systemImage: "arrow.up.right.square")
+        }
+        .font(.kuku(.subheadline, weight: .medium))
+        .foregroundStyle(KukuColor.accentText)
+    }
+}
+
 // MARK: - Feedback
 
 /// Visual body of the in-window toast. The owner posts the VoiceOver announcement.

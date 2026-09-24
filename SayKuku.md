@@ -1230,7 +1230,7 @@ General | Voice Input | Voice Agent | History | Privacy | Qwen Connection
 
 Knowledge 与 Memory 保持为一级侧栏目的地，不在 Settings 中重复。MVP 不提供 Advanced 空壳页面。
 
-首次启动先展示轻量领域 Onboarding，再进入系统权限引导（权限齐全时跳过），最后引导连接 Qwen：填写 API Key、选择地域，可“保存并测试”或跳过；已保存 API Key 时跳过这一步。用户可以多选 AI / Vibe Coding、软件开发、产品设计、市场增长等常用领域，也可以手动添加产品名、项目名或技术词。选择会持久化为识别上下文，并以“仅用于词汇消歧、不得补写未说内容”的参考数据加入 Voice Input 与 Voice Agent Prompt；以后可在 Voice Input 设置中重新编辑。
+首次启动先展示轻量领域 Onboarding，再进入系统权限引导（权限齐全时跳过），最后引导连接 Qwen：按三步说明（打开对应地域的百炼控制台、创建并粘贴 API Key、可选复制以 `llm-` 开头的业务空间 ID）完成填写，可“保存并测试”或跳过；已保存 API Key 时跳过这一步。用户可以多选 AI / Vibe Coding、软件开发、产品设计、市场增长等常用领域，也可以手动添加产品名、项目名或技术词。选择会持久化为识别上下文，并以“仅用于词汇消歧、不得补写未说内容”的参考数据加入 Voice Input 与 Voice Agent Prompt；以后可在 Voice Input 设置中重新编辑。
 
 ### Voice Input
 
