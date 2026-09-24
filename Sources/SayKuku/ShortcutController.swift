@@ -42,21 +42,17 @@ private let hotKeyEventCallback: EventHandlerUPP = { _, event, userInfo in
     return noErr
 }
 
-/// Owns the two system-wide fallback shortcuts and the Fn gesture state machine.
+/// Owns the configurable system-wide shortcuts and the Fn gesture state machine.
 /// Carbon hot keys need no permission. Fn uses AppKit event monitors and the
 /// Accessibility permission that text insertion already requires.
 final class ShortcutController: @unchecked Sendable {
-    private enum HotKeyID: UInt32 {
-        case voiceInput = 1
-        case voiceAgent = 2
-    }
-
     private weak var appState: AppState?
     private var globalKeyMonitor: Any?
     private var localKeyMonitor: Any?
     private var hotKeyHandler: EventHandlerRef?
-    private var voiceInputHotKey: EventHotKeyRef?
-    private var voiceAgentHotKey: EventHotKeyRef?
+    private var hotKeys: [GlobalShortcutAction: EventHotKeyRef] = [:]
+    private var failedHotKeys: [GlobalShortcutAction] = []
+    private var hotKeysPaused = false
     private var wakeObserver: NSObjectProtocol?
 
     private var fnIsDown = false
@@ -65,7 +61,6 @@ final class ShortcutController: @unchecked Sendable {
     private var holdTask: Task<Void, Never>?
     private var singleTapTask: Task<Void, Never>?
     private var fnMonitorReady = false
-    private var fallbackHotKeysReady = false
 
     private let doubleTapInterval = Duration.milliseconds(275)
     private let holdThreshold = Duration.milliseconds(150)
@@ -82,7 +77,7 @@ final class ShortcutController: @unchecked Sendable {
 
     @MainActor
     func start() {
-        registerFallbackHotKeys()
+        reloadHotKeys()
         installFnMonitors()
         if wakeObserver == nil {
             wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
@@ -101,9 +96,11 @@ final class ShortcutController: @unchecked Sendable {
 
         removeFnMonitors()
 
-        if let voiceInputHotKey { UnregisterEventHotKey(voiceInputHotKey) }
-        if let voiceAgentHotKey { UnregisterEventHotKey(voiceAgentHotKey) }
-        if let hotKeyHandler { RemoveEventHandler(hotKeyHandler) }
+        unregisterHotKeys()
+        if let hotKeyHandler {
+            RemoveEventHandler(hotKeyHandler)
+            self.hotKeyHandler = nil
+        }
         if let wakeObserver {
             NSWorkspace.shared.notificationCenter.removeObserver(wakeObserver)
             self.wakeObserver = nil
@@ -118,7 +115,7 @@ final class ShortcutController: @unchecked Sendable {
     @MainActor
     fileprivate func handleHotKey(id: UInt32) {
         guard let appState else { return }
-        switch HotKeyID(rawValue: id) {
+        switch GlobalShortcutAction(rawValue: id) {
         case .voiceInput:
             appState.toggleDictation()
         case .voiceAgent:
@@ -316,15 +313,49 @@ final class ShortcutController: @unchecked Sendable {
         }
     }
 
+    /// Registers the shortcuts from current settings. An enabled shortcut that fails
+    /// to register is reported as a conflict.
     @MainActor
-    private func registerFallbackHotKeys() {
-        guard hotKeyHandler == nil else { return }
+    func reloadHotKeys() {
+        unregisterHotKeys()
+        // Paused while settings records a shortcut; keep the last status meanwhile.
+        guard !hotKeysPaused, let appState else { return }
+
+        let handlerReady = installHotKeyHandlerIfNeeded()
+        var failed: [GlobalShortcutAction] = []
+        for action in GlobalShortcutAction.allCases {
+            guard let shortcut = appState.globalShortcut(for: action) else { continue }
+            if handlerReady, let hotKey = register(shortcut, for: action) {
+                hotKeys[action] = hotKey
+            } else {
+                failed.append(action)
+            }
+        }
+        failedHotKeys = failed
+        publishStatus()
+    }
+
+    @MainActor
+    func setHotKeysPaused(_ paused: Bool) {
+        guard hotKeysPaused != paused else { return }
+        hotKeysPaused = paused
+        reloadHotKeys()
+    }
+
+    static func status(fnReady: Bool, failedHotKeys: [GlobalShortcutAction]) -> AppState.ShortcutStatus {
+        if !failedHotKeys.isEmpty { return .hotKeyConflict(failedHotKeys) }
+        return fnReady ? .ready : .accessibilityRequired
+    }
+
+    @MainActor
+    private func installHotKeyHandlerIfNeeded() -> Bool {
+        guard hotKeyHandler == nil else { return true }
 
         var eventType = EventTypeSpec(
             eventClass: OSType(kEventClassKeyboard),
             eventKind: UInt32(kEventHotKeyPressed)
         )
-        let handlerStatus = InstallEventHandler(
+        let status = InstallEventHandler(
             GetApplicationEventTarget(),
             hotKeyEventCallback,
             1,
@@ -332,39 +363,32 @@ final class ShortcutController: @unchecked Sendable {
             Unmanaged.passUnretained(self).toOpaque(),
             &hotKeyHandler
         )
+        return status == noErr
+    }
 
-        let modifiers = UInt32(cmdKey | shiftKey)
-        let inputID = EventHotKeyID(signature: hotKeySignature, id: HotKeyID.voiceInput.rawValue)
-        let agentID = EventHotKeyID(signature: hotKeySignature, id: HotKeyID.voiceAgent.rawValue)
+    @MainActor
+    private func register(_ shortcut: GlobalShortcut, for action: GlobalShortcutAction) -> EventHotKeyRef? {
+        var hotKey: EventHotKeyRef?
+        let status = RegisterEventHotKey(
+            shortcut.keyCode,
+            shortcut.carbonModifiers,
+            EventHotKeyID(signature: hotKeySignature, id: action.rawValue),
+            GetApplicationEventTarget(),
+            // Exclusive registration fails when another app already registered the
+            // same combination, which is how conflicts surface in settings.
+            OptionBits(kEventHotKeyExclusive),
+            &hotKey
+        )
+        return status == noErr ? hotKey : nil
+    }
 
-        let inputStatus = RegisterEventHotKey(
-            UInt32(kVK_ANSI_D),
-            modifiers,
-            inputID,
-            GetApplicationEventTarget(),
-            0,
-            &voiceInputHotKey
-        )
-        let agentStatus = RegisterEventHotKey(
-            UInt32(kVK_ANSI_A),
-            modifiers,
-            agentID,
-            GetApplicationEventTarget(),
-            0,
-            &voiceAgentHotKey
-        )
-        fallbackHotKeysReady = handlerStatus == noErr && inputStatus == noErr && agentStatus == noErr
-        publishStatus()
+    private func unregisterHotKeys() {
+        for hotKey in hotKeys.values { UnregisterEventHotKey(hotKey) }
+        hotKeys.removeAll()
     }
 
     @MainActor
     private func publishStatus() {
-        if fnMonitorReady, fallbackHotKeysReady {
-            appState?.shortcutStatus = .ready
-        } else if fallbackHotKeysReady {
-            appState?.shortcutStatus = .accessibilityRequired
-        } else {
-            appState?.shortcutStatus = .hotKeyConflict
-        }
+        appState?.shortcutStatus = Self.status(fnReady: fnMonitorReady, failedHotKeys: failedHotKeys)
     }
 }

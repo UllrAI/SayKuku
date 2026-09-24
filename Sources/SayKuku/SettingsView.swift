@@ -470,13 +470,59 @@ private struct GeneralSettings: View {
             }
 
             SettingsGroup(title: appState.text("全局快捷键", "Global shortcuts")) {
-                ShortcutStatusRow()
-                SettingsDivider()
-                SettingsValueRow(title: appState.voiceInputTitle, value: "Fn · ⇧⌘D")
-                SettingsDivider()
-                SettingsValueRow(title: appState.voiceAgentTitle, value: "Fn Fn · ⇧⌘A")
+                GlobalShortcutSettings()
             }
         }
+    }
+}
+
+private struct GlobalShortcutSettings: View {
+    @State private var recorder = ShortcutRecorder()
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ShortcutStatusRow()
+            SettingsDivider()
+            GlobalShortcutRow(action: .voiceInput, recorder: recorder)
+            SettingsDivider()
+            GlobalShortcutRow(action: .voiceAgent, recorder: recorder)
+        }
+        .onDisappear { recorder.stop() }
+    }
+}
+
+private struct GlobalShortcutRow: View {
+    @Environment(AppState.self) private var appState
+    let action: GlobalShortcutAction
+    let recorder: ShortcutRecorder
+
+    var body: some View {
+        let issue = recorder.action == action ? recorder.issue : nil
+
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(action.title(appState))
+                    .font(.system(size: 12.5, weight: .medium))
+                Text(issue?.message(for: action, appState) ?? subtitle)
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(issue == nil ? KukuColor.stone : KukuColor.amber)
+            }
+            Spacer(minLength: 12)
+            ShortcutRecorderButton(action: action, recorder: recorder)
+        }
+        .padding(.horizontal, 14)
+        .frame(maxWidth: .infinity, minHeight: 54, alignment: .leading)
+    }
+
+    private var subtitle: String {
+        let gesture = action.fnGesture
+        if recorder.action == action {
+            return appState.text("按下新的组合键 · Esc 取消 · Delete 关闭", "Press new keys · Esc to cancel · Delete to turn off")
+        }
+        if appState.globalShortcut(for: action) == nil {
+            return appState.text("已关闭，仍可使用 \(gesture)", "Off. \(gesture) still works.")
+        }
+        return appState.text("按一次开始，再按一次结束；\(gesture) 照常可用", "Press to start, press again to finish. \(gesture) still works.")
     }
 }
 
@@ -496,14 +542,13 @@ private struct ShortcutStatusRow: View {
                 Text(appState.shortcutStatus.title(appState))
                     .font(.system(size: 10.5))
                     .foregroundStyle(KukuColor.stone)
-                if appState.shortcutStatus == .ready {
-                    Text(appState.text(
-                        "若 Fn 同时切换输入法，请将系统“按 Fn 键时”设为“无操作”",
-                        "If Fn also switches input sources, set “Press Fn key to” to “Do Nothing”"
-                    ))
-                    .font(.system(size: 9.5))
-                    .foregroundStyle(KukuColor.stone)
-                }
+                Text(appState.text(
+                    "若 Fn 同时切换输入法，请将系统“按 Fn 键时”设为“无操作”；若连按两次 Fn 会打开系统听写，请在键盘设置中更改听写快捷键",
+                    "If Fn also switches input sources, set “Press Fn key to” to “Do Nothing”. If pressing Fn twice starts Dictation, change the Dictation shortcut in Keyboard Settings."
+                ))
+                .font(.system(size: 9.5))
+                .foregroundStyle(KukuColor.stone)
+                .fixedSize(horizontal: false, vertical: true)
             }
 
             Spacer(minLength: 12)
@@ -513,7 +558,7 @@ private struct ShortcutStatusRow: View {
                     Task { await appState.requestPermission(.accessibility) }
                 }
                 .buttonStyle(TintButtonStyle())
-            } else if appState.shortcutStatus == .ready {
+            } else {
                 Button(appState.text("键盘设置", "Keyboard Settings")) {
                     appState.openKeyboardSettings()
                 }
@@ -521,6 +566,7 @@ private struct ShortcutStatusRow: View {
             }
         }
         .padding(.horizontal, 14)
+        .padding(.vertical, 10)
         .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
     }
 }
