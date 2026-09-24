@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct MemoryView: View {
@@ -64,8 +65,8 @@ struct MemoryView: View {
 private struct CorrectionSummary: View {
     @Environment(AppState.self) private var appState
 
-    private var pendingCorrections: [CorrectionRecord] {
-        appState.corrections.filter { $0.status == .pending }
+    private var pendingCount: Int {
+        appState.corrections.filter { $0.status == .pending }.count
     }
 
     var body: some View {
@@ -81,16 +82,15 @@ private struct CorrectionSummary: View {
                 Text(appState.text("纠正建议", "Correction suggestions"))
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
                 Text(appState.text(
-                    "有 \(pendingCorrections.count) 条建议待确认，确认后才会保存。",
-                    "\(pendingCorrections.count) suggestions need your review before they are saved."
+                    "有 \(pendingCount) 条建议待确认，确认后才会保存。",
+                    pendingCount == 1
+                        ? "1 suggestion needs your review before it's saved."
+                        : "\(pendingCount) suggestions need your review before they're saved."
                 ))
                     .font(.system(size: 11))
                     .foregroundStyle(KukuColor.stone)
             }
             Spacer()
-            Text("\(pendingCorrections.reduce(0) { $0 + $1.count })")
-                .font(.system(size: 18, weight: .bold, design: .rounded))
-                .foregroundStyle(KukuColor.mint)
         }
         .padding(15)
         .kukuSurface(radius: KukuLayout.radiusMedium)
@@ -117,7 +117,7 @@ private struct CorrectionRow: View {
                 .font(.system(size: 15, design: .rounded))
                 Text(appState.text(
                     "累计纠正 \(item.count) 次 · 最近在 \(item.lastApp)",
-                    "Corrected \(item.count) times · Last in \(item.lastApp)"
+                    "Corrected \(item.count == 1 ? "once" : "\(item.count) times") · Last in \(item.lastApp)"
                 ))
                     .font(.system(size: 10))
                     .foregroundStyle(KukuColor.stone)
@@ -138,7 +138,7 @@ private struct SessionMemoryView: View {
 
     private var items: [MemoryTimelineItem] {
         appState.sessions.filter { $0.expiresAt > .now }.map {
-            MemoryTimelineItem(id: $0.id, title: $0.app, detail: $0.userCommand + "\n" + $0.response, expiresAt: $0.expiresAt)
+            MemoryTimelineItem(id: $0.id, title: appName(for: $0.app), detail: $0.userCommand + "\n" + $0.response, expiresAt: $0.expiresAt)
         }
         .sorted { $0.expiresAt < $1.expiresAt }
     }
@@ -157,12 +157,19 @@ private struct SessionMemoryView: View {
             .frame(maxWidth: .infinity, minHeight: 180)
         } else {
             VStack(alignment: .leading, spacing: 14) {
-                Text(appState.text(
-                    "下次在同一应用中使用语音 Agent 时，会参考这些交流；30 分钟后自动清除。",
-                    "Voice Agent can use these exchanges in the same app. They expire after 30 minutes."
-                ))
-                    .font(.system(size: 11))
-                    .foregroundStyle(KukuColor.stone)
+                HStack(spacing: 12) {
+                    Text(appState.text(
+                        "下次在同一应用中使用语音 Agent 时，会参考这些交流；30 分钟后自动清除。",
+                        "Voice Agent can use these exchanges in the same app. They expire after 30 minutes."
+                    ))
+                        .font(.system(size: 11))
+                        .foregroundStyle(KukuColor.stone)
+                    Spacer(minLength: 12)
+                    Button(appState.text("全部清除", "Clear all")) {
+                        withAnimation(Motion.snappy) { appState.clearSessions() }
+                    }
+                    .buttonStyle(HoverFillButtonStyle())
+                }
 
                 VStack(spacing: 0) {
                     ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
@@ -194,6 +201,13 @@ private struct SessionMemoryView: View {
                 .kukuSurface(radius: KukuLayout.radiusMedium)
             }
         }
+    }
+
+    /// Sessions store the bundle ID; show the app's name when it can be resolved.
+    private func appName(for bundleID: String) -> String {
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else { return bundleID }
+        let name = FileManager.default.displayName(atPath: url.path(percentEncoded: false))
+        return name.hasSuffix(".app") ? String(name.dropLast(4)) : name
     }
 }
 
