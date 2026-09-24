@@ -246,7 +246,7 @@ private struct MenuBarContent: View {
 
 /// Voice actions shared by the app menu and the menu bar menu.
 ///
-/// The key equivalents only label the items with the active global shortcuts.
+/// The key equivalents only label the items with the registered global shortcuts.
 /// A registered Carbon hot key consumes its keystroke before AppKit sees it, so
 /// the menu item cannot fire a second time. While settings records a shortcut,
 /// the hot keys are paused and the recorder's local monitor swallows the keys
@@ -260,11 +260,19 @@ private struct VoiceMenuItems: View {
                : appState.text("开始语音输入", "Start Voice Input")) {
             appState.toggleDictation()
         }
-        .keyboardShortcut(appState.voiceInputShortcut?.keyboardShortcut)
+        .keyboardShortcut(keyboardShortcut(for: .voiceInput))
 
-        Button(appState.text("打开语音 Agent", "Open Voice Agent")) {
+        Button(appState.agentPhase == .listening
+               ? appState.text("结束语音 Agent", "Stop Voice Agent")
+               : appState.text("打开语音 Agent", "Open Voice Agent")) {
             appState.startAgent()
         }
-        .keyboardShortcut(appState.voiceAgentShortcut?.keyboardShortcut)
+        .keyboardShortcut(keyboardShortcut(for: .voiceAgent))
+    }
+
+    /// Hides a shortcut that failed to register, since it would only work inside SayKuku.
+    private func keyboardShortcut(for action: GlobalShortcutAction) -> KeyboardShortcut? {
+        if case .hotKeyConflict(let failed) = appState.shortcutStatus, failed.contains(action) { return nil }
+        return appState.globalShortcut(for: action)?.keyboardShortcut
     }
 }

@@ -82,7 +82,7 @@ extension GlobalShortcut.RecordingIssue {
     @MainActor func message(for action: GlobalShortcutAction, _ appState: AppState) -> String {
         switch self {
         case .needsModifier:
-            appState.text("需包含 ⌘、⌃ 或 ⌥", "Include ⌘, ⌃, or ⌥")
+            appState.text("需包含 ⌘ 或 ⌃", "Include ⌘ or ⌃")
         case .unsupportedKey:
             appState.text("这个键不能用作快捷键，请换一个", "That key can’t be used. Try another.")
         case .duplicate:

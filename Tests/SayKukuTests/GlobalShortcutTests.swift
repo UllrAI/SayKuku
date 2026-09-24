@@ -35,10 +35,11 @@ struct GlobalShortcutTests {
         #expect(GlobalShortcut.restored(from: shortcut.storageValue, fallback: .defaultVoiceInput) == shortcut)
         #expect(GlobalShortcut.restored(from: "", fallback: .defaultVoiceInput) == nil)
         #expect(GlobalShortcut.restored(from: "garbage", fallback: .defaultVoiceInput) == .defaultVoiceInput)
-        // Valid key but no ⌘/⌃/⌥, which could never be recorded.
+        // Valid key but no ⌘ or ⌃, which could never be recorded.
         let shiftOnly = "\(kVK_ANSI_V):\(shiftKey)"
         #expect(GlobalShortcut(storageValue: shiftOnly) == nil)
         #expect(GlobalShortcut.restored(from: shiftOnly, fallback: .defaultVoiceAgent) == .defaultVoiceAgent)
+        #expect(GlobalShortcut(storageValue: "\(kVK_ANSI_V):\(optionKey | shiftKey)") == nil)
         #expect(GlobalShortcut(storageValue: "\(kVK_ANSI_Keypad1):\(cmdKey)") == nil)
     }
 
@@ -85,6 +86,12 @@ struct GlobalShortcutTests {
         ) == .reject(.needsModifier))
         #expect(GlobalShortcut.recordingResult(
             keyCode: UInt16(kVK_ANSI_K), carbonModifiers: UInt32(shiftKey), otherShortcut: nil
+        ) == .reject(.needsModifier))
+        #expect(GlobalShortcut.recordingResult(
+            keyCode: UInt16(kVK_ANSI_K), carbonModifiers: UInt32(optionKey | shiftKey), otherShortcut: nil
+        ) == .reject(.needsModifier))
+        #expect(GlobalShortcut.recordingResult(
+            keyCode: UInt16(kVK_F5), carbonModifiers: UInt32(optionKey), otherShortcut: nil
         ) == .reject(.needsModifier))
         #expect(GlobalShortcut.recordingResult(
             keyCode: UInt16(kVK_Escape), carbonModifiers: UInt32(cmdKey | optionKey), otherShortcut: nil
