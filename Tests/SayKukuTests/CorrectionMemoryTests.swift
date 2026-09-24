@@ -24,7 +24,12 @@ struct CorrectionExtractorTests {
         #expect(correction(written: "王小明", edited: "王晓明") == CorrectionCandidate(before: "王小明", after: "王晓明"))
         #expect(correction(written: "王小明，明天开会。", edited: "王晓明，明天开会。")
             == CorrectionCandidate(before: "王小明", after: "王晓明"))
-        #expect(correction(written: "王明", edited: "王小明") == CorrectionCandidate(before: "王明", after: "王小明"))
+    }
+
+    @Test("adding or dropping Chinese characters is rewording")
+    func chineseInsertionOrDeletion() {
+        #expect(correction(written: "明天开会", edited: "明天下午开会") == nil)
+        #expect(correction(written: "我那个觉得可以", edited: "我觉得可以") == nil)
     }
 
     @Test("long Chinese clauses narrow to the words around the edit")

@@ -158,13 +158,6 @@ private struct EntityRow: View {
     let onEdit: () -> Void
     @State private var isHovering = false
 
-    /// Earlier builds saved these placeholders as detail; hide them without rewriting saved data.
-    private static let legacyPlaceholderDetails: Set<String> = ["手动添加", "Added manually", "来自纠正记忆", "From correction memory"]
-
-    private var detail: String {
-        Self.legacyPlaceholderDetails.contains(entity.detail) ? "" : entity.detail
-    }
-
     var body: some View {
         HStack(spacing: 14) {
             Image(systemName: entity.type.symbol)
@@ -183,8 +176,8 @@ private struct EntityRow: View {
                         .frame(height: 18)
                         .background(entity.type.color.opacity(0.09), in: Capsule())
                 }
-                if !detail.isEmpty {
-                    Text(detail)
+                if !entity.detail.isEmpty {
+                    Text(entity.detail)
                         .font(.system(size: 11))
                         .foregroundStyle(KukuColor.stone)
                         .lineLimit(1)

@@ -46,6 +46,8 @@ enum CorrectionExtractor {
         let oldEdit = edit.range(in: old), newEdit = edit.range(in: new)
         let leading = classes(of: [oldEdit.first.map { old[$0] }, newEdit.first.map { new[$0] }])
         let trailing = classes(of: [oldEdit.last.map { old[$0] }, newEdit.last.map { new[$0] }])
+        // Adding or dropping CJK characters is rewording, not a misheard term.
+        if oldEdit.isEmpty || newEdit.isEmpty, leading.union(trailing).contains(.cjk) { return nil }
 
         var span = edit
         while span.lower > written.lowerBound,

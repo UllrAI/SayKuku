@@ -1248,6 +1248,9 @@ final class AppState {
         return text("操作失败，请重试", "Something went wrong. Try again")
     }
 
+    /// Earlier builds saved these placeholders as detail; clear them so they stay out of the UI and prompts.
+    private static let legacyPlaceholderDetails: Set<String> = ["手动添加", "Added manually", "来自纠正记忆", "From correction memory"]
+
     private func loadStoredData() async {
         guard !isLoaded else { return }
         isLoaded = true
@@ -1269,7 +1272,11 @@ final class AppState {
             snapshot.history,
             message: text("上次处理被中断", "Processing was interrupted")
         ).sorted { $0.createdAt > $1.createdAt }
-        knowledgeEntities = snapshot.entities
+        knowledgeEntities = snapshot.entities.map { entity in
+            var entity = entity
+            if Self.legacyPlaceholderDetails.contains(entity.detail) { entity.detail = "" }
+            return entity
+        }
         knowledgeRelationships = snapshot.relationships
         corrections = snapshot.corrections
         sessions = snapshot.sessions.filter { $0.expiresAt > .now }
