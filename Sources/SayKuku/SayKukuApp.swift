@@ -20,7 +20,6 @@ struct SayKukuApp: App {
             RootView()
                 .environment(appState)
                 .frame(minWidth: 860, minHeight: 580)
-                .preferredColorScheme(.light)
                 .background {
                     MainWindowReader { window in
                         appDelegate.observeMainWindow(window)

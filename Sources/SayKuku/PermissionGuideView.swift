@@ -34,7 +34,7 @@ struct PermissionGuideView: View {
                     Image(systemName: "xmark")
                         .font(.system(size: 10, weight: .bold))
                         .frame(width: 26, height: 26)
-                        .background(Color.black.opacity(0.055), in: Circle())
+                        .background(KukuColor.shade.opacity(0.055), in: Circle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(appState.text("关闭", "Close"))
@@ -203,7 +203,7 @@ struct PermissionStatusBadge: View {
             .padding(.horizontal, 7)
             .frame(height: 20)
             .background(
-                (status.isAuthorized ? KukuColor.mint : Color.black).opacity(0.065),
+                (status.isAuthorized ? KukuColor.mint : KukuColor.shade).opacity(0.065),
                 in: Capsule()
             )
     }
@@ -311,6 +311,7 @@ struct MicrophoneTestPanel: View {
 }
 
 private struct AudioLevelMeter: View {
+    @Environment(AppState.self) private var appState
     let level: Double
     private let barCount = 24
 
@@ -326,7 +327,7 @@ private struct AudioLevelMeter: View {
         .frame(height: 18)
         .animation(.linear(duration: 0.08), value: level)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Microphone input level")
-        .accessibilityValue("\(Int(level * 100)) percent")
+        .accessibilityLabel(appState.text("麦克风输入音量", "Microphone input level"))
+        .accessibilityValue("\(Int(level * 100))%")
     }
 }

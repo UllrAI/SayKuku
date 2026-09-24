@@ -75,6 +75,7 @@ final class AppState {
     }
 
     var destination: Destination = .home
+    var settingsSection: SettingsSection = .general
     var appLanguage: AppLanguage = .system { didSet { defaults.set(appLanguage.rawValue, forKey: Keys.language) } }
     var dictationPhase: DictationPhase = .idle { didSet { overlayController?.refresh() } }
     var agentPhase: AgentPhase = .hidden { didSet { overlayController?.refresh() } }
@@ -112,7 +113,9 @@ final class AppState {
     var agentCommand = ""
     var liveTranscript = ""
     var inputLevel = 0.0
-    var pendingCopyText = ""
+    var pendingCopyText = "" { didSet { hasCopiedPendingText = false } }
+    /// Whether `pendingCopyText` is on the pasteboard, so the copy fallback can say so.
+    private(set) var hasCopiedPendingText = false
     var pendingAnswerText = ""
     var pendingAnswerStatus: String?
     var resultCanUndo = false
@@ -314,7 +317,7 @@ final class AppState {
         guard !pendingCopyText.isEmpty else { return }
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
-        pasteboard.setString(pendingCopyText, forType: .string)
+        hasCopiedPendingText = pasteboard.setString(pendingCopyText, forType: .string)
     }
 
     var canUndoLastWrite: Bool { lastVerifiedWrite != nil }
@@ -730,6 +733,11 @@ final class AppState {
         NSApplication.shared.activate(ignoringOtherApps: true)
     }
 
+    private func showQwenSettings() {
+        settingsSection = .qwen
+        showMainWindow(destination: .settings)
+    }
+
     private enum VoiceWorkflowMode: Sendable { case dictation, agent }
 
     private func beginVoiceWorkflow(mode: VoiceWorkflowMode) {
@@ -745,7 +753,7 @@ final class AppState {
         }
         guard !apiKey.isEmpty else {
             showOverlayFeedback(text("请先添加 Qwen API Key", "Add your Qwen API Key first"), symbol: "key.fill", duration: .seconds(4))
-            showMainWindow(destination: .settings)
+            showQwenSettings()
             showToast(text("请先在 Qwen 连接中保存 API Key", "Save your API Key in Qwen connection first"), symbol: "key.fill")
             return
         }
@@ -1230,7 +1238,7 @@ final class AppState {
         // The overlay is the only surface visible from other apps; the toast only helps inside SayKuku.
         showOverlayFeedback(message, symbol: "exclamationmark", duration: .seconds(4))
         if Self.needsSettings(error) {
-            showMainWindow(destination: .settings)
+            showQwenSettings()
             showToast(message, symbol: "exclamationmark.triangle.fill")
         } else if NSApplication.shared.isActive {
             showToast(message, symbol: "exclamationmark.triangle.fill")
