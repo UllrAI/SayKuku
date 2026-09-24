@@ -246,8 +246,8 @@ private struct EntityRow: View {
                 } label: {
                     Image(systemName: "ellipsis")
                         .foregroundStyle(KukuColor.textSecondary)
-                        // Same hit area as a regular KukuIconButton.
-                        .frame(width: 28, height: KukuLayout.controlHeight)
+                        // Same width as a regular KukuIconButton, as tall as the Edit button beside it.
+                        .frame(width: KukuLayout.iconButton, height: KukuLayout.controlHeight)
                 }
                 .menuStyle(.borderlessButton)
                 .menuIndicator(.hidden)
@@ -257,7 +257,7 @@ private struct EntityRow: View {
             // Fixed action column keeps the edit buttons aligned from row to row.
             .frame(width: 120, alignment: .trailing)
         }
-        .padding(.horizontal, KukuSpacing.lg)
+        .padding(.horizontal, KukuLayout.rowPadding)
         .padding(.vertical, KukuSpacing.md)
         .frame(maxWidth: .infinity, minHeight: KukuLayout.rowMinHeightWithCaption, alignment: .leading)
         .kukuInteractiveSurface()
@@ -307,7 +307,7 @@ private struct KnowledgeFormSheet: View {
                             prompt: appState.text("输入名称", "Enter a name"),
                             text: $name,
                             autoFocus: entity == nil,
-                            onSubmit: { save() }
+                            onSubmit: save
                         )
                     }
 
@@ -549,7 +549,8 @@ private struct KnowledgeImportSheet: View {
                 .foregroundStyle(KukuColor.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(KukuLayout.sheetPadding)
+        .padding(.horizontal, KukuLayout.sheetPadding)
+        .padding(.vertical, KukuSpacing.xl)
     }
 
     private var reviewList: some View {
@@ -589,7 +590,8 @@ private struct KnowledgeImportSheet: View {
                     }
                 }
             }
-            .padding(KukuLayout.sheetPadding)
+            .padding(.horizontal, KukuLayout.sheetPadding)
+            .padding(.vertical, KukuSpacing.xl)
         }
     }
 

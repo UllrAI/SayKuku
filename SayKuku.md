@@ -88,7 +88,7 @@ Memory     Corrections / Short-term / Long-term
 Settings   General / Voice Input / Voice Agent / History / Privacy / Qwen Connection
 ```
 
-Knowledge 与 Memory 是一级侧栏页面，不再重复出现在 Settings 内。设置分组使用 `KukuGroup`，每一行使用 `KukuRow` 撑满卡片宽度并左对齐；只有明确的右侧值、Picker 或 Toggle 才使用尾部对齐。每个页头、sheet 底栏或卡片最多一个主按钮，列表行内的操作一律使用次按钮。
+Knowledge 与 Memory 是一级侧栏页面，不再重复出现在 Settings 内。设置分组使用 `KukuGroup`，每一行使用 `KukuRow` 撑满卡片宽度并左对齐（放不进 `KukuRow` 的行用 `.kukuRowFrame()` 保持相同的内边距与行高），行之间用 `KukuDivider` 分隔；只有明确的右侧值、Picker 或 Toggle 才使用尾部对齐。每个页头、sheet 底栏或卡片最多一个主按钮，列表行内的操作一律使用次按钮。
 
 ### 0.2 权限引导与输入测试标准
 

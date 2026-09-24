@@ -39,11 +39,9 @@ struct QwenSetupView: View {
     }
 
     private var footer: some View {
-        HStack(spacing: KukuSpacing.sm) {
-            Text(appState.text("以后可在“设置 › Qwen 连接”中修改。", "You can change this later in Settings › Qwen Connection."))
-                .font(.kuku(.subheadline))
-                .foregroundStyle(KukuColor.textSecondary)
-            Spacer()
+        KukuSheetFooter(
+            note: KukuSheetNote(text: appState.text("以后可在“设置 › Qwen 连接”中修改。", "You can change this later in Settings › Qwen Connection."))
+        ) {
             if isConnected {
                 Button(appState.text("完成", "Done")) { dismiss() }
                     .buttonStyle(.kukuPrimary)
@@ -59,8 +57,6 @@ struct QwenSetupView: View {
                     .keyboardShortcut(.defaultAction)
             }
         }
-        .padding(.horizontal, KukuLayout.sheetPadding)
-        .padding(.vertical, KukuSpacing.lg)
     }
 
     private var isConnected: Bool {

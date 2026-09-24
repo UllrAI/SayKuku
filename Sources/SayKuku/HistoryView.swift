@@ -252,18 +252,20 @@ private struct HistoryRow: View {
 
             HStack(spacing: 0) {
                 if hovering {
-                    KukuIconButton(symbol: "trash", label: appState.text("删除这条记录", "Delete this item")) {
-                        requestDelete()
-                    }
+                    KukuIconButton(
+                        symbol: "trash",
+                        label: appState.text("删除这条记录", "Delete this item"),
+                        action: requestDelete
+                    )
                 }
 
                 KukuIconButton(
                     symbol: entry.isStarred ? "star.fill" : "star",
-                    label: entry.isStarred
-                        ? appState.text("取消星标", "Remove star")
-                        : appState.text("加星标，永久保留", "Star and keep forever"),
-                    tint: starTint
-                ) { toggleStar() }
+                    label: entry.isStarred ? appState.text("取消星标", "Remove star") : appState.text("加星标", "Star"),
+                    help: entry.isStarred ? nil : appState.text("加星标，永久保留", "Star and keep forever"),
+                    tint: starTint,
+                    action: toggleStar
+                )
             }
         }
         .padding(KukuSpacing.md)
@@ -378,7 +380,6 @@ private struct HistoryRow: View {
                 KukuStatusLabel(
                     text: entry.errorMessage ?? appState.text("处理失败", "Processing failed"),
                     tone: .danger,
-                    symbol: "exclamationmark.circle",
                     font: .kuku(.body)
                 )
                 if entry.mode == .dictation && entry.hasAudio {
