@@ -126,7 +126,7 @@ struct HistoryView: View {
             message = appState.text("切换到“全部”查看其他记录。", "Choose All to see your other history.")
         }
         return ContentUnavailableView(title, systemImage: symbol, description: Text(message))
-        .frame(maxWidth: .infinity, minHeight: 180)
+            .frame(maxWidth: .infinity, minHeight: 180)
     }
 
     private func entryList(_ entries: [HistoryEntry]) -> some View {
