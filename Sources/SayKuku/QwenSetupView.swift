@@ -17,49 +17,50 @@ struct QwenSetupView: View {
             ) {
                 KukuSheetIcon(symbol: "bolt.horizontal.circle.fill")
             }
-            Divider().opacity(0.5)
+            KukuDivider(inset: 0)
 
-            VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: KukuSpacing.md) {
                 // Save & Test in the footer is the only save action during setup.
                 QwenConnectionForm(apiKeyDraft: $apiKeyDraft, showsSaveButton: false)
                     .kukuSurface(radius: KukuLayout.radiusMedium)
                 QwenConnectionStatus()
-                    .padding(.leading, 4)
+                    .padding(.leading, KukuSpacing.xs)
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 18)
+            .padding(.horizontal, KukuLayout.sheetPadding)
+            .padding(.vertical, KukuSpacing.xl)
 
-            Divider().opacity(0.5)
+            KukuDivider(inset: 0)
             footer
         }
-        .frame(width: 640, height: 470)
+        // Shorter than sheetHeight: the form has only a few rows.
+        .frame(width: KukuLayout.sheetWideWidth, height: 470)
         .background(KukuColor.canvas)
     }
 
     private var footer: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: KukuSpacing.sm) {
             Text(appState.text("以后可在“设置 › Qwen 连接”中修改。", "You can change this later in Settings › Qwen Connection."))
-                .font(.system(size: 10.5))
-                .foregroundStyle(KukuColor.stone)
+                .font(.kuku(.subheadline))
+                .foregroundStyle(KukuColor.textSecondary)
             Spacer()
             if isConnected {
                 Button(appState.text("完成", "Done")) { dismiss() }
-                    .buttonStyle(HoverFillButtonStyle(prominent: true))
+                    .buttonStyle(.kukuPrimary)
                     .keyboardShortcut(.defaultAction)
             } else {
                 Button(appState.apiKey.isEmpty ? appState.text("跳过", "Skip") : appState.text("完成", "Done")) {
                     dismiss()
                 }
-                .buttonStyle(HoverFillButtonStyle())
+                .buttonStyle(.kukuSecondary)
                 .keyboardShortcut(.cancelAction)
                 // Applies to the Button inside, so Return saves and tests the key.
                 QwenTestButton(apiKeyDraft: apiKeyDraft)
                     .keyboardShortcut(.defaultAction)
             }
         }
-        .padding(.horizontal, 24)
-        .padding(.vertical, 14)
+        .padding(.horizontal, KukuLayout.sheetPadding)
+        .padding(.vertical, KukuSpacing.lg)
     }
 
     private var isConnected: Bool {
