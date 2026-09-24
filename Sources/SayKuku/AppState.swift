@@ -438,29 +438,25 @@ final class AppState {
         })
     }
 
-    @discardableResult
-    func addKnowledge(name: String, type: EntityType, detail: String? = nil, aliases: [String] = []) -> Bool {
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return false }
-        let candidate = KnowledgeEntity(name: trimmed, detail: detail ?? "", type: type, aliases: aliases)
-        guard !knowledgeEntities.contains(where: { $0.normalizedKey == candidate.normalizedKey }) else {
-            showToast(text("该条目已存在", "This item already exists"), symbol: "exclamationmark.circle")
-            return false
-        }
+    /// Returns why the item couldn't be saved, or `nil` once it's added.
+    func addKnowledge(name: String, type: EntityType, detail: String? = nil, aliases: [String] = []) -> KnowledgeSaveError? {
+        let candidate = KnowledgeEntity(name: name, detail: detail ?? "", type: type, aliases: aliases)
+        if let error = validateKnowledge(candidate) { return error }
         knowledgeEntities.insert(candidate, at: 0)
         showToast(text("已加入知识", "Added to Knowledge"), symbol: "checkmark.circle.fill")
-        return true
+        return nil
     }
 
-    @discardableResult
+    /// Returns why the edit couldn't be saved, or `nil` once it's applied.
     func updateKnowledge(
         id: UUID,
         name: String,
         type: EntityType,
         detail: String,
         aliases: [String]
-    ) -> Bool {
-        guard let index = knowledgeEntities.firstIndex(where: { $0.id == id }) else { return false }
+    ) -> KnowledgeSaveError? {
+        // The item was removed elsewhere; there is nothing left to update.
+        guard let index = knowledgeEntities.firstIndex(where: { $0.id == id }) else { return nil }
 
         let candidate = KnowledgeEntity(
             id: id,
@@ -471,18 +467,19 @@ final class AppState {
             source: knowledgeEntities[index].source,
             createdAt: knowledgeEntities[index].createdAt
         )
-        guard !candidate.name.isEmpty, !candidate.normalizedKey.isEmpty else {
-            showToast(text("名称不能为空", "Name cannot be empty"), symbol: "exclamationmark.circle")
-            return false
-        }
-        guard !knowledgeEntities.contains(where: { $0.id != id && $0.normalizedKey == candidate.normalizedKey }) else {
-            showToast(text("该名称已存在", "This name already exists"), symbol: "exclamationmark.circle")
-            return false
-        }
+        if let error = validateKnowledge(candidate) { return error }
 
         knowledgeEntities[index] = candidate
         showToast(text("已更新知识", "Knowledge updated"), symbol: "checkmark.circle.fill")
-        return true
+        return nil
+    }
+
+    private func validateKnowledge(_ candidate: KnowledgeEntity) -> KnowledgeSaveError? {
+        guard !candidate.normalizedKey.isEmpty else { return .emptyName }
+        if let existing = knowledgeEntities.first(where: { $0.id != candidate.id && $0.normalizedKey == candidate.normalizedKey }) {
+            return .duplicate(existingName: existing.name)
+        }
+        return nil
     }
 
     func suggestEntityType(for name: String) async throws -> EntityType {

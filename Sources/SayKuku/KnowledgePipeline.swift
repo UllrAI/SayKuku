@@ -60,7 +60,7 @@ enum KnowledgePipeline {
                     status: .ignored,
                     evidence: masked(value)
                 ))
-                redacted.replaceSubrange(swiftRange, with: "[FILTERED]")
+                redacted.replaceSubrange(swiftRange, with: "••••")
             }
         }
         return (redacted, ignored.reversed())
