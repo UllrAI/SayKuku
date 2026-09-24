@@ -1005,7 +1005,7 @@ Import 18 items
 
 ## 12. 短期记忆
 
-> 实现状态：`🟡 部分完成`。Agent Session 会在 30 分钟 TTL 内进入同一 App 的后续 Voice Agent Prompt；Memory 页面只展示这些真正参与 Prompt 的 Session，不再混入普通 History。当前没有基于模型的自动提炼、归纳偏好或长期记忆生成。
+> 实现状态：`🟡 部分完成`。Agent Session 会在 30 分钟 TTL 内进入同一 App 的后续 Voice Agent Prompt；Memory 页面只展示这些真正参与 Prompt 的 Session，不再混入普通 History，按 App 名称显示并支持手动清除。当前没有基于模型的自动提炼、归纳偏好或长期记忆生成。
 
 Short-term Memory 的目标是：
 
@@ -1110,6 +1110,8 @@ Recognition Correction
 > 经常把「张越」识别为「张月」，是否加入识别词库？
 
 用户确认后进入长期 Knowledge。
+
+写入 5 秒后，SayKuku 会比对输入框内容，只记录落在写入文本范围内的改动，并扩展到完整的英文单词或中文词组（如「王小明 → 王晓明」，而不是「小 → 晓」）；纯标点、空白、大小写或数字改动以及紧接着的续写都不会记录。
 
 确认后的纠正不会在客户端直接替换下一次转写文本，而是进入 Knowledge Store，作为 canonical name 与 alias 关系放进后续模型调用的 Knowledge Prompt。模型输出什么，客户端就写回什么。
 
