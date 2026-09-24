@@ -516,7 +516,10 @@ private struct KnowledgeImportSheet: View {
                         .padding(12)
                         .background(Color.white.opacity(0.62), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                         .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(KukuColor.line, lineWidth: 1))
-                    Label(appState.text("检测到的手机号、邮箱与地址会被默认忽略", "Phone numbers, email addresses, and addresses are ignored"), systemImage: "eye.slash")
+                    Label(appState.text(
+                        "分析前会过滤常见格式的电话号码、邮箱、身份证号和银行卡号，以及标明为地址的内容",
+                        "Phone numbers, emails, ID and bank card numbers in common formats, plus labeled addresses, are filtered out before analysis"
+                    ), systemImage: "eye.slash")
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(KukuColor.stone)
                 }
@@ -658,7 +661,9 @@ private struct ImportCandidateRow: View {
                     .foregroundStyle(isSelected ? KukuColor.coral : KukuColor.stone)
                 VStack(alignment: .leading, spacing: 5) {
                     HStack {
-                        Text(candidate.entity.name)
+                        Text(candidate.status == .ignored
+                             ? appState.text("已过滤的敏感信息", "Filtered sensitive info")
+                             : candidate.entity.name)
                             .font(.system(size: 13, weight: .semibold))
                         Text(candidate.status.title(appState))
                             .font(.system(size: 9, weight: .bold, design: .rounded))
@@ -672,9 +677,11 @@ private struct ImportCandidateRow: View {
                         .foregroundStyle(KukuColor.stone)
                 }
                 Spacer()
-                Text(candidate.entity.type.title(appState))
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(KukuColor.stone)
+                if candidate.status != .ignored {
+                    Text(candidate.entity.type.title(appState))
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(KukuColor.stone)
+                }
             }
             .padding(14)
             .background(Color.white.opacity(0.54), in: RoundedRectangle(cornerRadius: 13, style: .continuous))

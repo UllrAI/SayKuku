@@ -28,30 +28,49 @@ enum KnowledgePipeline {
         return result
     }
 
+    // Applied in order; earlier matches are replaced before later patterns run.
+    private static let piiPatterns = [
+        // Email first, so a phone-like local part cannot leave the domain behind.
+        #"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}"#,
+        // Mainland China resident ID: region, birth date, sequence, check digit.
+        #"(?<![0-9A-Z])[1-9]\d{5}(?:18|19|20)\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])\d{3}[\dX](?![0-9A-Z])"#,
+        // Bank cards: 13-19 contiguous digits, or 16-19 digits in groups of four.
+        #"(?<!\d)(?:\d{13,19}|\d{4}(?:[ -]\d{4}){3}(?:[ -]\d{1,3})?)(?!\d)"#,
+        // Mainland mobile numbers, optionally with +86 and 3-4-4 grouping.
+        #"(?<!\d)(?:\+?86[- ]?)?1[3-9]\d(?:[- ]?\d{4}){2}(?!\d)"#,
+        // International numbers written with a leading +.
+        #"(?<![\w+])\+\d{1,3}(?:[ .()-]{0,2}\d){7,14}(?!\d)"#,
+        // Addresses are recognized only when explicitly labeled.
+        #"(?:地址|住址|Address)\s*[:：]\s*[^\n]{4,}"#
+    ]
+
     static func redactingPII(in source: String) -> (text: String, ignored: [ImportCandidate]) {
-        let patterns = [
-            #"(?<!\d)(?:\+?86[- ]?)?1[3-9]\d{9}(?!\d)"#,
-            #"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}"#,
-            #"(?:地址|住址|Address)\s*[:：]\s*[^\n]{4,}"#
-        ]
         var redacted = source
         var ignored: [ImportCandidate] = []
-        for pattern in patterns {
+        for pattern in piiPatterns {
             guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else { continue }
             let range = NSRange(redacted.startIndex..., in: redacted)
             let matches = regex.matches(in: redacted, range: range).reversed()
             for match in matches {
                 guard let swiftRange = Range(match.range, in: redacted) else { continue }
                 let value = String(redacted[swiftRange])
+                // The row shows a localized label; keep only a masked hint of the original value.
                 ignored.append(ImportCandidate(
-                    entity: KnowledgeEntity(name: "••••", detail: "Filtered sensitive data", type: .unknown, source: .importText),
+                    entity: KnowledgeEntity(name: "", type: .unknown, source: .importText),
                     status: .ignored,
-                    evidence: value
+                    evidence: masked(value)
                 ))
                 redacted.replaceSubrange(swiftRange, with: "[FILTERED]")
             }
         }
         return (redacted, ignored.reversed())
+    }
+
+    /// Keeps a few edge characters so the user can recognize what was filtered.
+    static func masked(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        let visible = min(3, trimmed.count / 4)
+        return String(trimmed.prefix(visible)) + "••••" + String(trimmed.suffix(visible))
     }
 
     static func analyze(
