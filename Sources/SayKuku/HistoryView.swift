@@ -103,6 +103,7 @@ struct HistoryView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(appState.text("清除搜索", "Clear search"))
+                .help(appState.text("清除搜索", "Clear search"))
             }
         }
         .padding(.horizontal, 10)
@@ -172,8 +173,8 @@ struct HistoryView: View {
         case .skippedRecords(let count, let backup):
             return (
                 title: appState.text(
-                    "有 \(count) 条本地记录无法读取，已跳过",
-                    count == 1 ? "1 saved item couldn't be read and was skipped" : "\(count) saved items couldn't be read and were skipped"
+                    "有 \(count) 条本机记录无法读取，已跳过",
+                    count == 1 ? "1 saved item couldn’t be read and was skipped" : "\(count) saved items couldn’t be read and were skipped"
                 ),
                 message: appState.text(
                     "其余内容都已正常载入。原文件已完整备份为 \(backup.lastPathComponent)。",
@@ -182,18 +183,18 @@ struct HistoryView: View {
             )
         case .movedAside(let backup):
             return (
-                title: appState.text("本地数据无法读取，已从空白记录重新开始", "Local data couldn't be read, so SayKuku started fresh"),
+                title: appState.text("本机数据无法读取，已从空白记录重新开始", "Local data couldn’t be read, so SayKuku started fresh"),
                 message: appState.text(
                     "原文件没有被覆盖，已完整备份为 \(backup.lastPathComponent)。",
-                    "The original file wasn't overwritten. It's saved as \(backup.lastPathComponent)."
+                    "The original file wasn’t overwritten. It’s saved as \(backup.lastPathComponent)."
                 )
             )
         case .readOnly:
             return (
-                title: appState.text("本地数据暂时无法读取", "Local data can't be read right now"),
+                title: appState.text("本机数据暂时无法读取", "Local data can’t be read right now"),
                 message: appState.text(
                     "为避免覆盖原文件，新的更改暂不保存。请检查文件权限后重新打开 SayKuku。",
-                    "To avoid overwriting the file, new changes won't be saved. Check the file's permissions, then reopen SayKuku."
+                    "To avoid overwriting the file, new changes won’t be saved. Check the file’s permissions, then reopen SayKuku."
                 )
             )
         }

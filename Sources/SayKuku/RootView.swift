@@ -1,3 +1,4 @@
+import Accessibility
 import AppKit
 import SwiftUI
 

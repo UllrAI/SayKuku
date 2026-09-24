@@ -439,6 +439,14 @@ enum EntityType: String, Codable, CaseIterable, Identifiable {
         case .term, .unknown: KukuColor.mint
         }
     }
+    /// `color` for small labels, using the darker text variants of mint and amber.
+    var textColor: Color {
+        switch self {
+        case .product: KukuColor.amberText
+        case .term, .unknown: KukuColor.mintText
+        default: color
+        }
+    }
     var filter: KnowledgeFilter {
         switch self {
         case .person: .people

@@ -26,9 +26,7 @@ struct DomainOnboardingView: View {
                     "Pick the domains you talk about most, and SayKuku will favor their terms when transcribing. You can also add your own product names, technical terms, or industry jargon."
                 )
             ) {
-                Image(systemName: "text.bubble.fill")
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(KukuColor.coral)
+                KukuSheetIcon(symbol: "text.bubble.fill")
             }
             Divider().opacity(0.5)
 
@@ -153,9 +151,12 @@ struct DomainOnboardingView: View {
 
     private var footer: some View {
         HStack(spacing: 10) {
-            Text(appState.text("以后可在“设置 › 语音输入”中修改。", "You can change this later in Settings › Voice Input."))
-                .font(.system(size: 10.5))
-                .foregroundStyle(KukuColor.stone)
+            // Opened from Settings, the sheet is already where changes are made.
+            if !appState.didCompleteOnboarding {
+                Text(appState.text("以后可在“设置 › 语音输入”中修改。", "You can change this later in Settings › Voice Input."))
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(KukuColor.stone)
+            }
             Spacer()
             if appState.didCompleteOnboarding {
                 Button(appState.text("取消", "Cancel"), action: dismiss.callAsFunction)

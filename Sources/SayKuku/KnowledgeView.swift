@@ -237,8 +237,8 @@ private struct EntityRow: View {
                     Text(entity.name)
                         .font(.system(size: 12.5, weight: .semibold))
                     Text(entity.type.title(appState))
-                        .font(.system(size: 9, weight: .bold, design: .rounded))
-                        .foregroundStyle(entity.type.color)
+                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                        .foregroundStyle(entity.type.textColor)
                         .padding(.horizontal, 6)
                         .frame(height: 18)
                         .background(entity.type.color.opacity(0.09), in: Capsule())
@@ -305,36 +305,6 @@ private struct EntityRow: View {
     }
 }
 
-/// Sheet header: tinted icon block, title and a one-sentence description.
-private struct KnowledgeSheetHeader: View {
-    let symbol: String
-    let title: String
-    let message: String
-
-    var body: some View {
-        HStack(spacing: 14) {
-            Image(systemName: symbol)
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundStyle(KukuColor.coral)
-                .frame(width: 48, height: 48)
-                .background(KukuColor.coralSoft, in: RoundedRectangle(cornerRadius: KukuLayout.radiusMedium, style: .continuous))
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.system(size: 20, weight: .semibold, design: .rounded))
-                    .foregroundStyle(KukuColor.ink)
-                Text(message)
-                    .font(.system(size: 11.5))
-                    .foregroundStyle(KukuColor.stone)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 24)
-        .padding(.vertical, 20)
-    }
-}
-
 /// Caption on the leading side of a sheet footer: a quiet hint or an inline error.
 private struct SheetNote: View {
     let text: String
@@ -370,11 +340,12 @@ private struct KnowledgeFormSheet: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            KnowledgeSheetHeader(
-                symbol: entity == nil ? "plus" : "pencil",
+            KukuSheetHeader(
                 title: entity == nil ? appState.text("添加到知识", "Add to Knowledge") : appState.text("编辑条目", "Edit Item"),
-                message: appState.text("让 SayKuku 认识这个名称。", "Teach SayKuku this name.")
-            )
+                description: appState.text("让 SayKuku 认识这个名称。", "Teach SayKuku this name.")
+            ) {
+                KukuSheetIcon(symbol: entity == nil ? "plus" : "pencil")
+            }
 
             Divider().opacity(0.6)
 
@@ -614,15 +585,16 @@ private struct KnowledgeImportSheet: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            KnowledgeSheetHeader(
-                symbol: "doc.on.clipboard",
+            KukuSheetHeader(
                 title: reviewing
                     ? appState.text("选择要导入的内容", "Choose What to Import")
                     : appState.text("从文本导入", "Import from Text"),
-                message: reviewing
+                description: reviewing
                     ? appState.text("检查建议，选择要保存到知识的内容。", "Review the suggestions and choose what to save to Knowledge.")
                     : appState.text("粘贴一段文字，SayKuku 会找出其中的人名、项目和术语。", "Paste some text and SayKuku will pick out names, projects, and terms.")
-            )
+            ) {
+                KukuSheetIcon(symbol: "doc.on.clipboard")
+            }
 
             Divider().opacity(0.6)
 
@@ -865,7 +837,7 @@ private struct ImportRow: View {
                         Text(title)
                             .font(.system(size: 13, weight: .semibold))
                         Text(badge)
-                            .font(.system(size: 9, weight: .bold, design: .rounded))
+                            .font(.system(size: 10, weight: .bold, design: .rounded))
                             .foregroundStyle(badgeColor)
                             .lineLimit(1)
                             .padding(.horizontal, 7)
@@ -930,11 +902,12 @@ private extension EntitySource {
 }
 
 private extension ImportStatus {
+    /// Badge text color, so it uses the text-safe greens and ambers.
     var color: Color {
         switch self {
-        case .new: KukuColor.mint
+        case .new: KukuColor.mintText
         case .merge: Color(red: 0.34, green: 0.50, blue: 0.75)
-        case .conflict: KukuColor.amber
+        case .conflict: KukuColor.amberText
         case .ignored: KukuColor.stone
         }
     }

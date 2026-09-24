@@ -81,7 +81,7 @@ App 图标不放文字，使用珊瑚红圆角底板与暖白 Lucide Bird 线稿
 History    All / Voice Input / Voice Agent
 Knowledge  All / People / Organizations / Projects / Terms
 Memory     Corrections / Short-term / Long-term
-Settings   General / Voice Input / Voice Agent / History / Privacy / Qwen connection
+Settings   General / Voice Input / Voice Agent / History / Privacy / Qwen Connection
 ```
 
 Knowledge 与 Memory 是一级侧栏页面，不再重复出现在 Settings 内。设置卡片中的每一行必须撑满卡片宽度并左对齐；只有明确的右侧值、Picker 或 Toggle 才使用尾部对齐。
@@ -1221,7 +1221,7 @@ Knowledge Prompt 只作为模型的参考数据；模型必须在语音明确指
 Settings 不再使用第二套左侧导航。所有设置统一使用页面顶部水平 Tab：
 
 ```text
-General | Voice Input | Voice Agent | History | Privacy | Qwen connection
+General | Voice Input | Voice Agent | History | Privacy | Qwen Connection
 ```
 
 Knowledge 与 Memory 保持为一级侧栏目的地，不在 Settings 中重复。MVP 不提供 Advanced 空壳页面。

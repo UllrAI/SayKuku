@@ -15,21 +15,14 @@ struct QwenSetupView: View {
                     "SayKuku uses Qwen to transcribe your voice and handle commands. Add your Alibaba Cloud Model Studio API Key and pick a region to get started."
                 )
             ) {
-                Image(systemName: "bolt.horizontal.circle.fill")
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(KukuColor.coral)
+                KukuSheetIcon(symbol: "bolt.horizontal.circle.fill")
             }
             Divider().opacity(0.5)
 
             VStack(alignment: .leading, spacing: 14) {
-                QwenConnectionForm(apiKeyDraft: $apiKeyDraft)
+                // Save & Test in the footer is the only save action during setup.
+                QwenConnectionForm(apiKeyDraft: $apiKeyDraft, showsSaveButton: false)
                     .kukuSurface(radius: KukuLayout.radiusMedium)
-                Link(destination: apiKeyHelpURL) {
-                    Label(appState.text("如何获取 API Key", "How to get an API Key"), systemImage: "arrow.up.right.square")
-                }
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(KukuColor.coral)
-                .padding(.leading, 4)
                 QwenConnectionStatus()
                     .padding(.leading, 4)
                 Spacer(minLength: 0)
@@ -72,11 +65,5 @@ struct QwenSetupView: View {
     private var isConnected: Bool {
         if case .connected = appState.connectionState { return true }
         return false
-    }
-
-    private var apiKeyHelpURL: URL {
-        URL(string: appState.usesChineseUI
-            ? "https://help.aliyun.com/zh/model-studio/get-api-key"
-            : "https://www.alibabacloud.com/help/en/model-studio/get-api-key")!
     }
 }

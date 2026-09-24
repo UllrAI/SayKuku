@@ -169,7 +169,7 @@ private struct PrivacySettings: View {
 
     var body: some View {
         @Bindable var appState = appState
-        SettingsStack(title: appState.text("语音 Agent 可使用的内容", "What Voice Agent can use"), subtitle: appState.text("开始说话时，可在浮层查看本次会使用哪些内容。", "See what will be used from the listening overlay.")) {
+        SettingsStack(title: appState.text("语音 Agent 可使用的内容", "What Voice Agent can use"), subtitle: appState.text("说话时，可在浮层中查看本次会发送的内容。", "While you talk, the overlay shows what’s sent.")) {
             SettingsGroup(title: appState.text("允许使用", "Allow access to")) {
                 SettingsToggle(title: appState.text("选中文字", "Selected text"), subtitle: appState.text("用于改写选中的文字，或针对它提问", "Used to rewrite or ask about the text you’ve selected"), isOn: $appState.selectedTextAllowed)
                 SettingsDivider()
@@ -238,6 +238,8 @@ private struct QwenSettings: View {
 struct QwenConnectionForm: View {
     @Environment(AppState.self) private var appState
     @Binding var apiKeyDraft: String
+    /// First-run setup hides it so Save & Test is the only way to save.
+    var showsSaveButton = true
 
     var body: some View {
         @Bindable var appState = appState
@@ -276,9 +278,11 @@ struct QwenConnectionForm: View {
                     .frame(width: 160)
                     .onSubmit(saveKey)
                     .accessibilityLabel("API Key")
-                Button(appState.text("保存", "Save"), action: saveKey)
-                    .buttonStyle(HoverFillButtonStyle())
-                    .disabled(!keyState.hasChanges)
+                if showsSaveButton {
+                    Button(appState.text("保存", "Save"), action: saveKey)
+                        .buttonStyle(HoverFillButtonStyle())
+                        .disabled(!keyState.hasChanges)
+                }
             }
             .padding(14)
             SettingsDivider()

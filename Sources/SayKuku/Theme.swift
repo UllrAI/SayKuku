@@ -331,6 +331,7 @@ struct KukuSheetHeader<Icon: View>: View {
     var body: some View {
         HStack(alignment: .top, spacing: 14) {
             icon
+                .accessibilityHidden(true)
                 .frame(width: 48, height: 48)
                 .background(
                     KukuColor.coralSoft,
@@ -355,6 +356,17 @@ struct KukuSheetHeader<Icon: View>: View {
         .padding(.horizontal, 24)
         .padding(.top, 22)
         .padding(.bottom, 18)
+    }
+}
+
+/// SF Symbol drawn in the sheet header's icon tile.
+struct KukuSheetIcon: View {
+    let symbol: String
+
+    var body: some View {
+        Image(systemName: symbol)
+            .font(.system(size: 20, weight: .semibold))
+            .foregroundStyle(KukuColor.coral)
     }
 }
 
