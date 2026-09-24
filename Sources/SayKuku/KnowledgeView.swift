@@ -2,8 +2,8 @@ import SwiftUI
 
 struct KnowledgeView: View {
     @Environment(AppState.self) private var appState
-    @State private var search = ""
-    @State private var filter: KnowledgeFilter = .all
+    @Binding var search: String
+    @Binding var filter: KnowledgeFilter
     @State private var showingImport = false
     @State private var showingAdd = false
     @State private var editingEntity: KnowledgeEntity?
