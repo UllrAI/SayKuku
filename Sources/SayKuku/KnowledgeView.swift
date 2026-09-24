@@ -265,7 +265,7 @@ private struct KnowledgeFormSheet: View {
                     Image(systemName: "xmark")
                         .font(.system(size: 11, weight: .bold))
                         .frame(width: 28, height: 28)
-                        .background(Color.black.opacity(0.05), in: Circle())
+                        .background(KukuColor.shade.opacity(0.05), in: Circle())
                 }
                 .buttonStyle(.plain)
                 .keyboardShortcut(.cancelAction)
@@ -326,7 +326,7 @@ private struct KnowledgeFormSheet: View {
                                     }
                                     .padding(.horizontal, 9)
                                     .frame(height: 42)
-                                    .background(type == option ? option.color.opacity(0.10) : Color.white.opacity(0.52), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                                    .background(type == option ? option.color.opacity(0.10) : KukuColor.highlight.opacity(0.52), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
                                     .overlay {
                                         RoundedRectangle(cornerRadius: 9, style: .continuous)
                                             .stroke(type == option ? option.color.opacity(0.35) : KukuColor.line, lineWidth: 1)
@@ -459,7 +459,7 @@ private struct KukuFormInput: View {
         .padding(.vertical, multiline ? 9 : 0)
         .frame(maxWidth: .infinity, minHeight: multiline ? 52 : 40, alignment: multiline ? .topLeading : .center)
         .background(
-            isFocused ? KukuColor.surfaceStrong : Color.white.opacity(0.66),
+            isFocused ? KukuColor.surfaceStrong : KukuColor.highlight.opacity(0.66),
             in: RoundedRectangle(cornerRadius: 10, style: .continuous)
         )
         .overlay {
@@ -500,7 +500,7 @@ private struct KnowledgeImportSheet: View {
                     Image(systemName: "xmark")
                         .font(.system(size: 11, weight: .bold))
                         .frame(width: 28, height: 28)
-                        .background(Color.black.opacity(0.05), in: Circle())
+                        .background(KukuColor.shade.opacity(0.05), in: Circle())
                 }
                 .buttonStyle(.plain)
             }
@@ -514,7 +514,7 @@ private struct KnowledgeImportSheet: View {
                         .font(.system(size: 13))
                         .scrollContentBackground(.hidden)
                         .padding(12)
-                        .background(Color.white.opacity(0.62), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .background(KukuColor.highlight.opacity(0.62), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                         .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(KukuColor.line, lineWidth: 1))
                     Label(appState.text(
                         "分析前会过滤常见格式的电话号码、邮箱、身份证号和银行卡号，以及标明为地址的内容",
@@ -641,7 +641,7 @@ private struct ImportRelationshipRow: View {
                     .foregroundStyle(candidate.status.color)
             }
             .padding(14)
-            .background(Color.white.opacity(0.54), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+            .background(KukuColor.highlight.opacity(0.54), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
         }
         .buttonStyle(.plain)
     }
@@ -684,7 +684,7 @@ private struct ImportCandidateRow: View {
                 }
             }
             .padding(14)
-            .background(Color.white.opacity(0.54), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+            .background(KukuColor.highlight.opacity(0.54), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).stroke(isSelected ? KukuColor.coral.opacity(0.2) : KukuColor.line, lineWidth: 1))
         }
         .buttonStyle(.plain)

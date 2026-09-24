@@ -3,6 +3,8 @@ import SwiftUI
 
 struct RootView: View {
     @Environment(AppState.self) private var appState
+    /// Pages stay mounted once opened so search text, filters and scroll positions survive navigation.
+    @State private var openedDestinations: Set<AppState.Destination> = []
 
     var body: some View {
         @Bindable var appState = appState
@@ -14,21 +16,16 @@ struct RootView: View {
             ZStack {
                 KukuColor.canvas.ignoresSafeArea()
 
-                Group {
-                    switch appState.destination {
-                    case .home:
-                        HomeView()
-                    case .history:
-                        HistoryView()
-                    case .knowledge:
-                        KnowledgeView()
-                    case .memory:
-                        MemoryView()
-                    case .settings:
-                        SettingsView()
+                ForEach(AppState.Destination.allCases) { destination in
+                    let isCurrent = destination == appState.destination
+                    if isCurrent || openedDestinations.contains(destination) {
+                        page(for: destination)
+                            .opacity(isCurrent ? 1 : 0)
+                            .allowsHitTesting(isCurrent)
+                            .disabled(!isCurrent)
+                            .accessibilityHidden(!isCurrent)
                     }
                 }
-                .id(appState.destination)
 
                 if let toast = appState.toast {
                     VStack {
@@ -57,6 +54,25 @@ struct RootView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             appState.refreshSystemPermissions()
+        }
+        .onChange(of: appState.destination, initial: true) { _, destination in
+            openedDestinations.insert(destination)
+        }
+    }
+
+    @ViewBuilder
+    private func page(for destination: AppState.Destination) -> some View {
+        switch destination {
+        case .home:
+            HomeView()
+        case .history:
+            HistoryView()
+        case .knowledge:
+            KnowledgeView()
+        case .memory:
+            MemoryView()
+        case .settings:
+            SettingsView()
         }
     }
 }
@@ -130,16 +146,18 @@ private struct Sidebar: View {
                 RoundedRectangle(cornerRadius: 9, style: .continuous)
                     .fill(selection == destination
                           ? KukuColor.surfaceStrong
-                          : (hovered == destination ? Color.white.opacity(0.38) : Color.clear))
+                          : (hovered == destination ? KukuColor.highlight.opacity(0.38) : Color.clear))
             }
             .overlay {
                 if selection == destination {
                     RoundedRectangle(cornerRadius: 9, style: .continuous)
-                        .stroke(Color.white.opacity(0.7), lineWidth: 1)
+                        .stroke(KukuColor.highlight.opacity(0.7), lineWidth: 1)
                 }
             }
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(destination.title(appState))
+        .accessibilityAddTraits(selection == destination ? .isSelected : [])
         .onHover { inside in hovered = inside ? destination : nil }
         .animation(Motion.snappy, value: hovered)
     }

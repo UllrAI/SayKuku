@@ -804,7 +804,7 @@ private struct PrivacyApp: View {
             .foregroundStyle(KukuColor.stone)
             .padding(.horizontal, 10)
             .frame(height: 28)
-            .background(Color.black.opacity(0.045), in: Capsule())
+            .background(KukuColor.shade.opacity(0.045), in: Capsule())
     }
 }
 

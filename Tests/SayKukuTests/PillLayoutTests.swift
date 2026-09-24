@@ -27,16 +27,20 @@ struct PillLayoutTests {
 
     @Test("short error copy keeps a compact pill")
     func compactErrorWidth() {
-        let width = KukuPillLayout.width(
-            for: "没有听清，请重试",
-            minimum: 120,
-            fixedContentWidth: 46,
-            maximum: 260,
-            fontSize: 11,
-            fontWeight: .medium
-        )
+        let width = KukuPillLayout.errorWidth(for: "没有听清，请重试")
 
         #expect(width >= 120)
         #expect(width < 200)
+    }
+
+    @Test("long error copy caps at a width that fits the overlay panel")
+    func longErrorWidth() {
+        let width = KukuPillLayout.errorWidth(
+            for: "The request timed out. Check your network connection and Qwen region, then try again."
+        )
+        let panelWidth = FloatingOverlayController.panelSize(answerVisible: false).width
+
+        #expect(width == 340)
+        #expect(width < panelWidth)
     }
 }
