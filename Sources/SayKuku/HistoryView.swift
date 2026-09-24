@@ -113,21 +113,19 @@ struct HistoryView: View {
     private var emptyState: some View {
         let title: String
         let message: String
+        var symbol = "waveform"
         if appState.historyEntries.isEmpty {
             title = appState.text("还没有输入记录", "No voice history yet")
             message = appState.text("用 Fn 开始语音输入，记录会显示在这里。", "Use Fn to start voice input. Your history will appear here.")
         } else if !query.isEmpty {
             title = appState.text("没有找到相关记录", "No matching history")
             message = appState.text("换个关键词试试。", "Try a different word.")
+            symbol = "magnifyingglass"
         } else {
             title = appState.text("这个分类还没有记录", "No history in this category")
             message = appState.text("切换到“全部”查看其他记录。", "Choose All to see your other history.")
         }
-        return ContentUnavailableView(
-            title,
-            systemImage: query.isEmpty ? "waveform" : "magnifyingglass",
-            description: Text(message)
-        )
+        return ContentUnavailableView(title, systemImage: symbol, description: Text(message))
         .frame(maxWidth: .infinity, minHeight: 180)
     }
 

@@ -27,7 +27,7 @@ actor LocalStore {
         case skippedRecords(count: Int, backup: URL)
         /// The file could not be read at all; it was moved to `backup` and an empty store was started.
         case movedAside(backup: URL)
-        /// The file could not be read or backed up, so the store stays read-only to protect it.
+        /// The file could not be read from disk or backed up, so the store stays read-only to protect it.
         case readOnly(file: URL)
 
         var fileURL: URL {
@@ -137,10 +137,13 @@ actor LocalStore {
 
     private static func loadSnapshot(from url: URL) -> LoadResult {
         guard FileManager.default.fileExists(atPath: url.path) else { return LoadResult() }
+        // A read failure says nothing about the contents, so leave the file where it is.
+        guard let data = try? Data(contentsOf: url) else {
+            return LoadResult(isReadable: false, issue: .readOnly(file: url))
+        }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .millisecondsSince1970
-        if let data = try? Data(contentsOf: url),
-           let decoded = try? decoder.decode(TolerantSnapshot.self, from: data) {
+        if let decoded = try? decoder.decode(TolerantSnapshot.self, from: data) {
             guard decoded.skippedCount > 0 else { return LoadResult(snapshot: decoded.snapshot) }
             // Copy rather than move: the next save rewrites store.json without the skipped records.
             guard let backup = try? backUp(url, keepingOriginal: true) else {
