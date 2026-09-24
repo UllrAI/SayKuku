@@ -34,11 +34,43 @@ struct TextTargetSnapshot: @unchecked Sendable {
     let appName: String
     let windowTitle: String
     let windowElement: AXUIElement?
+    let textElement: AXUIElement?
     let selectedRange: CFRange?
     let selectedText: String
     let selectedTextHash: String
     let valueBefore: String?
     let isSensitive: Bool
+}
+
+struct VerifiedWrite {
+    let id = UUID()
+    let target: TextTargetSnapshot
+    let text: String
+    let createdAt: Date = .now
+
+    var expectedValue: String? { TextInteraction.expectedValue(afterWriting: text, to: target) }
+    var isRecent: Bool { Date.now.timeIntervalSince(createdAt) < 5 * 60 }
+}
+
+enum DictationTextJoiner {
+    static func join(_ text: String, to snapshot: TextTargetSnapshot) -> String {
+        guard let previous = snapshot.valueBefore, let range = snapshot.selectedRange,
+              range.location >= 0, range.length >= 0,
+              range.location + range.length <= (previous as NSString).length,
+              let first = text.utf16.first, let last = text.utf16.last else { return text }
+
+        let source = previous as NSString
+        let needsLeadingSpace = range.location > 0
+            && isASCIIWord(source.character(at: range.location - 1)) && isASCIIWord(first)
+        let next = range.location + range.length
+        let needsTrailingSpace = next < source.length
+            && isASCIIWord(last) && isASCIIWord(source.character(at: next))
+        return (needsLeadingSpace ? " " : "") + text + (needsTrailingSpace ? " " : "")
+    }
+
+    private static func isASCIIWord(_ character: UInt16) -> Bool {
+        (65...90).contains(character) || (97...122).contains(character) || (48...57).contains(character)
+    }
 }
 
 @MainActor
@@ -82,6 +114,7 @@ final class TextInteraction {
             appName: app.localizedName ?? bundleID,
             windowTitle: title,
             windowElement: window,
+            textElement: element,
             selectedRange: range,
             selectedText: selectedText,
             selectedTextHash: Self.hash(selectedText),
@@ -107,6 +140,9 @@ final class TextInteraction {
         guard sameWindow(snapshot.windowElement, currentWindow) else {
             throw TextInteractionError.targetChanged
         }
+        if let original = snapshot.textElement {
+            guard let element, CFEqual(original, element) else { throw TextInteractionError.targetChanged }
+        }
         let currentTitle: String = currentWindow.flatMap { copyAttribute($0, kAXTitleAttribute) } ?? ""
         guard !isSensitive(element: element, bundleID: snapshot.bundleID, windowTitle: currentTitle) else {
             throw TextInteractionError.sensitiveTarget
@@ -128,6 +164,7 @@ final class TextInteraction {
 
     @discardableResult
     func write(_ text: String, to snapshot: TextTargetSnapshot) async throws -> TextWriteOutcome {
+        try Task.checkCancellation()
         let element = try validate(snapshot)
         let expectedValue = Self.expectedValue(afterWriting: text, to: snapshot)
         var settable = DarwinBoolean(false)
@@ -139,6 +176,7 @@ final class TextInteraction {
                &settable
            ) == .success,
            settable.boolValue {
+            try Task.checkCancellation()
             let setStatus = AXUIElementSetAttributeValue(
                 element,
                 kAXSelectedTextAttribute as CFString,
@@ -161,11 +199,45 @@ final class TextInteraction {
             }
         }
 
+        try Task.checkCancellation()
         return try await paste(text, to: snapshot)
     }
 
     func currentValue(of snapshot: TextTargetSnapshot) -> String? {
         currentValue(in: snapshot)
+    }
+
+    func replacementSnapshot(for write: VerifiedWrite) throws -> TextTargetSnapshot {
+        guard let expected = write.expectedValue,
+              currentValue(in: write.target) == expected,
+              let originalRange = write.target.selectedRange,
+              let app = NSWorkspace.shared.frontmostApplication,
+              let focused = focusedElement(for: app.processIdentifier),
+              let element = preferredTextElement(from: focused),
+              let original = write.target.textElement,
+              CFEqual(original, element),
+              !IsSecureEventInputEnabled() else { throw TextInteractionError.targetChanged }
+
+        let previousSelection = selectedRange(of: element)
+        var selectionValidated = false
+        defer {
+            if !selectionValidated, var previousSelection,
+               let value = AXValueCreate(.cfRange, &previousSelection) {
+                AXUIElementSetAttributeValue(element, kAXSelectedTextRangeAttribute as CFString, value)
+            }
+        }
+        var range = CFRange(location: originalRange.location, length: (write.text as NSString).length)
+        guard let value = AXValueCreate(.cfRange, &range),
+              AXUIElementSetAttributeValue(element, kAXSelectedTextRangeAttribute as CFString, value) == .success else {
+            throw TextInteractionError.targetChanged
+        }
+        let snapshot = try captureTarget()
+        guard !snapshot.isSensitive,
+              snapshot.valueBefore == expected,
+              snapshot.selectedRange == range,
+              snapshot.selectedText == write.text else { throw TextInteractionError.targetChanged }
+        selectionValidated = true
+        return snapshot
     }
 
     private func paste(_ text: String, to snapshot: TextTargetSnapshot) async throws -> TextWriteOutcome {
@@ -244,6 +316,7 @@ final class TextInteraction {
         let application = AXUIElementCreateApplication(snapshot.appPID)
         let currentWindow = window(of: element) ?? copyAttribute(application, kAXFocusedWindowAttribute)
         guard sameWindow(snapshot.windowElement, currentWindow) else { return nil }
+        if let original = snapshot.textElement, !CFEqual(original, element) { return nil }
         let range = selectedRange(of: element)
         return normalizedValue(of: element, selectedRange: range)
     }
@@ -508,7 +581,7 @@ enum AgentActionExecutor {
     @MainActor
     static func execute(_ response: AgentResponse) throws {
         switch response.action {
-        case .writeText:
+        case .writeText, .answer:
             return
         case .openURL:
             guard let value = response.url, let url = URL(string: value), ["http", "https"].contains(url.scheme?.lowercased()) else {

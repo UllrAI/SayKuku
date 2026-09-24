@@ -2,10 +2,10 @@
 
 SayKuku 是一款使用 SwiftUI 与 AppKit 构建的原生 macOS 语音输入应用：
 
-- `Fn`：Voice Input，流式上传语音，结束后转写并写入当前输入位置。
-- `Fn Fn`：Voice Agent，结合选中文字和当前应用上下文执行改写、翻译或生成。
+- `Fn`：Voice Input，支持轻整理口癖、原样听写和口述格式；转写后写入当前输入位置，可撤销经验证的写入。
+- `Fn Fn`：Voice Agent，结合选中文字和当前应用上下文改写、翻译、生成或回答；支持修改上次写入。
 - Knowledge：管理人名、项目、组织和术语，提高识别与处理准确度。
-- History / Memory：本地加密保存历史、短期 Agent Session 和用户确认的纠错记忆。
+- History / Memory：本地加密保存历史、短期 Agent Session 和用户确认的纠错记忆；失败听写可从录音重试。
 
 项目要求 macOS 15+、Swift 6 和完整 Xcode。当前 Swift Package 没有第三方依赖。
 
