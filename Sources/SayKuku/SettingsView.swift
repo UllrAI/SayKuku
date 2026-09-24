@@ -68,8 +68,6 @@ private struct VoiceInputSettings: View {
             SettingsGroup(title: appState.text("结束与输出", "Stop & output")) {
                 SettingsToggle(title: appState.text("自动检测停顿结束", "Stop after a pause"), subtitle: appState.text("停顿约 1 秒后结束录音", "Stop recording after about one second of silence"), isOn: $appState.autoStop)
                 SettingsDivider()
-                SettingsValueRow(title: appState.text("输入位置", "Overlay position"), value: appState.text("屏幕底部", "Bottom of screen"))
-                SettingsDivider()
                 SettingsOptionRow(
                     title: appState.text("识别语言", "Recognition language"),
                     selection: $appState.recognitionLanguage
@@ -183,100 +181,208 @@ private struct PrivacySettings: View {
 
 private struct QwenSettings: View {
     @Environment(AppState.self) private var appState
+    @State private var apiKeyDraft = ""
 
     var body: some View {
         @Bindable var appState = appState
         SettingsStack(title: appState.text("Qwen 连接", "Qwen connection"), subtitle: appState.text("连接 Qwen，并选择语音输入和语音 Agent 使用的模型。", "Connect Qwen and choose models for Voice Input and Voice Agent.")) {
             SettingsGroup(title: appState.text("连接", "Connection")) {
-                HStack {
-                    Text(appState.text("地域", "Region")).font(.system(size: 12.5, weight: .medium))
-                    Spacer()
-                    Picker("", selection: $appState.qwenRegion) {
-                        ForEach(QwenRegion.allCases) { Text($0.title).tag($0) }
-                    }
-                    .labelsHidden()
-                    .frame(width: 230)
-                }
-                .padding(.horizontal, 14)
-                .frame(minHeight: 50)
-                SettingsDivider()
-                HStack {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("API Key").font(.system(size: 12, weight: .medium))
-                        Text(appState.text("仅保存在这台 Mac 上", "Stored only on this Mac")).font(.system(size: 10)).foregroundStyle(KukuColor.stone)
-                    }
-                    Spacer()
-                    SecureField("sk-...", text: $appState.apiKey)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: 160)
-                        .onSubmit(saveKey)
-                    Button(appState.text("保存", "Save"), action: saveKey)
-                    .buttonStyle(HoverFillButtonStyle())
-                }
-                .padding(14)
-                SettingsDivider()
-                HStack {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(appState.text("业务空间 ID", "Workspace ID")).font(.system(size: 12, weight: .medium))
-                        Text(appState.text("如 Qwen 提供了业务空间 ID，请填在这里", "Enter your Qwen workspace ID if you have one"))
-                            .font(.system(size: 10)).foregroundStyle(KukuColor.stone)
-                    }
-                    Spacer()
-                    TextField("ws-...", text: $appState.qwenWorkspaceID)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: 220)
-                }
-                .padding(14)
+                QwenConnectionForm(apiKeyDraft: $apiKeyDraft)
             }
             SettingsGroup(title: appState.text("模型", "Models")) {
-                SettingsPickerRow(title: appState.voiceInputTitle, value: $appState.realtimeModel, values: [
-                    "qwen3.5-omni-flash-realtime",
-                    "qwen3.5-omni-flash-realtime-2026-03-15"
-                ])
+                ModelPickerRow(title: appState.voiceInputTitle, value: $appState.realtimeModel, presets: QwenModelCatalog.realtimeModels)
                 SettingsDivider()
-                SettingsPickerRow(title: appState.voiceAgentTitle, value: $appState.reasoningModel, values: [
-                    "qwen3.8-omni-flash",
-                    "qwen3.5-omni-plus",
-                    "qwen3.5-omni-flash"
-                ])
+                ModelPickerRow(title: appState.voiceAgentTitle, value: $appState.reasoningModel, presets: QwenModelCatalog.reasoningModels)
             }
             HStack {
-                switch appState.connectionState {
-                case .connected(let milliseconds):
-                    Label(appState.text("连接正常 · \(milliseconds) ms", "Connected · \(milliseconds) ms"), systemImage: "checkmark.circle.fill")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(KukuColor.mint)
-                case .failed(let message):
-                    Label(message, systemImage: "exclamationmark.triangle.fill")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(KukuColor.amber)
-                        .lineLimit(2)
-                default:
-                    EmptyView()
+                QwenConnectionStatus()
+                Spacer()
+                QwenTestButton(apiKeyDraft: apiKeyDraft)
+            }
+        }
+    }
+}
+
+/// Region, API Key, and workspace rows shared by Settings and the first-run setup sheet.
+struct QwenConnectionForm: View {
+    @Environment(AppState.self) private var appState
+    @Binding var apiKeyDraft: String
+
+    var body: some View {
+        @Bindable var appState = appState
+        let keyState = APIKeyDraftState(draft: apiKeyDraft, saved: appState.apiKey)
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text(appState.text("地域", "Region")).font(.system(size: 12.5, weight: .medium))
+                Spacer()
+                Picker("", selection: $appState.qwenRegion) {
+                    ForEach(QwenRegion.allCases) { region in
+                        Text(region.title(isChineseUI: appState.usesChineseUI)).tag(region)
+                    }
+                }
+                .labelsHidden()
+                .frame(width: 230)
+            }
+            .padding(.horizontal, 14)
+            .frame(minHeight: 50)
+            SettingsDivider()
+            HStack {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("API Key").font(.system(size: 12, weight: .medium))
+                    Text(keyCaption(keyState))
+                        .font(.system(size: 10))
+                        .foregroundStyle(keyCaptionColor(keyState))
                 }
                 Spacer()
-                Button(appState.connectionState == .testing ? appState.text("正在测试…", "Testing…") : appState.text("保存并测试", "Save & test")) {
-                    Task { await appState.testQwenConnection() }
-                }
-                .buttonStyle(HoverFillButtonStyle(prominent: true))
-                .disabled(appState.connectionState == .testing || appState.apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                SecureField("sk-...", text: $apiKeyDraft)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 160)
+                    .onSubmit(saveKey)
+                Button(appState.text("保存", "Save"), action: saveKey)
+                    .buttonStyle(HoverFillButtonStyle())
+                    .disabled(!keyState.hasChanges)
             }
+            .padding(14)
+            SettingsDivider()
+            HStack {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(appState.text("业务空间 ID", "Workspace ID")).font(.system(size: 12, weight: .medium))
+                    Text(appState.text("如 Qwen 提供了业务空间 ID，请填在这里", "Enter your Qwen workspace ID if you have one"))
+                        .font(.system(size: 10)).foregroundStyle(KukuColor.stone)
+                }
+                Spacer()
+                TextField("ws-...", text: $appState.qwenWorkspaceID)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 220)
+            }
+            .padding(14)
+        }
+        .onChange(of: appState.apiKey, initial: true) { _, saved in apiKeyDraft = saved }
+    }
+
+    private func keyCaption(_ state: APIKeyDraftState) -> String {
+        switch state {
+        case .empty: appState.text("仅保存在这台 Mac 上", "Stored only on this Mac")
+        case .saved: appState.text("已保存在这台 Mac 上", "Saved on this Mac")
+        case .modified: appState.text("尚未保存", "Not saved yet")
+        case .cleared: appState.text("保存后将移除", "Will be removed when you save")
+        }
+    }
+
+    private func keyCaptionColor(_ state: APIKeyDraftState) -> Color {
+        switch state {
+        case .empty: KukuColor.stone
+        case .saved: KukuColor.mint
+        case .modified, .cleared: KukuColor.amber
         }
     }
 
     private func saveKey() {
+        guard APIKeyDraftState(draft: apiKeyDraft, saved: appState.apiKey).hasChanges else { return }
         do {
-            try appState.saveAPIKey(appState.apiKey)
-            let isEmpty = appState.apiKey.isEmpty
-            appState.showToast(
-                isEmpty
-                    ? appState.text("API Key 已移除", "API Key removed")
-                    : appState.text("API Key 已保存", "API Key saved"),
-                symbol: "checkmark.circle.fill"
-            )
+            try appState.saveAPIKey(apiKeyDraft)
         } catch {
-            appState.showToast(appState.localizedError(error), symbol: "exclamationmark.triangle.fill")
+            appState.connectionState = .failed(appState.localizedError(error))
         }
+    }
+}
+
+struct QwenConnectionStatus: View {
+    @Environment(AppState.self) private var appState
+
+    var body: some View {
+        switch appState.connectionState {
+        case .connected(let realtime, let chat):
+            Label(
+                appState.text(
+                    "连接正常 · 语音输入 \(realtime) ms · 语音 Agent \(chat) ms",
+                    "Connected · Voice Input \(realtime) ms · Voice Agent \(chat) ms"
+                ),
+                systemImage: "checkmark.circle.fill"
+            )
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(KukuColor.mint)
+        case .failed(let message):
+            Label(message, systemImage: "exclamationmark.triangle.fill")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(KukuColor.amber)
+                .lineLimit(2)
+        case .idle, .testing:
+            EmptyView()
+        }
+    }
+}
+
+struct QwenTestButton: View {
+    @Environment(AppState.self) private var appState
+    let apiKeyDraft: String
+
+    var body: some View {
+        let isTesting = appState.connectionState == .testing
+        Button(isTesting ? appState.text("正在测试…", "Testing…") : appState.text("保存并测试", "Save & test")) {
+            Task { await appState.testQwenConnection(apiKey: apiKeyDraft) }
+        }
+        .buttonStyle(HoverFillButtonStyle(prominent: true))
+        .disabled(isTesting || apiKeyDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+    }
+}
+
+private struct ModelPickerRow: View {
+    private enum Choice: Hashable { case model(String), custom }
+
+    @Environment(AppState.self) private var appState
+    let title: String
+    @Binding var value: String
+    let presets: [String]
+    @State private var customDraft: String?
+
+    var body: some View {
+        HStack {
+            Text(title).font(.system(size: 12.5, weight: .medium))
+            Spacer()
+            if let draft = customDraft {
+                TextField(
+                    appState.text("模型 ID", "Model ID"),
+                    text: Binding(get: { draft }, set: { customDraft = $0 })
+                )
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 170)
+                .onSubmit(applyCustomModel)
+                .onExitCommand { customDraft = nil }
+                Button(appState.text("使用", "Use"), action: applyCustomModel)
+                    .buttonStyle(HoverFillButtonStyle())
+            } else {
+                Picker("", selection: selection) {
+                    ForEach(QwenModelCatalog.options(presets, including: value), id: \.self) { model in
+                        Text(model).tag(Choice.model(model))
+                    }
+                    Divider()
+                    Text(appState.text("自定义…", "Custom…")).tag(Choice.custom)
+                }
+                .labelsHidden()
+                .frame(width: 230)
+            }
+        }
+        .padding(.horizontal, 14)
+        .frame(maxWidth: .infinity, minHeight: 50, alignment: .leading)
+    }
+
+    private var selection: Binding<Choice> {
+        Binding(
+            get: { .model(value) },
+            set: { choice in
+                switch choice {
+                case .model(let model): value = model
+                case .custom: customDraft = value
+                }
+            }
+        )
+    }
+
+    private func applyCustomModel() {
+        let model = customDraft?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !model.isEmpty { value = model }
+        customDraft = nil
     }
 }
 
@@ -603,23 +709,6 @@ private struct SettingsValueRow: View {
     }
 }
 
-private struct SettingsPickerRow: View {
-    let title: String
-    @Binding var value: String
-    let values: [String]
-    var body: some View {
-        HStack {
-            Text(title).font(.system(size: 12.5, weight: .medium))
-            Spacer()
-            Picker("", selection: $value) { ForEach(values, id: \.self) { Text($0) } }
-                .labelsHidden()
-                .frame(width: 230)
-        }
-        .padding(.horizontal, 14)
-        .frame(maxWidth: .infinity, minHeight: 50, alignment: .leading)
-    }
-}
-
 private struct SettingsOptionRow<Option: CaseIterable & Hashable & Identifiable>: View
 where Option.AllCases: RandomAccessCollection {
     let title: String
@@ -643,7 +732,7 @@ where Option.AllCases: RandomAccessCollection {
     }
 }
 
-private struct SettingsDivider: View {
+struct SettingsDivider: View {
     var body: some View { Divider().padding(.leading, 14).opacity(0.5) }
 }
 

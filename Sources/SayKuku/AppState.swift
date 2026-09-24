@@ -32,7 +32,10 @@ final class AppState {
 
     enum DictationPhase: Equatable { case idle, listening, processing, success, copyReady }
     enum AgentPhase: Equatable { case hidden, listening, transcribing, processing, result, copyReady, answerReady }
-    enum ConnectionState: Equatable { case idle, testing, connected(milliseconds: Int), failed(String) }
+    enum ConnectionState: Equatable {
+        case idle, testing, failed(String)
+        case connected(realtimeMilliseconds: Int, chatMilliseconds: Int)
+    }
 
     enum ShortcutStatus: Equatable {
         case starting, ready, accessibilityRequired, hotKeyConflict
@@ -119,11 +122,20 @@ final class AppState {
         }
     }
     var launchAtLogin = false
-    var qwenRegion: QwenRegion = .beijing { didSet { defaults.set(qwenRegion.rawValue, forKey: Keys.qwenRegion) } }
-    var qwenWorkspaceID = "" { didSet { defaults.set(qwenWorkspaceID, forKey: Keys.qwenWorkspace) } }
-    var realtimeModel = "qwen3.5-omni-flash-realtime" { didSet { defaults.set(realtimeModel, forKey: Keys.realtimeModel) } }
-    var reasoningModel = "qwen3.8-omni-flash" { didSet { defaults.set(reasoningModel, forKey: Keys.reasoningModel) } }
-    var apiKey = ""
+    var qwenRegion: QwenRegion = .beijing {
+        didSet { defaults.set(qwenRegion.rawValue, forKey: Keys.qwenRegion); invalidateConnectionTest() }
+    }
+    var qwenWorkspaceID = "" {
+        didSet { defaults.set(qwenWorkspaceID, forKey: Keys.qwenWorkspace); invalidateConnectionTest() }
+    }
+    var realtimeModel = QwenModelCatalog.defaultRealtimeModel {
+        didSet { defaults.set(realtimeModel, forKey: Keys.realtimeModel); invalidateConnectionTest() }
+    }
+    var reasoningModel = QwenModelCatalog.defaultReasoningModel {
+        didSet { defaults.set(reasoningModel, forKey: Keys.reasoningModel); invalidateConnectionTest() }
+    }
+    /// The saved key; edits stay in a view draft until `saveAPIKey` runs.
+    private(set) var apiKey = ""
     var connectionState: ConnectionState = .idle
     var knowledgeAnalysis: KnowledgeAnalysis?
     var isAnalyzingKnowledge = false
@@ -152,6 +164,7 @@ final class AppState {
     @ObservationIgnored private var overlayFeedbackGeneration = 0
     @ObservationIgnored private var mainWindowOpener: OpenWindowAction?
     @ObservationIgnored private var didEvaluateStartupPermissions = false
+    @ObservationIgnored private var pendingSetupSteps: [AppSheet] = []
     @ObservationIgnored private var isLoaded = false
     @ObservationIgnored private var persistenceGeneration = 0
 
@@ -461,28 +474,51 @@ final class AppState {
         contextItems.removeAll { $0.kind == .session }
     }
 
-    func testQwenConnection() async {
+    func testQwenConnection(apiKey draft: String) async {
+        do {
+            try saveAPIKey(draft)
+        } catch {
+            connectionState = .failed(localizedError(error))
+            return
+        }
+        let key = apiKey
+        let tested = configuration
         connectionState = .testing
         let realtimeSession = UUID()
         do {
-            try saveAPIKey(apiKey)
-            let started = Date.now
+            let started = ContinuousClock.now
             try await realtimeClient.connect(
                 session: realtimeSession,
-                apiKey: apiKey,
-                configuration: configuration,
+                apiKey: key,
+                configuration: tested,
                 autoStop: false,
                 onSpeechStopped: {},
                 onDelta: { _ in }
             )
+            let realtimeLatency = started.duration(to: .now)
             await realtimeClient.cancel(session: realtimeSession)
-            _ = try await reasoningClient.testConnection(apiKey: apiKey, configuration: configuration)
-            let latency = Date.now.timeIntervalSince(started)
-            connectionState = .connected(milliseconds: Int(latency * 1_000))
+            let chatLatency = try await reasoningClient.testConnection(apiKey: key, configuration: tested)
+            finishConnectionTest(
+                .connected(
+                    realtimeMilliseconds: Int(realtimeLatency / Duration.milliseconds(1)),
+                    chatMilliseconds: Int(chatLatency * 1_000)
+                ),
+                apiKey: key, configuration: tested
+            )
         } catch {
             await realtimeClient.cancel(session: realtimeSession)
-            connectionState = .failed(localizedError(error))
+            finishConnectionTest(.failed(localizedError(error)), apiKey: key, configuration: tested)
         }
+    }
+
+    /// Keeps a running test locked, but marks any finished result as outdated.
+    private func invalidateConnectionTest() {
+        if connectionState != .testing { connectionState = .idle }
+    }
+
+    /// Drops the result when the key or connection settings changed mid-test.
+    private func finishConnectionTest(_ result: ConnectionState, apiKey key: String, configuration tested: QwenConfiguration) {
+        connectionState = apiKey == key && configuration == tested ? result : .idle
     }
 
     func saveAPIKey(_ value: String) throws {
@@ -490,7 +526,7 @@ final class AppState {
         if trimmed.isEmpty { try keychain.remove(Keys.apiKey) }
         else { try keychain.set(trimmed, for: Keys.apiKey) }
         apiKey = trimmed
-        connectionState = .idle
+        invalidateConnectionTest()
     }
 
     func playAudio(for entry: HistoryEntry) async throws -> Data {
@@ -580,15 +616,38 @@ final class AppState {
     }
     func showDomainOnboarding() { presentedSheet = .onboarding }
     func completeDomainOnboarding(domains: Set<DomainPreset>, customTerms: [String]) {
-        let wasFirstRun = !didCompleteOnboarding
+        if !didCompleteOnboarding { pendingSetupSteps = [.permissions, .qwenSetup] }
         selectedDomains = domains
         customDomainTerms = Self.normalizedDomainTerms(customTerms)
         didCompleteOnboarding = true
         presentedSheet = nil
-        guard wasFirstRun else { return }
+    }
+
+    /// Called whenever a sheet closes; walks the remaining first-run steps.
+    func presentNextSetupStep() {
+        guard !pendingSetupSteps.isEmpty else { return }
         Task { @MainActor [weak self] in
             try? await Task.sleep(for: .milliseconds(350))
-            self?.presentPermissionGuideIfNeeded()
+            guard let self, self.presentedSheet == nil else { return }
+            while !self.pendingSetupSteps.isEmpty {
+                let step = self.pendingSetupSteps.removeFirst()
+                if self.isSetupStepNeeded(step) {
+                    self.presentedSheet = step
+                    return
+                }
+            }
+        }
+    }
+
+    private func isSetupStepNeeded(_ step: AppSheet) -> Bool {
+        switch step {
+        case .onboarding:
+            return false
+        case .permissions:
+            systemPermissions.refresh()
+            return !systemPermissions.allRequiredPermissionsGranted
+        case .qwenSetup:
+            return apiKey.isEmpty
         }
     }
 
@@ -1357,14 +1416,8 @@ final class AppState {
         if let raw = defaults.string(forKey: Keys.historyRetention), let value = HistoryRetention(rawValue: raw) { historyRetention = value }
         if let raw = defaults.string(forKey: Keys.qwenRegion), let value = QwenRegion(rawValue: raw) { qwenRegion = value }
         qwenWorkspaceID = defaults.string(forKey: Keys.qwenWorkspace) ?? ""
-        let storedRealtimeModel = defaults.string(forKey: Keys.realtimeModel)
-        if storedRealtimeModel == "qwen3.8-omni-flash-realtime"
-            || storedRealtimeModel?.hasPrefix("qwen3-asr-flash-realtime") == true {
-            realtimeModel = "qwen3.5-omni-flash-realtime"
-        } else {
-            realtimeModel = storedRealtimeModel ?? realtimeModel
-        }
-        reasoningModel = defaults.string(forKey: Keys.reasoningModel) ?? reasoningModel
+        realtimeModel = QwenModelCatalog.realtimeModel(stored: defaults.string(forKey: Keys.realtimeModel))
+        reasoningModel = QwenModelCatalog.reasoningModel(stored: defaults.string(forKey: Keys.reasoningModel))
         autoStop = defaults.object(forKey: Keys.autoStop).map { _ in defaults.bool(forKey: Keys.autoStop) } ?? false
         continuousConversation = defaults.object(forKey: Keys.continuousConversation).map { _ in defaults.bool(forKey: Keys.continuousConversation) } ?? true
         automaticAgentWriteBack = defaults.object(forKey: Keys.automaticAgentWriteBack).map { _ in defaults.bool(forKey: Keys.automaticAgentWriteBack) } ?? true
