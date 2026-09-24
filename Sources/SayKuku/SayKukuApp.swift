@@ -34,8 +34,7 @@ struct SayKukuApp: App {
         .commands {
             CommandGroup(replacing: .newItem) { }
             CommandMenu(appState.text("语音", "Voice")) {
-                Button(appState.text("开始语音输入    ⇧⌘D", "Start Voice Input    ⇧⌘D")) { appState.toggleDictation() }
-                Button(appState.text("打开语音 Agent    ⇧⌘A", "Open Voice Agent    ⇧⌘A")) { appState.startAgent() }
+                VoiceMenuItems(appState: appState)
             }
         }
 
@@ -213,13 +212,7 @@ private struct MenuBarContent: View {
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        Button(appState.text("开始语音输入", "Start Voice Input")) {
-            appState.toggleDictation()
-        }
-
-        Button(appState.text("打开语音 Agent", "Open Voice Agent")) {
-            appState.startAgent()
-        }
+        VoiceMenuItems(appState: appState)
 
         Divider()
 
@@ -248,5 +241,30 @@ private struct MenuBarContent: View {
     private func showWindow(destination: AppState.Destination) {
         appState.registerMainWindowOpener(openWindow)
         appState.showMainWindow(destination: destination)
+    }
+}
+
+/// Voice actions shared by the app menu and the menu bar menu.
+///
+/// The key equivalents only label the items with the active global shortcuts.
+/// A registered Carbon hot key consumes its keystroke before AppKit sees it, so
+/// the menu item cannot fire a second time. While settings records a shortcut,
+/// the hot keys are paused and the recorder's local monitor swallows the keys
+/// before menu key equivalents are matched.
+private struct VoiceMenuItems: View {
+    let appState: AppState
+
+    var body: some View {
+        Button(appState.dictationPhase == .listening
+               ? appState.text("结束语音输入", "Stop Voice Input")
+               : appState.text("开始语音输入", "Start Voice Input")) {
+            appState.toggleDictation()
+        }
+        .keyboardShortcut(appState.voiceInputShortcut?.keyboardShortcut)
+
+        Button(appState.text("打开语音 Agent", "Open Voice Agent")) {
+            appState.startAgent()
+        }
+        .keyboardShortcut(appState.voiceAgentShortcut?.keyboardShortcut)
     }
 }
