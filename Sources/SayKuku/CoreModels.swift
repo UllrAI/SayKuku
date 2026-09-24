@@ -17,8 +17,8 @@ enum QwenRegion: String, Codable, CaseIterable, Identifiable {
 
     func title(isChineseUI: Bool) -> String {
         switch self {
-        case .beijing: isChineseUI ? "北京" : "China (Beijing)"
-        case .singapore: isChineseUI ? "新加坡" : "International (Singapore)"
+        case .beijing: isChineseUI ? "中国内地（北京）" : "China (Beijing)"
+        case .singapore: isChineseUI ? "国际（新加坡）" : "International (Singapore)"
         }
     }
 }
@@ -100,7 +100,7 @@ enum RecognitionLanguage: String, CaseIterable, Identifiable, Sendable {
 
     func title(isChineseUI: Bool) -> String {
         switch self {
-        case .automatic: isChineseUI ? "自动 · 中英混合" : "Auto · Chinese & English"
+        case .automatic: isChineseUI ? "自动（中英混合）" : "Auto (Chinese & English)"
         case .chinese: "简体中文"
         case .english: "English"
         }
@@ -331,7 +331,10 @@ enum HistoryRetention: String, Codable, CaseIterable, Identifiable {
         case .forever: "Forever"
         }
     }
-    @MainActor func title(_ appState: AppState) -> String { appState.usesChineseUI ? chineseTitle : englishTitle }
+    /// Option label for the "Delete history after" picker, where keeping history forever reads as "Never".
+    @MainActor func title(_ appState: AppState) -> String {
+        self == .forever ? appState.text("永不", "Never") : appState.text(chineseTitle, englishTitle)
+    }
 }
 
 enum HistoryMode: String, Codable {

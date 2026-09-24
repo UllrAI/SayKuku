@@ -28,6 +28,13 @@ struct GlobalShortcutTests {
         #expect(GlobalShortcut(keyCode: UInt32(kVK_UpArrow), carbonModifiers: UInt32(controlKey)).displayString == "⌃↑")
     }
 
+    @Test("VoiceOver names spell out modifiers and symbol keys")
+    func spokenString() {
+        #expect(GlobalShortcut.defaultVoiceInput.spokenString == "Control-Option-Command-V")
+        #expect(GlobalShortcut(keyCode: UInt32(kVK_UpArrow), carbonModifiers: UInt32(controlKey | shiftKey)).spokenString == "Control-Shift-Up Arrow")
+        #expect(GlobalShortcut(keyCode: UInt32(kVK_F5), carbonModifiers: UInt32(cmdKey)).spokenString == "Command-F5")
+    }
+
     @Test("storage round-trips, empty means off, and bad values fall back")
     func storage() {
         let shortcut = GlobalShortcut(keyCode: UInt32(kVK_Space), carbonModifiers: UInt32(controlKey | shiftKey))

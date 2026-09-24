@@ -82,7 +82,7 @@ extension GlobalShortcut.RecordingIssue {
     @MainActor func message(for action: GlobalShortcutAction, _ appState: AppState) -> String {
         switch self {
         case .needsModifier:
-            appState.text("需包含 ⌘ 或 ⌃", "Include ⌘ or ⌃")
+            appState.text("快捷键需包含 ⌘ 或 ⌃", "Shortcuts need ⌘ or ⌃")
         case .unsupportedKey:
             appState.text("这个键不能用作快捷键，请换一个", "That key can’t be used. Try another.")
         case .duplicate:
@@ -127,6 +127,7 @@ struct ShortcutRecorderButton: View {
             }
             .buttonStyle(.plain)
             .help(appState.text("点击后按下新的组合键", "Click, then press a new shortcut"))
+            .accessibilityLabel(spokenLabel(isRecording: isRecording, shortcut: shortcut))
 
             if shortcut != nil, !isRecording {
                 Button {
@@ -138,8 +139,23 @@ struct ShortcutRecorderButton: View {
                 }
                 .buttonStyle(.plain)
                 .help(appState.text("关闭这个快捷键", "Turn off this shortcut"))
-                .accessibilityLabel(appState.text("关闭快捷键", "Turn off shortcut"))
+                .accessibilityLabel(appState.text(
+                    "关闭\(action.title(appState))快捷键",
+                    "Turn off \(action.title(appState)) shortcut"
+                ))
             }
         }
+    }
+
+    private func spokenLabel(isRecording: Bool, shortcut: GlobalShortcut?) -> String {
+        let title = action.title(appState)
+        let value = if isRecording {
+            appState.text("请按下新的组合键", "press new keys")
+        } else if let shortcut {
+            shortcut.spokenString
+        } else {
+            appState.text("已关闭", "off")
+        }
+        return appState.text("\(title)快捷键：\(value)", "\(title) shortcut: \(value)")
     }
 }
