@@ -39,7 +39,7 @@ enum KnowledgePipeline {
         // Mainland mobile numbers, optionally with +86 and 3-4-4 grouping.
         #"(?<!\d)(?:\+?86[- ]?)?1[3-9]\d(?:[- ]?\d{4}){2}(?!\d)"#,
         // International numbers written with a leading +.
-        #"(?<![\w+])\+\d{1,3}(?:[ .()-]{0,2}\d){7,14}(?!\d)"#,
+        #"(?<![0-9A-Z+])\+\d{1,3}(?:[ .()-]{0,2}\d){7,14}(?!\d)"#,
         // Addresses are recognized only when explicitly labeled.
         #"(?:地址|住址|Address)\s*[:：]\s*[^\n]{4,}"#
     ]
