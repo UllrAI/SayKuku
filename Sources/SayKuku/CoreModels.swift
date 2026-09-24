@@ -77,6 +77,42 @@ enum APIKeyDraftState: Equatable {
     var hasChanges: Bool { self == .modified || self == .cleared }
 }
 
+/// Unsaved API Key and Workspace ID edits. Both are applied together by one button.
+struct QwenCredentialsDraft: Equatable {
+    var apiKey = ""
+    var workspaceID = ""
+
+    func keyState(saved: String) -> APIKeyDraftState {
+        APIKeyDraftState(draft: apiKey, saved: saved)
+    }
+
+    func workspaceChanged(saved: String) -> Bool {
+        workspaceID.trimmingCharacters(in: .whitespacesAndNewlines) != saved.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    func action(savedKey: String, savedWorkspaceID: String) -> QwenCredentialsAction {
+        let workspaceChanged = workspaceChanged(saved: savedWorkspaceID)
+        switch keyState(saved: savedKey) {
+        case .empty: return workspaceChanged ? .save : .unavailable
+        case .cleared: return .save
+        case .modified: return .saveAndTest
+        case .saved: return workspaceChanged ? .saveAndTest : .test
+        }
+    }
+}
+
+/// What the connection button does for the current draft.
+enum QwenCredentialsAction: Equatable {
+    /// Nothing to save and no key to test.
+    case unavailable
+    /// Saves without testing: the key was cleared, or there is no key yet.
+    case save
+    case saveAndTest
+    case test
+
+    var hasChanges: Bool { self == .save || self == .saveAndTest }
+}
+
 struct QwenConfiguration: Equatable {
     var region: QwenRegion
     var workspaceID: String

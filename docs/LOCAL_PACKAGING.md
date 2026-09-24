@@ -322,7 +322,7 @@ codesign -dvvv /Applications/SayKuku.app 2>&1 | \
 | Dev | `com.saykuku.dev` | Apple Development | 日常开发和测试 |
 | Release | `com.saykuku.app` | Developer ID Application | 分发和正式使用 |
 
-正式版首次使用时，在 App 的权限引导中点击麦克风“开启”，接受 macOS 系统弹窗，然后回到 App 点击“重新检查”。辅助功能需要在“系统设置 → 隐私与安全性 → 辅助功能”中手动打开正式版。
+正式版首次使用时，在 App 的权限引导中点击麦克风“开启”，接受 macOS 系统弹窗，回到 App 后状态会自动刷新。辅助功能需要在“系统设置 → 隐私与安全性 → 辅助功能”中手动打开正式版。
 
 如果设置中完全没有 SayKuku：
 

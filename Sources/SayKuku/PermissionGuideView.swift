@@ -9,13 +9,13 @@ struct PermissionGuideView: View {
         VStack(spacing: 0) {
             KukuSheetHeader(
                 eyebrow: appState.setupProgress?.title(appState),
-                title: appState.text("开启两项权限，就能开口输入", "Two Permissions and You’re Ready to Talk"),
+                title: appState.text("开启麦克风和辅助功能", "Turn On Microphone and Accessibility"),
                 description: appState.text(
                     "SayKuku 需要麦克风来听你说话，还需要辅助功能把文字写入输入框。",
                     "SayKuku needs the microphone to hear you and Accessibility to type into text fields."
                 )
             ) {
-                BrandMark(size: 22) // Sized for the 40 pt header tile.
+                KukuSheetIcon(symbol: "checkmark.shield.fill")
             }
 
             KukuDivider(inset: 0)
@@ -39,22 +39,18 @@ struct PermissionGuideView: View {
             KukuDivider(inset: 0)
 
             KukuSheetFooter(
-                note: KukuSheetNote(text: appState.text("可随时在“设置 › 通用”中重新检查权限。", "You can recheck permissions anytime in Settings › General."))
+                note: KukuSheetNote(text: appState.text("以后可在“设置 › 通用”中重新检查。", "You can recheck this later in Settings › General."))
             ) {
-                if allGranted {
-                    Button(appState.text("完成", "Done"), action: close)
-                        .buttonStyle(.kukuPrimary)
-                        .keyboardShortcut(.defaultAction)
-                } else {
-                    Button(appState.text("以后再说", "Not Now"), action: close)
+                // Status refreshes when you come back from System Settings, so there is no Recheck button.
+                if !allGranted {
+                    Button(appState.setupSkipTitle, action: close)
                         .buttonStyle(.kukuSecondary)
                         .keyboardShortcut(.cancelAction)
-                    Button(appState.text("重新检查", "Recheck")) {
-                        appState.refreshSystemPermissions()
-                    }
-                    .buttonStyle(.kukuPrimary)
-                    .keyboardShortcut(.defaultAction)
                 }
+                Button(appState.setupContinueTitle, action: close)
+                    .buttonStyle(.kukuPrimary)
+                    .keyboardShortcut(allGranted ? KeyboardShortcut.defaultAction : nil)
+                    .disabled(!allGranted)
             }
         }
         .frame(width: KukuLayout.sheetWideWidth, height: KukuLayout.sheetHeight)

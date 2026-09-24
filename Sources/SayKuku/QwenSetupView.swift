@@ -3,7 +3,7 @@ import SwiftUI
 struct QwenSetupView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.dismiss) private var dismiss
-    @State private var apiKeyDraft = ""
+    @State private var draft = QwenCredentialsDraft()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -19,30 +19,34 @@ struct QwenSetupView: View {
             }
             KukuDivider(inset: 0)
 
-            VStack(alignment: .leading, spacing: KukuSpacing.lg) {
-                steps
-                VStack(alignment: .leading, spacing: KukuSpacing.md) {
-                    // Save & Test in the footer is the only save action during setup.
-                    QwenConnectionForm(apiKeyDraft: $apiKeyDraft, showsSaveButton: false)
-                        .kukuSurface(radius: KukuLayout.radiusMedium)
-                    QwenConnectionStatus()
-                        .padding(.leading, KukuSpacing.xs)
+            ScrollView {
+                VStack(alignment: .leading, spacing: KukuLayout.sectionSpacing) {
+                    KukuGroup(appState.text("获取方式", "Where to find them")) {
+                        steps
+                    }
+                    VStack(alignment: .leading, spacing: KukuSpacing.md) {
+                        // The footer button is the only save action during setup.
+                        KukuGroup(appState.text("连接信息", "Connection details")) {
+                            QwenConnectionForm(draft: $draft)
+                        }
+                        QwenConnectionStatus(draft: draft)
+                            .padding(.leading, KukuSpacing.xs)
+                    }
                 }
+                .padding(.horizontal, KukuLayout.sheetPadding)
+                .padding(.vertical, KukuSpacing.xl)
             }
-            .padding(.horizontal, KukuLayout.sheetPadding)
-            .padding(.vertical, KukuSpacing.xl)
 
             KukuDivider(inset: 0)
             footer
         }
-        // Sized to its content: the steps and the form rows wrap with the language.
-        .frame(width: KukuLayout.sheetWideWidth)
-        .fixedSize(horizontal: false, vertical: true)
+        // Same size as the other setup steps, so the flow doesn't jump between sheets.
+        .frame(width: KukuLayout.sheetWideWidth, height: KukuLayout.sheetHeight)
         .background(KukuColor.canvas)
     }
 
     private var steps: some View {
-        VStack(alignment: .leading, spacing: KukuSpacing.sm) {
+        VStack(alignment: .leading, spacing: KukuSpacing.md) {
             QwenSetupStep(number: 1, text: appState.text(
                 "登录阿里云百炼控制台，地域与下方所选一致。",
                 "Sign in to the Alibaba Cloud Model Studio console in the region you pick below."
@@ -61,6 +65,7 @@ struct QwenSetupView: View {
                 "Optional: click your avatar in the top-right corner of the console and copy your Workspace ID (it starts with llm-). With it, Voice Input transcribes as you speak."
             ))
         }
+        .padding(KukuLayout.rowPadding)
     }
 
     private var footer: some View {
@@ -68,25 +73,27 @@ struct QwenSetupView: View {
             note: KukuSheetNote(text: appState.text("以后可在“设置 › Qwen 连接”中修改。", "You can change this later in Settings › Qwen Connection."))
         ) {
             if isConnected {
-                Button(appState.text("完成", "Done")) { dismiss() }
+                Button(appState.setupContinueTitle) { dismiss() }
                     .buttonStyle(.kukuPrimary)
                     .keyboardShortcut(.defaultAction)
             } else {
-                Button(appState.apiKey.isEmpty ? appState.text("跳过", "Skip") : appState.text("完成", "Done")) {
+                // A saved key is enough to move on; testing it is recommended, not required.
+                Button(appState.apiKey.isEmpty ? appState.setupSkipTitle : appState.setupContinueTitle) {
                     dismiss()
                 }
                 .buttonStyle(.kukuSecondary)
                 .keyboardShortcut(.cancelAction)
-                // Applies to the Button inside, so Return saves and tests the key.
-                QwenTestButton(apiKeyDraft: apiKeyDraft)
+                // Applies to the Button inside, so Return saves and tests.
+                QwenConnectionButton(draft: draft)
                     .keyboardShortcut(.defaultAction)
             }
         }
     }
 
+    /// Connected with nothing left unsaved, so the only thing left is to finish.
     private var isConnected: Bool {
-        if case .connected = appState.connectionState { return true }
-        return false
+        guard case .connected = appState.connectionState else { return false }
+        return !draft.action(savedKey: appState.apiKey, savedWorkspaceID: appState.qwenWorkspaceID).hasChanges
     }
 }
 
