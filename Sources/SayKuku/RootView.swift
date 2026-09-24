@@ -5,6 +5,7 @@ struct RootView: View {
     @Environment(AppState.self) private var appState
     // Pages are rebuilt on navigation, so the selections people come back to live here.
     @State private var historyFilter: HistoryFilter = .all
+    @State private var historySearch = ""
     @State private var knowledgeSearch = ""
     @State private var knowledgeFilter: KnowledgeFilter = .all
     @State private var memoryScope: MemoryScope = .corrections
@@ -25,7 +26,7 @@ struct RootView: View {
                     case .home:
                         HomeView()
                     case .history:
-                        HistoryView(filter: $historyFilter)
+                        HistoryView(filter: $historyFilter, search: $historySearch)
                     case .knowledge:
                         KnowledgeView(search: $knowledgeSearch, filter: $knowledgeFilter)
                     case .memory:
