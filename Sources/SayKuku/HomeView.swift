@@ -1,15 +1,6 @@
 import SwiftUI
 
 struct HomeView: View {
-    var body: some View {
-        ZStack {
-            KukuColor.canvas.ignoresSafeArea()
-            HomeReadyState()
-        }
-    }
-}
-
-private struct HomeReadyState: View {
     @Environment(AppState.self) private var appState
     @State private var practiceText = ""
     @FocusState private var practiceFocused: Bool
@@ -23,55 +14,55 @@ private struct HomeReadyState: View {
             )
 
             Spacer()
-                .frame(height: 46)
+                .frame(height: KukuSpacing.xxxl)
 
             KukuPageContent {
-                VStack(alignment: .leading, spacing: 15) {
+                VStack(alignment: .leading, spacing: KukuSpacing.md) {
                     ViewThatFits(in: .horizontal) {
-                        HStack(spacing: 12) {
+                        HStack(spacing: KukuSpacing.md) {
                             voiceInputCard
                             voiceAgentCard
                         }
 
-                        VStack(spacing: 12) {
+                        VStack(spacing: KukuSpacing.md) {
                             voiceInputCard
                             voiceAgentCard
                         }
                     }
 
-                    VStack(alignment: .leading, spacing: 9) {
+                    VStack(alignment: .leading, spacing: KukuSpacing.sm) {
                         Text(appState.text("试写区", "Try it here"))
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.kuku(.headline))
+                            .foregroundStyle(KukuColor.textPrimary)
                         Text(appState.text(
                             "点这里，按 Fn 说句话；选中文字后连按两次 Fn，让语音 Agent 改写。",
                             "Click here and press Fn to talk. Select text and press Fn twice to have Voice Agent rewrite it."
                         ))
-                        .font(.system(size: 11))
-                        .foregroundStyle(KukuColor.stone)
+                        .font(.kuku(.subheadline))
+                        .foregroundStyle(KukuColor.textSecondary)
                         TextEditor(text: $practiceText)
                             .focused($practiceFocused)
-                            .font(.system(size: 13))
+                            .font(.kuku(.body))
                             .scrollContentBackground(.hidden)
+                            // About three lines of body text.
                             .frame(height: 70)
-                            .padding(8)
-                            .background(KukuColor.canvas, in: RoundedRectangle(cornerRadius: KukuLayout.radiusSmall, style: .continuous))
+                            .padding(KukuSpacing.sm)
+                            .kukuFieldChrome(isFocused: practiceFocused)
                             .accessibilityLabel(appState.text("语音试写区", "Voice practice field"))
                     }
-                    .padding(16)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .kukuSurface(radius: KukuLayout.radiusLarge)
+                    .kukuCard(radius: KukuLayout.radiusLarge)
 
                     Label(
                         appState.text("只在你按下 Fn 或快捷键后才录音并发送", "SayKuku only records and sends audio after you press Fn or your shortcut"),
                         systemImage: "lock.fill"
                     )
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(KukuColor.stone)
+                    .font(.kuku(.subheadline))
+                    .foregroundStyle(KukuColor.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .center)
                 }
             }
 
-            Spacer(minLength: 40)
+            Spacer(minLength: KukuSpacing.xxxl)
         }
     }
 
@@ -83,8 +74,7 @@ private struct HomeReadyState: View {
                 ? appState.text("按住说话，松开即输入", "Hold to talk, release to insert")
                 : appState.text("单击开始说话，再单击即输入", "Tap to start, tap again to insert"),
             shortcut: appState.globalShortcut(for: .voiceInput),
-            symbol: "mic.fill",
-            accent: KukuColor.coral
+            symbol: "mic.fill"
         ) {
             practiceFocused = true
         }
@@ -96,8 +86,7 @@ private struct HomeReadyState: View {
             title: appState.voiceAgentTitle,
             subtitle: appState.text("改写选中文字、提问或打开网页", "Rewrite selected text, ask questions, or open pages"),
             shortcut: appState.globalShortcut(for: .voiceAgent),
-            symbol: "sparkles",
-            accent: KukuColor.ink
+            symbol: "sparkles"
         ) {
             practiceFocused = true
         }
@@ -112,47 +101,41 @@ private struct HomeGestureRow: View {
     /// The optional global shortcut, shown for people without an Fn key.
     let shortcut: GlobalShortcut?
     let symbol: String
-    let accent: Color
     let action: () -> Void
     @State private var hovering = false
 
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 13) {
+            VStack(alignment: .leading, spacing: KukuSpacing.md) {
                 HStack {
-                    Image(systemName: symbol)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(accent)
-                        .frame(width: 34, height: 34)
-                        .background(accent.opacity(0.09), in: RoundedRectangle(cornerRadius: KukuLayout.radiusSmall, style: .continuous))
-
+                    KukuIconTile(symbol: symbol)
                     Spacer()
-
-                    Text(key)
-                        .font(.system(size: 9.5, weight: .bold, design: .monospaced))
-                        .padding(.horizontal, 7)
-                        .frame(height: 20)
-                        .background(KukuColor.shade.opacity(0.055), in: RoundedRectangle(cornerRadius: KukuLayout.radiusSmall, style: .continuous))
+                    KukuKeyCap(text: key)
                 }
 
-                VStack(alignment: .leading, spacing: 5) {
+                VStack(alignment: .leading, spacing: KukuSpacing.xs) {
                     Text(title)
-                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .font(.kuku(.title3))
+                        .foregroundStyle(KukuColor.textPrimary)
                     Text(subtitle)
-                        .font(.system(size: 11))
-                        .foregroundStyle(KukuColor.stone)
+                        .font(.kuku(.subheadline))
+                        .foregroundStyle(KukuColor.textSecondary)
                         .lineLimit(2)
                 }
 
                 if let shortcut {
                     Text(appState.text("或 \(shortcut.displayString)", "or \(shortcut.displayString)"))
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(KukuColor.stone)
+                        .font(.kuku(.caption))
+                        .foregroundStyle(KukuColor.textSecondary)
                 }
             }
-            .padding(16)
+            .padding(KukuLayout.cardPadding)
+            // Keeps both cards the same height when their subtitles wrap differently.
             .frame(maxWidth: .infinity, minHeight: 140, alignment: .topLeading)
-            .background(hovering ? KukuColor.highlight.opacity(0.32) : .clear)
+            .background(
+                hovering ? KukuColor.rowHover : Color.clear,
+                in: RoundedRectangle(cornerRadius: KukuLayout.radiusLarge, style: .continuous)
+            )
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
