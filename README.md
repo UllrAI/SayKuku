@@ -5,7 +5,7 @@ SayKuku 是一款使用 SwiftUI 与 AppKit 构建的原生 macOS 语音输入应
 - `Fn`：Voice Input，支持轻整理口癖、原样听写和口述格式；转写后写入当前输入位置，可撤销经验证的写入。
 - `Fn Fn`：Voice Agent，结合选中文字和当前应用上下文改写、翻译、生成或回答；支持修改上次写入。
 - Knowledge：管理人名、项目、组织和术语，提高识别与处理准确度。
-- History / Memory：本地加密保存历史、短期 Agent Session 和用户确认的纠错记忆；失败听写可从录音重试。
+- History / Memory：在本机保存历史、短期 Agent Session 和用户确认的纠错记忆；失败听写可从录音重试。
 
 项目要求 macOS 15+、Swift 6 和完整 Xcode。当前 Swift Package 没有第三方依赖。
 
@@ -42,7 +42,7 @@ open Build/SayKuku.app
 
 SayKuku 需要麦克风权限完成录音，需要辅助功能权限监听 Fn 手势并向其他 App 的当前输入位置写入文字。App 不申请输入监控权限。
 
-Qwen API Key 保存在 macOS Keychain。History、Memory、Knowledge 和可选的原始语音使用 AES-GCM 加密后保存在本机 Application Support 目录。
+Qwen API Key 保存在 macOS Keychain。History、Memory、Knowledge 以 JSON 文件保存在本机 Application Support 目录；开启原始语音保存时，录音以 WAV 文件保存在同一目录下。历史与录音不使用 Keychain，也不额外加密。
 
 ## 发布
 

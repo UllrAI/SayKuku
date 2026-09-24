@@ -10,7 +10,6 @@ private func makeTestKeychain() -> KeychainStore {
 
 private func cleanTestKeychain(_ keychain: KeychainStore) {
     try? keychain.remove("qwen.apiKey")
-    try? keychain.remove("history-encryption-key")
 }
 
 @Suite("Knowledge pipeline")
@@ -93,7 +92,7 @@ struct KnowledgePipelineTests {
         )
         let state = AppState(
             defaults: defaults,
-            store: LocalStore(root: root, keychain: keychain),
+            store: LocalStore(root: root),
             keychain: keychain
         )
         state.knowledgeEntities = [original, KnowledgeEntity(name: "WorkBuddy", type: .product)]
@@ -135,7 +134,7 @@ struct KnowledgePipelineTests {
         }
         let state = AppState(
             defaults: defaults,
-            store: LocalStore(root: root, keychain: keychain),
+            store: LocalStore(root: root),
             keychain: keychain
         )
         state.appLanguage = .chinese
@@ -187,7 +186,7 @@ struct PersistenceTests {
 
         let state = AppState(
             defaults: defaults,
-            store: LocalStore(root: root, keychain: keychain),
+            store: LocalStore(root: root),
             keychain: keychain
         )
         #expect(state.automaticAgentWriteBack)
@@ -201,7 +200,7 @@ struct PersistenceTests {
 
         let reloaded = AppState(
             defaults: defaults,
-            store: LocalStore(root: root, keychain: keychain),
+            store: LocalStore(root: root),
             keychain: keychain
         )
         #expect(reloaded.recognitionLanguage == .english)
@@ -228,7 +227,7 @@ struct PersistenceTests {
 
         let state = AppState(
             defaults: defaults,
-            store: LocalStore(root: root, keychain: keychain),
+            store: LocalStore(root: root),
             keychain: keychain
         )
         #expect(!state.hideDockIconAfterMainWindowCloses)
@@ -242,7 +241,7 @@ struct PersistenceTests {
 
         let reloaded = AppState(
             defaults: defaults,
-            store: LocalStore(root: root, keychain: keychain),
+            store: LocalStore(root: root),
             keychain: keychain
         )
         #expect(reloaded.hideDockIconAfterMainWindowCloses)
@@ -256,81 +255,37 @@ struct PersistenceTests {
     @Test("snapshot persists and reloads")
     func persistence() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        let keychain = makeTestKeychain()
-        defer {
-            try? FileManager.default.removeItem(at: root)
-            cleanTestKeychain(keychain)
-        }
-        let store = LocalStore(root: root, keychain: keychain)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = LocalStore(root: root)
         let entry = HistoryEntry(
             mode: .dictation, app: "Tests", createdAt: Date(timeIntervalSince1970: 1_700_000_000.123),
             durationSeconds: 1, input: "hello", output: "",
             status: .failed, errorMessage: "timeout"
         )
         try await store.replace(.init(history: [entry]))
-        let reloaded = LocalStore(root: root, keychain: keychain)
+        let reloaded = LocalStore(root: root)
         let snapshot = try await reloaded.load()
         #expect(snapshot.history == [entry])
-        let storedBytes = try Data(contentsOf: root.appendingPathComponent("store.data"))
-        #expect(!String(decoding: storedBytes, as: UTF8.self).contains("hello"))
+        let storedBytes = try Data(contentsOf: root.appendingPathComponent("store.json"))
+        #expect(String(decoding: storedBytes, as: UTF8.self).contains("hello"))
+        let fileMode = try FileManager.default.attributesOfItem(atPath: root.appendingPathComponent("store.json").path)[.posixPermissions] as? NSNumber
+        #expect(fileMode?.intValue == 0o600)
     }
 
-    @Test("an unreadable snapshot cannot be overwritten")
+    @Test("a malformed snapshot cannot be overwritten")
     func unreadableSnapshot() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        let firstKeychain = makeTestKeychain()
-        let secondKeychain = makeTestKeychain()
-        defer {
-            try? FileManager.default.removeItem(at: root)
-            cleanTestKeychain(firstKeychain)
-            cleanTestKeychain(secondKeychain)
-        }
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let snapshotURL = root.appendingPathComponent("store.json")
+        let original = Data("not valid JSON".utf8)
+        try original.write(to: snapshotURL)
+        let store = LocalStore(root: root)
 
-        try await LocalStore(root: root, keychain: firstKeychain).replace(.init())
-        let snapshotURL = root.appendingPathComponent("store.data")
-        let original = try Data(contentsOf: snapshotURL)
-        let store = LocalStore(root: root, keychain: secondKeychain)
-
-        await #expect(throws: SecureStorageError.self) { try await store.load() }
-        await #expect(throws: SecureStorageError.self) { try await store.replace(.init()) }
-        await #expect(throws: SecureStorageError.self) { try await store.saveAudio(Data("audio".utf8), id: UUID()) }
+        await #expect(throws: LocalStoreError.self) { try await store.load() }
+        await #expect(throws: LocalStoreError.self) { try await store.replace(.init()) }
+        await #expect(throws: LocalStoreError.self) { try await store.saveAudio(Data("audio".utf8), id: UUID()) }
         #expect(try Data(contentsOf: snapshotURL) == original)
-    }
-
-    @Test("legacy development data is copied only with the matching key")
-    func developmentDataMigration() async throws {
-        let parent = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        let legacyRoot = parent.appendingPathComponent("SayKuku")
-        let developmentRoot = parent.appendingPathComponent("SayKuku Dev")
-        let developmentKeychain = makeTestKeychain()
-        let otherKeychain = makeTestKeychain()
-        defer {
-            try? FileManager.default.removeItem(at: parent)
-            cleanTestKeychain(developmentKeychain)
-            cleanTestKeychain(otherKeychain)
-        }
-
-        let original = LocalStore(root: legacyRoot, keychain: developmentKeychain)
-        let id = UUID()
-        let audio = Data("recording".utf8)
-        let filename = try await original.saveAudio(audio, id: id)
-        let entry = HistoryEntry(
-            id: id, mode: .dictation, app: "Tests",
-            createdAt: Date(timeIntervalSince1970: 1_700_000_000), durationSeconds: 1,
-            input: "hello", output: "", audioFilename: filename
-        )
-        try await original.replace(.init(history: [entry]))
-
-        LocalStore.migrateDevelopmentDataIfNeeded(from: legacyRoot, to: developmentRoot, keychain: otherKeychain)
-        #expect(!FileManager.default.fileExists(atPath: developmentRoot.path))
-
-        LocalStore.migrateDevelopmentDataIfNeeded(from: legacyRoot, to: developmentRoot, keychain: developmentKeychain)
-        let migrated = LocalStore(root: developmentRoot, keychain: developmentKeychain)
-        #expect(FileManager.default.fileExists(atPath: developmentRoot.appendingPathComponent("store.data").path))
-        let migratedSnapshot = try await migrated.load()
-        #expect(migratedSnapshot.history == [entry])
-        #expect(try await migrated.audio(named: filename) == audio)
-        #expect(FileManager.default.fileExists(atPath: legacyRoot.appendingPathComponent("store.data").path))
     }
 
     @Test("legacy history without a status remains readable")
@@ -357,20 +312,20 @@ struct PersistenceTests {
         #expect(entry.errorMessage == nil)
     }
 
-    @Test("audio is encrypted and decrypts for playback")
-    func audioEncryption() async throws {
+    @Test("audio is stored as a regular WAV file")
+    func audioStorage() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        let keychain = makeTestKeychain()
-        defer {
-            try? FileManager.default.removeItem(at: root)
-            cleanTestKeychain(keychain)
-        }
-        let store = LocalStore(root: root, keychain: keychain)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = LocalStore(root: root)
         let audio = Data("RIFF-private-audio-payload".utf8)
         let filename = try await store.saveAudio(audio, id: UUID())
         let stored = try Data(contentsOf: root.appendingPathComponent("Audio").appendingPathComponent(filename))
-        #expect(stored != audio)
+        #expect(filename.hasSuffix(".wav"))
+        #expect(stored == audio)
+        let fileMode = try FileManager.default.attributesOfItem(atPath: root.appendingPathComponent("Audio").appendingPathComponent(filename).path)[.posixPermissions] as? NSNumber
+        #expect(fileMode?.intValue == 0o600)
         #expect(try await store.audio(named: filename) == audio)
+        await #expect(throws: LocalStoreError.self) { try await store.audio(named: "../store.json") }
     }
 
     @Test("silence is rejected before transcription")
@@ -464,8 +419,9 @@ struct QwenRequestContractTests {
     @Test("dictation prompt removes only nonsemantic disfluencies and formats unambiguous numbers")
     func dictationPrompt() {
         let prompt = QwenRealtimeClient.dictationInstructions
-        #expect(prompt.contains("faithfully"))
-        #expect(prompt.contains("standalone fillers"))
+        #expect(prompt.contains("You are a voice keyboard"))
+        #expect(prompt.contains("LIGHT CLEANUP"))
+        #expect(prompt.contains("not the raw speech trace"))
         #expect(prompt.contains("accidental immediate repeats"))
         #expect(prompt.contains("If unsure whether a word is filler or content, keep it"))
         #expect(prompt.contains("那个方案"))
@@ -485,7 +441,7 @@ struct QwenRequestContractTests {
 
         #expect(prompt.contains("primary recognition language"))
         #expect(prompt.contains("Simplified Chinese"))
-        #expect(prompt.contains("standalone fillers"))
+        #expect(prompt.contains("LIGHT CLEANUP"))
         #expect(prompt.contains("Preserve number expressions as spoken"))
         #expect(!prompt.contains("Use Arabic digits"))
 
