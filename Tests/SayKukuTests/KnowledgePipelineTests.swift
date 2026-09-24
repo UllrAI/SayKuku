@@ -506,7 +506,7 @@ struct QwenRequestContractTests {
                 ContextItem(kind: .app, symbol: "app", title: "Notes", value: "com.apple.Notes"),
                 ContextItem(kind: .selectedText, symbol: "text.quote", title: "Selected text", value: "明天下午见")
             ],
-            session: nil
+            sessions: []
         )
         #expect(QwenReasoningClient.agentInstructions.contains("primary object"))
         #expect(QwenReasoningClient.agentInstructions.contains("Transform the selected text, not the spoken command"))
@@ -517,23 +517,112 @@ struct QwenRequestContractTests {
     @Test("previous output is available only when supplied as agent context")
     func previousOutputInput() {
         let output = ContextItem(kind: .previousOutput, symbol: "arrow.uturn.backward", title: "Previous", value: "刚写的文字")
-        #expect(QwenReasoningClient.agentInput(context: [output], session: nil).contains("<previous_output>\n刚写的文字\n</previous_output>"))
-        #expect(QwenReasoningClient.agentInput(context: [], session: nil).contains("<previous_output none />"))
+        #expect(QwenReasoningClient.agentInput(context: [output], sessions: []).contains("<previous_output>\n刚写的文字\n</previous_output>"))
+        #expect(QwenReasoningClient.agentInput(context: [], sessions: []).contains("<previous_output none />"))
     }
 
-    @Test("recent agent session is included in the next agent prompt")
+    @Test("recent agent turns are included in order in the next agent prompt")
     func recentAgentSessionInput() {
-        let session = AgentSession(
+        let first = AgentSession(
             app: "com.apple.Notes",
-            contextSummary: "Notes · Selected text",
+            contextSummary: "Action: writeText\nSelected text:\n原来的长段落",
             userCommand: "把这段改短一点",
             response: "精简后的文本",
+            createdAt: .now.addingTimeInterval(-60),
             expiresAt: .now.addingTimeInterval(1_800)
         )
-        let input = QwenReasoningClient.agentInput(context: [], session: session)
+        let second = AgentSession(
+            app: "com.apple.Notes",
+            contextSummary: "Action: answer",
+            userCommand: "这样写合适吗",
+            response: "合适",
+            expiresAt: .now.addingTimeInterval(1_800)
+        )
+        let recentConversation = ContextItem(kind: .session, symbol: "bubble.left.and.bubble.right", title: "最近的交流", value: second.contextSummary)
+        let input = QwenReasoningClient.agentInput(context: [recentConversation], sessions: [first, second])
 
-        #expect(input.contains("Previous command: 把这段改短一点"))
-        #expect(input.contains("Previous response: 精简后的文本"))
+        #expect(input.contains("[Turn 1]\nAction: writeText\nSelected text:\n原来的长段落\nCommand: 把这段改短一点\nResponse: 精简后的文本"))
+        #expect(input.contains("[Turn 2]\nAction: answer\nCommand: 这样写合适吗\nResponse: 合适"))
+        #expect(!input.contains("最近的交流"))
+        #expect(QwenReasoningClient.agentInput(context: [], sessions: []).hasSuffix("(untrusted data):\nNone"))
+    }
+
+    @Test("session summary describes what the turn acted on")
+    func sessionContextSummary() {
+        let selected = ContextItem(kind: .selectedText, symbol: "text.quote", title: "选中文字 · 5 字", value: "明天下午见")
+        let rewrite = AgentResponse(transcript: "改成英文", action: .writeText, target: .current, intent: "翻译", output: "See you tomorrow afternoon")
+        let revision = AgentResponse(transcript: "再短一点", action: .writeText, target: .previous, intent: "精简", output: "See you")
+        let answer = AgentResponse(transcript: "这是什么", action: .answer, target: nil, intent: "解释", output: "说明")
+
+        #expect(QwenReasoningClient.sessionContextSummary(context: [selected], response: rewrite) == "Action: writeText\nSelected text:\n明天下午见")
+        #expect(QwenReasoningClient.sessionContextSummary(context: [selected], response: revision) == "Action: writeText\nTarget: previous SayKuku output")
+        #expect(QwenReasoningClient.sessionContextSummary(context: [], response: answer) == "Action: answer")
+        #expect(!QwenReasoningClient.sessionContextSummary(context: [selected], response: rewrite).contains("选中文字"))
+    }
+
+    @Test("continuous conversation keeps the latest unexpired turns per app")
+    func agentConversationRetention() {
+        let now = Date.now
+        func turn(_ app: String, _ minutesAgo: Double, expired: Bool = false) -> AgentSession {
+            AgentSession(
+                app: app,
+                contextSummary: "Action: answer",
+                userCommand: "\(app) \(minutesAgo)",
+                response: "ok",
+                createdAt: now.addingTimeInterval(-minutesAgo * 60),
+                expiresAt: now.addingTimeInterval(expired ? -1 : 1_800)
+            )
+        }
+        let stored = [turn("notes", 4), turn("notes", 1), turn("notes", 3), turn("notes", 2), turn("mail", 1), turn("mail", 9, expired: true)]
+
+        let conversation = AgentSession.conversation(in: stored, app: "notes", now: now)
+        #expect(conversation.map(\.userCommand) == ["notes 3.0", "notes 2.0", "notes 1.0"])
+
+        let latest = turn("notes", 0)
+        let updated = AgentSession.appending(latest, to: stored, now: now)
+        #expect(AgentSession.conversation(in: updated, app: "notes", now: now).map(\.userCommand) == ["notes 2.0", "notes 1.0", "notes 0.0"])
+        #expect(updated.filter { $0.app == "mail" }.map(\.userCommand) == ["mail 1.0"])
+    }
+
+    @Test("stored agent sessions from earlier versions still decode")
+    func legacyAgentSessionDecoding() throws {
+        let json = #"{"id":"5A1B0C7E-2F43-4B8B-9E61-7A1F2B3C4D5E","app":"com.apple.Notes","contextSummary":"Notes · 选中文字 · 12 字","userCommand":"改短","response":"短文","createdAt":0,"expiresAt":1000}"#
+        let session = try JSONDecoder().decode(AgentSession.self, from: Data(json.utf8))
+        #expect(session.userCommand == "改短")
+    }
+
+    @Test("interrupted history is marked failed and keeps its audio")
+    func interruptedHistoryRecovery() {
+        let interrupted = HistoryEntry(
+            mode: .dictation, app: "Notes", durationSeconds: 3, input: "", output: "",
+            audioFilename: "a.wav", status: .processing
+        )
+        let completed = HistoryEntry(mode: .agent, app: "Mail", durationSeconds: 2, input: "a", output: "b")
+        let recovered = AppState.recoveringInterruptedHistory([interrupted, completed], message: "Processing was interrupted")
+
+        #expect(recovered[0].status == .failed)
+        #expect(recovered[0].errorMessage == "Processing was interrupted")
+        #expect(recovered[0].audioFilename == "a.wav")
+        #expect(recovered[1] == completed)
+    }
+
+    @Test("realtime failures fall back to batch recognition only for transient errors")
+    func batchFallbackPolicy() {
+        #expect(QwenError.allowsBatchFallback(after: URLError(.networkConnectionLost)))
+        #expect(QwenError.allowsBatchFallback(after: QwenError.timeout))
+        #expect(QwenError.allowsBatchFallback(after: QwenError.protocolError("closed")))
+        #expect(QwenError.allowsBatchFallback(after: QwenError.server(status: 503, message: "busy")))
+        #expect(!QwenError.allowsBatchFallback(after: QwenError.server(status: 401, message: "unauthorized")))
+        #expect(!QwenError.allowsBatchFallback(after: QwenError.server(status: 403, message: "forbidden")))
+        #expect(!QwenError.allowsBatchFallback(after: QwenError.server(status: 400, message: "bad request")))
+        #expect(!QwenError.allowsBatchFallback(after: QwenError.missingConfiguration))
+        #expect(!QwenError.allowsBatchFallback(after: QwenError.noSpeech))
+        #expect(!QwenError.allowsBatchFallback(after: CancellationError()))
+    }
+
+    @Test("toasts with the same copy are still distinct")
+    func toastIdentity() {
+        #expect(ToastMessage(text: "已复制", symbol: "doc.on.doc") != ToastMessage(text: "已复制", symbol: "doc.on.doc"))
     }
 
     @Test("knowledge is included in the model prompts")
@@ -611,7 +700,9 @@ struct QwenRequestContractTests {
         let pcm = Data(wav.dropFirst(44))
 
         let realtime = QwenRealtimeClient()
+        let manualSession = UUID()
         try await realtime.connect(
+            session: manualSession,
             apiKey: key,
             configuration: configuration,
             autoStop: false,
@@ -620,20 +711,24 @@ struct QwenRequestContractTests {
         )
         for start in stride(from: 0, to: pcm.count, by: 3_200) {
             let end = min(start + 3_200, pcm.count)
-            try await realtime.append(Data(pcm[start..<end]))
+            try await realtime.append(Data(pcm[start..<end]), session: manualSession)
         }
-        let dictation = try await realtime.commit()
-        await realtime.cancel()
+        let dictation = try await realtime.commit(session: manualSession)
+        await realtime.cancel(session: manualSession)
         #expect(dictation.contains(expectedTranscript))
 
+        let autoStopSession = UUID()
         try await realtime.connect(
+            session: autoStopSession,
             apiKey: key,
             configuration: configuration,
             autoStop: true,
             onSpeechStopped: {},
             onDelta: { _ in }
         )
-        await realtime.cancel()
+        // A stale cancel for the finished session must leave the new one open.
+        await realtime.cancel(session: manualSession)
+        await realtime.cancel(session: autoStopSession)
 
         let response = try await QwenReasoningClient().respondToAudio(
             apiKey: key,
@@ -642,7 +737,7 @@ struct QwenRequestContractTests {
             context: selectedText.map {
                 [ContextItem(kind: .selectedText, symbol: "text.quote", title: "Selected text", value: $0)]
             } ?? [],
-            session: nil
+            sessions: []
         )
         #expect(response.transcript?.contains(expectedTranscript) == true)
         if let expectedOutput {

@@ -8,6 +8,7 @@ enum QwenError: LocalizedError, Equatable {
     case server(status: Int, message: String)
     case protocolError(String)
     case timeout
+    case recordingTooLong
 
     var errorDescription: String? {
         switch self {
@@ -18,6 +19,17 @@ enum QwenError: LocalizedError, Equatable {
         case .server(let status, let message): "Qwen request failed (\(status)): \(message)"
         case .protocolError(let message): message
         case .timeout: "Qwen did not respond in time"
+        case .recordingTooLong: "The recording is too long"
+        }
+    }
+
+    /// Realtime failures that a batch request may still recover from. Configuration errors are final.
+    static func allowsBatchFallback(after error: Error) -> Bool {
+        guard let qwenError = error as? QwenError else { return !(error is CancellationError) }
+        switch qwenError {
+        case .invalidResponse, .protocolError, .timeout: return true
+        case .server(let status, _): return ![400, 401, 403].contains(status)
+        case .missingConfiguration, .invalidEndpoint, .noSpeech, .recordingTooLong: return false
         }
     }
 }
@@ -135,6 +147,9 @@ actor QwenRealtimeClient {
         """
     }
 
+    /// Owner of the socket and continuations. Calls made for any other session are ignored,
+    /// so a stale cancel can never tear down a newer session.
+    private var currentSession: UUID?
     private var socket: URLSessionWebSocketTask?
     private var receiveTask: Task<Void, Never>?
     private var transcriptTimeoutTask: Task<Void, Never>?
@@ -148,6 +163,7 @@ actor QwenRealtimeClient {
     private var manualMode = true
 
     func connect(
+        session: UUID,
         apiKey: String,
         configuration: QwenConfiguration,
         autoStop: Bool,
@@ -160,22 +176,23 @@ actor QwenRealtimeClient {
     ) async throws {
         guard !apiKey.isEmpty else { throw QwenError.missingConfiguration }
         guard let url = configuration.realtimeURL else { throw QwenError.invalidEndpoint }
-        await cancel()
+        // A caller cancelled before reaching the actor must not replace a newer session.
+        try Task.checkCancellation()
+        closeCurrentSession()
 
         var request = URLRequest(url: url)
         request.timeoutInterval = 15
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         let task = URLSession.shared.webSocketTask(with: request)
+        currentSession = session
         socket = task
         self.onDelta = onDelta
         self.onSpeechStopped = onSpeechStopped
         manualMode = !autoStop
-        finalTranscript = ""
-        sessionReady = false
         task.resume()
-        receiveTask = Task { [weak self] in await self?.receiveLoop() }
+        receiveTask = Task { [weak self] in await self?.receiveLoop(session: session) }
 
-        let session: [String: Any] = [
+        let sessionUpdate: [String: Any] = [
             "model": configuration.realtimeModel,
             "modalities": ["text"],
             "audio": [
@@ -201,30 +218,35 @@ actor QwenRealtimeClient {
         try await send([
             "event_id": eventID(),
             "type": "session.update",
-            "session": session
-        ])
-        try await waitForSession()
+            "session": sessionUpdate
+        ], session: session)
+        try await waitForSession(session)
     }
 
-    func append(_ pcm16: Data) async throws {
-        guard !pcm16.isEmpty, socket != nil else { return }
+    func append(_ pcm16: Data, session: UUID) async throws {
+        guard !pcm16.isEmpty else { return }
         try await send([
             "event_id": eventID(),
             "type": "input_audio_buffer.append",
             "audio": pcm16.base64EncodedString()
-        ])
+        ], session: session)
     }
 
-    func commit() async throws -> String {
-        guard socket != nil else { throw QwenError.protocolError("Realtime session is not connected") }
+    func commit(session: UUID) async throws -> String {
         if manualMode {
-            try await send(["event_id": eventID(), "type": "input_audio_buffer.commit"])
-            try await send(["event_id": eventID(), "type": "response.create"])
+            try await send(["event_id": eventID(), "type": "input_audio_buffer.commit"], session: session)
+            try await send(["event_id": eventID(), "type": "response.create"], session: session)
         }
-        return try await waitForTranscript()
+        return try await waitForTranscript(session)
     }
 
-    func cancel() async {
+    func cancel(session: UUID) {
+        guard currentSession == session else { return }
+        closeCurrentSession()
+    }
+
+    /// Tears down without suspending, so no other actor call can interleave with it.
+    private func closeCurrentSession() {
         sessionContinuation?.resume(throwing: CancellationError())
         sessionContinuation = nil
         sessionTimeoutTask?.cancel()
@@ -236,9 +258,13 @@ actor QwenRealtimeClient {
         receiveTask?.cancel()
         receiveTask = nil
         if let socket {
-            try? await socket.send(.string(Self.jsonString(["event_id": eventID(), "type": "session.finish"])))
-            socket.cancel(with: .goingAway, reason: nil)
+            let finish = Self.jsonString(["event_id": eventID(), "type": "session.finish"])
+            Task {
+                try? await socket.send(.string(finish))
+                socket.cancel(with: .goingAway, reason: nil)
+            }
         }
+        currentSession = nil
         socket = nil
         onDelta = nil
         onSpeechStopped = nil
@@ -246,7 +272,8 @@ actor QwenRealtimeClient {
         sessionReady = false
     }
 
-    private func waitForSession() async throws {
+    private func waitForSession(_ session: UUID) async throws {
+        guard currentSession == session else { throw CancellationError() }
         if sessionReady { return }
         try await withCheckedThrowingContinuation { continuation in
             sessionContinuation = continuation
@@ -254,9 +281,14 @@ actor QwenRealtimeClient {
             sessionTimeoutTask = Task { [weak self] in
                 try? await Task.sleep(for: .seconds(8))
                 guard !Task.isCancelled else { return }
-                await self?.failSession(QwenError.timeout)
+                await self?.timeOutSession(session)
             }
         }
+    }
+
+    private func timeOutSession(_ session: UUID) {
+        guard currentSession == session else { return }
+        failSession(QwenError.timeout)
     }
 
     private func failSession(_ error: Error) {
@@ -266,7 +298,8 @@ actor QwenRealtimeClient {
         sessionTimeoutTask = nil
     }
 
-    private func waitForTranscript() async throws -> String {
+    private func waitForTranscript(_ session: UUID) async throws -> String {
+        guard currentSession == session else { throw CancellationError() }
         if !finalTranscript.isEmpty { return finalTranscript }
         return try await withCheckedThrowingContinuation { continuation in
             transcriptContinuation = continuation
@@ -274,9 +307,14 @@ actor QwenRealtimeClient {
             transcriptTimeoutTask = Task { [weak self] in
                 try? await Task.sleep(for: .seconds(15))
                 guard !Task.isCancelled else { return }
-                await self?.finishTranscript(usingPartialOr: QwenError.timeout)
+                await self?.timeOutTranscript(session)
             }
         }
+    }
+
+    private func timeOutTranscript(_ session: UUID) {
+        guard currentSession == session else { return }
+        finishTranscript(usingPartialOr: QwenError.timeout)
     }
 
     private func finishTranscript(usingPartialOr error: Error) {
@@ -298,11 +336,12 @@ actor QwenRealtimeClient {
         transcriptTimeoutTask = nil
     }
 
-    private func receiveLoop() async {
-        guard let socket else { return }
+    private func receiveLoop(session: UUID) async {
+        guard currentSession == session, let socket else { return }
         while !Task.isCancelled {
             do {
                 let message = try await socket.receive()
+                guard currentSession == session else { return }
                 let data: Data
                 switch message {
                 case .string(let string): data = Data(string.utf8)
@@ -341,18 +380,33 @@ actor QwenRealtimeClient {
                     break
                 }
             } catch {
-                if !Task.isCancelled {
-                    failSession(error)
-                    finishTranscript(usingPartialOr: error)
+                if !Task.isCancelled, currentSession == session {
+                    let failure = Self.transportError(error, socket: socket)
+                    failSession(failure)
+                    finishTranscript(usingPartialOr: failure)
                 }
                 break
             }
         }
     }
 
-    private func send(_ object: [String: Any]) async throws {
-        guard let socket else { throw QwenError.protocolError("Realtime session is closed") }
-        try await socket.send(.string(Self.jsonString(object)))
+    private func send(_ object: [String: Any], session: UUID) async throws {
+        guard currentSession == session, let socket else { throw CancellationError() }
+        do {
+            try await socket.send(.string(Self.jsonString(object)))
+        } catch {
+            guard currentSession == session else { throw CancellationError() }
+            throw Self.transportError(error, socket: socket)
+        }
+    }
+
+    /// A rejected WebSocket handshake surfaces as a transport error; keep its HTTP status instead.
+    nonisolated private static func transportError(_ error: Error, socket: URLSessionWebSocketTask) -> Error {
+        guard let response = socket.response as? HTTPURLResponse, response.statusCode >= 400 else { return error }
+        return QwenError.server(
+            status: response.statusCode,
+            message: HTTPURLResponse.localizedString(forStatusCode: response.statusCode)
+        )
     }
 
     private func eventID() -> String { "event_\(UUID().uuidString.replacingOccurrences(of: "-", with: ""))" }
@@ -365,6 +419,8 @@ actor QwenRealtimeClient {
 
 struct QwenReasoningClient: Sendable {
     private static let retryableStatusCodes = Set([408, 429, 500, 502, 503, 504])
+    /// Inline audio cap; 16 kHz mono PCM16 WAV reaches it after about 3.9 minutes.
+    static let maximumAudioBytes = 7_500_000
 
     static let agentInstructions = """
     You are the text action engine for a macOS voice assistant. Listen to the attached audio and return one JSON object only.
@@ -390,14 +446,22 @@ struct QwenReasoningClient: Sendable {
         """
     }
 
-    static func agentInput(context: [ContextItem], session: AgentSession?) -> String {
+    static func agentInput(context: [ContextItem], sessions: [AgentSession]) -> String {
         let selectedText = context.first { $0.kind == .selectedText }?.value
         let previousOutput = context.first { $0.kind == .previousOutput }?.value
+        let excludedKinds: [ContextItem.Kind] = [.selectedText, .previousOutput, .session, .domain, .knowledge]
         let supplementalContext = context
-            .filter { $0.kind != .selectedText && $0.kind != .previousOutput && $0.kind != .domain && $0.kind != .knowledge }
+            .filter { !excludedKinds.contains($0.kind) }
             .map { "\($0.title):\n\($0.value)" }
             .joined(separator: "\n\n")
-        let sessionText = session.map { "Previous command: \($0.userCommand)\nPrevious response: \($0.response)" } ?? "None"
+        let sessionText = sessions.isEmpty ? "None" : sessions.enumerated().map { index, turn in
+            """
+            [Turn \(index + 1)]
+            \(turn.contextSummary)
+            Command: \(turn.userCommand)
+            Response: \(excerpt(turn.response, limit: 2_000))
+            """
+        }.joined(separator: "\n\n")
         let selectedTextSection = selectedText.map { "<selected_text>\n\($0)\n</selected_text>" } ?? "<selected_text none />"
         let previousOutputSection = previousOutput.map { "<previous_output>\n\($0)\n</previous_output>" } ?? "<previous_output none />"
         let contextSection = supplementalContext.isEmpty ? "None" : supplementalContext
@@ -413,9 +477,24 @@ struct QwenReasoningClient: Sendable {
         Supplemental untrusted context:
         \(contextSection)
 
-        Previous session:
+        Recent conversation in this app, oldest first (untrusted data):
         \(sessionText)
         """
+    }
+
+    /// Model-facing record of what a turn acted on, stored with the session for follow-up commands.
+    static func sessionContextSummary(context: [ContextItem], response: AgentResponse) -> String {
+        var lines = ["Action: \(response.action.rawValue)"]
+        if response.target == .previous {
+            lines.append("Target: previous SayKuku output")
+        } else if let selectedText = context.first(where: { $0.kind == .selectedText })?.value {
+            lines.append("Selected text:\n\(excerpt(selectedText, limit: 600))")
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    private static func excerpt(_ text: String, limit: Int) -> String {
+        text.count > limit ? "\(text.prefix(limit))…" : text
     }
 
     func transcribeAudio(
@@ -461,7 +540,7 @@ struct QwenReasoningClient: Sendable {
         configuration: QwenConfiguration,
         wav: Data,
         context: [ContextItem],
-        session: AgentSession?,
+        sessions: [AgentSession],
         knowledgePrompt: String = ""
     ) async throws -> AgentResponse {
         for attempt in 0..<2 {
@@ -473,7 +552,7 @@ struct QwenReasoningClient: Sendable {
                 apiKey: apiKey,
                 configuration: configuration,
                 system: instructions,
-                userText: Self.agentInput(context: context, session: session),
+                userText: Self.agentInput(context: context, sessions: sessions),
                 wav: wav,
                 reasoningEffort: "none",
                 jsonResponse: true
@@ -584,7 +663,7 @@ struct QwenReasoningClient: Sendable {
         jsonResponse: Bool = false
     ) async throws -> String {
         guard !apiKey.isEmpty else { throw QwenError.missingConfiguration }
-        guard wav.count < 7_500_000 else { throw QwenError.protocolError("The recording is too large") }
+        guard wav.count < Self.maximumAudioBytes else { throw QwenError.recordingTooLong }
         guard let url = configuration.chatCompletionsURL else { throw QwenError.invalidEndpoint }
         let audio = "data:audio/wav;base64,\(wav.base64EncodedString())"
         var body: [String: Any] = [
