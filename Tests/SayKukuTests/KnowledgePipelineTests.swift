@@ -662,7 +662,7 @@ struct TextWriteVerificationTests {
 struct QwenRequestContractTests {
     @Test("dictation prompt removes only nonsemantic disfluencies and formats unambiguous numbers")
     func dictationPrompt() {
-        let prompt = QwenRealtimeClient.dictationInstructions
+        let prompt = QwenRealtimeClient.makeDictationInstructions(knowledgePrompt: "")
         #expect(prompt.contains("You are a voice keyboard"))
         #expect(prompt.contains("LIGHT CLEANUP"))
         #expect(prompt.contains("not the raw speech trace"))
