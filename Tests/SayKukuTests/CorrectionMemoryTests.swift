@@ -113,16 +113,9 @@ struct CorrectionExtractorTests {
 @MainActor
 struct CorrectionMemoryTests {
     private func withState(_ body: (AppState) -> Void) {
-        let suite = "SayKukuTests.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suite)!
-        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        let keychain = KeychainStore(service: "com.saykuku.tests.\(UUID().uuidString)")
-        defer {
-            defaults.removePersistentDomain(forName: suite)
-            try? FileManager.default.removeItem(at: root)
-            try? keychain.remove("qwen.apiKey")
-        }
-        body(AppState(defaults: defaults, store: LocalStore(root: root), keychain: keychain))
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        body(environment.makeState())
     }
 
     @Test("knowledge added without detail keeps it empty")
