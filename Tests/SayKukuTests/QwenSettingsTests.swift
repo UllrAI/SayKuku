@@ -17,6 +17,27 @@ struct QwenSettingsTests {
         #expect(APIKeyDraftState(draft: "", saved: "sk-1").hasChanges)
     }
 
+    @Test("the connection button saves, tests, or both depending on what changed")
+    func credentialsAction() {
+        func action(key: String, workspace: String = "", savedKey: String, savedWorkspace: String = "") -> QwenCredentialsAction {
+            QwenCredentialsDraft(apiKey: key, workspaceID: workspace).action(savedKey: savedKey, savedWorkspaceID: savedWorkspace)
+        }
+        #expect(action(key: "", savedKey: "") == .unavailable)
+        #expect(action(key: "", workspace: "llm-1", savedKey: "") == .save)
+        #expect(action(key: "", savedKey: "sk-1") == .save)
+        #expect(action(key: "sk-2", savedKey: "sk-1") == .saveAndTest)
+        #expect(action(key: "sk-1", savedKey: "sk-1") == .test)
+        #expect(action(key: "sk-1", workspace: " llm-1 ", savedKey: "sk-1", savedWorkspace: "llm-1") == .test)
+        #expect(action(key: "sk-1", workspace: "llm-2", savedKey: "sk-1", savedWorkspace: "llm-1") == .saveAndTest)
+        #expect(action(key: "sk-1", savedKey: "sk-1", savedWorkspace: "llm-1") == .saveAndTest)
+    }
+
+    @Test("setup steps say Continue until the last one")
+    func setupProgress() {
+        #expect(!SetupProgress(step: 1, total: 3).isLastStep)
+        #expect(SetupProgress(step: 3, total: 3).isLastStep)
+    }
+
     @Test("stored models fall back only when missing or retired")
     func storedModels() {
         let realtime = QwenModelCatalog.defaultRealtimeModel
@@ -71,6 +92,25 @@ struct QwenSettingsTests {
         #expect(try environment.keychain.string(for: "qwen.apiKey") == nil)
     }
 
+    @Test("saving credentials stores the key and a trimmed Workspace ID together")
+    @MainActor
+    func credentialsPersistence() async throws {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+
+        let state = environment.makeState()
+        try state.saveQwenCredentials(QwenCredentialsDraft(apiKey: " sk-test ", workspaceID: " llm-1 \n"))
+        #expect(state.apiKey == "sk-test")
+        #expect(state.qwenWorkspaceID == "llm-1")
+        #expect(environment.makeState().qwenWorkspaceID == "llm-1")
+
+        // Clearing the key only saves; there is nothing left to test, so no network call happens.
+        await state.submitQwenCredentials(QwenCredentialsDraft(apiKey: "", workspaceID: "llm-1"))
+        #expect(state.apiKey.isEmpty)
+        #expect(try environment.keychain.string(for: "qwen.apiKey") == nil)
+        #expect(state.connectionState == .idle)
+    }
+
     @Test("retired stored models migrate while custom models survive reloads")
     @MainActor
     func modelMigration() {
@@ -112,7 +152,7 @@ struct QwenSettingsTests {
         let state = environment.makeState()
         let edits: [@MainActor (AppState) -> Void] = [
             { $0.qwenRegion = .singapore },
-            { $0.qwenWorkspaceID = "ws-1" },
+            { $0.qwenWorkspaceID = "llm-1" },
             { $0.realtimeModel = "qwen-custom-realtime" },
             { $0.reasoningModel = "qwen-custom-agent" }
         ]

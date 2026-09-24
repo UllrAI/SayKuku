@@ -195,13 +195,20 @@ private struct PrivacySettings: View {
 
 private struct QwenSettings: View {
     @Environment(AppState.self) private var appState
-    @State private var apiKeyDraft = ""
+    @State private var draft = QwenCredentialsDraft()
 
     var body: some View {
         @Bindable var appState = appState
         SettingsStack(title: appState.text("Qwen 连接", "Qwen Connection"), subtitle: appState.text("连接 Qwen，并选择语音输入和语音 Agent 使用的模型。", "Connect Qwen and choose models for Voice Input and Voice Agent.")) {
             KukuGroup(appState.text("连接", "Connection")) {
-                QwenConnectionForm(apiKeyDraft: $apiKeyDraft)
+                QwenConnectionForm(draft: $draft)
+                KukuDivider()
+                HStack(spacing: KukuSpacing.md) {
+                    QwenConnectionStatus(draft: draft)
+                    Spacer(minLength: KukuSpacing.md)
+                    QwenConnectionButton(draft: draft)
+                }
+                .kukuRowFrame()
             }
             KukuGroup(appState.text("模型", "Models")) {
                 ModelPickerRow(
@@ -218,32 +225,23 @@ private struct QwenSettings: View {
                     presets: QwenModelCatalog.reasoningModels
                 )
             }
-            HStack {
-                QwenConnectionStatus()
-                Spacer()
-                QwenTestButton(apiKeyDraft: apiKeyDraft)
-            }
         }
     }
 }
 
-/// Region, API Key, and workspace rows shared by Settings and the first-run setup sheet.
+/// Region, API Key, and Workspace ID rows shared by Settings and the first-run setup sheet.
+/// The region applies at once; the key and Workspace ID wait for `QwenConnectionButton`.
 struct QwenConnectionForm: View {
     @Environment(AppState.self) private var appState
-    @Binding var apiKeyDraft: String
-    /// First-run setup hides it so Save & Test is the only way to save.
-    var showsSaveButton = true
+    @Binding var draft: QwenCredentialsDraft
 
     var body: some View {
         @Bindable var appState = appState
-        let keyState = APIKeyDraftState(draft: apiKeyDraft, saved: appState.apiKey)
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: KukuSpacing.md) {
-                KukuRowLabel(
-                    title: appState.text("地域", "Region"),
-                    caption: appState.text("需与 API Key 所属地域一致", "Must match where your API Key was created")
-                )
-                Spacer()
+            KukuRow(
+                appState.text("地域", "Region"),
+                caption: appState.text("需与 API Key 所属地域一致", "Must match where your API Key was created")
+            ) {
                 Picker(appState.text("地域", "Region"), selection: $appState.qwenRegion) {
                     ForEach(QwenRegion.allCases) { region in
                         Text(region.title(isChineseUI: appState.usesChineseUI)).tag(region)
@@ -252,102 +250,113 @@ struct QwenConnectionForm: View {
                 .labelsHidden()
                 .frame(width: KukuLayout.pickerWidth)
             }
-            .kukuRowFrame()
             KukuDivider()
-            HStack(spacing: KukuSpacing.md) {
-                VStack(alignment: .leading, spacing: KukuSpacing.xxs) {
-                    Text("API Key").font(.kuku(.body)).foregroundStyle(KukuColor.textPrimary)
-                    keyCaption(keyState)
-                        .font(.kuku(.subheadline))
-                    helpLink(appState.text("获取 API Key", "Get an API Key"), page: "get-api-key")
-                }
-                Spacer()
-                SecureField("sk-…", text: $apiKeyDraft)
-                    .textFieldStyle(.roundedBorder)
-                    // Narrower than a picker so the Save button fits beside it.
-                    .frame(width: 160)
-                    .onSubmit(saveKey)
-                    .accessibilityLabel("API Key")
-                if showsSaveButton {
-                    Button(appState.text("保存", "Save"), action: saveKey)
-                        .buttonStyle(.kukuSecondary)
-                        .disabled(!keyState.hasChanges)
-                }
+            credentialRow(
+                title: "API Key",
+                caption: keyCaption,
+                link: helpLink(appState.text("获取 API Key", "Get an API Key"), page: "get-api-key")
+            ) {
+                SecureField("sk-…", text: $draft.apiKey)
             }
-            .kukuRowFrame()
             KukuDivider()
-            HStack(spacing: KukuSpacing.md) {
-                VStack(alignment: .leading, spacing: KukuSpacing.xxs) {
-                    KukuRowLabel(
-                        title: appState.text("业务空间 ID", "Workspace ID"),
-                        caption: appState.text(
-                            "可选，填写后语音输入会边说边识别，不用等你说完",
-                            "Optional. Lets Voice Input transcribe as you speak instead of after you stop."
-                        )
-                    )
-                    .fixedSize(horizontal: false, vertical: true)
-                    helpLink(appState.text("查看业务空间 ID", "Find Your Workspace ID"), page: "obtain-the-app-id-and-workspace-id")
-                }
-                Spacer()
-                TextField("llm-…", text: $appState.qwenWorkspaceID)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: KukuLayout.pickerWidth)
-                    .accessibilityLabel(appState.text("业务空间 ID", "Workspace ID"))
+            credentialRow(
+                title: appState.text("业务空间 ID", "Workspace ID"),
+                caption: appState.text(
+                    "可选，填写后语音输入会边说边识别，不用等你说完",
+                    "Optional. Lets Voice Input transcribe as you speak instead of after you stop."
+                ),
+                link: helpLink(appState.text("查看业务空间 ID", "Find Your Workspace ID"), page: "obtain-the-app-id-and-workspace-id")
+            ) {
+                TextField("llm-…", text: $draft.workspaceID)
             }
-            .kukuRowFrame()
         }
-        .onChange(of: appState.apiKey, initial: true) { _, saved in apiKeyDraft = saved }
+        .onChange(of: appState.apiKey, initial: true) { _, saved in draft.apiKey = saved }
+        .onChange(of: appState.qwenWorkspaceID, initial: true) { _, saved in draft.workspaceID = saved }
     }
 
-    @ViewBuilder
-    private func keyCaption(_ state: APIKeyDraftState) -> some View {
-        switch state {
-        case .empty:
-            Text(appState.text("保存在这台 Mac 的钥匙串中", "Stored in this Mac’s Keychain"))
-                .foregroundStyle(KukuColor.textSecondary)
-        case .saved:
-            KukuStatusLabel(text: appState.text("已保存到钥匙串", "Saved to Keychain"), tone: .success)
-        case .modified:
-            KukuStatusLabel(text: appState.text("尚未保存", "Not saved yet"), tone: .warning)
-        case .cleared:
-            KukuStatusLabel(text: appState.text("保存后将移除", "Will be removed when you save"), tone: .warning)
+    private func credentialRow<Field: View>(
+        title: String,
+        caption: String,
+        link: KukuExternalLink,
+        @ViewBuilder field: () -> Field
+    ) -> some View {
+        HStack(spacing: KukuSpacing.md) {
+            VStack(alignment: .leading, spacing: KukuSpacing.xxs) {
+                KukuRowLabel(title: title, caption: caption)
+                link
+            }
+            Spacer(minLength: KukuSpacing.md)
+            field()
+                .textFieldStyle(.roundedBorder)
+                .frame(width: KukuLayout.pickerWidth)
+                .accessibilityLabel(title)
+                .onSubmit(submit)
         }
+        .kukuRowFrame()
     }
 
-    private func helpLink(_ title: String, page: String) -> some View {
+    private var keyCaption: String {
+        appState.apiKey.isEmpty
+            ? appState.text("保存在这台 Mac 的钥匙串中", "Stored in this Mac’s Keychain")
+            : appState.text("已保存在这台 Mac 的钥匙串中", "Saved in this Mac’s Keychain")
+    }
+
+    private func helpLink(_ title: String, page: String) -> KukuExternalLink {
         KukuExternalLink(title: title, destination: URL(string: appState.usesChineseUI
             ? "https://help.aliyun.com/zh/model-studio/\(page)"
             : "https://www.alibabacloud.com/help/en/model-studio/\(page)")!)
     }
 
-    private func saveKey() {
-        guard APIKeyDraftState(draft: apiKeyDraft, saved: appState.apiKey).hasChanges else { return }
-        do {
-            try appState.saveAPIKey(apiKeyDraft)
-        } catch {
-            appState.connectionState = .failed(appState.localizedError(error))
-        }
+    /// Return in either field does what the connection button would.
+    private func submit() {
+        Task { await appState.submitQwenCredentials(draft) }
     }
 }
 
+/// Unsaved edits first, then the result of the last connection test.
 struct QwenConnectionStatus: View {
     @Environment(AppState.self) private var appState
+    let draft: QwenCredentialsDraft
+
+    private var font: Font { .kuku(.subheadline, weight: .medium) }
 
     var body: some View {
+        Group {
+            if draft.keyState(saved: appState.apiKey) == .cleared {
+                KukuStatusLabel(text: appState.text("保存后将移除 API Key", "Saving will remove your API Key"), tone: .warning, font: font)
+            } else if action.hasChanges {
+                KukuStatusLabel(text: appState.text("有未保存的更改", "Unsaved changes"), tone: .warning, font: font)
+            } else {
+                testResult
+            }
+        }
+        .lineLimit(2)
+    }
+
+    @ViewBuilder
+    private var testResult: some View {
         switch appState.connectionState {
         case .connected(let realtime, let chat):
-            KukuStatusLabel(
-                text: connectedMessage(realtime: realtime, chat: chat),
-                tone: .success,
-                font: .kuku(.subheadline, weight: .medium)
-            )
-            .lineLimit(2)
+            KukuStatusLabel(text: connectedMessage(realtime: realtime, chat: chat), tone: .success, font: font)
         case .failed(let message):
-            KukuStatusLabel(text: message, tone: .danger, font: .kuku(.subheadline, weight: .medium))
-                .lineLimit(2)
-        case .idle, .testing:
-            EmptyView()
+            KukuStatusLabel(text: message, tone: .danger, font: font)
+        case .testing:
+            hint(appState.text("正在连接 Qwen…", "Connecting to Qwen…"))
+        case .idle:
+            if appState.apiKey.isEmpty {
+                hint(appState.text("填入 API Key 后即可测试连接", "Add an API Key to test the connection"))
+            }
         }
+    }
+
+    private func hint(_ text: String) -> some View {
+        Text(text)
+            .font(font)
+            .foregroundStyle(KukuColor.textSecondary)
+    }
+
+    private var action: QwenCredentialsAction {
+        draft.action(savedKey: appState.apiKey, savedWorkspaceID: appState.qwenWorkspaceID)
     }
 
     private func connectedMessage(realtime: Int?, chat: Int) -> String {
@@ -364,17 +373,28 @@ struct QwenConnectionStatus: View {
     }
 }
 
-struct QwenTestButton: View {
+/// The one button that applies the draft: Save & Test, Test Connection, or Save.
+struct QwenConnectionButton: View {
     @Environment(AppState.self) private var appState
-    let apiKeyDraft: String
+    let draft: QwenCredentialsDraft
 
     var body: some View {
+        let action = draft.action(savedKey: appState.apiKey, savedWorkspaceID: appState.qwenWorkspaceID)
         let isTesting = appState.connectionState == .testing
-        Button(isTesting ? appState.text("正在测试…", "Testing…") : appState.text("保存并测试", "Save & Test")) {
-            Task { await appState.testQwenConnection(apiKey: apiKeyDraft) }
+        Button(title(for: action, isTesting: isTesting)) {
+            Task { await appState.submitQwenCredentials(draft) }
         }
         .buttonStyle(.kukuPrimary)
-        .disabled(isTesting || apiKeyDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        .disabled(isTesting || action == .unavailable)
+    }
+
+    private func title(for action: QwenCredentialsAction, isTesting: Bool) -> String {
+        if isTesting { return appState.text("正在测试…", "Testing…") }
+        switch action {
+        case .save: return appState.text("保存", "Save")
+        case .test: return appState.text("测试连接", "Test Connection")
+        case .saveAndTest, .unavailable: return appState.text("保存并测试", "Save & Test")
+        }
     }
 }
 

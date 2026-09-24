@@ -155,7 +155,7 @@ struct DomainOnboardingView: View {
                     .buttonStyle(.kukuSecondary)
                     .keyboardShortcut(.cancelAction)
             } else {
-                Button(appState.text("跳过", "Skip")) {
+                Button(appState.setupSkipTitle) {
                     appState.completeDomainOnboarding(domains: [], customTerms: [])
                 }
                 .buttonStyle(.kukuSecondary)
@@ -163,7 +163,7 @@ struct DomainOnboardingView: View {
             }
             Button(appState.didCompleteOnboarding
                    ? appState.text("保存", "Save")
-                   : appState.text("继续", "Continue")) {
+                   : appState.setupContinueTitle) {
                 addTerm()
                 appState.completeDomainOnboarding(domains: selectedDomains, customTerms: customTerms)
             }
