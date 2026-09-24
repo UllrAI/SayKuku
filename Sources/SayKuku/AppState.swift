@@ -208,7 +208,7 @@ final class AppState {
     /// Keeps audio sent in one request (Agent, batch dictation) under `QwenReasoningClient.maximumAudioBytes`.
     private static let batchRecordingLimit: Duration = .seconds(210)
     private static let recordingLimitWarning: Duration = .seconds(15)
-    private static let successDisplayDuration: Duration = .seconds(3)
+    private static let successDisplayDuration: Duration = .seconds(2)
 
     init(
         defaults: UserDefaults = .standard,
@@ -376,12 +376,7 @@ final class AppState {
             guard generation == workflowGeneration, pendingAnswerText == answer else { return }
             lastVerifiedWrite = outcome == .verified ? VerifiedWrite(target: snapshot, text: answer) : nil
             dismissAnswer()
-            showOverlayFeedback(
-                outcome == .verified
-                    ? text("已写入回答", "Answer inserted")
-                    : text("已写入，请核对", "Inserted. Check it."),
-                symbol: "checkmark"
-            )
+            showOverlayFeedback(text("已输入", "Inserted"), symbol: "checkmark")
         } catch {
             if generation == workflowGeneration, pendingAnswerText == answer {
                 pendingAnswerStatus = text("输入位置变了，请复制回答后手动粘贴", "The text field changed. Copy the answer instead.")
