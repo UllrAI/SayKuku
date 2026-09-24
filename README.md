@@ -42,7 +42,7 @@ open Build/SayKuku.app
 
 SayKuku 需要麦克风权限完成录音，需要辅助功能权限监听 Fn 手势并向其他 App 的当前输入位置写入文字。App 不申请输入监控权限。
 
-Qwen API Key 保存在 macOS Keychain。History、Memory、Knowledge 以 JSON 文件保存在本机 Application Support 目录；开启原始语音保存时，录音以 WAV 文件保存在同一目录下。历史与录音不使用 Keychain，也不额外加密。
+Qwen API Key 保存在这台 Mac 的钥匙串中；输入历史、知识、记忆和可选录音保存在本机。
 
 ## 发布
 

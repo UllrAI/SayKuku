@@ -7,8 +7,8 @@ struct SettingsView: View {
     var body: some View {
         VStack(spacing: 0) {
             ScreenHeader(
-                eyebrow: "Settings",
-                title: appState.text("少一些开关，多一点确定", "Fewer switches, more certainty")
+                eyebrow: appState.text("设置", "Settings"),
+                title: appState.text("按你的习惯使用 SayKuku", "Make SayKuku work your way")
             )
 
             KukuPageTabs(
@@ -66,7 +66,7 @@ private struct VoiceInputSettings: View {
             }
 
             SettingsGroup(title: appState.text("结束与输出", "Stop & output")) {
-                SettingsToggle(title: appState.text("自动检测停顿结束", "Stop after a pause"), subtitle: appState.text("使用 Semantic VAD；默认关闭", "Uses Semantic VAD; off by default"), isOn: $appState.autoStop)
+                SettingsToggle(title: appState.text("自动检测停顿结束", "Stop after a pause"), subtitle: appState.text("停顿约 1 秒后结束录音", "Stop recording after about one second of silence"), isOn: $appState.autoStop)
                 SettingsDivider()
                 SettingsValueRow(title: appState.text("输入位置", "Overlay position"), value: appState.text("屏幕底部", "Bottom of screen"))
                 SettingsDivider()
@@ -91,8 +91,8 @@ private struct VoiceInputSettings: View {
                     cleanup.title(isChineseUI: appState.usesChineseUI)
                 }
                 Text(appState.text(
-                    "轻整理只去除无意义口癖；原样保留口癖与重复。两档都支持口述换行、段落和标点。",
-                    "Light cleanup removes only nonsemantic fillers. Verbatim keeps hesitations and repeats. Both support spoken line breaks, paragraphs, and punctuation."
+                    "轻整理会去掉无意义口癖和紧邻重复；原样保留说话时的停顿与重复。",
+                    "Light cleanup removes fillers and accidental repeats. Verbatim keeps hesitations and repeats."
                 ))
                 .font(.system(size: 10.5))
                 .foregroundStyle(KukuColor.stone)
@@ -100,7 +100,7 @@ private struct VoiceInputSettings: View {
                 .padding(.bottom, 10)
             }
 
-            SettingsGroup(title: appState.text("识别上下文", "Recognition context")) {
+            SettingsGroup(title: appState.text("帮助识别的词汇", "Recognition vocabulary")) {
                 HStack(spacing: 14) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(appState.text("常用领域与词汇", "Domains & vocabulary"))
@@ -138,9 +138,9 @@ private struct VoiceAgentSettings: View {
 
     var body: some View {
         @Bindable var appState = appState
-        SettingsStack(title: appState.voiceAgentTitle, subtitle: appState.text("Fn Fn 才会理解、生成或执行动作。", "Fn Fn understands, generates, and acts.")) {
+        SettingsStack(title: appState.voiceAgentTitle, subtitle: appState.text("连按两次 Fn，说出要写、修改或查询的内容。", "Press Fn twice to write, edit, or ask by voice.")) {
             SettingsGroup(title: appState.text("交互", "Interaction")) {
-                SettingsToggle(title: appState.text("连续对话", "Continuous context"), subtitle: appState.text("在当前任务里保留轻量 Session", "Keep a lightweight session for the current task"), isOn: $appState.continuousConversation)
+                SettingsToggle(title: appState.text("连续对话", "Continue conversation"), subtitle: appState.text("记住同一应用中最近的交流，30 分钟后自动清除", "Remember recent exchanges in the same app for 30 minutes"), isOn: $appState.continuousConversation)
                 SettingsDivider()
                 SettingsToggle(
                     title: appState.text("自动写回", "Automatic write-back"),
@@ -157,23 +157,23 @@ private struct PrivacySettings: View {
 
     var body: some View {
         @Bindable var appState = appState
-        SettingsStack(title: "Context & Privacy", subtitle: appState.text("实际发送的 Context 可在聆听浮层中按需查看。", "Inspect the exact context from the listening overlay.")) {
-            SettingsGroup(title: appState.text("允许的上下文", "Allowed context")) {
-                SettingsToggle(title: "Selected Text", subtitle: appState.text("仅在 Fn Fn 时读取", "Read only after Fn Fn"), isOn: $appState.selectedTextAllowed)
+        SettingsStack(title: appState.text("语音 Agent 可使用的内容", "What Voice Agent can use"), subtitle: appState.text("开始说话时，可在浮层查看本次会使用哪些内容。", "See what will be used from the listening overlay.")) {
+            SettingsGroup(title: appState.text("允许使用", "Allow access to")) {
+                SettingsToggle(title: appState.text("选中文字", "Selected text"), subtitle: appState.text("仅在使用语音 Agent 时读取", "Read only when using Voice Agent"), isOn: $appState.selectedTextAllowed)
                 SettingsDivider()
-                SettingsToggle(title: "Current App", subtitle: appState.text("应用名称与 Bundle ID", "App name and bundle ID"), isOn: $appState.currentAppAllowed)
+                SettingsToggle(title: appState.text("当前应用", "Current app"), subtitle: appState.text("应用名称及标识符", "App name and identifier"), isOn: $appState.currentAppAllowed)
                 SettingsDivider()
-                SettingsToggle(title: "Window Title", subtitle: appState.text("自动阻断隐私浏览窗口", "Private browsing is blocked"), isOn: $appState.windowTitleAllowed)
+                SettingsToggle(title: appState.text("窗口标题", "Window title"), subtitle: appState.text("不会读取无痕浏览窗口", "Private browsing windows are excluded"), isOn: $appState.windowTitleAllowed)
                 SettingsDivider()
-                SettingsToggle(title: "Clipboard", subtitle: appState.text("默认关闭；仅在 Agent 触发时读取", "Off by default; read only when Agent is triggered"), isOn: $appState.clipboardAllowed)
+                SettingsToggle(title: appState.text("剪贴板", "Clipboard"), subtitle: appState.text("仅在使用语音 Agent 时读取", "Read only when using Voice Agent"), isOn: $appState.clipboardAllowed)
                 SettingsDivider()
-                SettingsToggle(title: "Browser Page", subtitle: appState.text("默认关闭；仅支持 Safari 与 Chrome 当前网址", "Off by default; reads the current Safari or Chrome URL"), isOn: $appState.browserPageAllowed)
+                SettingsToggle(title: appState.text("浏览器页面", "Browser page"), subtitle: appState.text("读取 Safari 或 Chrome 当前页面的网址", "Read the current Safari or Chrome page URL"), isOn: $appState.browserPageAllowed)
             }
             SettingsGroup(title: appState.text("永不访问", "Never access")) {
                 HStack(spacing: 10) {
                     PrivacyApp(name: "1Password", symbol: "key.fill")
-                    PrivacyApp(name: "Banking", symbol: "building.columns.fill")
-                    PrivacyApp(name: "Private Browser", symbol: "eye.slash.fill")
+                    PrivacyApp(name: appState.text("银行应用", "Banking apps"), symbol: "building.columns.fill")
+                    PrivacyApp(name: appState.text("无痕浏览", "Private browsing"), symbol: "eye.slash.fill")
                 }
                 .padding(14)
             }
@@ -186,7 +186,7 @@ private struct QwenSettings: View {
 
     var body: some View {
         @Bindable var appState = appState
-        SettingsStack(title: "Qwen & API", subtitle: appState.text("为实时听写和意图处理分别选择模型。", "Choose models for live input and intent processing.")) {
+        SettingsStack(title: appState.text("Qwen 连接", "Qwen connection"), subtitle: appState.text("连接 Qwen，并选择语音输入和语音 Agent 使用的模型。", "Connect Qwen and choose models for Voice Input and Voice Agent.")) {
             SettingsGroup(title: appState.text("连接", "Connection")) {
                 HStack {
                     Text(appState.text("地域", "Region")).font(.system(size: 12.5, weight: .medium))
@@ -203,29 +203,22 @@ private struct QwenSettings: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 3) {
                         Text("API Key").font(.system(size: 12, weight: .medium))
-                        Text(appState.text("保存在 macOS Keychain", "Stored in macOS Keychain")).font(.system(size: 10)).foregroundStyle(KukuColor.stone)
+                        Text(appState.text("仅保存在这台 Mac 上", "Stored only on this Mac")).font(.system(size: 10)).foregroundStyle(KukuColor.stone)
                     }
                     Spacer()
                     SecureField("sk-...", text: $appState.apiKey)
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 160)
-                        .onSubmit { try? appState.saveAPIKey(appState.apiKey) }
-                    Button(appState.text("保存", "Save")) {
-                        do {
-                            try appState.saveAPIKey(appState.apiKey)
-                            appState.showToast(appState.text("API Key 已安全保存", "API Key saved securely"), symbol: "checkmark.circle.fill")
-                        } catch {
-                            appState.showToast(error.localizedDescription, symbol: "exclamationmark.triangle.fill")
-                        }
-                    }
+                        .onSubmit(saveKey)
+                    Button(appState.text("保存", "Save"), action: saveKey)
                     .buttonStyle(HoverFillButtonStyle())
                 }
                 .padding(14)
                 SettingsDivider()
                 HStack {
                     VStack(alignment: .leading, spacing: 3) {
-                        Text("Workspace ID").font(.system(size: 12, weight: .medium))
-                        Text(appState.text("可选；填写后使用业务空间专属域名", "Optional; enables the workspace-specific endpoint"))
+                        Text(appState.text("业务空间 ID", "Workspace ID")).font(.system(size: 12, weight: .medium))
+                        Text(appState.text("如 Qwen 提供了业务空间 ID，请填在这里", "Enter your Qwen workspace ID if you have one"))
                             .font(.system(size: 10)).foregroundStyle(KukuColor.stone)
                     }
                     Spacer()
@@ -268,6 +261,21 @@ private struct QwenSettings: View {
                 .buttonStyle(HoverFillButtonStyle(prominent: true))
                 .disabled(appState.connectionState == .testing || appState.apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
+        }
+    }
+
+    private func saveKey() {
+        do {
+            try appState.saveAPIKey(appState.apiKey)
+            let isEmpty = appState.apiKey.isEmpty
+            appState.showToast(
+                isEmpty
+                    ? appState.text("API Key 已移除", "API Key removed")
+                    : appState.text("API Key 已保存", "API Key saved"),
+                symbol: "checkmark.circle.fill"
+            )
+        } catch {
+            appState.showToast(appState.localizedError(error), symbol: "exclamationmark.triangle.fill")
         }
     }
 }
@@ -421,7 +429,7 @@ private struct HistorySettings: View {
             title: appState.text("历史", "History"),
             subtitle: appState.text("输入与输出保存在本机，并按期限自动清理。", "Inputs and outputs stay on this Mac and expire automatically.")
         ) {
-            SettingsGroup(title: appState.text("保留策略", "Retention")) {
+            SettingsGroup(title: appState.text("保存多久", "Keep history for")) {
                 HStack {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(appState.text("自动清理", "Auto-delete"))
@@ -444,20 +452,11 @@ private struct HistorySettings: View {
                 SettingsDivider()
 
                 SettingsToggle(
-                    title: appState.text("保存原始语音", "Save original voice"),
-                    subtitle: appState.text("与文字历史使用相同的清理和星标规则", "Uses the same retention and star rules as text history"),
+                    title: appState.text("保存录音", "Save recordings"),
+                    subtitle: appState.text("录音会和对应的记录一起清理", "Recordings are deleted with their history entries"),
                     isOn: $appState.storeVoiceAudio
                 )
             }
-
-            Text(appState.text(
-                "历史和录音作为普通文件保存在本机，不额外加密。关闭录音保存后，新记录只保留文字。",
-                "History and audio are stored as regular files on this Mac without extra encryption. Turn off audio saving to keep only text."
-            ))
-            .font(.system(size: 10))
-            .foregroundStyle(KukuColor.stone)
-            .lineSpacing(3)
-            .padding(.horizontal, 4)
         }
     }
 }
@@ -642,8 +641,8 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .voiceInput: appState.voiceInputTitle
         case .voiceAgent: appState.voiceAgentTitle
         case .history: appState.text("历史", "History")
-        case .privacy: appState.text("上下文与隐私", "Context & Privacy")
-        case .qwen: "Qwen & API"
+        case .privacy: appState.text("隐私", "Privacy")
+        case .qwen: appState.text("Qwen 连接", "Qwen connection")
         }
     }
     var symbol: String {

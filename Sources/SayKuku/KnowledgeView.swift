@@ -42,9 +42,9 @@ struct KnowledgeView: View {
 
     private var header: some View {
         ScreenHeader(
-            eyebrow: "Knowledge",
+            eyebrow: appState.text("知识", "Knowledge"),
             title: appState.text("让熟悉的人和词，被准确听见", "Make familiar names sound right"),
-            subtitle: appState.text("只保存确认过的名称，联系方式会自动过滤。", "Only confirmed names are saved; contact details are filtered.")
+            subtitle: appState.text("保存常用的人名、项目和词汇，帮助 SayKuku 听得更准。", "Save familiar names, projects, and terms to improve recognition.")
         ) {
             HStack(spacing: 8) {
                 Button {
@@ -86,9 +86,13 @@ struct KnowledgeView: View {
             .overlay {
                 if filteredEntities.isEmpty {
                     ContentUnavailableView(
-                        appState.text("没有匹配项", "No matches"),
+                        appState.knowledgeEntities.isEmpty
+                            ? appState.text("还没有添加常用词", "No saved terms yet")
+                            : appState.text("没有匹配项", "No matches"),
                         systemImage: "text.magnifyingglass",
-                        description: Text(appState.text("试试其他关键词或分类。", "Try another term or category."))
+                        description: Text(appState.knowledgeEntities.isEmpty
+                            ? appState.text("添加常用的人名、项目或术语，让语音识别更准确。", "Add names, projects, or terms to improve voice recognition.")
+                            : appState.text("试试其他关键词或分类。", "Try another term or category."))
                     )
                         .foregroundStyle(KukuColor.stone)
                 }
@@ -122,7 +126,7 @@ struct KnowledgeView: View {
     private var listSummary: some View {
         HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 3) {
-                Text(appState.text("知识条目", "Knowledge items"))
+                Text(appState.text("已保存的常用词", "Saved terms"))
                     .font(.system(size: 12, weight: .semibold))
                 Text(appState.text("已确认的名称会用于语音识别。", "Confirmed names are used for voice recognition."))
                     .font(.system(size: 10))
@@ -423,7 +427,7 @@ private struct KnowledgeFormSheet: View {
         classifying = true
         Task {
             do { type = try await appState.suggestEntityType(for: name) }
-            catch { appState.showToast(error.localizedDescription, symbol: "exclamationmark.triangle.fill") }
+            catch { appState.showToast(appState.localizedError(error), symbol: "exclamationmark.triangle.fill") }
             classifying = false
         }
     }
@@ -483,11 +487,11 @@ private struct KnowledgeImportSheet: View {
         VStack(spacing: 0) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(step == 0 ? appState.text("粘贴文本", "Paste text") : appState.text("确认抽取结果", "Review extracted data"))
+                    Text(step == 0 ? appState.text("粘贴文本", "Paste text") : appState.text("确认要导入的内容", "Review what to import"))
                         .font(.system(size: 20, weight: .bold, design: .rounded))
                     Text(step == 0
-                         ? appState.text("只会抽取对 Voice 有价值的实体和关系。", "Only voice-relevant entities and relationships are extracted.")
-                         : appState.text("逐项确认 New、Merge、Conflict 与 Ignored。", "Review New, Merge, Conflict, and Ignored items."))
+                         ? appState.text("找出文本中的常用人名、项目和词汇，供语音识别使用。", "Find names, projects, and terms that can improve voice recognition.")
+                         : appState.text("检查建议，并选择要保存的内容。", "Review the suggestions and choose what to save."))
                         .font(.system(size: 11))
                         .foregroundStyle(KukuColor.stone)
                 }
@@ -602,7 +606,7 @@ private struct KnowledgeImportSheet: View {
                     + value.relationships.filter { $0.status == .new || $0.status == .merge }.map(\.id))
                 withAnimation(Motion.panel) { step = 1 }
             } catch {
-                errorMessage = error.localizedDescription
+                errorMessage = appState.localizedError(error)
             }
             analyzing = false
         }
@@ -610,6 +614,7 @@ private struct KnowledgeImportSheet: View {
 }
 
 private struct ImportRelationshipRow: View {
+    @Environment(AppState.self) private var appState
     let candidate: ImportRelationshipCandidate
     let isSelected: Bool
     let action: () -> Void
@@ -621,14 +626,14 @@ private struct ImportRelationshipRow: View {
                     .font(.system(size: 17))
                     .foregroundStyle(isSelected ? KukuColor.coral : KukuColor.stone)
                 VStack(alignment: .leading, spacing: 5) {
-                    Text("\(candidate.relationship.from) → \(candidate.relationship.type.rawValue) → \(candidate.relationship.to)")
+                    Text("\(candidate.relationship.from) · \(candidate.relationship.type.title(appState)) · \(candidate.relationship.to)")
                         .font(.system(size: 13, weight: .semibold))
                     Text(candidate.relationship.evidence)
                         .font(.system(size: 11))
                         .foregroundStyle(KukuColor.stone)
                 }
                 Spacer()
-                Text(candidate.status.rawValue)
+                Text(candidate.status.title(appState))
                     .font(.system(size: 9, weight: .bold, design: .rounded))
                     .foregroundStyle(candidate.status.color)
             }
@@ -655,7 +660,7 @@ private struct ImportCandidateRow: View {
                     HStack {
                         Text(candidate.entity.name)
                             .font(.system(size: 13, weight: .semibold))
-                        Text(candidate.status.rawValue)
+                        Text(candidate.status.title(appState))
                             .font(.system(size: 9, weight: .bold, design: .rounded))
                             .foregroundStyle(candidate.status.color)
                             .padding(.horizontal, 7)
