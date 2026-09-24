@@ -741,20 +741,6 @@ private struct SettingsInfoRow: View {
     }
 }
 
-private struct SettingsValueRow: View {
-    let title: String
-    let value: String
-    var body: some View {
-        HStack {
-            Text(title).font(.system(size: 12.5, weight: .medium))
-            Spacer()
-            Text(value).font(.system(size: 11, weight: .medium)).foregroundStyle(KukuColor.stone)
-        }
-        .padding(.horizontal, 14)
-        .frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
-    }
-}
-
 private struct SettingsOptionRow<Option: CaseIterable & Hashable & Identifiable>: View
 where Option.AllCases: RandomAccessCollection {
     let title: String
