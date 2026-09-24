@@ -12,6 +12,15 @@ private func cleanTestKeychain(_ keychain: KeychainStore) {
     try? keychain.remove("qwen.apiKey")
 }
 
+/// Recordings are removed in a background task, so poll briefly instead of asserting immediately.
+private func waitForRemoval(of url: URL) async -> Bool {
+    for _ in 0..<100 {
+        if !FileManager.default.fileExists(atPath: url.path) { return true }
+        try? await Task.sleep(for: .milliseconds(10))
+    }
+    return false
+}
+
 @Suite("Knowledge pipeline")
 struct KnowledgePipelineTests {
     @Test("normalization removes separators and case")
@@ -272,7 +281,7 @@ struct PersistenceTests {
         #expect(fileMode?.intValue == 0o600)
     }
 
-    @Test("a malformed snapshot cannot be overwritten")
+    @Test("a malformed snapshot is backed up intact and never overwritten")
     func unreadableSnapshot() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
@@ -282,10 +291,140 @@ struct PersistenceTests {
         try original.write(to: snapshotURL)
         let store = LocalStore(root: root)
 
-        await #expect(throws: LocalStoreError.self) { try await store.load() }
-        await #expect(throws: LocalStoreError.self) { try await store.replace(.init()) }
-        await #expect(throws: LocalStoreError.self) { try await store.saveAudio(Data("audio".utf8), id: UUID()) }
+        guard case .movedAside(let backup)? = store.dataIssue else {
+            Issue.record("Expected the malformed snapshot to be moved aside")
+            return
+        }
+        #expect(backup.deletingLastPathComponent().path == root.path)
+        #expect(backup.lastPathComponent.hasPrefix("store.corrupt-"))
+        #expect(backup.pathExtension == "json")
+        #expect(try Data(contentsOf: backup) == original)
+        #expect(!FileManager.default.fileExists(atPath: snapshotURL.path))
+        #expect(try await store.load().history.isEmpty)
+
+        let entry = HistoryEntry(mode: .dictation, app: "Tests", durationSeconds: 1, input: "hello", output: "hello")
+        try await store.replace(.init(history: [entry]))
+        _ = try await store.saveAudio(Data("audio".utf8), id: entry.id)
+        #expect(try Data(contentsOf: backup) == original)
+
+        let reloaded = LocalStore(root: root)
+        #expect(reloaded.dataIssue == nil)
+        #expect(try await reloaded.load().history.map(\.id) == [entry.id])
+    }
+
+    @Test("unreadable records are skipped after the original is backed up")
+    func tolerantSnapshot() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let snapshotURL = root.appendingPathComponent("store.json")
+        let readableID = UUID()
+        let json = """
+        {
+          "history": [
+            {
+              "id": "\(readableID.uuidString)",
+              "mode": "dictation",
+              "app": "Tests",
+              "createdAt": 1700000000123,
+              "durationSeconds": 1,
+              "input": "kept",
+              "output": "kept",
+              "isStarred": true
+            },
+            {
+              "id": "\(UUID().uuidString)",
+              "mode": "dictation",
+              "app": "Tests",
+              "createdAt": 1700000000456,
+              "durationSeconds": 1,
+              "input": "future",
+              "output": "future",
+              "isStarred": false,
+              "status": "archivedInAFutureVersion"
+            }
+          ]
+        }
+        """
+        let original = Data(json.utf8)
+        try original.write(to: snapshotURL)
+        let store = LocalStore(root: root)
+
+        guard case .skippedRecords(let count, let backup)? = store.dataIssue else {
+            Issue.record("Expected one skipped record")
+            return
+        }
+        #expect(count == 1)
+        #expect(backup.lastPathComponent.hasPrefix("store.corrupt-"))
+        #expect(try Data(contentsOf: backup) == original)
         #expect(try Data(contentsOf: snapshotURL) == original)
+        let snapshot = try await store.load()
+        #expect(snapshot.history.map(\.id) == [readableID])
+        #expect(snapshot.history.first?.isStarred == true)
+        #expect(snapshot.entities.isEmpty)
+    }
+
+    @Test("legacy encrypted data is reported but left untouched")
+    func legacyEncryptedData() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let audioDirectory = root.appendingPathComponent("Audio", isDirectory: true)
+        try FileManager.default.createDirectory(at: audioDirectory, withIntermediateDirectories: true)
+        #expect(await LocalStore(root: root).legacyEncryptedDataURL() == nil)
+
+        let legacyAudio = audioDirectory.appendingPathComponent("\(UUID().uuidString).audio")
+        try Data("encrypted-audio".utf8).write(to: legacyAudio)
+        #expect(await LocalStore(root: root).legacyEncryptedDataURL()?.lastPathComponent == "Audio")
+
+        let legacySnapshot = root.appendingPathComponent("store.data")
+        let encrypted = Data("encrypted-snapshot".utf8)
+        try encrypted.write(to: legacySnapshot)
+        let store = LocalStore(root: root)
+        #expect(await store.legacyEncryptedDataURL()?.lastPathComponent == "store.data")
+        #expect(store.dataIssue == nil)
+        #expect(try await store.load().history.isEmpty)
+        #expect(try Data(contentsOf: legacySnapshot) == encrypted)
+        #expect(FileManager.default.fileExists(atPath: legacyAudio.path))
+    }
+
+    @Test("history items can be starred and deleted with their recordings")
+    @MainActor
+    func historyManagement() async throws {
+        let suite = "SayKukuTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let keychain = makeTestKeychain()
+        defer {
+            defaults.removePersistentDomain(forName: suite)
+            try? FileManager.default.removeItem(at: root)
+            cleanTestKeychain(keychain)
+        }
+        let store = LocalStore(root: root)
+        let state = AppState(defaults: defaults, store: store, keychain: keychain)
+        let recordedID = UUID()
+        let filename = try await store.saveAudio(Data("audio".utf8), id: recordedID)
+        let audioURL = root.appendingPathComponent("Audio").appendingPathComponent(filename)
+        let recorded = HistoryEntry(
+            id: recordedID, mode: .dictation, app: "Notes", durationSeconds: 1,
+            input: "hello", output: "hello", audioFilename: filename
+        )
+        let starred = HistoryEntry(mode: .agent, app: "Mail", durationSeconds: 1, input: "draft", output: "reply", isStarred: true)
+        let plain = HistoryEntry(mode: .dictation, app: "Notes", durationSeconds: 1, input: "plain", output: "plain")
+        state.historyEntries = [recorded, starred, plain]
+
+        state.toggleHistoryStar(plain.id)
+        #expect(state.historyEntries.first(where: { $0.id == plain.id })?.isStarred == true)
+        state.toggleHistoryStar(plain.id)
+        state.toggleHistoryStar(UUID())
+
+        state.deleteHistoryEntry(recorded.id)
+        #expect(state.historyEntries.map(\.id) == [starred.id, plain.id])
+        #expect(await waitForRemoval(of: audioURL))
+
+        state.clearHistory(keepingStarred: true)
+        #expect(state.historyEntries.map(\.id) == [starred.id])
+        state.clearHistory(keepingStarred: false)
+        #expect(state.historyEntries.isEmpty)
     }
 
     @Test("legacy history without a status remains readable")

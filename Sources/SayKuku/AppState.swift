@@ -107,6 +107,8 @@ final class AppState {
         didSet { defaults.set(historyRetention.rawValue, forKey: Keys.historyRetention); cleanExpiredHistory() }
     }
     var storeVoiceAudio = true { didSet { defaults.set(storeVoiceAudio, forKey: Keys.storeVoiceAudio) } }
+    private(set) var localDataIssue: LocalStore.DataIssue?
+    private(set) var legacyDataURL: URL?
     var shortcutStatus: ShortcutStatus = .starting
     var presentedSheet: AppSheet?
     private(set) var showInMenuBar = true { didSet { defaults.set(showInMenuBar, forKey: Keys.showInMenuBar) } }
@@ -537,6 +539,36 @@ final class AppState {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
         showToast(self.text("已复制", "Copied"), symbol: "doc.on.doc")
+    }
+
+    func toggleHistoryStar(_ id: UUID) {
+        guard let index = historyEntries.firstIndex(where: { $0.id == id }) else { return }
+        historyEntries[index].isStarred.toggle()
+    }
+
+    func deleteHistoryEntry(_ id: UUID) {
+        removeHistory { $0.id == id }
+    }
+
+    func clearHistory(keepingStarred: Bool) {
+        removeHistory { !keepingStarred || !$0.isStarred }
+        showToast(
+            keepingStarred
+                ? text("已删除，星标记录都还在", "Deleted everything except starred items")
+                : text("历史已清空", "History cleared"),
+            symbol: "trash"
+        )
+    }
+
+    func dismissLocalDataIssue() { localDataIssue = nil }
+
+    func dismissLegacyDataNotice() {
+        legacyDataURL = nil
+        defaults.set(true, forKey: Keys.legacyDataNoticeDismissed)
+    }
+
+    func revealInFinder(_ url: URL) {
+        NSWorkspace.shared.activateFileViewerSelecting([url])
     }
 
     func presentPermissionGuideIfNeeded() {
@@ -1014,7 +1046,12 @@ final class AppState {
         if storeVoiceAudio, !recording.wav.isEmpty {
             do {
                 let filename = try await store.saveAudio(recording.wav, id: historyID)
-                updateHistory(historyID, audioFilename: filename)
+                if historyEntries.contains(where: { $0.id == historyID }) {
+                    updateHistory(historyID, audioFilename: filename)
+                } else {
+                    // The entry was deleted while its recording was being saved.
+                    try? await store.removeAudio(named: filename)
+                }
             } catch {
                 saveFailed = true
             }
@@ -1235,11 +1272,18 @@ final class AppState {
     private func loadStoredData() async {
         guard !isLoaded else { return }
         isLoaded = true
+        localDataIssue = store.dataIssue
+        if !defaults.bool(forKey: Keys.legacyDataNoticeDismissed) {
+            legacyDataURL = await store.legacyEncryptedDataURL()
+        }
         let snapshot: LocalStore.Snapshot
         do {
             snapshot = try await store.load()
         } catch {
-            showToast(text("本地数据无法读取，未保存新更改", "Local data could not be read; new changes were not saved"), symbol: "exclamationmark.triangle.fill")
+            showToast(
+                text("本地数据无法读取，新的更改暂不保存，详情见“历史”", "Couldn't read local data, so new changes won't be saved. See History for details"),
+                symbol: "exclamationmark.triangle.fill"
+            )
             return
         }
         historyEntries = Self.recoveringInterruptedHistory(
@@ -1251,6 +1295,12 @@ final class AppState {
         corrections = snapshot.corrections
         sessions = snapshot.sessions.filter { $0.expiresAt > .now }
         cleanExpiredHistory()
+        if localDataIssue != nil {
+            showToast(
+                text("读取本地数据时出了问题，原文件已备份，详情见“历史”", "There was a problem reading local data. The original file was backed up; see History"),
+                symbol: "exclamationmark.triangle.fill"
+            )
+        }
     }
 
     /// Entries still processing at launch were cut off by a quit or crash; keep their audio so they can be retried.
@@ -1267,11 +1317,18 @@ final class AppState {
     private func cleanExpiredHistory() {
         guard let days = historyRetention.days,
               let cutoff = Calendar.current.date(byAdding: .day, value: -days, to: .now) else { return }
-        let removed = historyEntries.filter { !$0.isStarred && $0.createdAt < cutoff }
+        removeHistory { !$0.isStarred && $0.createdAt < cutoff }
+    }
+
+    /// Removes matching entries and deletes their recordings.
+    private func removeHistory(where shouldRemove: (HistoryEntry) -> Bool) {
+        let removed = historyEntries.filter(shouldRemove)
         guard !removed.isEmpty else { return }
-        historyEntries.removeAll { !$0.isStarred && $0.createdAt < cutoff }
+        historyEntries.removeAll(where: shouldRemove)
+        let filenames = removed.compactMap(\.audioFilename)
+        guard !filenames.isEmpty else { return }
         Task { [store] in
-            for entry in removed { if let filename = entry.audioFilename { try? await store.removeAudio(named: filename) } }
+            for filename in filenames { try? await store.removeAudio(named: filename) }
         }
     }
 
@@ -1347,6 +1404,7 @@ final class AppState {
         static let clipboard = "privacy.clipboard", browserPage = "privacy.browserPage"
         static let historyRetention = "historyRetention", storeVoiceAudio = "storeVoiceAudio", showInMenuBar = "showInMenuBar"
         static let hideDockIconAfterMainWindowCloses = "hideDockIconAfterMainWindowCloses"
+        static let legacyDataNoticeDismissed = "history.legacyDataNoticeDismissed"
         static let qwenRegion = "qwen.region", qwenWorkspace = "qwen.workspace", realtimeModel = "qwen.realtimeModel"
         static let reasoningModel = "qwen.reasoningModel", apiKey = "qwen.apiKey"
     }
