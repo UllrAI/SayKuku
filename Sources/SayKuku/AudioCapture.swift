@@ -4,20 +4,17 @@ import Foundation
 enum AudioCaptureError: LocalizedError {
     case microphoneUnavailable
     case unsupportedFormat
-    case conversionFailed
 
     var errorDescription: String? {
         switch self {
         case .microphoneUnavailable: "No microphone is available"
         case .unsupportedFormat: "The microphone audio format is unsupported"
-        case .conversionFailed: "Could not convert microphone audio"
         }
     }
 }
 
 final class AudioCapture: @unchecked Sendable {
     struct Recording: Sendable {
-        let pcm16: Data
         let wav: Data
         let duration: Double
         let hasSpeech: Bool
@@ -85,7 +82,6 @@ final class AudioCapture: @unchecked Sendable {
             return pcm
         }
         return Recording(
-            pcm16: data,
             wav: Self.makeWAV(pcm16: data, sampleRate: 16_000, channels: 1),
             duration: Double(data.count) / (16_000 * 2),
             hasSpeech: Self.containsSpeech(in: data)

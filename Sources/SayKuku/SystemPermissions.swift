@@ -127,7 +127,7 @@ enum MicrophoneTestFailure: Equatable {
 
 @MainActor
 @Observable
-final class MicrophoneTestController: @unchecked Sendable {
+final class MicrophoneTestController {
     enum Phase: Equatable {
         case idle
         case starting

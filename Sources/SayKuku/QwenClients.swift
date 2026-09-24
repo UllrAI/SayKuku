@@ -174,12 +174,6 @@ enum KnowledgePrompt {
 }
 
 actor QwenRealtimeClient {
-    nonisolated static let dictationInstructions = makeBaseDictationInstructions(
-        recognitionLanguage: .automatic,
-        numberFormat: .preferDigits,
-        cleanup: .light
-    )
-
     nonisolated private static func makeBaseDictationInstructions(
         recognitionLanguage: RecognitionLanguage,
         numberFormat: DictationNumberFormat,
@@ -585,7 +579,7 @@ struct QwenReasoningClient: Sendable {
         )
     }
 
-    func testConnection(apiKey: String, configuration: QwenConfiguration) async throws -> TimeInterval {
+    func testConnection(apiKey: String, configuration: QwenConfiguration) async throws -> Duration {
         let started = ContinuousClock.now
         _ = try await completion(
             apiKey: apiKey,
@@ -596,7 +590,7 @@ struct QwenReasoningClient: Sendable {
             ],
             reasoningEffort: "none"
         )
-        return started.duration(to: .now).seconds
+        return started.duration(to: .now)
     }
 
     func respondToAudio(
@@ -908,12 +902,5 @@ private struct Lossy<Value: Decodable>: Decodable {
 
     init(from decoder: Decoder) throws {
         value = try? Value(from: decoder)
-    }
-}
-
-private extension Duration {
-    var seconds: TimeInterval {
-        let components = self.components
-        return Double(components.seconds) + Double(components.attoseconds) / 1e18
     }
 }

@@ -166,8 +166,6 @@ final class AppState {
     /// The saved key; edits stay in a view draft until `saveAPIKey` runs.
     private(set) var apiKey = ""
     var connectionState: ConnectionState = .idle
-    var knowledgeAnalysis: KnowledgeAnalysis?
-    var isAnalyzingKnowledge = false
     let systemPermissions = SystemPermissionController()
     let microphoneTest = MicrophoneTestController()
     // nil means the shortcut is turned off; Fn gestures keep working either way.
@@ -537,7 +535,7 @@ final class AppState {
             finishConnectionTest(
                 .connected(
                     realtimeMilliseconds: Int(realtimeLatency / Duration.milliseconds(1)),
-                    chatMilliseconds: Int(chatLatency * 1_000)
+                    chatMilliseconds: Int(chatLatency / Duration.milliseconds(1))
                 ),
                 apiKey: key, configuration: tested
             )
