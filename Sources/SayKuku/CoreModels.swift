@@ -6,7 +6,6 @@ enum QwenRegion: String, Codable, CaseIterable, Identifiable {
     case singapore
 
     var id: String { rawValue }
-    var title: String { self == .beijing ? "北京" : "新加坡" }
     var legacyHost: String { self == .beijing ? "dashscope.aliyuncs.com" : "dashscope-intl.aliyuncs.com" }
 
     func host(workspaceID: String) -> String {
@@ -15,6 +14,57 @@ enum QwenRegion: String, Codable, CaseIterable, Identifiable {
             ? "\(workspaceID).cn-beijing.maas.aliyuncs.com"
             : "\(workspaceID).ap-southeast-1.maas.aliyuncs.com"
     }
+
+    func title(isChineseUI: Bool) -> String {
+        switch self {
+        case .beijing: isChineseUI ? "北京" : "China (Beijing)"
+        case .singapore: isChineseUI ? "新加坡" : "International (Singapore)"
+        }
+    }
+}
+
+enum QwenModelCatalog {
+    static let defaultRealtimeModel = "qwen3.5-omni-flash-realtime"
+    static let defaultReasoningModel = "qwen3.8-omni-flash"
+    static let realtimeModels = [defaultRealtimeModel]
+    static let reasoningModels = [defaultReasoningModel, "qwen3.5-omni-plus", "qwen3.5-omni-flash"]
+
+    // Realtime IDs saved by earlier builds that cannot run the omni realtime session.
+    private static let retiredRealtimeModels: Set<String> = ["qwen3.8-omni-flash-realtime"]
+    private static let retiredRealtimeModelPrefixes = ["qwen3-asr-flash-realtime"]
+
+    static func realtimeModel(stored: String?) -> String {
+        let value = normalized(stored)
+        let isRetired = retiredRealtimeModels.contains(value)
+            || retiredRealtimeModelPrefixes.contains { value.hasPrefix($0) }
+        return value.isEmpty || isRetired ? defaultRealtimeModel : value
+    }
+
+    static func reasoningModel(stored: String?) -> String {
+        let value = normalized(stored)
+        return value.isEmpty ? defaultReasoningModel : value
+    }
+
+    /// Presets plus the current value, so a custom or older model stays visible in pickers.
+    static func options(_ presets: [String], including current: String) -> [String] {
+        presets.contains(current) || current.isEmpty ? presets : presets + [current]
+    }
+
+    private static func normalized(_ value: String?) -> String {
+        value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    }
+}
+
+enum APIKeyDraftState: Equatable {
+    case empty, saved, modified, cleared
+
+    init(draft: String, saved: String) {
+        let value = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        if value == saved { self = saved.isEmpty ? .empty : .saved }
+        else { self = value.isEmpty ? .cleared : .modified }
+    }
+
+    var hasChanges: Bool { self == .modified || self == .cleared }
 }
 
 struct QwenConfiguration: Equatable {
