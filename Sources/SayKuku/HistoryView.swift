@@ -4,7 +4,7 @@ import SwiftUI
 struct HistoryView: View {
     @Environment(AppState.self) private var appState
     @Binding var filter: HistoryFilter
-    @State private var search = ""
+    @Binding var search: String
 
     private var query: String { search.trimmingCharacters(in: .whitespacesAndNewlines) }
 
