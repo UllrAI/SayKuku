@@ -602,7 +602,7 @@ final class AppState {
         if let destination { self.destination = destination }
         NSApplication.shared.setActivationPolicy(.regular)
         mainWindowOpener?.callAsFunction(id: Self.mainWindowID)
-        NSApplication.shared.activate()
+        NSApplication.shared.activate(ignoringOtherApps: true)
     }
 
     private enum VoiceWorkflowMode: Sendable { case dictation, agent }
@@ -1111,7 +1111,8 @@ final class AppState {
         guard let qwenError = error as? QwenError else { return false }
         switch qwenError {
         case .missingConfiguration, .invalidEndpoint: return true
-        case .server(let status, _): return [400, 401, 403].contains(status)
+        // 400 also covers content inspection and bad audio, which Settings cannot fix.
+        case .server(let status, _): return [401, 403].contains(status)
         default: return false
         }
     }
@@ -1210,7 +1211,7 @@ final class AppState {
             case .timeout:
                 return text("等待 Qwen 响应超时，请重试", "Qwen took too long to respond. Try again")
             case .recordingTooLong:
-                return text("录音太长了，请分几段说", "That recording is too long. Try shorter parts")
+                return text("录音太长了，请分几段说", "That recording is too long. Try breaking it into shorter parts")
             }
         }
         if error is AudioCaptureError {
