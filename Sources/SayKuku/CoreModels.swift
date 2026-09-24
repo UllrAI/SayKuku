@@ -24,20 +24,24 @@ enum QwenRegion: String, Codable, CaseIterable, Identifiable {
 }
 
 enum QwenModelCatalog {
-    static let defaultRealtimeModel = "qwen3.5-omni-flash-realtime"
+    static let defaultRealtimeModel = "qwen3.8-omni-flash-realtime"
     static let defaultReasoningModel = "qwen3.8-omni-flash"
-    static let realtimeModels = [defaultRealtimeModel]
+    static let realtimeModels = [defaultRealtimeModel, previousDefaultRealtimeModel]
     static let reasoningModels = [defaultReasoningModel, "qwen3.5-omni-plus", "qwen3.5-omni-flash"]
 
-    // Realtime IDs saved by earlier builds that cannot run the omni realtime session.
-    private static let retiredRealtimeModels: Set<String> = ["qwen3.8-omni-flash-realtime"]
+    /// Earlier builds defaulted to this model before 3.8 realtime launched, and wrote the default back to
+    /// UserDefaults on every launch, so the stored value almost always means "the default", not a choice.
+    private static let previousDefaultRealtimeModel = "qwen3.5-omni-flash-realtime"
+    // ASR-only realtime IDs saved by earlier builds cannot run the omni realtime session.
     private static let retiredRealtimeModelPrefixes = ["qwen3-asr-flash-realtime"]
 
-    static func realtimeModel(stored: String?) -> String {
+    /// - Parameter upgradesPreviousDefault: Moves the old default to the current one. Callers pass
+    ///   `true` only once, so a later explicit choice of the previous model is kept.
+    static func realtimeModel(stored: String?, upgradesPreviousDefault: Bool = false) -> String {
         let value = normalized(stored)
-        let isRetired = retiredRealtimeModels.contains(value)
-            || retiredRealtimeModelPrefixes.contains { value.hasPrefix($0) }
-        return value.isEmpty || isRetired ? defaultRealtimeModel : value
+        let isRetired = retiredRealtimeModelPrefixes.contains { value.hasPrefix($0) }
+        let isPreviousDefault = upgradesPreviousDefault && value == previousDefaultRealtimeModel
+        return value.isEmpty || isRetired || isPreviousDefault ? defaultRealtimeModel : value
     }
 
     static func reasoningModel(stored: String?) -> String {
@@ -73,7 +77,10 @@ struct QwenConfiguration: Equatable {
     var realtimeModel: String
     var reasoningModel: String
 
+    /// Omni realtime is only documented on workspace hosts (and `qwen3.8-omni-flash-realtime` requires one),
+    /// so there is no realtime endpoint without a workspace ID.
     var realtimeURL: URL? {
+        guard !workspaceID.isEmpty else { return nil }
         var components = URLComponents()
         components.scheme = "wss"
         components.host = region.host(workspaceID: workspaceID)
@@ -82,6 +89,7 @@ struct QwenConfiguration: Equatable {
         return components.url
     }
 
+    /// Chat Completions still accepts the legacy regional host; the workspace host is only recommended.
     var chatCompletionsURL: URL? {
         var components = URLComponents()
         components.scheme = "https"
