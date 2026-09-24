@@ -60,10 +60,18 @@ enum KnowledgePipeline {
                     status: .ignored,
                     evidence: masked(value)
                 ))
-                redacted.replaceSubrange(swiftRange, with: "[FILTERED]")
+                redacted.replaceSubrange(swiftRange, with: redactionMarker)
             }
         }
         return (redacted, ignored.reversed())
+    }
+
+    /// Model-facing placeholder; a clear marker keeps extraction from treating it as content.
+    static let redactionMarker = "[FILTERED]"
+
+    /// Model evidence quotes the redacted text, so show the marker as a mask in the review list.
+    static func displayEvidence(_ evidence: String) -> String {
+        evidence.replacingOccurrences(of: redactionMarker, with: "••••")
     }
 
     /// Keeps a few edge characters so the user can recognize what was filtered.

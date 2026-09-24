@@ -128,10 +128,13 @@ struct CorrectionMemoryTests {
     @Test("knowledge added without detail keeps it empty")
     func manualKnowledgeDetail() {
         withState { state in
-            #expect(state.addKnowledge(name: "AniKuku", type: .project, detail: "  "))
+            #expect(state.addKnowledge(name: "AniKuku", type: .project, detail: "  ") == nil)
             #expect(state.knowledgeEntities.first?.detail == "")
-            #expect(state.addKnowledge(name: "WorkBuddy", type: .product))
+            #expect(state.addKnowledge(name: "WorkBuddy", type: .product) == nil)
             #expect(state.knowledgeEntities.first?.detail == "")
+            #expect(state.addKnowledge(name: " ani kuku ", type: .term) == .duplicate(existingName: "AniKuku"))
+            #expect(state.addKnowledge(name: "  ", type: .term) == .emptyName)
+            #expect(state.knowledgeEntities.count == 2)
         }
     }
 

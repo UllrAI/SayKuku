@@ -15,11 +15,12 @@ enum GlobalShortcutAction: UInt32, CaseIterable, Sendable {
         }
     }
 
-    /// The Fn gesture that keeps working whether or not the shortcut is set.
-    var fnGesture: String {
+    /// The Fn gesture that keeps working whether or not the shortcut is set,
+    /// phrased to open a sentence.
+    @MainActor func fnGesture(_ appState: AppState) -> String {
         switch self {
         case .voiceInput: "Fn"
-        case .voiceAgent: "Fn Fn"
+        case .voiceAgent: appState.text("连按两次 Fn", "Pressing Fn twice")
         }
     }
 
@@ -72,6 +73,15 @@ struct GlobalShortcut: Hashable, Sendable {
             .map { $0.symbol }
             .joined()
         return modifiers + (Self.keys[Int(keyCode)]?.name ?? "?")
+    }
+
+    /// Spelled-out form for VoiceOver, e.g. "Control-Option-Command-V".
+    var spokenString: String {
+        let modifiers = Self.modifierSymbols
+            .filter { carbonModifiers & $0.mask != 0 }
+            .map { $0.name }
+        let key = Self.keys[Int(keyCode)].map { $0.spokenName ?? $0.name } ?? "?"
+        return (modifiers + [key]).joined(separator: "-")
     }
 
     var eventModifiers: SwiftUI.EventModifiers {
@@ -135,17 +145,19 @@ struct GlobalShortcut: Hashable, Sendable {
     private static let supportedModifiers = UInt32(cmdKey | optionKey | controlKey | shiftKey)
 
     // Apple's canonical order: Control, Option, Shift, Command.
-    private static let modifierSymbols: [(mask: UInt32, symbol: String)] = [
-        (UInt32(controlKey), "⌃"),
-        (UInt32(optionKey), "⌥"),
-        (UInt32(shiftKey), "⇧"),
-        (UInt32(cmdKey), "⌘")
+    private static let modifierSymbols: [(mask: UInt32, symbol: String, name: String)] = [
+        (UInt32(controlKey), "⌃", "Control"),
+        (UInt32(optionKey), "⌥", "Option"),
+        (UInt32(shiftKey), "⇧", "Shift"),
+        (UInt32(cmdKey), "⌘", "Command")
     ]
 
     private struct Key: Sendable {
         let name: String
         /// Menu key equivalent; function keys use AppKit's private-use code points.
         let character: Character
+        /// VoiceOver name when `name` is a symbol.
+        var spokenName: String? = nil
     }
 
     /// Recordable keys. Names follow the US layout printed on Mac keyboards.
@@ -155,10 +167,10 @@ struct GlobalShortcut: Hashable, Sendable {
             kVK_Space: Key(name: "Space", character: " "),
             kVK_Return: Key(name: "Return", character: "\r"),
             kVK_Tab: Key(name: "Tab", character: "\t"),
-            kVK_UpArrow: Key(name: "↑", character: "\u{F700}"),
-            kVK_DownArrow: Key(name: "↓", character: "\u{F701}"),
-            kVK_LeftArrow: Key(name: "←", character: "\u{F702}"),
-            kVK_RightArrow: Key(name: "→", character: "\u{F703}"),
+            kVK_UpArrow: Key(name: "↑", character: "\u{F700}", spokenName: "Up Arrow"),
+            kVK_DownArrow: Key(name: "↓", character: "\u{F701}", spokenName: "Down Arrow"),
+            kVK_LeftArrow: Key(name: "←", character: "\u{F702}", spokenName: "Left Arrow"),
+            kVK_RightArrow: Key(name: "→", character: "\u{F703}", spokenName: "Right Arrow"),
             kVK_Home: Key(name: "Home", character: "\u{F729}"),
             kVK_End: Key(name: "End", character: "\u{F72B}"),
             kVK_PageUp: Key(name: "Page Up", character: "\u{F72C}"),
