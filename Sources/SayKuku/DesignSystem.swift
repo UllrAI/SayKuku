@@ -7,6 +7,7 @@ import SwiftUI
 // MARK: - Buttons
 
 /// The one button style. At most one `.primary` per page header, sheet footer or card.
+/// Destructive actions use `.secondary` and confirm with a `role: .destructive` dialog button.
 struct KukuButtonStyle: ButtonStyle {
     enum Kind {
         /// Coral fill with white text: the main action of a view.
@@ -15,8 +16,6 @@ struct KukuButtonStyle: ButtonStyle {
         case secondary
         /// Text only until hovered: low-emphasis inline actions such as Show More or Copy Result.
         case plain
-        /// Direct, irreversible actions outside a confirmation dialog.
-        case destructive
     }
 
     enum Size {
@@ -36,8 +35,6 @@ struct KukuButtonStyle: ButtonStyle {
 extension ButtonStyle where Self == KukuButtonStyle {
     static var kukuPrimary: KukuButtonStyle { KukuButtonStyle(kind: .primary) }
     static var kukuSecondary: KukuButtonStyle { KukuButtonStyle(kind: .secondary) }
-    static var kukuPlain: KukuButtonStyle { KukuButtonStyle(kind: .plain) }
-    static var kukuDestructive: KukuButtonStyle { KukuButtonStyle(kind: .destructive) }
 
     static func kuku(_ kind: KukuButtonStyle.Kind, size: KukuButtonStyle.Size = .regular) -> KukuButtonStyle {
         KukuButtonStyle(kind: kind, size: size)
@@ -71,7 +68,7 @@ private struct KukuButtonBody: View {
                     .brightness(kind == .primary ? (pressed ? -0.08 : (hovered ? -0.04 : 0)) : 0)
             }
             .overlay {
-                if kind == .secondary || kind == .destructive {
+                if kind == .secondary {
                     shape.strokeBorder(KukuColor.border, lineWidth: KukuBorder.width)
                 }
             }
@@ -88,7 +85,6 @@ private struct KukuButtonBody: View {
         case .primary: KukuColor.onAccent
         case .secondary: KukuColor.textPrimary
         case .plain: hovered ? KukuColor.textPrimary : KukuColor.textSecondary
-        case .destructive: KukuColor.dangerText
         }
     }
 
@@ -96,27 +92,11 @@ private struct KukuButtonBody: View {
         switch kind {
         case .primary:
             KukuColor.accentFill
-        case .secondary, .destructive:
+        case .secondary:
             pressed ? KukuColor.fillPressed : (hovered ? KukuColor.fillHover : KukuColor.fill)
         case .plain:
             pressed ? KukuColor.fillPressed : (hovered ? KukuColor.fillHover : Color.clear)
         }
-    }
-}
-
-@available(*, deprecated, message: "Use .buttonStyle(.kukuPrimary) or .buttonStyle(.kukuSecondary)")
-struct HoverFillButtonStyle: ButtonStyle {
-    var prominent = false
-
-    func makeBody(configuration: Configuration) -> some View {
-        KukuButtonStyle(kind: prominent ? .primary : .secondary).makeBody(configuration: configuration)
-    }
-}
-
-@available(*, deprecated, message: "Use .buttonStyle(.kukuSecondary); coral is reserved for the primary action")
-struct TintButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        KukuButtonStyle(kind: .secondary).makeBody(configuration: configuration)
     }
 }
 
@@ -129,25 +109,42 @@ struct PressScaleStyle: ButtonStyle {
     }
 }
 
-/// Icon-only button with a hover fill. The label doubles as its tooltip.
+/// Icon-only button with a hover fill. `label` is spoken by VoiceOver; `help` is the tooltip and defaults to the label.
 struct KukuIconButton: View {
     enum Size {
-        /// 28 pt, for row actions and closing cards.
+        /// `KukuLayout.iconButton`, for row actions and closing cards.
         case regular
-        /// 20 pt, for removing chips and list items.
+        /// `KukuLayout.iconButtonSmall`, for removing chips and list items.
         case small
     }
 
     let symbol: String
     let label: String
-    var size: Size = .regular
-    var tint: Color = KukuColor.textSecondary
-    let action: () -> Void
+    let help: String
+    let size: Size
+    let tint: Color
+    let action: @MainActor () -> Void
     @Environment(\.isEnabled) private var isEnabled
     @State private var hovering = false
 
+    init(
+        symbol: String,
+        label: String,
+        help: String? = nil,
+        size: Size = .regular,
+        tint: Color = KukuColor.textSecondary,
+        action: @escaping @MainActor () -> Void
+    ) {
+        self.symbol = symbol
+        self.label = label
+        self.help = help ?? label
+        self.size = size
+        self.tint = tint
+        self.action = action
+    }
+
     var body: some View {
-        let dimension: CGFloat = size == .regular ? 28 : 20
+        let dimension = size == .regular ? KukuLayout.iconButton : KukuLayout.iconButtonSmall
         Button(action: action) {
             Image(systemName: symbol)
                 .font(.kukuIcon(size == .regular ? .regular : .mini, weight: .semibold))
@@ -164,7 +161,7 @@ struct KukuIconButton: View {
         .onHover { hovering = $0 }
         .animation(Motion.snappy, value: hovering)
         .accessibilityLabel(label)
-        .help(label)
+        .help(help)
     }
 }
 
@@ -473,19 +470,21 @@ struct KukuRow<Accessory: View>: View {
             Spacer(minLength: KukuSpacing.md)
             accessory
         }
-        .padding(.horizontal, KukuLayout.rowPadding)
-        .padding(.vertical, KukuSpacing.sm)
-        .frame(
-            maxWidth: .infinity,
-            minHeight: caption == nil ? KukuLayout.rowMinHeight : KukuLayout.rowMinHeightWithCaption,
-            alignment: .leading
-        )
+        .kukuRowFrame(hasCaption: caption != nil)
     }
 }
 
-extension KukuRow where Accessory == EmptyView {
-    init(_ title: String, caption: String? = nil) {
-        self.init(title, caption: caption) { EmptyView() }
+extension View {
+    /// Padding and minimum height shared by every row in a `KukuGroup`, for rows that can't be a `KukuRow`.
+    func kukuRowFrame(hasCaption: Bool = true) -> some View {
+        self
+            .padding(.horizontal, KukuLayout.rowPadding)
+            .padding(.vertical, KukuSpacing.sm)
+            .frame(
+                maxWidth: .infinity,
+                minHeight: hasCaption ? KukuLayout.rowMinHeightWithCaption : KukuLayout.rowMinHeight,
+                alignment: .leading
+            )
     }
 }
 
@@ -537,7 +536,7 @@ struct KukuChoiceRow: View {
     let title: String
     var caption: String? = nil
     let isSelected: Bool
-    let action: () -> Void
+    let action: @MainActor () -> Void
 
     var body: some View {
         Button(action: action) {
@@ -546,13 +545,7 @@ struct KukuChoiceRow: View {
                 KukuRowLabel(title: title, caption: caption)
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, KukuLayout.rowPadding)
-            .padding(.vertical, KukuSpacing.sm)
-            .frame(
-                maxWidth: .infinity,
-                minHeight: caption == nil ? KukuLayout.rowMinHeight : KukuLayout.rowMinHeightWithCaption,
-                alignment: .leading
-            )
+            .kukuRowFrame(hasCaption: caption != nil)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -658,23 +651,13 @@ struct KukuKeyCap: View {
 
 /// Neutral square behind a row or header icon. Decorative, so hidden from VoiceOver.
 struct KukuIconTile: View {
-    enum Size {
-        /// 32 pt, leading icon of a list row or card.
-        case regular
-        /// 40 pt, sheet header.
-        case large
-    }
-
     let symbol: String
-    var size: Size = .regular
-    var tint: Color = KukuColor.textSecondary
 
     var body: some View {
-        let dimension = size == .regular ? KukuLayout.iconTile : KukuLayout.iconTileLarge
         Image(systemName: symbol)
-            .font(.kukuIcon(size == .regular ? .medium : .large))
-            .foregroundStyle(tint)
-            .frame(width: dimension, height: dimension)
+            .font(.kukuIcon(.medium))
+            .foregroundStyle(KukuColor.textSecondary)
+            .frame(width: KukuLayout.iconTile, height: KukuLayout.iconTile)
             .background(KukuColor.fill, in: RoundedRectangle(cornerRadius: KukuLayout.radiusSmall, style: .continuous))
             .accessibilityHidden(true)
     }
@@ -703,8 +686,16 @@ struct KukuSearchField: View {
     /// Spoken and tooltip label for the clear button.
     let clearLabel: String
     @Binding var text: String
-    var width: CGFloat? = KukuLayout.searchFieldWidth
+    let width: CGFloat?
     @FocusState private var isFocused: Bool
+
+    /// `width: nil` fills the available width.
+    init(prompt: String, clearLabel: String, text: Binding<String>, width: CGFloat? = KukuLayout.searchFieldWidth) {
+        self.prompt = prompt
+        self.clearLabel = clearLabel
+        _text = text
+        self.width = width
+    }
 
     var body: some View {
         HStack(spacing: KukuSpacing.iconText) {
@@ -733,21 +724,32 @@ struct KukuSearchField: View {
     }
 }
 
-/// Text input for forms and settings rows.
+/// Text input for sheet forms. Settings rows keep the system `.roundedBorder` field next to system pickers.
 struct KukuTextField: View {
     let prompt: String
     @Binding var text: String
-    var multiline = false
-    var secure = false
-    var autoFocus = false
-    var onSubmit: (() -> Void)? = nil
+    let multiline: Bool
+    let autoFocus: Bool
+    let onSubmit: (@MainActor () -> Void)?
     @FocusState private var isFocused: Bool
+
+    init(
+        prompt: String,
+        text: Binding<String>,
+        multiline: Bool = false,
+        autoFocus: Bool = false,
+        onSubmit: (@MainActor () -> Void)? = nil
+    ) {
+        self.prompt = prompt
+        _text = text
+        self.multiline = multiline
+        self.autoFocus = autoFocus
+        self.onSubmit = onSubmit
+    }
 
     var body: some View {
         Group {
-            if secure {
-                SecureField(prompt, text: $text)
-            } else if multiline {
+            if multiline {
                 TextField(prompt, text: $text, axis: .vertical)
                     .lineLimit(2...4)
             } else {
@@ -762,6 +764,7 @@ struct KukuTextField: View {
         .padding(.vertical, multiline ? KukuSpacing.sm : 0)
         .frame(
             maxWidth: .infinity,
+            // Two lines of body text plus vertical padding.
             minHeight: multiline ? 56 : KukuLayout.controlHeight,
             alignment: multiline ? .topLeading : .leading
         )

@@ -66,42 +66,10 @@ enum KukuColor {
 
     // MARK: Status
 
-    /// Status colors are for icons, dots and meters. Use the `…Text` variant when the text itself carries the status.
+    /// Status colors are for icons, dots and meters only; the text next to them stays neutral.
     static let success = adaptive(light: KukuTone(0.204, 0.576, 0.408), dark: KukuTone(0.353, 0.741, 0.553))
-    static let successText = adaptive(light: KukuTone(0.118, 0.431, 0.290), dark: KukuTone(0.42, 0.79, 0.61))
     static let warning = adaptive(light: KukuTone(0.851, 0.557, 0.137), dark: KukuTone(0.937, 0.690, 0.314))
-    static let warningText = adaptive(light: KukuTone(0.561, 0.357, 0.031), dark: KukuTone(0.96, 0.74, 0.40))
     static let danger = adaptive(light: KukuTone(0.816, 0.184, 0.220), dark: KukuTone(0.96, 0.40, 0.41))
-    static let dangerText = adaptive(light: KukuTone(0.706, 0.133, 0.165), dark: KukuTone(1.0, 0.52, 0.51))
-
-    // MARK: Deprecated, removed once every view uses the tokens above
-
-    @available(*, deprecated, renamed: "textPrimary")
-    static let ink = textPrimary
-    @available(*, deprecated, renamed: "textSecondary")
-    static let stone = textSecondary
-    @available(*, deprecated, renamed: "border")
-    static let line = border
-    @available(*, deprecated, renamed: "surfaceRaised")
-    static let surfaceStrong = surfaceRaised
-    @available(*, deprecated, renamed: "toastSurface")
-    static let graphite = toastSurface
-    @available(*, deprecated, renamed: "accentFill")
-    static let coralFill = accentFill
-    @available(*, deprecated, renamed: "success")
-    static let mint = success
-    @available(*, deprecated, renamed: "warning")
-    static let amber = warning
-    @available(*, deprecated, renamed: "successText")
-    static let mintText = successText
-    @available(*, deprecated, renamed: "warningText")
-    static let amberText = warningText
-    @available(*, deprecated, message: "Use fill for icon tiles and chips, selectedFill for selection, or accentSubtle for an in-progress state")
-    static let coralSoft = adaptive(light: KukuTone(0.985, 0.895, 0.855), dark: KukuTone(0.32, 0.15, 0.12))
-    @available(*, deprecated, message: "Use surfaceRaised for raised fills or rowHover for hover")
-    static let highlight = adaptive(light: KukuTone(white: 1), dark: KukuTone(white: 1, alpha: 0.12))
-    @available(*, deprecated, message: "Use fill, fillHover, fillPressed, selectedFill or border")
-    static let shade = adaptive(light: KukuTone(white: 0), dark: KukuTone(white: 1))
 
     fileprivate static func adaptive(light: KukuTone, dark: KukuTone) -> Color {
         Color(nsColor: NSColor(name: nil) { appearance in
@@ -143,16 +111,6 @@ enum KukuStatusTone: Sendable {
         case .success: KukuColor.success
         case .warning: KukuColor.warning
         case .danger: KukuColor.danger
-        }
-    }
-
-    /// For the rare case where the text alone has to carry the status.
-    var textColor: Color {
-        switch self {
-        case .neutral: KukuColor.textSecondary
-        case .success: KukuColor.successText
-        case .warning: KukuColor.warningText
-        case .danger: KukuColor.dangerText
         }
     }
 
@@ -209,6 +167,11 @@ enum KukuLayout {
     static let controlHeight: CGFloat = 32
     static let controlHeightSmall: CGFloat = 24
     static let badgeHeight: CGFloat = 20
+    /// `KukuIconButton` hit areas, regular and small.
+    static let iconButton: CGFloat = 28
+    static let iconButtonSmall: CGFloat = 20
+    /// Status and timeline dots.
+    static let statusDot: CGFloat = 8
     static let iconTile: CGFloat = 32
     static let iconTileLarge: CGFloat = 40
     static let searchFieldWidth: CGFloat = 220
@@ -387,9 +350,9 @@ extension View {
     }
 
     /// A padded card that fills the available width.
-    func kukuCard(padding: CGFloat = KukuLayout.cardPadding, radius: CGFloat = KukuLayout.radiusMedium) -> some View {
+    func kukuCard(radius: CGFloat = KukuLayout.radiusMedium) -> some View {
         self
-            .padding(padding)
+            .padding(KukuLayout.cardPadding)
             .frame(maxWidth: .infinity, alignment: .leading)
             .kukuSurface(radius: radius)
     }
@@ -421,10 +384,10 @@ enum KukuPillLayout {
         minimum: CGFloat,
         fixedContentWidth: CGFloat,
         maximum: CGFloat = 350,
-        fontSize: CGFloat = KukuTextStyle.callout.size,
         fontWeight: NSFont.Weight = .semibold
     ) -> CGFloat {
-        let font = NSFont.systemFont(ofSize: fontSize, weight: fontWeight)
+        // Pill text is always callout; only the weight differs between states and errors.
+        let font = NSFont.systemFont(ofSize: KukuTextStyle.callout.size, weight: fontWeight)
         let textWidth = (text as NSString).size(withAttributes: [.font: font]).width
         return min(max(ceil(textWidth + fixedContentWidth), minimum), maximum)
     }

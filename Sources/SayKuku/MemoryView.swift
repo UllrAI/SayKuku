@@ -236,9 +236,6 @@ private struct SessionRow: View {
     let isLast: Bool
     let now: Date
 
-    /// Timeline dot, sized to sit on the first line of the headline.
-    private static let dotSize: CGFloat = 9
-
     private var minutesLeft: Int {
         max(1, Int((session.expiresAt.timeIntervalSince(now) / 60).rounded(.up)))
     }
@@ -247,7 +244,8 @@ private struct SessionRow: View {
         HStack(alignment: .top, spacing: KukuSpacing.md) {
             Circle()
                 .fill(isLatest ? KukuColor.textSecondary : KukuColor.borderStrong)
-                .frame(width: Self.dotSize, height: Self.dotSize)
+                .frame(width: KukuLayout.statusDot, height: KukuLayout.statusDot)
+                // Centers the dot on the headline's first line.
                 .padding(.top, KukuSpacing.xs)
             VStack(alignment: .leading, spacing: KukuSpacing.xxs) {
                 Text(appName(for: session.app))
@@ -280,8 +278,8 @@ private struct SessionRow: View {
                 Rectangle()
                     .fill(KukuColor.separator)
                     .frame(width: KukuBorder.width)
-                    .padding(.top, KukuSpacing.xs + Self.dotSize + KukuSpacing.xs)
-                    .padding(.leading, (Self.dotSize - KukuBorder.width) / 2)
+                    .padding(.top, KukuSpacing.xs + KukuLayout.statusDot + KukuSpacing.xs)
+                    .padding(.leading, (KukuLayout.statusDot - KukuBorder.width) / 2)
             }
         }
     }

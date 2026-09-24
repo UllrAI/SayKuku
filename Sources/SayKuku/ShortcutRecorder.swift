@@ -120,7 +120,10 @@ struct ShortcutRecorderButton: View {
                     .frame(minWidth: 104, minHeight: KukuLayout.controlHeight)
                     .background(isRecording ? KukuColor.accentSubtle : KukuColor.fill, in: shape)
                     .overlay {
-                        shape.strokeBorder(isRecording ? KukuColor.focusRing : KukuColor.border, lineWidth: KukuBorder.width)
+                        shape.strokeBorder(
+                            isRecording ? KukuColor.focusRing : KukuColor.border,
+                            lineWidth: isRecording ? KukuBorder.focusWidth : KukuBorder.width
+                        )
                     }
                     .contentShape(Rectangle())
             }

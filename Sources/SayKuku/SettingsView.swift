@@ -44,17 +44,18 @@ private struct VoiceInputSettings: View {
         @Bindable var appState = appState
         SettingsStack(title: appState.voiceInputTitle, subtitle: appState.text("说什么就输入什么，不改你的意思。", "Types what you say, without changing what you mean.")) {
             KukuGroup(appState.text("输入方式", "Input gesture")) {
-                VStack(spacing: 0) {
-                    ForEach(InputMode.allCases) { mode in
-                        KukuChoiceRow(
-                            title: mode == .hold ? appState.text("按住 Fn", "Hold Fn") : appState.text("单击 Fn", "Tap Fn"),
-                            caption: mode == .hold
-                                ? appState.text("按住片刻开始录音，松开即输入", "Hold briefly to start, release to insert")
-                                : appState.text("单击开始录音，再次单击即输入", "Tap to start, tap again to insert"),
-                            isSelected: appState.inputMode == mode
-                        ) {
-                            appState.inputMode = mode
-                        }
+                ForEach(InputMode.allCases) { mode in
+                    if mode != InputMode.allCases.first {
+                        KukuDivider()
+                    }
+                    KukuChoiceRow(
+                        title: mode == .hold ? appState.text("按住 Fn", "Hold Fn") : appState.text("单击 Fn", "Tap Fn"),
+                        caption: mode == .hold
+                            ? appState.text("按住片刻开始录音，松开即输入", "Hold briefly to start, release to insert")
+                            : appState.text("单击开始录音，再次单击即输入", "Tap to start, tap again to insert"),
+                        isSelected: appState.inputMode == mode
+                    ) {
+                        appState.inputMode = mode
                     }
                 }
             }
@@ -237,7 +238,7 @@ struct QwenConnectionForm: View {
         @Bindable var appState = appState
         let keyState = APIKeyDraftState(draft: apiKeyDraft, saved: appState.apiKey)
         VStack(alignment: .leading, spacing: 0) {
-            HStack {
+            HStack(spacing: KukuSpacing.md) {
                 KukuRowLabel(
                     title: appState.text("地域", "Region"),
                     caption: appState.text("需与 API Key 所属地域一致", "Must match where your API Key was created")
@@ -251,9 +252,9 @@ struct QwenConnectionForm: View {
                 .labelsHidden()
                 .frame(width: KukuLayout.pickerWidth)
             }
-            .padding(KukuLayout.rowPadding)
+            .kukuRowFrame()
             KukuDivider()
-            HStack {
+            HStack(spacing: KukuSpacing.md) {
                 VStack(alignment: .leading, spacing: KukuSpacing.xxs) {
                     Text("API Key").font(.kuku(.body)).foregroundStyle(KukuColor.textPrimary)
                     keyCaption(keyState)
@@ -263,6 +264,7 @@ struct QwenConnectionForm: View {
                 Spacer()
                 SecureField("sk-…", text: $apiKeyDraft)
                     .textFieldStyle(.roundedBorder)
+                    // Narrower than a picker so the Save button fits beside it.
                     .frame(width: 160)
                     .onSubmit(saveKey)
                     .accessibilityLabel("API Key")
@@ -272,9 +274,9 @@ struct QwenConnectionForm: View {
                         .disabled(!keyState.hasChanges)
                 }
             }
-            .padding(KukuLayout.rowPadding)
+            .kukuRowFrame()
             KukuDivider()
-            HStack {
+            HStack(spacing: KukuSpacing.md) {
                 VStack(alignment: .leading, spacing: KukuSpacing.xxs) {
                     KukuRowLabel(
                         title: appState.text("业务空间 ID", "Workspace ID"),
@@ -292,7 +294,7 @@ struct QwenConnectionForm: View {
                     .frame(width: KukuLayout.pickerWidth)
                     .accessibilityLabel(appState.text("业务空间 ID", "Workspace ID"))
             }
-            .padding(KukuLayout.rowPadding)
+            .kukuRowFrame()
         }
         .onChange(of: appState.apiKey, initial: true) { _, saved in apiKeyDraft = saved }
     }
@@ -304,11 +306,11 @@ struct QwenConnectionForm: View {
             Text(appState.text("保存在这台 Mac 的钥匙串中", "Stored in this Mac’s Keychain"))
                 .foregroundStyle(KukuColor.textSecondary)
         case .saved:
-            KukuStatusLabel(text: appState.text("已保存到钥匙串", "Saved to Keychain"), tone: .success, symbol: "checkmark.circle.fill")
+            KukuStatusLabel(text: appState.text("已保存到钥匙串", "Saved to Keychain"), tone: .success)
         case .modified:
-            KukuStatusLabel(text: appState.text("尚未保存", "Not saved yet"), tone: .warning, symbol: "exclamationmark.circle.fill")
+            KukuStatusLabel(text: appState.text("尚未保存", "Not saved yet"), tone: .warning)
         case .cleared:
-            KukuStatusLabel(text: appState.text("保存后将移除", "Will be removed when you save"), tone: .warning, symbol: "exclamationmark.circle.fill")
+            KukuStatusLabel(text: appState.text("保存后将移除", "Will be removed when you save"), tone: .warning)
         }
     }
 
@@ -554,8 +556,7 @@ private struct GlobalShortcutRow: View {
             Spacer(minLength: KukuSpacing.md)
             ShortcutRecorderButton(action: action, recorder: recorder)
         }
-        .padding(.horizontal, KukuLayout.rowPadding)
-        .frame(maxWidth: .infinity, minHeight: KukuLayout.rowMinHeightWithCaption, alignment: .leading)
+        .kukuRowFrame()
     }
 
     private var subtitle: String {
@@ -617,9 +618,7 @@ private struct ShortcutStatusRow: View {
                 .buttonStyle(.kukuSecondary)
             }
         }
-        .padding(.horizontal, KukuLayout.rowPadding)
-        .padding(.vertical, KukuSpacing.md)
-        .frame(maxWidth: .infinity, minHeight: KukuLayout.rowMinHeightWithCaption, alignment: .leading)
+        .kukuRowFrame()
     }
 }
 

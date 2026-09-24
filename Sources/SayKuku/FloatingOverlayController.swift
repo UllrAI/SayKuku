@@ -128,9 +128,7 @@ private struct AgentAnswerCard: View {
                 }
                 .font(.kuku(.headline))
                 Spacer()
-                KukuIconButton(symbol: "xmark", label: appState.text("关闭", "Close")) {
-                    appState.dismissAnswer()
-                }
+                KukuIconButton(symbol: "xmark", label: appState.text("关闭", "Close"), action: appState.dismissAnswer)
             }
             ScrollView {
                 Text(appState.pendingAnswerText)

@@ -104,9 +104,7 @@ struct PermissionActionRow: View {
                 .disabled(appState.systemPermissions.requesting != nil)
             }
         }
-        .padding(.horizontal, KukuLayout.rowPadding)
-        .padding(.vertical, KukuSpacing.sm)
-        .frame(maxWidth: .infinity, minHeight: KukuLayout.rowMinHeightWithCaption, alignment: .leading)
+        .kukuRowFrame()
     }
 
     private func badge(for status: SystemPermissionStatus) -> KukuBadge {
@@ -183,7 +181,7 @@ struct MicrophoneTestPanel: View {
                 Spacer()
                 Circle()
                     .fill(statusDotColor)
-                    .frame(width: 7, height: 7) // Status dot geometry.
+                    .frame(width: KukuLayout.statusDot, height: KukuLayout.statusDot)
                 Text(testStatus)
                     .font(.kuku(.subheadline, weight: .medium))
                     .foregroundStyle(KukuColor.textSecondary)

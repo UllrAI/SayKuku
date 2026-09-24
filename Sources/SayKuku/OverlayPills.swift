@@ -284,7 +284,8 @@ struct DictationPill: View {
         case .copyReady:
             CopyFallbackContent.width(appState)
         case .processing:
-            KukuPillLayout.width(for: processingLabel, minimum: 145, fixedContentWidth: 76, maximum: 340)
+            // Padding 2×8, spinner 16, three 8 pt gaps and the 24 pt cancel button.
+            KukuPillLayout.width(for: processingLabel, minimum: 145, fixedContentWidth: 80, maximum: 340)
         case .success:
             KukuPillLayout.width(for: successLabel, minimum: 78, fixedContentWidth: appState.canUndoLastWrite ? 100 : 42, maximum: 200)
         }

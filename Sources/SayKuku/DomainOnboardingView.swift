@@ -86,7 +86,7 @@ struct DomainOnboardingView: View {
                     KukuTextField(
                         prompt: appState.text("例如：Vibe Coding、SayKuku、项目代号", "For example: Vibe Coding, SayKuku, project names"),
                         text: $newTerm,
-                        onSubmit: { addTerm() }
+                        onSubmit: addTerm
                     )
 
                     Button(action: addTerm) {
