@@ -19,7 +19,7 @@ struct AgentPill: View {
         case .processing:
             KukuPillLayout.width(for: processingLabel, minimum: 145, fixedContentWidth: 81)
         case .result:
-            KukuPillLayout.width(for: resultLabel, minimum: 78, fixedContentWidth: appState.resultCanUndo ? 96 : 38, maximum: 320)
+            KukuPillLayout.width(for: resultLabel, minimum: 78, fixedContentWidth: appState.resultCanUndo ? 96 : 38, maximum: 200)
         }
     }
 
@@ -43,9 +43,7 @@ struct AgentPill: View {
     }
 
     private var resultLabel: String {
-        taskTitle.isEmpty
-            ? appState.text("已完成", "Done")
-            : appState.text("已完成 · \(taskTitle)", "Done · \(taskTitle)")
+        appState.text("已完成", "Done")
     }
 
     var body: some View {
@@ -279,11 +277,8 @@ struct DictationPill: View {
         appState.liveTranscript.isEmpty ? appState.text("正在识别…", "Transcribing…") : appState.liveTranscript
     }
 
-    // Only verified writes can be undone, so an unverified paste asks the user to take a look.
     private var successLabel: String {
-        appState.canUndoLastWrite
-            ? appState.text("已输入", "Inserted")
-            : appState.text("已输入，请核对", "Inserted. Check it.")
+        appState.text("已输入", "Inserted")
     }
 
     var body: some View {
