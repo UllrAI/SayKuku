@@ -339,7 +339,7 @@ private struct PillCancelButton: View {
                 .font(.system(size: 9, weight: .bold))
                 .foregroundStyle(KukuColor.stone.opacity(0.82))
                 .frame(width: 25, height: 25)
-                .background(Color.black.opacity(0.05), in: Circle())
+                .background(KukuColor.shade.opacity(0.05), in: Circle())
         }
         .buttonStyle(PressScaleStyle())
         .accessibilityLabel(label)
