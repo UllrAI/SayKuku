@@ -15,57 +15,49 @@ struct PermissionGuideView: View {
                     "SayKuku needs the microphone to hear you and Accessibility to type into text fields."
                 )
             ) {
-                BrandMark(size: 25)
+                BrandMark(size: 22) // Sized for the 40 pt header tile.
             }
 
-            Divider().opacity(0.5)
+            KukuDivider(inset: 0)
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: KukuLayout.sectionSpacing) {
+                    KukuGroup {
                         PermissionActionRow(kind: .microphone)
-                            .kukuSurface(radius: KukuLayout.radiusMedium)
+                        KukuDivider()
                         PermissionActionRow(kind: .accessibility)
-                            .kukuSurface(radius: KukuLayout.radiusMedium)
                     }
 
-                    VStack(alignment: .leading, spacing: 8) {
-                        SectionEyebrow(text: appState.text("麦克风测试", "Microphone test"))
-                            .padding(.leading, 4)
+                    KukuGroup(appState.text("麦克风测试", "Microphone test")) {
                         MicrophoneTestPanel()
-                            .kukuSurface(radius: KukuLayout.radiusMedium)
                     }
                 }
-                .padding(.horizontal, 24)
-                .padding(.vertical, 18)
+                .padding(.horizontal, KukuLayout.sheetPadding)
+                .padding(.vertical, KukuSpacing.xl)
             }
 
-            Divider().opacity(0.5)
+            KukuDivider(inset: 0)
 
-            HStack(spacing: 10) {
-                Text(appState.text("可随时在“设置 › 通用”中重新检查权限。", "You can recheck permissions anytime in Settings › General."))
-                    .font(.system(size: 10.5))
-                    .foregroundStyle(KukuColor.stone)
-                Spacer()
+            KukuSheetFooter(
+                note: KukuSheetNote(text: appState.text("可随时在“设置 › 通用”中重新检查权限。", "You can recheck permissions anytime in Settings › General."))
+            ) {
                 if allGranted {
                     Button(appState.text("完成", "Done"), action: close)
-                        .buttonStyle(HoverFillButtonStyle(prominent: true))
+                        .buttonStyle(.kukuPrimary)
                         .keyboardShortcut(.defaultAction)
                 } else {
                     Button(appState.text("以后再说", "Not Now"), action: close)
-                        .buttonStyle(HoverFillButtonStyle())
+                        .buttonStyle(.kukuSecondary)
                         .keyboardShortcut(.cancelAction)
                     Button(appState.text("重新检查", "Recheck")) {
                         appState.refreshSystemPermissions()
                     }
-                    .buttonStyle(HoverFillButtonStyle(prominent: true))
+                    .buttonStyle(.kukuPrimary)
                     .keyboardShortcut(.defaultAction)
                 }
             }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 14)
         }
-        .frame(width: 640, height: 540)
+        .frame(width: KukuLayout.sheetWideWidth, height: KukuLayout.sheetHeight)
         .background(KukuColor.canvas)
         .task { appState.refreshSystemPermissions() }
         .onDisappear { appState.microphoneTest.stop() }
@@ -83,42 +75,47 @@ struct PermissionActionRow: View {
 
     var body: some View {
         let status = appState.systemPermissions.status(for: kind)
-        HStack(spacing: 13) {
-            Image(systemName: symbol)
+        HStack(spacing: KukuSpacing.md) {
+            // The tile stays neutral; the badge carries the status.
+            KukuIconTile(symbol: symbol)
                 .symbolVariant(status.isAuthorized ? .fill : .none)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(status.isAuthorized ? KukuColor.mint : KukuColor.coral)
-                .frame(width: 34, height: 34)
-                .background(
-                    (status.isAuthorized ? KukuColor.mint : KukuColor.coral).opacity(0.09),
-                    in: RoundedRectangle(cornerRadius: KukuLayout.radiusSmall, style: .continuous)
-                )
 
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 7) {
+            VStack(alignment: .leading, spacing: KukuSpacing.xxs) {
+                HStack(spacing: KukuSpacing.sm) {
                     Text(title)
-                        .font(.system(size: 12.5, weight: .semibold))
-                    PermissionStatusBadge(status: status)
+                        .font(.kuku(.body))
+                        .foregroundStyle(KukuColor.textPrimary)
+                    badge(for: status)
                 }
                 Text(subtitle)
-                    .font(.system(size: 10.5))
-                    .foregroundStyle(KukuColor.stone)
+                    .font(.kuku(.subheadline))
+                    .foregroundStyle(KukuColor.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            Spacer(minLength: 14)
+            Spacer(minLength: KukuSpacing.md)
 
             // The badge already says it's on, so a granted row needs no trailing control.
             if !status.isAuthorized {
                 Button(buttonTitle(for: status)) {
                     Task { await appState.requestPermission(kind) }
                 }
-                .buttonStyle(TintButtonStyle())
+                .buttonStyle(.kukuSecondary)
                 .disabled(appState.systemPermissions.requesting != nil)
             }
         }
-        .padding(.horizontal, 15)
-        .frame(maxWidth: .infinity, minHeight: 68, alignment: .leading)
+        .kukuRowFrame()
+    }
+
+    private func badge(for status: SystemPermissionStatus) -> KukuBadge {
+        switch status {
+        case .authorized:
+            KukuBadge(text: appState.text("已开启", "On"), tone: .success, symbol: "checkmark.circle.fill")
+        case .restricted:
+            KukuBadge(text: appState.text("受限制", "Restricted"), tone: .warning, symbol: "exclamationmark.triangle.fill")
+        case .notDetermined, .denied:
+            KukuBadge(text: appState.text("未开启", "Off"))
+        }
     }
 
     private var symbol: String {
@@ -166,63 +163,39 @@ struct PermissionActionRow: View {
     }
 }
 
-struct PermissionStatusBadge: View {
-    @Environment(AppState.self) private var appState
-    let status: SystemPermissionStatus
-
-    var body: some View {
-        Text(title)
-            .font(.system(size: 10, weight: .semibold))
-            .foregroundStyle(status.isAuthorized ? KukuColor.mintText : KukuColor.stone)
-            .padding(.horizontal, 7)
-            .frame(height: 20)
-            .background(
-                (status.isAuthorized ? KukuColor.mint : KukuColor.shade).opacity(0.065),
-                in: Capsule()
-            )
-    }
-
-    private var title: String {
-        switch status {
-        case .notDetermined, .denied: appState.text("未开启", "Off")
-        case .restricted: appState.text("受限制", "Restricted")
-        case .authorized: appState.text("已开启", "On")
-        }
-    }
-}
-
 struct MicrophoneTestPanel: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
         let test = appState.microphoneTest
-        VStack(alignment: .leading, spacing: 13) {
-            HStack(spacing: 10) {
-                VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: KukuSpacing.md) {
+            HStack(spacing: KukuSpacing.sm) {
+                VStack(alignment: .leading, spacing: KukuSpacing.xxs) {
                     Text(appState.text("麦克风音量", "Microphone level"))
-                        .font(.system(size: 12.5, weight: .semibold))
+                        .font(.kuku(.body))
+                        .foregroundStyle(KukuColor.textPrimary)
                     Text(deviceSubtitle)
-                        .font(.system(size: 10.5))
-                        .foregroundStyle(KukuColor.stone)
+                        .font(.kuku(.subheadline))
+                        .foregroundStyle(KukuColor.textSecondary)
                 }
                 Spacer()
                 Circle()
-                    .fill(test.isRunning ? KukuColor.mint : KukuColor.stone.opacity(0.35))
-                    .frame(width: 7, height: 7)
+                    .fill(statusDotColor)
+                    .frame(width: KukuLayout.statusDot, height: KukuLayout.statusDot)
                 Text(testStatus)
-                    .font(.system(size: 10.5, weight: .medium))
-                    .foregroundStyle(test.isRunning ? KukuColor.mintText : KukuColor.stone)
+                    .font(.kuku(.subheadline, weight: .medium))
+                    .foregroundStyle(KukuColor.textSecondary)
             }
 
             AudioLevelMeter(level: test.level)
 
-            HStack(spacing: 10) {
+            HStack(spacing: KukuSpacing.sm) {
                 Label(
                     appState.text("只检测音量，不会保存、上传或回放", "Checks the level only. Nothing is saved, uploaded, or played back."),
                     systemImage: "lock.fill"
                 )
-                .font(.system(size: 10.5, weight: .medium))
-                .foregroundStyle(KukuColor.stone)
+                .font(.kuku(.subheadline))
+                .foregroundStyle(KukuColor.textSecondary)
 
                 Spacer()
 
@@ -241,13 +214,21 @@ struct MicrophoneTestPanel: View {
                         }
                     }
                 }
-                .buttonStyle(TintButtonStyle())
+                .buttonStyle(.kukuSecondary)
                 .disabled(test.phase == .starting || appState.systemPermissions.requesting != nil)
             }
         }
-        .padding(15)
+        .padding(KukuLayout.rowPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
         .onDisappear { test.stop() }
+    }
+
+    private var statusDotColor: Color {
+        switch appState.microphoneTest.phase {
+        case .running: KukuColor.success
+        case .failed: KukuColor.warning
+        case .idle, .starting: KukuColor.textTertiary
+        }
     }
 
     private var deviceSubtitle: String {
@@ -289,16 +270,17 @@ private struct AudioLevelMeter: View {
     private let barCount = 24
 
     var body: some View {
-        HStack(alignment: .center, spacing: 4) {
+        HStack(alignment: .center, spacing: KukuSpacing.xs) {
             ForEach(0..<barCount, id: \.self) { index in
                 let threshold = Double(index + 1) / Double(barCount)
                 Capsule()
-                    .fill(level >= threshold ? KukuColor.mint : KukuColor.ink.opacity(0.075))
+                    // Live input is an in-progress state, so the lit bars are coral.
+                    .fill(level >= threshold ? KukuColor.coral : KukuColor.fillHover)
                     .frame(maxWidth: .infinity)
             }
         }
-        .frame(height: 18)
-        .animation(.linear(duration: 0.08), value: level)
+        .frame(height: 18) // Meter geometry.
+        .animation(Motion.meter, value: level)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(appState.text("麦克风输入音量", "Microphone input level"))
         .accessibilityValue("\(Int(level * 100))%")

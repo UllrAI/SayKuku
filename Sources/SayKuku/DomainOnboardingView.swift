@@ -9,9 +9,9 @@ struct DomainOnboardingView: View {
     @State private var didLoad = false
 
     private let columns = [
-        GridItem(.flexible(), spacing: 10),
-        GridItem(.flexible(), spacing: 10),
-        GridItem(.flexible(), spacing: 10)
+        GridItem(.flexible(), spacing: KukuSpacing.sm),
+        GridItem(.flexible(), spacing: KukuSpacing.sm),
+        GridItem(.flexible(), spacing: KukuSpacing.sm)
     ]
 
     var body: some View {
@@ -28,32 +28,32 @@ struct DomainOnboardingView: View {
             ) {
                 KukuSheetIcon(symbol: "text.bubble.fill")
             }
-            Divider().opacity(0.5)
+            KukuDivider(inset: 0)
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 22) {
+                VStack(alignment: .leading, spacing: KukuLayout.sectionSpacing) {
                     domainSection
                     customTermsSection
                     privacyNote
                 }
-                .padding(.horizontal, 24)
-                .padding(.vertical, 20)
+                .padding(.horizontal, KukuLayout.sheetPadding)
+                .padding(.vertical, KukuSpacing.xl)
             }
 
-            Divider().opacity(0.5)
+            KukuDivider(inset: 0)
             footer
         }
-        .frame(width: 640, height: 540)
+        .frame(width: KukuLayout.sheetWideWidth, height: KukuLayout.sheetHeight)
         .background(KukuColor.canvas)
         .interactiveDismissDisabled(!appState.didCompleteOnboarding)
         .onAppear(perform: loadCurrentProfile)
     }
 
     private var domainSection: some View {
-        VStack(alignment: .leading, spacing: 11) {
-            sectionTitle(appState.text("常用领域（可多选）", "Common domains (select any)"))
+        VStack(alignment: .leading, spacing: KukuSpacing.md) {
+            KukuFieldLabel(text: appState.text("常用领域（可多选）", "Common domains (select any)"))
 
-            LazyVGrid(columns: columns, spacing: 10) {
+            LazyVGrid(columns: columns, spacing: KukuSpacing.sm) {
                 ForEach(DomainPreset.allCases) { domain in
                     DomainChoice(
                         domain: domain,
@@ -70,70 +70,64 @@ struct DomainOnboardingView: View {
     }
 
     private var customTermsSection: some View {
-        VStack(alignment: .leading, spacing: 11) {
+        VStack(alignment: .leading, spacing: KukuSpacing.md) {
             HStack(alignment: .firstTextBaseline) {
-                sectionTitle(appState.text("自定义词汇", "Custom vocabulary"))
+                KukuFieldLabel(text: appState.text("自定义词汇", "Custom vocabulary"))
                 Spacer()
                 if !customTerms.isEmpty {
                     Text("\(customTerms.count)/\(AppState.maxDomainTerms)")
-                        .font(.system(size: 10.5, weight: .medium).monospacedDigit())
-                        .foregroundStyle(KukuColor.stone)
+                        .font(.kuku(.caption).monospacedDigit())
+                        .foregroundStyle(KukuColor.textSecondary)
                 }
             }
 
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 9) {
-                    TextField(
-                        appState.text("例如：Vibe Coding、SayKuku、项目代号", "For example: Vibe Coding, SayKuku, project names"),
-                        text: $newTerm
+            VStack(alignment: .leading, spacing: KukuSpacing.sm) {
+                HStack(spacing: KukuSpacing.sm) {
+                    KukuTextField(
+                        prompt: appState.text("例如：Vibe Coding、SayKuku、项目代号", "For example: Vibe Coding, SayKuku, project names"),
+                        text: $newTerm,
+                        onSubmit: addTerm
                     )
-                    .textFieldStyle(.plain)
-                    .onSubmit(addTerm)
 
                     Button(action: addTerm) {
                         Label(appState.text("添加", "Add"), systemImage: "plus")
                     }
-                    .buttonStyle(TintButtonStyle())
+                    .buttonStyle(.kukuSecondary)
                     .disabled(!canAddTerm)
                 }
-                .padding(.leading, 13)
-                .padding(.trailing, 4)
-                .frame(height: 40)
-                .background(KukuColor.surfaceStrong, in: RoundedRectangle(cornerRadius: KukuLayout.radiusSmall, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: KukuLayout.radiusSmall, style: .continuous).stroke(KukuColor.line, lineWidth: 1))
 
                 if let termHint {
-                    Text(termHint)
-                        .font(.system(size: 10.5))
-                        .foregroundStyle(hasBlockedTerm ? KukuColor.coral : KukuColor.stone)
-                        .padding(.leading, 4)
+                    KukuSheetNote(text: termHint, isError: hasBlockedTerm)
+                        .padding(.leading, KukuSpacing.xs)
                 }
             }
 
             if !customTerms.isEmpty {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 120), spacing: 8)], alignment: .leading, spacing: 8) {
+                // 120 is the narrowest chip that still fits a short term and its remove button.
+                LazyVGrid(
+                    columns: [GridItem(.adaptive(minimum: 120), spacing: KukuSpacing.sm)],
+                    alignment: .leading,
+                    spacing: KukuSpacing.sm
+                ) {
                     ForEach(customTerms, id: \.self) { term in
-                        HStack(spacing: 5) {
-                            Text(term).lineLimit(1)
+                        HStack(spacing: KukuSpacing.xs) {
+                            Text(term)
+                                .font(.kuku(.subheadline, weight: .medium))
+                                .foregroundStyle(KukuColor.textPrimary)
+                                .lineLimit(1)
                             Spacer(minLength: 0)
-                            Button {
+                            KukuIconButton(
+                                symbol: "xmark",
+                                label: appState.text("移除 \(term)", "Remove \(term)"),
+                                size: .small
+                            ) {
                                 customTerms.removeAll { $0 == term }
-                            } label: {
-                                Image(systemName: "xmark")
-                                    .font(.system(size: 8, weight: .bold))
-                                    .frame(width: 16, height: 16)
-                                    .contentShape(Rectangle())
                             }
-                            .buttonStyle(.plain)
-                            .help(appState.text("移除", "Remove"))
-                            .accessibilityLabel(appState.text("移除 \(term)", "Remove \(term)"))
                         }
-                        .font(.system(size: 10.5, weight: .semibold))
-                        .foregroundStyle(KukuColor.ink)
-                        .padding(.leading, 10)
-                        .padding(.trailing, 5)
-                        .frame(height: 28)
-                        .background(KukuColor.coralSoft.opacity(0.55), in: Capsule())
+                        .padding(.leading, KukuSpacing.md)
+                        .padding(.trailing, KukuSpacing.xxs)
+                        .frame(height: KukuLayout.controlHeightSmall)
+                        .background(KukuColor.fill, in: Capsule())
                     }
                 }
             }
@@ -145,28 +139,26 @@ struct DomainOnboardingView: View {
             appState.text("选中的领域和词汇会随语音请求发送给 Qwen。", "Your selected domains and terms are sent to Qwen with voice requests."),
             systemImage: "paperplane"
         )
-        .font(.system(size: 10.5, weight: .medium))
-        .foregroundStyle(KukuColor.stone)
+        .font(.kuku(.subheadline))
+        .foregroundStyle(KukuColor.textSecondary)
     }
 
     private var footer: some View {
-        HStack(spacing: 10) {
-            // Opened from Settings, the sheet is already where changes are made.
-            if !appState.didCompleteOnboarding {
-                Text(appState.text("以后可在“设置 › 语音输入”中修改。", "You can change this later in Settings › Voice Input."))
-                    .font(.system(size: 10.5))
-                    .foregroundStyle(KukuColor.stone)
-            }
-            Spacer()
+        // Opened from Settings, the sheet is already where changes are made.
+        KukuSheetFooter(
+            note: appState.didCompleteOnboarding
+                ? nil
+                : KukuSheetNote(text: appState.text("以后可在“设置 › 语音输入”中修改。", "You can change this later in Settings › Voice Input."))
+        ) {
             if appState.didCompleteOnboarding {
                 Button(appState.text("取消", "Cancel"), action: dismiss.callAsFunction)
-                    .buttonStyle(HoverFillButtonStyle())
+                    .buttonStyle(.kukuSecondary)
                     .keyboardShortcut(.cancelAction)
             } else {
                 Button(appState.text("跳过", "Skip")) {
                     appState.completeDomainOnboarding(domains: [], customTerms: [])
                 }
-                .buttonStyle(HoverFillButtonStyle())
+                .buttonStyle(.kukuSecondary)
                 .keyboardShortcut(.cancelAction)
             }
             Button(appState.didCompleteOnboarding
@@ -175,19 +167,11 @@ struct DomainOnboardingView: View {
                 addTerm()
                 appState.completeDomainOnboarding(domains: selectedDomains, customTerms: customTerms)
             }
-            .buttonStyle(HoverFillButtonStyle(prominent: true))
+            .buttonStyle(.kukuPrimary)
             // While a term is being typed, Return adds it instead of closing the sheet.
             .keyboardShortcut(pendingTerm.isEmpty ? KeyboardShortcut.defaultAction : nil)
             .disabled(hasBlockedTerm)
         }
-        .padding(.horizontal, 24)
-        .padding(.vertical, 14)
-    }
-
-    private func sectionTitle(_ text: String) -> some View {
-        Text(text)
-            .font(.system(size: 11, weight: .semibold))
-            .foregroundStyle(KukuColor.stone)
     }
 
     private var pendingTerm: String {
@@ -250,32 +234,19 @@ private struct DomainChoice: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 9) {
-                Image(systemName: domain.symbol)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(selected ? KukuColor.coral : KukuColor.stone)
-                    .frame(width: 28, height: 28)
-                    .background(
-                        (selected ? KukuColor.coral : KukuColor.stone).opacity(0.09),
-                        in: RoundedRectangle(cornerRadius: KukuLayout.radiusSmall, style: .continuous)
-                    )
+            HStack(spacing: KukuSpacing.sm) {
+                KukuIconTile(symbol: domain.symbol)
                 Text(domain.title(isChineseUI: appState.usesChineseUI))
-                    .font(.system(size: 11.5, weight: .semibold))
+                    .font(.kuku(.callout, weight: .medium))
+                    .foregroundStyle(KukuColor.textPrimary)
                     .lineLimit(2)
                 Spacer(minLength: 0)
-                Image(systemName: selected ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(selected ? KukuColor.coral : KukuColor.stone.opacity(0.45))
+                KukuSelectionIndicator(style: .checkbox, isSelected: selected)
             }
-            .foregroundStyle(KukuColor.ink)
-            .padding(.horizontal, 11)
-            .frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
-            .background(selected ? KukuColor.coralSoft.opacity(0.42) : KukuColor.surfaceStrong)
-            .overlay(
-                RoundedRectangle(cornerRadius: KukuLayout.radiusMedium, style: .continuous)
-                    .stroke(selected ? KukuColor.coral.opacity(0.24) : KukuColor.line, lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: KukuLayout.radiusMedium, style: .continuous))
+            .padding(.horizontal, KukuSpacing.sm)
+            // The icon tile plus vertical breathing room, so one- and two-line titles align.
+            .frame(maxWidth: .infinity, minHeight: KukuLayout.iconTile + 2 * KukuSpacing.sm, alignment: .leading)
+            .kukuInteractiveSurface(isSelected: selected)
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(selected ? .isSelected : [])

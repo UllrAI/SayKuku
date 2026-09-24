@@ -30,7 +30,13 @@ struct HistoryView: View {
                 title: appState.text("说过的话，随时找回", "Find what you said"),
                 subtitle: retentionSubtitle
             ) {
-                if !appState.historyEntries.isEmpty { searchField }
+                if !appState.historyEntries.isEmpty {
+                    KukuSearchField(
+                        prompt: appState.text("搜索内容或 App", "Search text or apps"),
+                        clearLabel: appState.text("清除搜索", "Clear search"),
+                        text: $search
+                    )
+                }
             }
 
             KukuPageTabs(
@@ -39,41 +45,37 @@ struct HistoryView: View {
                 title: { $0.title(appState) }
             )
 
-            Divider().opacity(0.55)
+            KukuDivider(inset: 0)
 
-            ScrollView {
-                KukuPageContent {
-                    VStack(alignment: .leading, spacing: 0) {
-                        if let issue = appState.localDataIssue {
-                            let copy = issueCopy(issue)
-                            HistoryNotice(
-                                symbol: "exclamationmark.triangle",
-                                title: copy.title,
-                                message: copy.message,
-                                fileURL: issue.fileURL
-                            ) { appState.dismissLocalDataIssue() }
-                        }
-                        if let legacyURL = appState.legacyDataURL {
-                            HistoryNotice(
-                                symbol: "archivebox",
-                                title: appState.text("旧版本的加密记录没有迁移过来", "Encrypted history from an earlier version wasn’t carried over"),
-                                message: appState.text(
-                                    "早期版本加密保存的历史、知识和记忆无法在当前版本打开。SayKuku 不会自动迁移或删除它们，文件仍在这台 Mac 上，保留还是删除由你决定。",
-                                    "History, Knowledge, and Memory saved by an earlier encrypted version can’t be opened here. SayKuku won’t migrate or delete these files. They’re still on this Mac for you to keep or remove."
-                                ),
-                                fileURL: legacyURL
-                            ) { appState.dismissLegacyDataNotice() }
-                        }
+            KukuPageScroll {
+                VStack(alignment: .leading, spacing: 0) {
+                    if let issue = appState.localDataIssue {
+                        let copy = issueCopy(issue)
+                        HistoryNotice(
+                            symbol: "exclamationmark.triangle",
+                            title: copy.title,
+                            message: copy.message,
+                            fileURL: issue.fileURL
+                        ) { appState.dismissLocalDataIssue() }
+                    }
+                    if let legacyURL = appState.legacyDataURL {
+                        HistoryNotice(
+                            symbol: "archivebox",
+                            title: appState.text("旧版本的加密记录没有迁移过来", "Encrypted history from an earlier version wasn’t carried over"),
+                            message: appState.text(
+                                "早期版本加密保存的历史、知识和记忆无法在当前版本打开。SayKuku 不会自动迁移或删除它们，文件仍在这台 Mac 上，保留还是删除由你决定。",
+                                "History, Knowledge, and Memory saved by an earlier encrypted version can’t be opened here. SayKuku won’t migrate or delete these files. They’re still on this Mac for you to keep or remove."
+                            ),
+                            fileURL: legacyURL
+                        ) { appState.dismissLegacyDataNotice() }
+                    }
 
-                        if entries.isEmpty {
-                            emptyState
-                        } else {
-                            entryList(entries)
-                        }
+                    if entries.isEmpty {
+                        emptyState
+                    } else {
+                        entryList(entries)
                     }
                 }
-                .padding(.top, 20)
-                .padding(.bottom, 36)
             }
         }
     }
@@ -88,56 +90,29 @@ struct HistoryView: View {
         )
     }
 
-    private var searchField: some View {
-        HStack(spacing: 7) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(KukuColor.stone)
-            TextField(appState.text("搜索内容或 App", "Search text or apps"), text: $search)
-                .textFieldStyle(.plain)
-                .font(.system(size: 12))
-            if !search.isEmpty {
-                Button { search = "" } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(KukuColor.stone)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(appState.text("清除搜索", "Clear search"))
-                .help(appState.text("清除搜索", "Clear search"))
-            }
-        }
-        .padding(.horizontal, 10)
-        .frame(width: 220, height: KukuLayout.controlHeight)
-        .background(KukuColor.surfaceStrong, in: RoundedRectangle(cornerRadius: KukuLayout.radiusSmall, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: KukuLayout.radiusSmall, style: .continuous).stroke(KukuColor.line, lineWidth: 1))
-    }
-
     @ViewBuilder
     private var emptyState: some View {
         if appState.historyEntries.isEmpty {
-            ContentUnavailableView(
-                appState.text("还没有历史记录", "No history yet"),
-                systemImage: "waveform",
-                description: Text(appState.text("按 Fn 说句话，记录就会出现在这里。", "Press Fn and start talking. Your history shows up here."))
+            KukuEmptyState(
+                title: appState.text("还没有历史记录", "No history yet"),
+                symbol: "waveform",
+                message: appState.text("按 Fn 说句话，记录就会出现在这里。", "Press Fn and start talking. Your history shows up here.")
             )
-            .frame(maxWidth: .infinity, minHeight: 180)
         } else if !query.isEmpty {
-            ContentUnavailableView(
-                appState.text("没有找到匹配的历史记录", "No matching history"),
-                systemImage: "magnifyingglass",
-                description: Text(appState.text("换个关键词试试。", "Try a different search."))
+            KukuEmptyState(
+                title: appState.text("没有找到匹配的历史记录", "No matching history"),
+                symbol: "magnifyingglass",
+                message: appState.text("换个关键词试试。", "Try a different search.")
             )
-            .frame(maxWidth: .infinity, minHeight: 180)
         } else {
-            ContentUnavailableView {
-                Label(appState.text("这个分类还没有历史记录", "No history in this category"), systemImage: "line.3.horizontal.decrease.circle")
-            } description: {
-                Text(appState.text("换个分类，或清除筛选查看全部。", "Switch categories, or clear the filter to see everything."))
-            } actions: {
+            KukuEmptyState(
+                title: appState.text("这个分类还没有历史记录", "No history in this category"),
+                symbol: "line.3.horizontal.decrease.circle",
+                message: appState.text("换个分类，或清除筛选查看全部。", "Switch categories, or clear the filter to see everything.")
+            ) {
                 Button(appState.text("清除筛选", "Clear Filter")) { filter = .all }
-                    .buttonStyle(HoverFillButtonStyle())
+                    .buttonStyle(.kukuSecondary)
             }
-            .frame(maxWidth: .infinity, minHeight: 180)
         }
     }
 
@@ -147,16 +122,16 @@ struct HistoryView: View {
                 let day = dayLabel(for: entry)
                 if offset == 0 || day != dayLabel(for: entries[offset - 1]) {
                     Text(day)
-                        .font(.system(size: 10, weight: .bold, design: .rounded))
-                        .tracking(0.45)
-                        .foregroundStyle(KukuColor.stone)
+                        .font(.kuku(.caption, weight: .semibold))
+                        .foregroundStyle(KukuColor.textSecondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.top, offset == 0 ? 0 : 26)
-                        .padding(.bottom, 7)
+                        .padding(.top, offset == 0 ? 0 : KukuSpacing.xxl)
+                        .padding(.bottom, KukuSpacing.sm)
                 }
 
                 HistoryRow(entry: entry)
-                Divider().padding(.leading, 58).opacity(0.45)
+                // Starts at the text column: row padding, icon tile, then the tile's spacing.
+                KukuDivider(inset: KukuLayout.iconTile + KukuSpacing.md * 2)
             }
         }
     }
@@ -207,47 +182,36 @@ private struct HistoryNotice: View {
     let title: String
     let message: String
     let fileURL: URL
-    let onDismiss: () -> Void
+    let onDismiss: @MainActor () -> Void
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: KukuSpacing.md) {
             Image(systemName: symbol)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(KukuColor.amber)
-                .frame(width: 20, height: 20)
+                .font(.kukuIcon(.regular, weight: .semibold))
+                .foregroundStyle(KukuStatusTone.warning.iconColor)
+                .accessibilityHidden(true)
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: KukuSpacing.xs) {
                 Text(title)
-                    .font(.system(size: 12.5, weight: .semibold))
-                    .foregroundStyle(KukuColor.ink)
+                    .font(.kuku(.headline))
+                    .foregroundStyle(KukuColor.textPrimary)
                 Text(message)
-                    .font(.system(size: 11))
-                    .foregroundStyle(KukuColor.stone)
+                    .font(.kuku(.subheadline))
+                    .foregroundStyle(KukuColor.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
                 Button(appState.text("在访达中显示", "Show in Finder")) {
                     appState.revealInFinder(fileURL)
                 }
-                .buttonStyle(TintButtonStyle())
-                .padding(.top, 6)
+                .buttonStyle(.kuku(.secondary, size: .small))
+                .padding(.top, KukuSpacing.xs)
             }
 
-            Spacer(minLength: 8)
+            Spacer(minLength: KukuSpacing.sm)
 
-            Button { onDismiss() } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(KukuColor.stone)
-                    .frame(width: 24, height: 24)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(appState.text("关闭", "Close"))
-            .help(appState.text("关闭", "Close"))
+            KukuIconButton(symbol: "xmark", label: appState.text("关闭", "Close"), action: onDismiss)
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .kukuSurface(radius: KukuLayout.radiusMedium)
-        .padding(.bottom, 16)
+        .kukuCard()
+        .padding(.bottom, KukuLayout.listSpacing)
     }
 }
 
@@ -263,69 +227,50 @@ private struct HistoryRow: View {
     private var locale: Locale { historyLocale(chinese: appState.usesChineseUI) }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 13) {
-            ZStack {
-                RoundedRectangle(cornerRadius: KukuLayout.radiusSmall, style: .continuous)
-                    .fill(KukuColor.stone.opacity(0.11))
-                Image(systemName: entry.mode.symbol)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(KukuColor.stone)
-            }
-            .frame(width: 34, height: 34)
+        HStack(alignment: .top, spacing: KukuSpacing.md) {
+            KukuIconTile(symbol: entry.mode.symbol)
 
-            VStack(alignment: .leading, spacing: 7) {
-                HStack(spacing: 7) {
+            VStack(alignment: .leading, spacing: KukuSpacing.sm) {
+                HStack(spacing: KukuSpacing.iconText) {
                     Text(entry.mode.title(appState))
-                        .font(.system(size: 10.5, weight: .bold, design: .rounded))
-                        .foregroundStyle(KukuColor.stone)
+                        .font(.kuku(.caption, weight: .semibold))
                     Text("·")
                     Text(entry.app)
                     Text("·")
                     Text(entry.createdAt.formatted(Date.FormatStyle(date: .omitted, time: .shortened, locale: locale)))
                 }
-                .font(.system(size: 10.5, weight: .medium))
-                .foregroundStyle(KukuColor.stone)
+                .font(.kuku(.caption))
+                .foregroundStyle(KukuColor.textSecondary)
 
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: KukuSpacing.iconText) {
                     historyLine(label: appState.text("你说的", "Spoken")) { inputContent }
                     historyLine(label: appState.text("结果", "Result")) { outputContent }
                 }
             }
 
-            Spacer(minLength: 18)
+            Spacer(minLength: KukuSpacing.lg)
 
             HStack(spacing: 0) {
                 if hovering {
-                    Button { requestDelete() } label: {
-                        Image(systemName: "trash")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(KukuColor.stone.opacity(0.8))
-                            .frame(width: 30, height: 30)
-                    }
-                    .buttonStyle(PressScaleStyle())
-                    .accessibilityLabel(appState.text("删除", "Delete"))
-                    .help(appState.text("删除这条记录", "Delete this item"))
+                    KukuIconButton(
+                        symbol: "trash",
+                        label: appState.text("删除这条记录", "Delete this item"),
+                        action: requestDelete
+                    )
                 }
 
-                Button { toggleStar() } label: {
-                    Image(systemName: entry.isStarred ? "star.fill" : "star")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(entry.isStarred ? KukuColor.amber : KukuColor.stone.opacity(hovering ? 0.8 : 0.35))
-                        .frame(width: 30, height: 30)
-                }
-                .buttonStyle(PressScaleStyle())
-                .accessibilityLabel(entry.isStarred
-                                    ? appState.text("取消星标", "Remove star")
-                                    : appState.text("加星标", "Star"))
-                .help(entry.isStarred
-                      ? appState.text("取消星标", "Remove star")
-                      : appState.text("加星标，永久保留", "Star and keep forever"))
+                KukuIconButton(
+                    symbol: entry.isStarred ? "star.fill" : "star",
+                    label: entry.isStarred ? appState.text("取消星标", "Remove star") : appState.text("加星标", "Star"),
+                    help: entry.isStarred ? nil : appState.text("加星标，永久保留", "Star and keep forever"),
+                    tint: starTint,
+                    action: toggleStar
+                )
             }
         }
-        .padding(.vertical, 13)
-        .padding(.horizontal, 10)
+        .padding(KukuSpacing.md)
         .contentShape(Rectangle())
-        .background(hovering ? KukuColor.highlight.opacity(0.48) : .clear, in: RoundedRectangle(cornerRadius: KukuLayout.radiusMedium, style: .continuous))
+        .background(hovering ? KukuColor.rowHover : .clear, in: RoundedRectangle(cornerRadius: KukuLayout.radiusMedium, style: .continuous))
         .onHover { hovering = $0 }
         .animation(Motion.snappy, value: hovering)
         .contextMenu {
@@ -358,6 +303,12 @@ private struct HistoryRow: View {
         }
     }
 
+    /// Stars are neutral: a star marks an item to keep, not a status.
+    private var starTint: Color {
+        if entry.isStarred { return KukuColor.textPrimary }
+        return hovering ? KukuColor.textSecondary : KukuColor.textTertiary
+    }
+
     private var hasCopyableOutput: Bool { entry.status == .completed && !entry.output.isEmpty }
 
     private func playbackTitle(titleCase: Bool) -> String {
@@ -368,25 +319,26 @@ private struct HistoryRow: View {
 
     @ViewBuilder
     private var inputContent: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: KukuSpacing.sm) {
             if entry.hasAudio {
                 Button { togglePlayback() } label: {
-                    HStack(spacing: 7) {
+                    HStack(spacing: KukuSpacing.iconText) {
                         if isPlaying {
-                            Waveform(color: KukuColor.stone, barCount: 5, height: 12)
+                            // Compact playback waveform sized to fit the small capsule.
+                            Waveform(color: KukuColor.textSecondary, barCount: 5, height: 12)
                                 .frame(width: 20)
                         } else {
                             Image(systemName: "play.fill")
-                                .font(.system(size: 9, weight: .semibold))
+                                .font(.kukuIcon(.mini, weight: .semibold))
                         }
                         Text(Self.durationLabel(entry.durationSeconds))
-                            .font(.system(size: 10.5, weight: .semibold, design: .rounded))
+                            .font(.kuku(.caption, weight: .semibold))
                             .monospacedDigit()
                     }
-                    .foregroundStyle(KukuColor.stone)
-                    .padding(.horizontal, 9)
-                    .frame(height: 24)
-                    .background(KukuColor.stone.opacity(0.09), in: Capsule())
+                    .foregroundStyle(KukuColor.textSecondary)
+                    .padding(.horizontal, KukuSpacing.sm)
+                    .frame(height: KukuLayout.controlHeightSmall)
+                    .background(KukuColor.fill, in: Capsule())
                 }
                 .buttonStyle(PressScaleStyle())
                 .accessibilityLabel(playbackTitle(titleCase: false))
@@ -394,19 +346,19 @@ private struct HistoryRow: View {
                 .help(playbackTitle(titleCase: false))
             } else {
                 Image(systemName: entry.status == .processing && appState.storeVoiceAudio ? "ellipsis" : "waveform.slash")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(KukuColor.stone)
+                    .font(.kukuIcon(.small))
+                    .foregroundStyle(KukuColor.textSecondary)
                 Text(entry.status == .processing && appState.storeVoiceAudio
                      ? appState.text("正在保存录音…", "Saving recording…")
                      : appState.text("没有录音", "No recording"))
-                    .font(.system(size: 11))
-                    .foregroundStyle(KukuColor.stone)
+                    .font(.kuku(.subheadline))
+                    .foregroundStyle(KukuColor.textSecondary)
             }
 
             if entry.mode == .agent, !entry.input.isEmpty {
                 Text(entry.input)
-                    .font(.system(size: 11.5))
-                    .foregroundStyle(KukuColor.stone)
+                    .font(.kuku(.callout))
+                    .foregroundStyle(KukuColor.textSecondary)
                     .lineLimit(2)
             }
         }
@@ -416,31 +368,35 @@ private struct HistoryRow: View {
     private var outputContent: some View {
         switch entry.status {
         case .processing:
-            HStack(spacing: 7) {
+            HStack(spacing: KukuSpacing.iconText) {
                 ProgressView().controlSize(.mini)
                 Text(entry.mode == .dictation
                      ? appState.text("正在识别…", "Transcribing…")
                      : appState.text("正在处理…", "Processing…"))
             }
-            .foregroundStyle(KukuColor.stone)
+            .foregroundStyle(KukuColor.textSecondary)
         case .failed:
-            VStack(alignment: .leading, spacing: 8) {
-                Label(entry.errorMessage ?? appState.text("处理失败", "Processing failed"), systemImage: "exclamationmark.circle")
-                    .foregroundStyle(KukuColor.stone)
+            VStack(alignment: .leading, spacing: KukuSpacing.sm) {
+                KukuStatusLabel(
+                    text: entry.errorMessage ?? appState.text("处理失败", "Processing failed"),
+                    tone: .danger,
+                    font: .kuku(.body)
+                )
                 if entry.mode == .dictation && entry.hasAudio {
                     Button(appState.text("重新识别", "Retry Transcription")) {
                         Task { await appState.retryDictation(entry.id) }
                     }
-                    .buttonStyle(TintButtonStyle())
+                    .buttonStyle(.kuku(.secondary, size: .small))
                 }
             }
         case .cancelled:
             Label(appState.text("已取消", "Cancelled"), systemImage: "xmark.circle")
-                .foregroundStyle(KukuColor.stone)
+                .foregroundStyle(KukuColor.textSecondary)
         case .completed:
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: KukuSpacing.iconText) {
                 Text(entry.output)
-                    .foregroundStyle(KukuColor.ink)
+                    .foregroundStyle(KukuColor.textPrimary)
+                    .lineSpacing(KukuTypography.paragraphSpacing)
                     .lineLimit(shouldCollapseOutput && !isOutputExpanded ? 4 : nil)
                     .fixedSize(horizontal: false, vertical: true)
                     .textSelection(.enabled)
@@ -450,10 +406,8 @@ private struct HistoryRow: View {
                         appState.copyHistoryOutput(entry.output)
                     } label: {
                         Label(appState.text("复制结果", "Copy Result"), systemImage: "doc.on.doc")
-                            .font(.system(size: 11, weight: .semibold))
                     }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(KukuColor.coral)
+                    .buttonStyle(.kuku(.plain, size: .small))
                 }
 
                 if shouldCollapseOutput {
@@ -466,10 +420,8 @@ private struct HistoryRow: View {
                                 : appState.text("展开", "Show More"),
                             systemImage: isOutputExpanded ? "chevron.up" : "chevron.down"
                         )
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(KukuColor.stone)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.kuku(.plain, size: .small))
                 }
             }
         }
@@ -484,14 +436,15 @@ private struct HistoryRow: View {
         label: String,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
+        HStack(alignment: .firstTextBaseline, spacing: KukuSpacing.sm) {
             Text(label)
-                .font(.system(size: 10, weight: .bold, design: .rounded))
-                .foregroundStyle(KukuColor.stone)
+                .font(.kuku(.caption, weight: .semibold))
+                .foregroundStyle(KukuColor.textSecondary)
                 .lineLimit(1)
+                // Fixed label column so every entry's content starts at the same edge.
                 .frame(width: 40, alignment: .leading)
             content()
-                .font(.system(size: 12.5, weight: .semibold))
+                .font(.kuku(.body))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

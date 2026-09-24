@@ -79,18 +79,24 @@ private struct FloatingSystemOverlay: View {
                 AgentAnswerCard()
                     .transition(.scale(scale: 0.96, anchor: .bottom).combined(with: .opacity))
             } else if let error = appState.overlayError {
-                Label(error, systemImage: appState.overlayErrorSymbol)
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
-                    .foregroundStyle(KukuColor.ink.opacity(0.72))
-                    .lineLimit(2)
-                    .truncationMode(.tail)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .frame(width: KukuPillLayout.errorWidth(for: error))
-                    .frame(minHeight: 32)
-                    .kukuGlassPill()
-                    .transition(.scale(scale: 0.94, anchor: .bottom).combined(with: .opacity))
+                // A calm notice, not an alarm: neutral icon, primary text.
+                Label {
+                    Text(error)
+                        .foregroundStyle(KukuColor.textPrimary)
+                } icon: {
+                    Image(systemName: appState.overlayErrorSymbol)
+                        .foregroundStyle(KukuColor.textSecondary)
+                }
+                .font(.kuku(.callout, weight: .medium))
+                .lineLimit(2)
+                .truncationMode(.tail)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, KukuSpacing.md)
+                .padding(.vertical, KukuSpacing.sm)
+                .frame(width: KukuPillLayout.errorWidth(for: error))
+                .frame(minHeight: KukuLayout.controlHeight)
+                .kukuGlassPill()
+                .transition(.scale(scale: 0.94, anchor: .bottom).combined(with: .opacity))
             } else if appState.agentPhase != .hidden {
                 AgentPill()
                     .transition(.scale(scale: 0.94, anchor: .bottom).combined(with: .opacity))
@@ -99,7 +105,7 @@ private struct FloatingSystemOverlay: View {
                     .transition(.scale(scale: 0.94, anchor: .bottom).combined(with: .opacity))
             }
         }
-        .padding(.bottom, 16)
+        .padding(.bottom, KukuSpacing.lg)
         .frame(width: size.width, height: size.height)
         .animation(Motion.panel, value: appState.agentPhase)
         .animation(Motion.panel, value: appState.dictationPhase)
@@ -111,43 +117,44 @@ private struct AgentAnswerCard: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: KukuSpacing.md) {
             HStack {
-                Label(appState.text("回答", "Answer"), systemImage: "sparkles")
-                    .font(.system(size: 12, weight: .semibold))
-                Spacer()
-                Button(action: appState.dismissAnswer) {
-                    Image(systemName: "xmark")
-                        .frame(width: 28, height: 28)
-                        .contentShape(Rectangle())
+                Label {
+                    Text(appState.text("回答", "Answer"))
+                        .foregroundStyle(KukuColor.textPrimary)
+                } icon: {
+                    Image(systemName: "sparkles")
+                        .foregroundStyle(KukuColor.textSecondary)
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel(appState.text("关闭", "Close"))
-                .help(appState.text("关闭", "Close"))
+                .font(.kuku(.headline))
+                Spacer()
+                KukuIconButton(symbol: "xmark", label: appState.text("关闭", "Close"), action: appState.dismissAnswer)
             }
             ScrollView {
                 Text(appState.pendingAnswerText)
-                    .font(.system(size: 13))
-                    .foregroundStyle(KukuColor.ink)
+                    .font(.kuku(.body))
+                    .foregroundStyle(KukuColor.textPrimary)
+                    .lineSpacing(KukuTypography.paragraphSpacing)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .frame(maxHeight: .infinity)
             HStack {
                 Text(appState.pendingAnswerStatus ?? appState.text("可复制，或写入刚才的输入位置", "Copy it, or insert it where you were typing"))
-                    .font(.system(size: 10.5))
-                    .foregroundStyle(KukuColor.stone)
+                    .font(.kuku(.subheadline))
+                    .foregroundStyle(KukuColor.textSecondary)
                     .lineLimit(2)
                 Spacer()
                 Button(appState.text("复制", "Copy"), action: appState.copyAnswer)
-                    .buttonStyle(HoverFillButtonStyle())
+                    .buttonStyle(.kukuSecondary)
                 Button(appState.text("写入", "Insert")) {
                     Task { await appState.insertAnswer() }
                 }
-                .buttonStyle(HoverFillButtonStyle(prominent: true))
+                .buttonStyle(.kukuPrimary)
             }
         }
-        .padding(18)
+        .padding(KukuLayout.cardPadding)
+        // Leaves room inside the answer panel (see `panelSize`) for the card shadow.
         .frame(width: 440, height: 270)
         .kukuSurface(radius: KukuLayout.radiusLarge, elevated: true, fill: KukuColor.overlaySurface)
     }
