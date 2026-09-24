@@ -732,7 +732,7 @@ where Option.AllCases: RandomAccessCollection {
     }
 }
 
-struct SettingsDivider: View {
+private struct SettingsDivider: View {
     var body: some View { Divider().padding(.leading, 14).opacity(0.5) }
 }
 

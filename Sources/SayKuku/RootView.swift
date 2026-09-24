@@ -42,7 +42,7 @@ struct RootView: View {
         }
         .navigationSplitViewStyle(.balanced)
         .tint(KukuColor.coral)
-        .sheet(item: $appState.presentedSheet, onDismiss: { appState.presentNextSetupStep() }) { destination in
+        .sheet(item: $appState.presentedSheet) { destination in
             switch destination {
             case .onboarding:
                 DomainOnboardingView()
