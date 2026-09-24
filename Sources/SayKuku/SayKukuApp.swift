@@ -31,10 +31,21 @@ struct SayKukuApp: App {
         .windowStyle(.hiddenTitleBar)
         .windowToolbarStyle(.unifiedCompact)
         .commands {
+            CommandGroup(replacing: .appSettings) {
+                Button(appState.text("设置…", "Settings…")) {
+                    appState.showMainWindow(destination: .settings)
+                }
+                .keyboardShortcut(",", modifiers: .command)
+            }
             CommandGroup(replacing: .newItem) { }
+            CommandGroup(before: .sidebar) {
+                PageMenuItems(appState: appState)
+            }
             CommandMenu(appState.text("语音", "Voice")) {
                 VoiceMenuItems(appState: appState)
             }
+            // There is no help book, so drop the item that only says help is unavailable.
+            CommandGroup(replacing: .help) { }
         }
 
         MenuBarExtra(isInserted: Binding(
@@ -215,7 +226,7 @@ private struct MenuBarContent: View {
 
         Divider()
 
-        Button(appState.text("显示 SayKuku", "Show SayKuku")) {
+        Button(appState.text("打开 SayKuku", "Open SayKuku")) {
             showWindow(destination: .home)
         }
 
@@ -226,8 +237,7 @@ private struct MenuBarContent: View {
 
         Divider()
 
-        Label(appState.shortcutStatus.title(appState), systemImage: appState.shortcutStatus.symbol)
-            .disabled(true)
+        shortcutStatusItem
 
         Divider()
 
@@ -237,9 +247,47 @@ private struct MenuBarContent: View {
         .keyboardShortcut("q", modifiers: .command)
     }
 
+    /// A problem links to Settings › General, where it can be fixed; other states are informational.
+    @ViewBuilder
+    private var shortcutStatusItem: some View {
+        let status = appState.shortcutStatus
+        let label = Label(status.title(appState), systemImage: status.symbol)
+        switch status {
+        case .starting, .ready:
+            label.disabled(true)
+        case .accessibilityRequired, .hotKeyConflict:
+            Button {
+                appState.settingsSection = .general
+                showWindow(destination: .settings)
+            } label: {
+                label
+            }
+        }
+    }
+
     private func showWindow(destination: AppState.Destination) {
         appState.registerMainWindowOpener(openWindow)
         appState.showMainWindow(destination: destination)
+    }
+}
+
+/// Page shortcuts for the View menu. Settings keeps its standard ⌘, item.
+private struct PageMenuItems: View {
+    let appState: AppState
+
+    var body: some View {
+        pageItem(.home, key: "1")
+        pageItem(.history, key: "2")
+        pageItem(.knowledge, key: "3")
+        pageItem(.memory, key: "4")
+        Divider()
+    }
+
+    private func pageItem(_ destination: AppState.Destination, key: KeyEquivalent) -> some View {
+        Button(destination.title(appState)) {
+            appState.showMainWindow(destination: destination)
+        }
+        .keyboardShortcut(key, modifiers: .command)
     }
 }
 
@@ -263,7 +311,7 @@ private struct VoiceMenuItems: View {
 
         Button(appState.agentPhase == .listening
                ? appState.text("结束语音 Agent", "Stop Voice Agent")
-               : appState.text("打开语音 Agent", "Open Voice Agent")) {
+               : appState.text("开始语音 Agent", "Start Voice Agent")) {
             appState.startAgent()
         }
         .keyboardShortcut(keyboardShortcut(for: .voiceAgent))
