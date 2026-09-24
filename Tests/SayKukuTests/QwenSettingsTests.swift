@@ -53,7 +53,7 @@ struct QwenSettingsTests {
     @Test("saved API Key persists in the Keychain and clearing it removes the key")
     @MainActor
     func apiKeyPersistence() throws {
-        let environment = TestEnvironment()
+        let environment = QwenSettingsTestEnvironment()
         defer { environment.clean() }
 
         let state = environment.makeState()
@@ -70,7 +70,7 @@ struct QwenSettingsTests {
     @Test("retired stored models migrate while custom models survive reloads")
     @MainActor
     func modelMigration() {
-        let environment = TestEnvironment()
+        let environment = QwenSettingsTestEnvironment()
         defer { environment.clean() }
 
         environment.defaults.set("qwen3-asr-flash-realtime", forKey: "qwen.realtimeModel")
@@ -86,7 +86,7 @@ struct QwenSettingsTests {
     @Test("connection-affecting edits reset the test result")
     @MainActor
     func connectionStateResets() {
-        let environment = TestEnvironment()
+        let environment = QwenSettingsTestEnvironment()
         defer { environment.clean() }
 
         let state = environment.makeState()
@@ -105,7 +105,7 @@ struct QwenSettingsTests {
 }
 
 @MainActor
-private struct TestEnvironment {
+private struct QwenSettingsTestEnvironment {
     let suite: String
     let defaults: UserDefaults
     let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

@@ -70,7 +70,7 @@ struct QwenSetupView: View {
                 .foregroundStyle(KukuColor.stone)
             Spacer()
             if isConnected {
-                Button(appState.text("开始使用", "Start using")) { dismiss() }
+                Button(appState.text("开始使用", "Get started")) { dismiss() }
                     .buttonStyle(HoverFillButtonStyle(prominent: true))
             } else {
                 Button(appState.apiKey.isEmpty ? appState.text("跳过", "Skip") : appState.text("完成", "Done")) {

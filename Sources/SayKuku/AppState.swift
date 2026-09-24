@@ -113,7 +113,10 @@ final class AppState {
     private(set) var localDataIssue: LocalStore.DataIssue?
     private(set) var legacyDataURL: URL?
     var shortcutStatus: ShortcutStatus = .starting
-    var presentedSheet: AppSheet?
+    var presentedSheet: AppSheet? {
+        // Covers every close path (buttons, Esc, dismiss()) without relying on sheet onDismiss.
+        didSet { if presentedSheet == nil, oldValue != nil { presentNextSetupStep() } }
+    }
     private(set) var showInMenuBar = true { didSet { defaults.set(showInMenuBar, forKey: Keys.showInMenuBar) } }
     var hideDockIconAfterMainWindowCloses = false {
         didSet {
@@ -623,8 +626,8 @@ final class AppState {
         presentedSheet = nil
     }
 
-    /// Called whenever a sheet closes; walks the remaining first-run steps.
-    func presentNextSetupStep() {
+    /// Walks the remaining first-run steps after a sheet closes.
+    private func presentNextSetupStep() {
         guard !pendingSetupSteps.isEmpty else { return }
         Task { @MainActor [weak self] in
             try? await Task.sleep(for: .milliseconds(350))
