@@ -411,11 +411,11 @@ enum EntityType: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .person: appState.text("人物", "Person")
         case .organization: appState.text("组织", "Organization")
-        case .orgUnit: appState.text("部门", "Org unit")
+        case .orgUnit: appState.text("部门", "Department")
         case .project: appState.text("项目", "Project")
         case .product: appState.text("产品", "Product")
         case .term: appState.text("术语", "Term")
-        case .unknown: appState.text("未分类", "Unknown")
+        case .unknown: appState.text("未分类", "Uncategorized")
         }
     }
     var symbol: String {
@@ -480,6 +480,21 @@ struct KnowledgeEntity: Identifiable, Codable, Equatable {
     }
 }
 
+enum KnowledgeSaveError: Error, Equatable {
+    /// The name has no letters or digits left after normalization.
+    case emptyName
+    case duplicate(existingName: String)
+
+    @MainActor func message(_ appState: AppState) -> String {
+        switch self {
+        case .emptyName:
+            appState.text("名称里要有文字或数字", "A name needs at least one letter or number")
+        case .duplicate(let name):
+            appState.text("已有同名条目“\(name)”", "“\(name)” is already in Knowledge")
+        }
+    }
+}
+
 enum RelationshipType: String, Codable, CaseIterable {
     case belongsTo, worksOn, owns, relatedTo
 
@@ -507,7 +522,7 @@ enum ImportStatus: String, Codable {
     @MainActor func title(_ appState: AppState) -> String {
         switch self {
         case .new: appState.text("新增", "New")
-        case .merge: appState.text("更新已有项", "Update existing")
+        case .merge: appState.text("更新已有条目", "Updates existing")
         case .conflict: appState.text("可能重复", "Possible duplicate")
         case .ignored: appState.text("已忽略", "Ignored")
         }

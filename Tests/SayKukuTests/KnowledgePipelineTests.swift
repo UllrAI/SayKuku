@@ -147,7 +147,7 @@ struct KnowledgePipelineTests {
             type: .product,
             detail: " Updated project ",
             aliases: ["Ani Kuku", " ani kuku ", "AniKuku Pro", ""]
-        ))
+        ) == nil)
         let edited = state.knowledgeEntities[0]
         #expect(edited.id == original.id)
         #expect(edited.name == "AniKuku Pro")
@@ -155,13 +155,21 @@ struct KnowledgePipelineTests {
         #expect(edited.aliases == ["Ani Kuku"])
         #expect(edited.source == .importText)
         #expect(edited.createdAt == originalDate)
-        #expect(!state.updateKnowledge(
+        #expect(state.updateKnowledge(
             id: original.id,
-            name: "WorkBuddy",
+            name: "workbuddy",
             type: .product,
             detail: "",
             aliases: []
-        ))
+        ) == .duplicate(existingName: "WorkBuddy"))
+        #expect(state.updateKnowledge(
+            id: original.id,
+            name: " !! ",
+            type: .product,
+            detail: "",
+            aliases: []
+        ) == .emptyName)
+        #expect(state.knowledgeEntities[0].name == "AniKuku Pro")
     }
 
     @Test("main navigation titles follow the selected language")
