@@ -20,7 +20,7 @@ private struct HomeReadyState: View {
             ScreenHeader(
                 eyebrow: appState.text("快速开始", "Quick start"),
                 title: appState.text("在当前输入框，直接开口", "Speak right where you type"),
-                subtitle: appState.text("无需打开 SayKuku 窗口，使用 Fn 即可随时输入。", "Keep this window closed—Fn is always ready.")
+                subtitle: appState.text("无需打开 SayKuku，在任意输入框按下 Fn 即可。", "No need to open SayKuku. Just press Fn in any text field.")
             )
 
             Spacer()
@@ -142,8 +142,8 @@ private struct HomeGestureRow: View {
                 }
 
                 HStack(spacing: 5) {
-                    Text(appState.text("试写", "Try it"))
-                    Image(systemName: "arrow.up.right")
+                    Text(appState.text("在下方试试", "Try it below"))
+                    Image(systemName: "arrow.down")
                 }
                 .font(.system(size: 9.5, weight: .semibold))
                 .foregroundStyle(accent.opacity(hovering ? 1 : 0.72))
@@ -405,7 +405,7 @@ struct DictationPill: View {
     }
 
     private var processingLabel: String {
-        appState.liveTranscript.isEmpty ? appState.text("正在整理…", "Formatting…") : appState.liveTranscript
+        appState.liveTranscript.isEmpty ? appState.text("正在识别…", "Transcribing…") : appState.liveTranscript
     }
 
     // Only verified writes can be undone, so an unverified paste asks the user to take a look.
