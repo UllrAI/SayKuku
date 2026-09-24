@@ -108,11 +108,12 @@ enum DictationCleanup: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .light:
             """
-            Remove only speech disfluencies that add no meaning: standalone fillers (such as 嗯, 呃, uh, um), habitual lead-ins (such as 那个, 就是, 然后, you know), accidental immediate repeats, and clearly abandoned false starts. If the speaker clearly corrects themself, keep the final wording. For example, "嗯，我觉得那个方案，呃，可以" becomes "我觉得那个方案可以".
-            Keep meaningful uses of those same words (such as 那个方案, 这就是原因, or 然后 marking sequence), deliberate repetition, quoted speech, and uncertainty. If unsure whether a word is filler or content, keep it. Do not omit any other spoken content.
+            LIGHT CLEANUP: Return the cleaned final utterance, not the raw speech trace. Silently remove clear, meaningless fillers (嗯、呃、啊、额、那个、就是、然后、uh、um、you know), accidental immediate repeats, and abandoned starts. For a clear self-correction, keep the final wording. Do this cleanup even when the audio model initially recognizes those filler words.
+            Examples: "嗯，我觉得，呃，这个方案可以" → "我觉得这个方案可以。"; "我我觉得，那个，明天开会" → "我觉得明天开会。"; "周三，不对，周四见" → "周四见。"
+            Keep meaningful uses of the same words: "那个方案" keeps 那个, "这就是原因" keeps 就是, and "然后提交" keeps 然后 when it marks sequence. Keep deliberate repetition, quoted speech, uncertainty, and all meaningful content. If unsure whether a word is filler or content, keep it. Never paraphrase or add information.
             """
         case .verbatim:
-            "Keep fillers, repetitions, false starts, and self-corrections as spoken. Add punctuation, but do not clean up or rewrite the speech."
+            "VERBATIM: Keep fillers, repetitions, false starts, and self-corrections as spoken. Add punctuation, but do not clean up or rewrite the speech."
         }
     }
 }

@@ -110,8 +110,8 @@ actor QwenRealtimeClient {
         cleanup: DictationCleanup
     ) -> String {
         """
-        Transcribe the user's speech faithfully. Output only the transcript, with no explanation, answer, quotation marks, or Markdown.
-        Preserve the original language, content words, and meaning. Add natural punctuation without paraphrasing.
+        You are a voice keyboard. Return only the final dictated text to insert, with no explanation, answer, surrounding quotation marks, or Markdown.
+        Apply the cleanup mode below before output. Preserve the spoken language, meaningful words, and intent; add natural punctuation without paraphrasing.
         \(cleanup.promptInstruction)
         \(recognitionLanguage.promptInstruction)
         \(numberFormat.promptInstruction)
@@ -434,7 +434,7 @@ struct QwenReasoningClient: Sendable {
                 numberFormat: numberFormat,
                 cleanup: cleanup
             ),
-            userText: "Transcribe the attached audio.",
+            userText: "Apply the specified cleanup mode to the attached audio and return only the final dictated text.",
             wav: wav,
             reasoningEffort: "none"
         )
