@@ -509,6 +509,23 @@ struct AgentSession: Identifiable, Codable, Equatable {
     var response: String
     var createdAt: Date = .now
     var expiresAt: Date
+
+    /// Turns kept per app for continuous conversation.
+    static let turnLimit = 3
+
+    /// Unexpired turns for `app`, oldest first.
+    static func conversation(in sessions: [AgentSession], app: String, now: Date = .now) -> [AgentSession] {
+        Array(sessions
+            .filter { $0.app == app && $0.expiresAt > now }
+            .sorted { $0.createdAt < $1.createdAt }
+            .suffix(turnLimit))
+    }
+
+    /// Drops expired turns and keeps only the latest turns for the new turn's app.
+    static func appending(_ turn: AgentSession, to sessions: [AgentSession], now: Date = .now) -> [AgentSession] {
+        let otherApps = sessions.filter { $0.app != turn.app && $0.expiresAt > now }
+        return otherApps + conversation(in: sessions, app: turn.app, now: now).suffix(turnLimit - 1) + [turn]
+    }
 }
 
 struct ContextItem: Identifiable, Equatable {

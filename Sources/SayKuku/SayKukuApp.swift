@@ -11,20 +11,21 @@ enum AppSheet: String, Identifiable {
 @main
 struct SayKukuApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
-    @State private var appState = AppState()
+    /// Owned by the delegate so system services can start before any window exists.
+    private var appState: AppState { appDelegate.appState }
 
     var body: some Scene {
-        Window("SayKuku", id: "main") {
+        Window("SayKuku", id: AppState.mainWindowID) {
             RootView()
                 .environment(appState)
                 .frame(minWidth: 860, minHeight: 580)
                 .preferredColorScheme(.light)
                 .background {
                     MainWindowReader { window in
-                        appDelegate.observeMainWindow(window, appState: appState)
+                        appDelegate.observeMainWindow(window)
                     }
+                    MainWindowOpenerBridge(appState: appState)
                 }
-                .task { appState.startSystemServices() }
         }
         .defaultSize(width: 1_000, height: 660)
         .windowStyle(.hiddenTitleBar)
@@ -84,16 +85,24 @@ private struct MenuBarIcon: View {
     }
 }
 
+@MainActor
 private final class AppDelegate: NSObject, NSApplicationDelegate {
-    private weak var appState: AppState?
+    private(set) lazy var appState = AppState()
     private weak var mainWindow: NSWindow?
+    private var suppressesLaunchWindow = false
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        if Self.wasLaunchedAsLoginItem {
+            suppressLaunchWindow()
+        }
+        appState.startSystemServices()
+    }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         false
     }
 
-    func observeMainWindow(_ window: NSWindow?, appState: AppState) {
-        self.appState = appState
+    func observeMainWindow(_ window: NSWindow?) {
         guard let window, mainWindow !== window else { return }
 
         if let mainWindow {
@@ -110,9 +119,39 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
             name: NSWindow.willCloseNotification,
             object: window
         )
+        if suppressesLaunchWindow { closeLaunchWindow(window) }
     }
 
-    @MainActor @objc private func mainWindowWillClose(_ notification: Notification) {
+    /// Login launches stay in the menu bar. SwiftUI may create the window before or after
+    /// `applicationDidFinishLaunching`, so close it now or as soon as it appears.
+    private func suppressLaunchWindow() {
+        if appState.hideDockIconAfterMainWindowCloses {
+            NSApplication.shared.setActivationPolicy(.accessory)
+        }
+        if let mainWindow {
+            closeLaunchWindow(mainWindow)
+            return
+        }
+        suppressesLaunchWindow = true
+        Task { @MainActor [weak self] in
+            // Stop waiting so a window the user opens later is never closed.
+            try? await Task.sleep(for: .seconds(2))
+            self?.suppressesLaunchWindow = false
+        }
+    }
+
+    private func closeLaunchWindow(_ window: NSWindow) {
+        suppressesLaunchWindow = false
+        Task { @MainActor in window.close() }
+    }
+
+    private static var wasLaunchedAsLoginItem: Bool {
+        let event = NSAppleEventManager.shared().currentAppleEvent
+        return event?.eventID == kAEOpenApplication
+            && event?.paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue == keyAELaunchedAsLogInItem
+    }
+
+    @objc private func mainWindowWillClose(_ notification: Notification) {
         guard let window = notification.object as? NSWindow, mainWindow === window else { return }
         NotificationCenter.default.removeObserver(
             self,
@@ -121,7 +160,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         mainWindow = nil
 
-        if appState?.hideDockIconAfterMainWindowCloses == true {
+        if appState.hideDockIconAfterMainWindowCloses {
             NSApplication.shared.setActivationPolicy(.accessory)
         }
     }
@@ -153,6 +192,17 @@ private final class WindowReaderView: NSView {
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         onWindowChange(window)
+    }
+}
+
+/// Hands SwiftUI's window opener to AppState so shortcuts can reopen a closed main window.
+private struct MainWindowOpenerBridge: View {
+    @Environment(\.openWindow) private var openWindow
+    let appState: AppState
+
+    var body: some View {
+        Color.clear
+            .onAppear { appState.registerMainWindowOpener(openWindow) }
     }
 }
 
@@ -194,9 +244,7 @@ private struct MenuBarContent: View {
     }
 
     private func showWindow(destination: AppState.Destination) {
-        appState.destination = destination
-        NSApplication.shared.setActivationPolicy(.regular)
-        openWindow(id: "main")
-        NSApplication.shared.activate(ignoringOtherApps: true)
+        appState.registerMainWindowOpener(openWindow)
+        appState.showMainWindow(destination: destination)
     }
 }
