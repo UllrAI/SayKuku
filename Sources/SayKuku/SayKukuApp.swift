@@ -24,8 +24,8 @@ struct SayKukuApp: App {
                     MainWindowReader { window in
                         appDelegate.observeMainWindow(window)
                     }
-                    MainWindowOpenerBridge(appState: appState)
                 }
+                .modifier(MainWindowOpenerRegistration(appState: appState))
         }
         .defaultSize(width: 1_000, height: 660)
         .windowStyle(.hiddenTitleBar)
@@ -45,7 +45,9 @@ struct SayKukuApp: App {
             MenuBarContent()
                 .environment(appState)
         } label: {
+            // The status item appears at launch, so the opener is available even if the window never was.
             MenuBarIcon()
+                .modifier(MainWindowOpenerRegistration(appState: appState))
         }
         .menuBarExtraStyle(.menu)
     }
@@ -147,8 +149,8 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private static var wasLaunchedAsLoginItem: Bool {
         let event = NSAppleEventManager.shared().currentAppleEvent
-        return event?.eventID == kAEOpenApplication
-            && event?.paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue == keyAELaunchedAsLogInItem
+        return event?.eventID == AEEventID(kAEOpenApplication)
+            && event?.paramDescriptor(forKeyword: AEKeyword(keyAEPropData))?.enumCodeValue == OSType(keyAELaunchedAsLogInItem)
     }
 
     @objc private func mainWindowWillClose(_ notification: Notification) {
@@ -196,13 +198,12 @@ private final class WindowReaderView: NSView {
 }
 
 /// Hands SwiftUI's window opener to AppState so shortcuts can reopen a closed main window.
-private struct MainWindowOpenerBridge: View {
+private struct MainWindowOpenerRegistration: ViewModifier {
     @Environment(\.openWindow) private var openWindow
     let appState: AppState
 
-    var body: some View {
-        Color.clear
-            .onAppear { appState.registerMainWindowOpener(openWindow) }
+    func body(content: Content) -> some View {
+        content.onAppear { appState.registerMainWindowOpener(openWindow) }
     }
 }
 
