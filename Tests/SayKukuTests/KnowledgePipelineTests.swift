@@ -71,6 +71,7 @@ struct KnowledgePipelineTests {
         #expect(KnowledgePipeline.masked("11010119900307123X") == "110••••23X")
         #expect(KnowledgePipeline.masked("18600000000") == "18••••00")
         #expect(KnowledgePipeline.masked("abc") == "••••")
+        #expect(KnowledgePipeline.displayEvidence("王涛 [FILTERED] 负责") == "王涛 •••• 负责")
     }
 
     @Test("exact aliases merge while similar names require confirmation")

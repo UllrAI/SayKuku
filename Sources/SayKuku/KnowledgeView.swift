@@ -671,7 +671,7 @@ private struct KnowledgeImportSheet: View {
                         title: ignored ? appState.text("已过滤的敏感信息", "Filtered sensitive info") : candidate.entity.name,
                         badge: badge(for: candidate),
                         badgeColor: candidate.status.color,
-                        detail: candidate.evidence,
+                        detail: KnowledgePipeline.displayEvidence(candidate.evidence),
                         trailing: ignored ? nil : candidate.entity.type.title(appState),
                         isSelected: selected.contains(candidate.id),
                         isIgnored: ignored
@@ -691,7 +691,7 @@ private struct KnowledgeImportSheet: View {
                             title: "\(relationship.from) \(relationship.type.title(appState)) \(relationship.to)",
                             badge: candidate.status.title(appState),
                             badgeColor: candidate.status.color,
-                            detail: relationship.evidence,
+                            detail: KnowledgePipeline.displayEvidence(relationship.evidence),
                             isSelected: selected.contains(candidate.id)
                         ) {
                             toggle(candidate.id)
