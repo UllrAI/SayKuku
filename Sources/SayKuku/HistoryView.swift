@@ -3,7 +3,7 @@ import SwiftUI
 
 struct HistoryView: View {
     @Environment(AppState.self) private var appState
-    @State private var filter: HistoryFilter = .all
+    @Binding var filter: HistoryFilter
     @State private var search = ""
 
     private var query: String { search.trimmingCharacters(in: .whitespacesAndNewlines) }

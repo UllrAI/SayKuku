@@ -3,7 +3,7 @@ import SwiftUI
 
 struct MemoryView: View {
     @Environment(AppState.self) private var appState
-    @State private var selectedScope: MemoryScope = .corrections
+    @Binding var selectedScope: MemoryScope
 
     var body: some View {
         @Bindable var appState = appState

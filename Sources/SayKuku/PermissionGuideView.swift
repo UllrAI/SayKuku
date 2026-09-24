@@ -275,8 +275,6 @@ struct MicrophoneTestPanel: View {
         .padding(15)
         .frame(maxWidth: .infinity, alignment: .leading)
         .onDisappear { test.stop() }
-        // Settings stays mounted after navigation, so leaving it no longer triggers onDisappear.
-        .onChange(of: appState.destination) { test.stop() }
     }
 
     private var deviceSubtitle: String {

@@ -2,7 +2,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @Environment(AppState.self) private var appState
-    @State private var selection: SettingsSection = .general
+    @Binding var selection: SettingsSection
 
     var body: some View {
         VStack(spacing: 0) {
