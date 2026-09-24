@@ -3,6 +3,12 @@ import SwiftUI
 
 struct RootView: View {
     @Environment(AppState.self) private var appState
+    // Pages are rebuilt on navigation, so the selections people come back to live here.
+    @State private var historyFilter: HistoryFilter = .all
+    @State private var historySearch = ""
+    @State private var knowledgeSearch = ""
+    @State private var knowledgeFilter: KnowledgeFilter = .all
+    @State private var memoryScope: MemoryScope = .corrections
 
     var body: some View {
         @Bindable var appState = appState
@@ -19,13 +25,13 @@ struct RootView: View {
                     case .home:
                         HomeView()
                     case .history:
-                        HistoryView()
+                        HistoryView(filter: $historyFilter, search: $historySearch)
                     case .knowledge:
-                        KnowledgeView()
+                        KnowledgeView(search: $knowledgeSearch, filter: $knowledgeFilter)
                     case .memory:
-                        MemoryView()
+                        MemoryView(selectedScope: $memoryScope)
                     case .settings:
-                        SettingsView()
+                        SettingsView(selection: $appState.settingsSection)
                     }
                 }
                 .id(appState.destination)
@@ -130,16 +136,18 @@ private struct Sidebar: View {
                 RoundedRectangle(cornerRadius: 9, style: .continuous)
                     .fill(selection == destination
                           ? KukuColor.surfaceStrong
-                          : (hovered == destination ? Color.white.opacity(0.38) : Color.clear))
+                          : (hovered == destination ? KukuColor.highlight.opacity(0.38) : Color.clear))
             }
             .overlay {
                 if selection == destination {
                     RoundedRectangle(cornerRadius: 9, style: .continuous)
-                        .stroke(Color.white.opacity(0.7), lineWidth: 1)
+                        .stroke(KukuColor.highlight.opacity(0.7), lineWidth: 1)
                 }
             }
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(destination.title(appState))
+        .accessibilityAddTraits(selection == destination ? .isSelected : [])
         .onHover { inside in hovered = inside ? destination : nil }
         .animation(Motion.snappy, value: hovered)
     }

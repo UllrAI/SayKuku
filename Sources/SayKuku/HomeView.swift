@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct HomeView: View {
@@ -95,7 +96,7 @@ private struct HomeReadyState: View {
             title: appState.voiceAgentTitle,
             subtitle: appState.text("说出意图，获取回答、写回或执行动作", "Say what you need to get an answer, write text, or run an action"),
             symbol: "sparkles",
-            accent: KukuColor.graphite
+            accent: KukuColor.ink
         ) {
             practiceFocused = true
         }
@@ -128,7 +129,7 @@ private struct HomeGestureRow: View {
                         .font(.system(size: 9.5, weight: .bold, design: .monospaced))
                         .padding(.horizontal, 7)
                         .frame(height: 20)
-                        .background(Color.black.opacity(0.055), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        .background(KukuColor.shade.opacity(0.055), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
                 }
 
                 VStack(alignment: .leading, spacing: 5) {
@@ -149,7 +150,7 @@ private struct HomeGestureRow: View {
             }
             .padding(16)
             .frame(maxWidth: .infinity, minHeight: 140, alignment: .topLeading)
-            .background(hovering ? Color.white.opacity(0.32) : .clear)
+            .background(hovering ? KukuColor.highlight.opacity(0.32) : .clear)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -169,7 +170,7 @@ struct AgentPill: View {
         case .listening:
             KukuPillLayout.width(for: listeningLabel, minimum: 168, fixedContentWidth: 140)
         case .copyReady:
-            KukuPillLayout.width(for: appState.pendingCopyText, minimum: 180, fixedContentWidth: 136)
+            CopyFallbackContent.width(appState)
         case .answerReady:
             0
         case .transcribing:
@@ -216,7 +217,7 @@ struct AgentPill: View {
                         .font(.system(size: 10, weight: .bold))
                         .foregroundStyle(KukuColor.stone.opacity(0.82))
                         .frame(width: 26, height: 26)
-                        .background { Circle().fill(Color.black.opacity(0.05)) }
+                        .background { Circle().fill(KukuColor.shade.opacity(0.05)) }
                 }
                 .buttonStyle(PressScaleStyle())
                 .accessibilityLabel(appState.text("取消语音 Agent", "Cancel Voice Agent"))
@@ -338,7 +339,7 @@ private struct PillCancelButton: View {
                 .font(.system(size: 9, weight: .bold))
                 .foregroundStyle(KukuColor.stone.opacity(0.82))
                 .frame(width: 25, height: 25)
-                .background(Color.black.opacity(0.05), in: Circle())
+                .background(KukuColor.shade.opacity(0.05), in: Circle())
         }
         .buttonStyle(PressScaleStyle())
         .accessibilityLabel(label)
@@ -391,7 +392,7 @@ struct DictationPill: View {
         case .listening:
             KukuPillLayout.width(for: listeningLabel, minimum: 160, fixedContentWidth: 108, maximum: 340)
         case .copyReady:
-            KukuPillLayout.width(for: appState.pendingCopyText, minimum: 180, fixedContentWidth: 136)
+            CopyFallbackContent.width(appState)
         case .processing:
             KukuPillLayout.width(for: processingLabel, minimum: 145, fixedContentWidth: 81, maximum: 340)
         case .success:
@@ -474,30 +475,41 @@ struct DictationPill: View {
 
 private struct CopyFallbackContent: View {
     @Environment(AppState.self) private var appState
+    @State private var hovering = false
+
+    static func width(_ appState: AppState) -> CGFloat {
+        KukuPillLayout.width(for: status(appState), minimum: 180, fixedContentWidth: 96)
+    }
+
+    private static func status(_ appState: AppState) -> String {
+        appState.hasCopiedPendingText
+            ? appState.text("已复制，按 ⌘V 粘贴", "Copied. Press ⌘V to paste")
+            : appState.text("点按复制结果", "Click to copy the result")
+    }
 
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: "doc.on.clipboard")
-                .foregroundStyle(KukuColor.coral.opacity(0.82))
-            Text(appState.pendingCopyText)
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .help(appState.pendingCopyText)
-            Spacer(minLength: 4)
             Button(action: appState.copyPendingText) {
-                Image(systemName: "doc.on.doc")
-                    .font(.system(size: 12, weight: .semibold))
-                    .frame(width: 30, height: 25)
-                    .background(Color.black.opacity(0.055), in: Capsule())
+                HStack(spacing: 6) {
+                    Image(systemName: appState.hasCopiedPendingText ? "checkmark" : "doc.on.doc")
+                        .foregroundStyle(KukuColor.coral.opacity(0.82))
+                        .contentTransition(.symbolEffect(.replace))
+                    Text(Self.status(appState))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(appState.text("复制", "Copy"))
-            .help(appState.text("复制", "Copy"))
+            .help(appState.pendingCopyText)
+            .accessibilityLabel(Self.status(appState))
+            .accessibilityValue(appState.pendingCopyText)
+            Spacer(minLength: 4)
             Button(action: appState.dismissCopyFallback) {
                 Image(systemName: "xmark")
                     .font(.system(size: 9, weight: .bold))
                     .frame(width: 25, height: 25)
-                    .background(Color.black.opacity(0.05), in: Circle())
+                    .background(KukuColor.shade.opacity(0.05), in: Circle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel(appState.text("关闭", "Close"))
@@ -506,5 +518,13 @@ private struct CopyFallbackContent: View {
         .font(.system(size: 11.5, weight: .semibold, design: .rounded))
         .foregroundStyle(KukuColor.ink.opacity(0.76))
         .frame(maxWidth: .infinity)
+        .onHover { hovering = $0 }
+        .task(id: hovering) {
+            // Collapse after a quiet period; stay while hovered or when VoiceOver needs time to read it.
+            guard !hovering, !NSWorkspace.shared.isVoiceOverEnabled else { return }
+            do { try await Task.sleep(for: .seconds(10)) } catch { return }
+            guard appState.dictationPhase == .copyReady || appState.agentPhase == .copyReady else { return }
+            appState.dismissCopyFallback()
+        }
     }
 }

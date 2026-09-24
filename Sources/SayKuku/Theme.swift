@@ -2,18 +2,53 @@ import AppKit
 import SwiftUI
 
 enum KukuColor {
-    static let canvas = Color(red: 0.973, green: 0.968, blue: 0.955)
-    static let sidebar = Color(red: 0.955, green: 0.949, blue: 0.936)
-    static let surface = Color.white.opacity(0.62)
-    static let surfaceStrong = Color.white.opacity(0.84)
-    static let ink = Color(red: 0.10, green: 0.095, blue: 0.09)
-    static let graphite = Color(red: 0.145, green: 0.14, blue: 0.13)
-    static let stone = Color(red: 0.43, green: 0.415, blue: 0.39)
-    static let line = Color.black.opacity(0.085)
-    static let coral = Color(red: 0.93, green: 0.255, blue: 0.18)
-    static let coralSoft = Color(red: 0.985, green: 0.895, blue: 0.855)
-    static let mint = Color(red: 0.23, green: 0.63, blue: 0.46)
-    static let amber = Color(red: 0.91, green: 0.61, blue: 0.20)
+    static let canvas = adaptive(light: KukuTone(0.973, 0.968, 0.955), dark: KukuTone(0.110, 0.106, 0.102))
+    static let sidebar = adaptive(light: KukuTone(0.955, 0.949, 0.936), dark: KukuTone(0.086, 0.083, 0.080))
+    /// Pure white in light mode, a faint white in dark mode. Pair with `.opacity` for raised or hovered fills.
+    static let highlight = adaptive(light: KukuTone(white: 1), dark: KukuTone(white: 1, alpha: 0.12))
+    /// Black in light mode, white in dark mode. Pair with a low `.opacity` for chips, wells and hairlines.
+    static let shade = adaptive(light: KukuTone(white: 0), dark: KukuTone(white: 1))
+    static let surface = highlight.opacity(0.62)
+    static let surfaceStrong = highlight.opacity(0.84)
+    /// Card background for the floating panel, which has no window backdrop behind it.
+    static let overlaySurface = adaptive(light: KukuTone(white: 1, alpha: 0.62), dark: KukuTone(0.16, 0.155, 0.15, alpha: 0.96))
+    static let ink = adaptive(light: KukuTone(0.10, 0.095, 0.09), dark: KukuTone(0.925, 0.918, 0.905))
+    static let graphite = adaptive(light: KukuTone(0.145, 0.14, 0.13), dark: KukuTone(0.25, 0.243, 0.235))
+    static let stone = adaptive(light: KukuTone(0.43, 0.415, 0.39), dark: KukuTone(0.64, 0.625, 0.60))
+    static let line = shade.opacity(0.085)
+    static let coral = adaptive(light: KukuTone(0.93, 0.255, 0.18), dark: KukuTone(0.97, 0.36, 0.29))
+    static let coralSoft = adaptive(light: KukuTone(0.985, 0.895, 0.855), dark: KukuTone(0.32, 0.15, 0.12))
+    static let mint = adaptive(light: KukuTone(0.23, 0.63, 0.46), dark: KukuTone(0.34, 0.75, 0.56))
+    static let amber = adaptive(light: KukuTone(0.91, 0.61, 0.20), dark: KukuTone(0.96, 0.69, 0.30))
+
+    private static func adaptive(light: KukuTone, dark: KukuTone) -> Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark.nsColor : light.nsColor
+        })
+    }
+}
+
+/// sRGB components, kept as plain values so the dynamic provider only captures Sendable data.
+private struct KukuTone: Sendable {
+    let red: CGFloat
+    let green: CGFloat
+    let blue: CGFloat
+    let alpha: CGFloat
+
+    init(_ red: CGFloat, _ green: CGFloat, _ blue: CGFloat, alpha: CGFloat = 1) {
+        self.red = red
+        self.green = green
+        self.blue = blue
+        self.alpha = alpha
+    }
+
+    init(white: CGFloat, alpha: CGFloat = 1) {
+        self.init(white, white, white, alpha: alpha)
+    }
+
+    var nsColor: NSColor {
+        NSColor(srgbRed: red, green: green, blue: blue, alpha: alpha)
+    }
 }
 
 enum KukuLayout {
@@ -65,6 +100,11 @@ enum KukuPillLayout {
         let textWidth = (text as NSString).size(withAttributes: [.font: font]).width
         return min(max(ceil(textWidth + fixedContentWidth), minimum), maximum)
     }
+
+    /// Error feedback wraps to a second line once it reaches the maximum width.
+    static func errorWidth(for text: String) -> CGFloat {
+        width(for: text, minimum: 120, fixedContentWidth: 46, maximum: 340, fontSize: 11, fontWeight: .medium)
+    }
 }
 
 struct PressScaleStyle: ButtonStyle {
@@ -96,7 +136,7 @@ struct HoverFillButtonStyle: ButtonStyle {
                 .frame(minHeight: KukuLayout.controlHeight)
                 .background {
                     RoundedRectangle(cornerRadius: KukuLayout.radiusSmall, style: .continuous)
-                        .fill(prominent ? KukuColor.coral.opacity(configuration.isPressed ? 0.86 : 1) : Color.black.opacity(hovering ? 0.075 : 0.045))
+                        .fill(prominent ? KukuColor.coral.opacity(configuration.isPressed ? 0.86 : 1) : KukuColor.shade.opacity(hovering ? 0.075 : 0.045))
                 }
                 .overlay {
                     if !prominent {
@@ -149,7 +189,7 @@ struct BrandMark: View {
         .scaledToFit()
         .foregroundStyle(color)
         .frame(width: size, height: size)
-        .accessibilityLabel("SayKuku bird")
+        .accessibilityLabel("SayKuku")
     }
 }
 
@@ -294,7 +334,7 @@ struct KukuTabBar<Item: Hashable>: View {
             }
         }
         .padding(3)
-        .background(Color.black.opacity(0.045), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .background(KukuColor.shade.opacity(0.045), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .stroke(KukuColor.line, lineWidth: 1)
@@ -329,10 +369,11 @@ extension View {
 
     func kukuSurface(
         radius: CGFloat = KukuLayout.radiusMedium,
-        elevated: Bool = false
+        elevated: Bool = false,
+        fill: Color = KukuColor.surface
     ) -> some View {
         self
-            .background(KukuColor.surface, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
+            .background(fill, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
                     .stroke(KukuColor.line, lineWidth: 1)

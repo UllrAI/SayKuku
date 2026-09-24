@@ -116,7 +116,7 @@ struct ShortcutRecorderButton: View {
                     .padding(.horizontal, 10)
                     .frame(minWidth: 104, minHeight: 28)
                     .background(
-                        isRecording ? KukuColor.coral.opacity(0.075) : Color.black.opacity(0.045),
+                        isRecording ? KukuColor.coral.opacity(0.075) : KukuColor.shade.opacity(0.045),
                         in: RoundedRectangle(cornerRadius: KukuLayout.radiusSmall, style: .continuous)
                     )
                     .overlay {
