@@ -163,10 +163,16 @@ enum SpeechDisfluencyCleaner {
             case "!": return "！"
             case ";": return "；"
             case ":": return "："
-            case "." where isChinese(previous): return "。"
+            // Only a sentence-ending period becomes 。, so names like 报告.pdf stay intact.
+            case "." where isChinese(previous) && !isASCIIAlphanumeric(next): return "。"
             default: return character
             }
         })
+    }
+
+    private static func isASCIIAlphanumeric(_ character: Character?) -> Bool {
+        guard let character, character.isASCII else { return false }
+        return character.isLetter || character.isNumber
     }
 
     private static func isChinese(_ character: Character?) -> Bool {
