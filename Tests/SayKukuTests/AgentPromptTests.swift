@@ -122,7 +122,7 @@ struct AgentPromptTests {
                 currentAppAllowed: true,
                 windowTitleAllowed: true,
                 clipboardAllowed: false,
-                browserPageAllowed: false,
+                browserPage: nil,
                 session: nil,
                 domains: [],
                 knowledge: [],

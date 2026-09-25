@@ -58,3 +58,41 @@
    6. 在「关于本机」里查看 macOS 版本号并填表；有应用版本差异时写进备注。
 
 4. 把测试日期和 SayKuku 的提交哈希（`git rev-parse --short HEAD`）填到表格上方，连同结果一起提交。
+
+## Fn 到 Pill 延迟
+
+> SayKuku.md 第 18.6 节要求「Fn UI 首次反馈 P95 < 100 ms」；按 issue #64 的验收标准，蓝牙麦克风下为 < 300 ms。修改 `AppState.beginVoiceWorkflow`、`AudioCapture` 或 `TextInteraction.captureTarget` 后要重测。同样只填真机结果，没测过的格子保持「待测」。
+
+测试日期：待测　SayKuku 提交：待测　macOS 版本：待测
+
+每格填 P95，单位 ms。
+
+| 应用 | 麦克风类型 | captureTarget | audio start | realtime connect | Fn→Pill 总计 |
+| --- | --- | --- | --- | --- | --- |
+| TextEdit | 内建 | 待测 | 待测 | 待测 | 待测 |
+| TextEdit | 蓝牙 | 待测 | 待测 | 待测 | 待测 |
+| Notes | 内建 | 待测 | 待测 | 待测 | 待测 |
+| Mail（写邮件正文） | 内建 | 待测 | 待测 | 待测 | 待测 |
+| Safari（网页 textarea） | 内建 | 待测 | 待测 | 待测 | 待测 |
+| Safari（网页 textarea） | 蓝牙 | 待测 | 待测 | 待测 | 待测 |
+| Chrome（网页 textarea） | 内建 | 待测 | 待测 | 待测 | 待测 |
+| Slack（消息输入框） | 内建 | 待测 | 待测 | 待测 | 待测 |
+| Slack（消息输入框） | 蓝牙 | 待测 | 待测 | 待测 | 待测 |
+| VS Code（编辑器） | 内建 | 待测 | 待测 | 待测 | 待测 |
+| Microsoft Word | 内建 | 待测 | 待测 | 待测 | 待测 |
+| Terminal | 内建 | 待测 | 待测 | 待测 | 待测 |
+
+各列对应的 signpost 区间（subsystem 是 Bundle ID，category 是 `Performance`）：
+
+- **captureTarget**：主线程读取目标 App 的焦点元素、窗口和文本框。
+- **audio start**：在采集队列上新建音频引擎并 `prepare`、`start`，和 captureTarget 同时进行。
+- **realtime connect**：Pill 出现后建立 Realtime 连接，不计入 Fn→Pill；连上之前录到的音频先缓冲，不会丢。没填业务空间 ID 时听写走整段识别，没有这一段。
+- **Fn→Pill 总计**：区间 `Fn to Pill`，从手势或快捷键触发语音输入，到 Pill 切到「正在听」。按住 Fn 时要先等 150 ms 才算按住，这 150 ms 不在区间内。
+
+### 如何测
+
+1. 按上文「如何跑」第 1 步构建并启动开发包（subsystem 是 `com.saykuku.dev`），并在「设置 › Qwen 连接」填好业务空间 ID。测蓝牙那几行前，先在「系统设置 › 声音 › 输入」里切到蓝牙耳机。
+2. 打开 Instruments，选 **Blank** 模板，点右上角 **+** 加入 **os_signpost** 工具，目标选正在运行的 SayKuku，开始录制。
+3. 在目标应用的输入框里按住 Fn，说一句话再松开，重复十次；每次等 Pill 消失再按下一次。
+4. 停止录制。选中 os_signpost 轨道，在下方详情里切到 **Summary: Intervals**，找到 subsystem `com.saykuku.dev`、category `Performance` 下的 `captureTarget`、`audio start`、`realtime connect` 和 `Fn to Pill`，确认每个的 Count 是 10。
+5. 十个样本按最近秩法取 P95 就是最大值，所以每格填 **Max Duration**。连同测试日期、macOS 版本和提交哈希一起填表并提交。

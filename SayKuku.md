@@ -466,7 +466,7 @@ Agent 识别出意图后直接执行。文本操作必须先校验原输入目�
 * 打开 URL 只接受不带用户名和密码的 http/https 地址。
 * Shortcut 运行超过 60 秒或流程被取消时终止子进程。
 * 不可信内容原样放进带随机 id 的标签，id 每次请求都不同，模型只把带同一 id 的结束标签视为段落结束。
-* 选中文字、上次输入各最多 10,000 字，剪贴板最多 4,000 字，被截断时界面上的上下文标签会注明，Prompt 里的剪贴板标签也会加上 `(truncated)`。浏览器页面只发送去掉用户信息、query 和 fragment 的地址，读取超时为 2 秒。
+* 选中文字、上次输入各最多 10,000 字，剪贴板最多 4,000 字，被截断时界面上的上下文标签会注明，Prompt 里的剪贴板标签也会加上 `(truncated)`。浏览器页面通过辅助功能读取（Safari 读网页区域的 `AXURL`，Chrome 读窗口的 `AXDocument`），每次调用超时 0.4 秒，只发送去掉用户信息、query 和 fragment 的地址。
 
 ---
 
@@ -503,6 +503,8 @@ Confirmed Knowledge Prompt
 ```
 
 Focused Element 和光标位置只用于后续目标校验，不作为文本 Context 发给模型；当前实现也不读取整个文档或当前段落。
+
+浏览器地址和其他 Context 一样通过辅助功能读取：Safari 取网页区域的 `AXURL`，Chrome 取窗口的 `AXDocument`，每次调用超时 0.4 秒，读不到就不附带。不使用 AppleScript，也不申请“自动化”权限。
 
 `Confirmed Knowledge Prompt` 不是本地词典替换，也不是隐藏在客户端的二次改写。每次模型调用都将已确认的实体、别名和详情序列化为结构化参考数据，放入模型的 system / instructions prompt。模型根据语音和 Context 决定是否使用 canonical name；客户端直接写回模型返回的文本。
 

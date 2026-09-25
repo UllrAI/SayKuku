@@ -104,6 +104,8 @@ struct TextWriteVerificationTests {
         #expect(!SensitiveApps.contains(bundleID: "com.example.bankside-notes"))
         #expect(!SensitiveApps.contains(bundleID: "com.example.walletpaper"))
         #expect(!SensitiveApps.contains(bundleID: "com.apple.Safari"))
+        // The pre-start check refuses password managers without reading any element.
+        #expect(TextInteraction.isSensitiveWithoutAccessibility(bundleID: "com.1password.1password"))
     }
 
     @Test("every search engine encodes each reserved query character")
@@ -213,7 +215,7 @@ struct TextWriteVerificationTests {
             currentAppAllowed: false,
             windowTitleAllowed: false,
             clipboardAllowed: false,
-            browserPageAllowed: false,
+            browserPage: nil,
             session: nil,
             domains: [],
             knowledge: [

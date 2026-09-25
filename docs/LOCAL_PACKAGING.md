@@ -212,7 +212,6 @@ Scripts/package-app.sh release
 正式 entitlement 至少要包含：
 
 - `com.apple.security.device.audio-input`：允许正式版向 macOS 请求麦克风权限。
-- `com.apple.security.automation.apple-events`：用于用户主动触发的浏览器页面上下文读取。
 
 检查签名和 entitlement：
 
