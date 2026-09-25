@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 enum QwenError: LocalizedError, Equatable {
     case missingConfiguration
@@ -332,6 +333,7 @@ actor QwenRealtimeClient {
         receiveTask?.cancel()
         receiveTask = nil
         if let socket {
+            Log.qwen.info("Realtime session closed by client")
             let finish = Self.jsonString(["event_id": eventID(), "type": "session.finish"])
             Task {
                 try? await socket.send(.string(finish))
@@ -367,6 +369,7 @@ actor QwenRealtimeClient {
 
     private func timeOutSession(_ session: UUID) {
         guard currentSession == session else { return }
+        Log.qwen.error("Realtime session setup timed out")
         failSession(QwenError.timeout)
     }
 
@@ -395,6 +398,7 @@ actor QwenRealtimeClient {
     /// Never settles for the partial transcript: it would be inserted and saved as complete.
     private func timeOutTranscript(_ session: UUID) {
         guard currentSession == session else { return }
+        Log.qwen.error("Realtime transcript timed out")
         failTranscript(QwenError.timeout)
     }
 
@@ -419,7 +423,12 @@ actor QwenRealtimeClient {
                 message = try await socket.receive()
             } catch {
                 if !Task.isCancelled, currentSession == session {
-                    fail(Self.transportError(error, socket: socket))
+                    let failure = Self.transportError(error, socket: socket)
+                    let closeCode = socket.closeCode.rawValue
+                    Log.qwen.error(
+                        "Realtime connection closed: \(Log.describe(failure), privacy: .public), close code \(closeCode, privacy: .public)"
+                    )
+                    fail(failure)
                 }
                 return
             }
@@ -438,6 +447,7 @@ actor QwenRealtimeClient {
               let type = object["type"] as? String else { return }
         switch type {
         case "session.updated":
+            Log.qwen.info("Realtime session ready")
             sessionReady = true
             sessionContinuation?.resume()
             sessionContinuation = nil
@@ -460,6 +470,8 @@ actor QwenRealtimeClient {
             audioCommitted = true
         case "error":
             let error = object["error"] as? [String: Any]
+            let code = error?["code"] as? String ?? "unknown"
+            Log.qwen.error("Realtime server error: \(code, privacy: .public)")
             fail(QwenError.protocolError(error?["message"] as? String ?? "Qwen realtime request failed"))
         default:
             break
@@ -850,12 +862,19 @@ struct QwenReasoningClient: Sendable {
                 if attempt == 0,
                    let response = result.1 as? HTTPURLResponse,
                    Self.retryableStatusCodes.contains(response.statusCode) {
+                    Log.qwen.notice("Chat request got HTTP \(response.statusCode, privacy: .public); retrying")
                     try await Task.sleep(for: .milliseconds(Self.retryDelay(response)))
                     continue
+                }
+                if let response = result.1 as? HTTPURLResponse, !(200..<300).contains(response.statusCode) {
+                    Log.qwen.error(
+                        "Chat request failed: HTTP \(response.statusCode, privacy: .public) on attempt \(attempt + 1, privacy: .public)"
+                    )
                 }
                 return result
             } catch {
                 guard attempt == 0, Self.isRetryableNetworkError(error) else { throw error }
+                Log.qwen.notice("Chat request hit \(Log.describe(error), privacy: .public); retrying")
                 try await Task.sleep(for: .milliseconds(350))
             }
         }
