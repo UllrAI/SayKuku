@@ -565,7 +565,7 @@ Markdown 化
 有什么问题
 ```
 
-MVP 中 Understand 的输出仍写入当前光标，不在 SayKuku 内部打开答案阅读器。
+Understand 的结果显示在回答卡片中，交互见第 4 节。
 
 ### Context Action
 
@@ -1416,7 +1416,7 @@ Hold / Tap 都优先使用 Manual 模式。Semantic VAD 仅在用户开启“自
 * 支持 Chat Completions 和 Responses。
 * 模型能力支持 Function Calling，但当前客户端不使用通用工具调用；Voice Agent 和 Knowledge 都要求 JSON Object 响应，再做本地 Schema 校验和必要重试，不能把模型输出当作可信数据库写入。
 * 官方发布文章标称 1M Token 上下文，并介绍网联搜索和 Responses Session 缓存；不同地域的帮助中心当前仍有能力表差异。MVP 不依赖网联搜索、超长上下文或服务端 Session 缓存，必须以用户所选地域的连接测试和合同测试为准。
-* 默认开启高强度思考；产品必须按任务显式设置 `reasoning_effort`，不使用默认 `xhigh`。
+* 默认开启高强度思考；产品在所有 Chat Completions 请求中显式关闭 thinking（`enable_thinking: false`），不发送 `reasoning_effort`。
 * 它是请求式 API：即使文本输出可流式返回，也不能替代持续上传麦克风音频的 Realtime 链路。
 
 MVP 使用：
@@ -1440,17 +1440,14 @@ Knowledge Paste
 → LocalStore
 ```
 
-当前 `reasoning_effort` 使用方式：
+当前 thinking 使用方式：
 
 ```text
-none
-→ Voice Agent、听写失败时的批处理 fallback、连接测试
-
-low
-→ Knowledge 实体与关系抽取
+enable_thinking: false
+→ Voice Agent、听写失败时的批处理 fallback、连接测试、Knowledge 实体与关系抽取
 ```
 
-当前设置页不开放 reasoning effort，代码也不使用 `medium` 或 `xhigh`，避免普通语音操作出现不必要的延迟和输出 Token。
+当前设置页不开放 thinking 开关，代码也不发送 `reasoning_effort`：`json_object` 响应在 thinking 模式下不可用，普通语音操作也不应承担额外的延迟和输出 Token。
 
 ### 18.3 为什么要同时使用两个
 
@@ -1488,7 +1485,9 @@ QwenRealtimeClient
 QwenReasoningClient
 ├── respondToAudio
 ├── transcribeAudio
-└── extractKnowledge
+├── extractKnowledge
+├── classifyEntity
+└── testConnection
 ```
 
 当前实现的核心模块与源码对应关系：
@@ -1562,7 +1561,7 @@ Secure Text Field
 
 ```text
 A. qwen3.8-omni-flash-realtime + 严格听写 instruction
-B. qwen3.8-omni-flash 直接处理整段音频，reasoning_effort=none
+B. qwen3.8-omni-flash 直接处理整段音频，enable_thinking=false
 ```
 
 测试集覆盖普通中文、中英混说、人名项目名、数字、标点、长句、环境噪声和不同麦克风。除 CER / WER 外，必须单独统计：
