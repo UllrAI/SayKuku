@@ -168,15 +168,12 @@ final class ShortcutController: @unchecked Sendable {
         fnIsDown = true
         fnWasChorded = false
 
-        guard Self.shouldArmHold(
-            inputMode: appState.inputMode,
-            agentIsListening: appState.agentPhase == .listening
-        ) else { return }
+        guard Self.shouldArmHold(appState) else { return }
         holdTask?.cancel()
         holdTask = Task { @MainActor [weak self, weak appState] in
             try? await Task.sleep(for: self?.holdThreshold ?? .milliseconds(150))
             guard let self, let appState, !Task.isCancelled, self.fnIsDown, !self.fnWasChorded,
-                  appState.agentPhase != .listening else { return }
+                  ShortcutController.shouldArmHold(appState) else { return }
             self.firstTapAt = nil
             self.singleTapTask?.cancel()
             appState.startDictation()
@@ -211,8 +208,18 @@ final class ShortcutController: @unchecked Sendable {
         }
     }
 
-    static func shouldArmHold(inputMode: InputMode, agentIsListening: Bool) -> Bool {
-        inputMode == .hold && !agentIsListening
+    /// A hold never starts dictation over a listening workflow; releasing Fn finishes that one instead.
+    static func shouldArmHold(inputMode: InputMode, agentIsListening: Bool, dictationIsListening: Bool) -> Bool {
+        inputMode == .hold && !agentIsListening && !dictationIsListening
+    }
+
+    @MainActor
+    private static func shouldArmHold(_ appState: AppState) -> Bool {
+        shouldArmHold(
+            inputMode: appState.inputMode,
+            agentIsListening: appState.agentPhase == .listening,
+            dictationIsListening: appState.dictationPhase == .listening
+        )
     }
 
     static func shouldCancelForEscape(

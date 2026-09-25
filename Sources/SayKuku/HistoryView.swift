@@ -382,16 +382,14 @@ private struct HistoryRow: View {
                     tone: .danger,
                     font: .kuku(.body)
                 )
-                if entry.mode == .dictation && entry.hasAudio {
-                    Button(appState.text("重新识别", "Retry Transcription")) {
-                        Task { await appState.retryDictation(entry.id) }
-                    }
-                    .buttonStyle(.kuku(.secondary, size: .small))
-                }
+                retryButton
             }
         case .cancelled:
-            Label(appState.text("已取消", "Cancelled"), systemImage: "xmark.circle")
-                .foregroundStyle(KukuColor.textSecondary)
+            VStack(alignment: .leading, spacing: KukuSpacing.sm) {
+                Label(appState.text("已取消", "Cancelled"), systemImage: "xmark.circle")
+                    .foregroundStyle(KukuColor.textSecondary)
+                retryButton
+            }
         case .completed:
             VStack(alignment: .leading, spacing: KukuSpacing.iconText) {
                 Text(entry.output)
@@ -424,6 +422,16 @@ private struct HistoryRow: View {
                     .buttonStyle(.kuku(.plain, size: .small))
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private var retryButton: some View {
+        if entry.canRetryTranscription {
+            Button(appState.text("重新识别", "Retry Transcription")) {
+                Task { await appState.retryDictation(entry.id) }
+            }
+            .buttonStyle(.kuku(.secondary, size: .small))
         }
     }
 
