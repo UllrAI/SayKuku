@@ -249,7 +249,7 @@ extension GlobalShortcut {
     }
 }
 
-extension AppState {
+extension AppSettings {
     func globalShortcut(for action: GlobalShortcutAction) -> GlobalShortcut? {
         switch action {
         case .voiceInput: voiceInputShortcut

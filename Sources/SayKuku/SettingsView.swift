@@ -38,7 +38,7 @@ private struct VoiceInputSettings: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
-        @Bindable var appState = appState
+        @Bindable var settings = appState.settings
         SettingsStack(title: localized("Voice Input"), subtitle: localized("Types what you say, without changing what you mean.")) {
             KukuGroup(localized("Input gesture")) {
                 ForEach(InputMode.allCases) { mode in
@@ -50,16 +50,16 @@ private struct VoiceInputSettings: View {
                         caption: mode == .hold
                             ? localized("Hold briefly to start, release to insert")
                             : localized("Tap to start, tap again to insert"),
-                        isSelected: appState.inputMode == mode
+                        isSelected: appState.settings.inputMode == mode
                     ) {
-                        appState.inputMode = mode
+                        appState.settings.inputMode = mode
                     }
                 }
                 KukuDivider()
                 KukuToggleRow(
                     title: localized("Play a sound when recording starts and stops"),
                     caption: localized("Also plays for Voice Agent"),
-                    isOn: $appState.soundCuesEnabled
+                    isOn: $settings.soundCuesEnabled
                 )
             }
 
@@ -68,25 +68,25 @@ private struct VoiceInputSettings: View {
             }
 
             KukuGroup(localized("Stop & output")) {
-                KukuToggleRow(title: localized("Stop after a pause"), caption: autoStopSubtitle, isOn: $appState.autoStop)
+                KukuToggleRow(title: localized("Stop after a pause"), caption: autoStopSubtitle, isOn: $settings.autoStop)
                 KukuDivider()
                 SettingsOptionRow(
                     title: localized("Recognition language"),
-                    selection: $appState.recognitionLanguage
+                    selection: $settings.recognitionLanguage
                 ) { language in
                     language.title
                 }
                 KukuDivider()
                 SettingsOptionRow(
                     title: localized("Number format"),
-                    selection: $appState.dictationNumberFormat
+                    selection: $settings.dictationNumberFormat
                 ) { format in
                     format.title
                 }
                 KukuDivider()
                 SettingsOptionRow(
                     title: localized("Speech cleanup"),
-                    selection: $appState.dictationCleanup
+                    selection: $settings.dictationCleanup
                 ) { cleanup in
                     cleanup.title
                 }
@@ -101,10 +101,10 @@ private struct VoiceInputSettings: View {
                     caption: localized(
                         "Casual in chat, complete sentences in email and documents, no trailing punctuation in code. Sends the current app’s name along with your speech."
                     ),
-                    isOn: $appState.matchAppTone
+                    isOn: $settings.matchAppTone
                 )
                 // Verbatim only adds punctuation, so there is no tone to adjust.
-                .disabled(appState.dictationCleanup == .verbatim)
+                .disabled(appState.settings.dictationCleanup == .verbatim)
             }
 
             KukuGroup(localized("Recognition")) {
@@ -131,7 +131,7 @@ private struct VoiceInputSettings: View {
                     caption: localized(
                         "After you fix a misheard word, SayKuku asks whether to remember it. Nothing is saved until you say yes."
                     ),
-                    isOn: $appState.learnFromCorrections
+                    isOn: $settings.learnFromCorrections
                 )
             }
         }
@@ -139,14 +139,14 @@ private struct VoiceInputSettings: View {
 
     /// Pause detection runs on the realtime session, which needs a workspace ID.
     private var autoStopSubtitle: String {
-        appState.configuration.realtimeURL == nil
+        appState.settings.configuration.realtimeURL == nil
             ? localized("Requires a Workspace ID in Qwen Connection")
             : localized("Ends recording after about 1 second of silence")
     }
 
     private var domainSummary: String {
         let domains = DomainPreset.allCases
-            .filter(appState.selectedDomains.contains)
+            .filter(appState.settings.selectedDomains.contains)
             .map { $0.title }
         return domains.isEmpty
             ? localized("None selected")
@@ -163,13 +163,13 @@ private struct VoiceAgentSettings: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
-        @Bindable var appState = appState
+        @Bindable var settings = appState.settings
         SettingsStack(title: localized("Voice Agent"), subtitle: localized("Press Fn twice to write, edit, or ask by voice.")) {
             KukuGroup(localized("Interaction")) {
                 KukuToggleRow(
                     title: localized("Continuous conversation"),
                     caption: localized("Remembers recent conversations in the same app for 30 minutes. Quitting SayKuku clears them."),
-                    isOn: $appState.continuousConversation
+                    isOn: $settings.continuousConversation
                 )
                 KukuDivider()
                 KukuToggleRow(
@@ -177,7 +177,7 @@ private struct VoiceAgentSettings: View {
                     caption: localized(
                         "Puts results right into the text field you’re using. When off, they stay in the overlay for you to copy."
                     ),
-                    isOn: $appState.automaticAgentWriteBack
+                    isOn: $settings.automaticAgentWriteBack
                 )
                 KukuDivider()
                 KukuRow(
@@ -187,7 +187,7 @@ private struct VoiceAgentSettings: View {
                     KukuPicker(
                         localized("Search engine"),
                         options: SearchEngine.allCases,
-                        selection: $appState.searchEngine,
+                        selection: $settings.searchEngine,
                         label: { $0.title }
                     )
                 }
@@ -200,23 +200,23 @@ private struct PrivacySettings: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
-        @Bindable var appState = appState
+        @Bindable var settings = appState.settings
         SettingsStack(title: localized("What Voice Agent can use"), subtitle: localized("While you talk, the overlay shows what’s sent.")) {
             KukuGroup(localized("Allow access to")) {
-                KukuToggleRow(title: localized("Selected text"), caption: localized("Used to rewrite or ask about the text you’ve selected"), isOn: $appState.selectedTextAllowed)
+                KukuToggleRow(title: localized("Selected text"), caption: localized("Used to rewrite or ask about the text you’ve selected"), isOn: $settings.selectedTextAllowed)
                 KukuDivider()
-                KukuToggleRow(title: localized("Current app"), caption: localized("Name of the app you’re using"), isOn: $appState.currentAppAllowed)
+                KukuToggleRow(title: localized("Current app"), caption: localized("Name of the app you’re using"), isOn: $settings.currentAppAllowed)
                 KukuDivider()
-                KukuToggleRow(title: localized("Window title"), caption: localized("Includes private windows"), isOn: $appState.windowTitleAllowed)
+                KukuToggleRow(title: localized("Window title"), caption: localized("Includes private windows"), isOn: $settings.windowTitleAllowed)
                 KukuDivider()
-                KukuToggleRow(title: localized("Clipboard"), caption: localized("Text on your clipboard, excluding passwords"), isOn: $appState.clipboardAllowed)
+                KukuToggleRow(title: localized("Clipboard"), caption: localized("Text on your clipboard, excluding passwords"), isOn: $settings.clipboardAllowed)
                 KukuDivider()
-                KukuToggleRow(title: localized("Browser page"), caption: localized("URL of the current Safari or Chrome page"), isOn: $appState.browserPageAllowed)
+                KukuToggleRow(title: localized("Browser page"), caption: localized("URL of the current Safari or Chrome page"), isOn: $settings.browserPageAllowed)
                 KukuDivider()
                 KukuToggleRow(
                     title: localized("Text on screen"),
                     caption: localized("Text visible in the current window, for commands like “reply to this” or “summarize this page”. Never from password fields or sensitive apps."),
-                    isOn: $appState.screenTextAllowed
+                    isOn: $settings.screenTextAllowed
                 )
             }
             KukuGroup(localized("Always off-limits")) {
@@ -242,7 +242,7 @@ private struct QwenSettings: View {
     @State private var draft = QwenCredentialsDraft()
 
     var body: some View {
-        @Bindable var appState = appState
+        @Bindable var settings = appState.settings
         SettingsStack(title: localized("Qwen Connection"), subtitle: localized("Connect Qwen and choose models for Voice Input and Voice Agent.")) {
             KukuGroup(localized("Connection")) {
                 QwenConnectionForm(draft: $draft)
@@ -258,14 +258,14 @@ private struct QwenSettings: View {
                 ModelPickerRow(
                     title: localized("Voice Input"),
                     caption: localized("Real-time transcription"),
-                    value: $appState.realtimeModel,
+                    value: $settings.realtimeModel,
                     presets: QwenModelCatalog.realtimeModels
                 )
                 KukuDivider()
                 ModelPickerRow(
                     title: localized("Voice Agent"),
                     caption: localized("Also used for Memory imports and retrying recordings"),
-                    value: $appState.reasoningModel,
+                    value: $settings.reasoningModel,
                     presets: QwenModelCatalog.reasoningModels
                 )
             }
@@ -284,7 +284,7 @@ struct QwenConnectionForm: View {
     @FocusState private var focusedField: Field?
 
     var body: some View {
-        @Bindable var appState = appState
+        @Bindable var settings = appState.settings
         VStack(alignment: .leading, spacing: 0) {
             KukuRow(
                 localized("Region"),
@@ -293,7 +293,7 @@ struct QwenConnectionForm: View {
                 KukuPicker(
                     localized("Region"),
                     options: QwenRegion.allCases,
-                    selection: $appState.qwenRegion,
+                    selection: $settings.qwenRegion,
                     label: { $0.title }
                 )
             }
@@ -316,8 +316,8 @@ struct QwenConnectionForm: View {
                 TextField("llm-…", text: $draft.workspaceID)
             }
         }
-        .onChange(of: appState.apiKey, initial: true) { _, saved in draft.apiKey = saved }
-        .onChange(of: appState.qwenWorkspaceID, initial: true) { _, saved in draft.workspaceID = saved }
+        .onChange(of: appState.settings.apiKey, initial: true) { _, saved in draft.apiKey = saved }
+        .onChange(of: appState.settings.qwenWorkspaceID, initial: true) { _, saved in draft.workspaceID = saved }
         .onChange(of: focusedField) { commit() }
         .onDisappear(perform: commit)
     }
@@ -346,7 +346,7 @@ struct QwenConnectionForm: View {
     }
 
     private var keyCaption: String {
-        appState.apiKey.isEmpty
+        appState.settings.apiKey.isEmpty
             ? localized("Stored in this Mac’s Keychain")
             : localized("Saved in this Mac’s Keychain")
     }
@@ -378,7 +378,7 @@ struct QwenConnectionStatus: View {
     private var testResult: some View {
         switch appState.connectionState {
         // A success only counts for the values it tested; edits since then need a new test.
-        case .connected(let realtime, let chat) where draft.matches(apiKey: appState.apiKey, workspaceID: appState.qwenWorkspaceID):
+        case .connected(let realtime, let chat) where draft.matches(apiKey: appState.settings.apiKey, workspaceID: appState.settings.qwenWorkspaceID):
             KukuStatusLabel(text: connectedMessage(realtime: realtime, chat: chat), tone: .success, font: font)
         case .failed(let message):
             KukuStatusLabel(text: message, tone: .danger, font: font)
@@ -470,7 +470,7 @@ private struct GeneralSettings: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
-        @Bindable var appState = appState
+        @Bindable var settings = appState.settings
 
         SettingsStack(title: localized("General"), subtitle: localized("Language, permissions, startup, overlay, shortcuts, and updates.")) {
             KukuGroup(localized("Language")) {
@@ -481,7 +481,7 @@ private struct GeneralSettings: View {
                     KukuPicker(
                         localized("Interface language"),
                         options: AppLanguage.allCases,
-                        selection: Binding(get: { appState.appLanguage }, set: { changeLanguage(to: $0) }),
+                        selection: Binding(get: { appState.settings.appLanguage }, set: { changeLanguage(to: $0) }),
                         label: { $0.title }
                     )
                 }
@@ -516,20 +516,20 @@ private struct GeneralSettings: View {
                 KukuDivider()
                 KukuToggleRow(
                     title: localized("Show in menu bar"),
-                    caption: appState.hideDockIconAfterMainWindowCloses
+                    caption: appState.settings.hideDockIconAfterMainWindowCloses
                         ? localized("Required while the Dock icon is hidden")
                         : localized("Start input, open the app, and check shortcut status"),
                     isOn: Binding(
-                        get: { appState.showInMenuBar },
-                        set: { appState.setShowInMenuBar($0) }
+                        get: { appState.settings.showInMenuBar },
+                        set: { appState.settings.setShowInMenuBar($0) }
                     )
                 )
-                .disabled(appState.hideDockIconAfterMainWindowCloses)
+                .disabled(appState.settings.hideDockIconAfterMainWindowCloses)
                 KukuDivider()
                 KukuToggleRow(
                     title: localized("Hide Dock icon when window is closed"),
                     caption: localized("SayKuku keeps running in the menu bar. Reopening the window brings the Dock icon back."),
-                    isOn: $appState.hideDockIconAfterMainWindowCloses
+                    isOn: $settings.hideDockIconAfterMainWindowCloses
                 )
             }
 
@@ -541,7 +541,7 @@ private struct GeneralSettings: View {
                     KukuPicker(
                         localized("Overlay position"),
                         options: OverlayPlacement.allCases,
-                        selection: $appState.overlayPlacement,
+                        selection: $settings.overlayPlacement,
                         label: { $0.title }
                     )
                 }
@@ -557,8 +557,8 @@ private struct GeneralSettings: View {
 
     /// macOS applies `AppleLanguages` only at launch, so offer to reopen now.
     private func changeLanguage(to language: AppLanguage) {
-        guard language != appState.appLanguage else { return }
-        appState.appLanguage = language
+        guard language != appState.settings.appLanguage else { return }
+        appState.settings.appLanguage = language
         // After the menu closes and SwiftUI finishes applying the selection.
         Task {
             let alert = NSAlert()
@@ -664,7 +664,7 @@ private struct GlobalShortcutRow: View {
         if recorder.action == action {
             return localized("Press new keys · Esc to cancel · Delete to turn off")
         }
-        if appState.globalShortcut(for: action) == nil {
+        if appState.settings.globalShortcut(for: action) == nil {
             return localized("Off. \(gesture) still works.")
         }
         return localized("Press to start, press again to finish. \(gesture) still works.")
@@ -724,7 +724,7 @@ private struct HistorySettings: View {
     @State private var isConfirmingClear = false
 
     var body: some View {
-        @Bindable var appState = appState
+        @Bindable var settings = appState.settings
 
         SettingsStack(
             title: localized("History"),
@@ -733,14 +733,14 @@ private struct HistorySettings: View {
             KukuGroup(localized("Storage")) {
                 KukuRow(
                     localized("Keep history"),
-                    caption: appState.historyRetention == .off
+                    caption: appState.settings.historyRetention == .off
                         ? localized("New items aren’t saved. Existing ones stay until you clear them.")
                         : localized("Starred items are never deleted automatically")
                 ) {
                     KukuPicker(
                         localized("Keep history"),
                         options: HistoryRetention.allCases,
-                        selection: $appState.historyRetention,
+                        selection: $settings.historyRetention,
                         label: { $0.title }
                     )
                 }
@@ -749,12 +749,12 @@ private struct HistorySettings: View {
 
                 KukuToggleRow(
                     title: localized("Save recordings"),
-                    caption: appState.historyRetention == .off
+                    caption: appState.settings.historyRetention == .off
                         ? localized("History isn’t being kept")
                         : localized("Keep recordings so you can replay or retry them. They’re deleted with their history items."),
-                    isOn: $appState.storeVoiceAudio
+                    isOn: $settings.storeVoiceAudio
                 )
-                .disabled(appState.historyRetention == .off)
+                .disabled(appState.settings.historyRetention == .off)
             }
 
             KukuGroup(localized("Manage")) {

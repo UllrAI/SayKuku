@@ -59,7 +59,7 @@ final class AppState {
             }
         }
         @MainActor func title(_ appState: AppState) -> String {
-            let shortcutsOff = GlobalShortcutAction.allCases.allSatisfy { appState.globalShortcut(for: $0) == nil }
+            let shortcutsOff = GlobalShortcutAction.allCases.allSatisfy { appState.settings.globalShortcut(for: $0) == nil }
             switch self {
             case .starting:
                 return localized("Starting shortcuts…")
@@ -75,7 +75,7 @@ final class AppState {
                 guard actions.count == 1, let action = actions.first else {
                     return localized("Both global shortcuts are already in use by other apps. Record new ones.")
                 }
-                let keys = appState.globalShortcut(for: action)?.displayString ?? ""
+                let keys = appState.settings.globalShortcut(for: action)?.displayString ?? ""
                 return localized("\(keys) for \(action.title) is already in use by another app. Record a new one.")
             }
         }
@@ -83,8 +83,6 @@ final class AppState {
 
     var destination: Destination = .home
     var settingsSection: SettingsSection = .general
-    /// Saved as this app's `AppleLanguages`, which macOS applies at the next launch.
-    var appLanguage: AppLanguage = .saved { didSet { appLanguage.save() } }
     var dictationPhase: DictationPhase = .idle { didSet { overlayController?.refresh() } }
     var agentPhase: AgentPhase = .hidden { didSet { overlayController?.refresh() } }
     /// True while the microphone is capturing for either workflow.
@@ -93,47 +91,6 @@ final class AppState {
     /// second press or Esc in that window must stop the start instead of going unheard.
     var dictationIsListening: Bool { dictationPhase == .listening || startingWorkflow == .dictation }
     var agentIsListening: Bool { agentPhase == .listening || startingWorkflow == .agent }
-    var inputMode: InputMode = .hold { didSet { defaults.set(inputMode.rawValue, forKey: Keys.inputMode) } }
-    var overlayPlacement: OverlayPlacement = .bottom {
-        didSet { defaults.set(overlayPlacement.rawValue, forKey: Keys.overlayPlacement) }
-    }
-    var autoStop = false { didSet { defaults.set(autoStop, forKey: Keys.autoStop) } }
-    var recognitionLanguage: RecognitionLanguage = .automatic {
-        didSet { defaults.set(recognitionLanguage.rawValue, forKey: Keys.recognitionLanguage) }
-    }
-    var dictationNumberFormat: DictationNumberFormat = .preferDigits {
-        didSet { defaults.set(dictationNumberFormat.rawValue, forKey: Keys.dictationNumberFormat) }
-    }
-    var dictationCleanup: DictationCleanup = .light {
-        didSet { defaults.set(dictationCleanup.rawValue, forKey: Keys.dictationCleanup) }
-    }
-    var matchAppTone = true { didSet { defaults.set(matchAppTone, forKey: Keys.matchAppTone) } }
-    var selectedDomains: Set<DomainPreset> = [] {
-        didSet { defaults.set(selectedDomains.map(\.rawValue).sorted(), forKey: Keys.selectedDomains) }
-    }
-    var didCompleteOnboarding = false {
-        didSet { defaults.set(didCompleteOnboarding, forKey: Keys.didCompleteOnboarding) }
-    }
-    var continuousConversation = true { didSet { defaults.set(continuousConversation, forKey: Keys.continuousConversation) } }
-    var automaticAgentWriteBack = true {
-        didSet { defaults.set(automaticAgentWriteBack, forKey: Keys.automaticAgentWriteBack) }
-    }
-    /// Nil until the user picks an engine, so the default keeps following the region.
-    private var storedSearchEngine: SearchEngine? = nil {
-        didSet { defaults.set(storedSearchEngine?.rawValue, forKey: Keys.searchEngine) }
-    }
-    var searchEngine: SearchEngine {
-        get { storedSearchEngine ?? SearchEngine.defaultEngine(for: qwenRegion) }
-        set { storedSearchEngine = newValue }
-    }
-    var learnFromCorrections = true { didSet { defaults.set(learnFromCorrections, forKey: Keys.learnCorrections) } }
-    var soundCuesEnabled = true { didSet { defaults.set(soundCuesEnabled, forKey: Keys.soundCues) } }
-    var selectedTextAllowed = true { didSet { defaults.set(selectedTextAllowed, forKey: Keys.selectedText) } }
-    var currentAppAllowed = true { didSet { defaults.set(currentAppAllowed, forKey: Keys.currentApp) } }
-    var windowTitleAllowed = true { didSet { defaults.set(windowTitleAllowed, forKey: Keys.windowTitle) } }
-    var clipboardAllowed = false { didSet { defaults.set(clipboardAllowed, forKey: Keys.clipboard) } }
-    var browserPageAllowed = false { didSet { defaults.set(browserPageAllowed, forKey: Keys.browserPage) } }
-    var screenTextAllowed = true { didSet { defaults.set(screenTextAllowed, forKey: Keys.screenText) } }
     var contextItems: [ContextItem] = []
     var agentCommand = ""
     var liveTranscript = ""
@@ -160,10 +117,6 @@ final class AppState {
     var corrections: [CorrectionRecord] = [] { didSet { schedulePersistence() } }
     /// Correction suggestions still waiting for an answer.
     var pendingCorrections: [CorrectionRecord] { corrections.filter { $0.status == .pending } }
-    var historyRetention: HistoryRetention = .days30 {
-        didSet { defaults.set(historyRetention.rawValue, forKey: Keys.historyRetention); cleanExpiredHistory() }
-    }
-    var storeVoiceAudio = true { didSet { defaults.set(storeVoiceAudio, forKey: Keys.storeVoiceAudio) } }
     private(set) var localDataIssue: LocalStore.DataIssue?
     private(set) var legacyDataURL: URL?
     var shortcutStatus: ShortcutStatus = .starting
@@ -173,41 +126,12 @@ final class AppState {
     }
     /// Where the sheet on screen sits in the first-run flow; nil outside that flow.
     private(set) var setupProgress: SetupProgress?
-    private(set) var showInMenuBar = true { didSet { defaults.set(showInMenuBar, forKey: Keys.showInMenuBar) } }
-    var hideDockIconAfterMainWindowCloses = false {
-        didSet {
-            defaults.set(hideDockIconAfterMainWindowCloses, forKey: Keys.hideDockIconAfterMainWindowCloses)
-            if hideDockIconAfterMainWindowCloses { showInMenuBar = true }
-        }
-    }
     var launchAtLogin = false
-    var qwenRegion: QwenRegion = .beijing {
-        didSet { defaults.set(qwenRegion.rawValue, forKey: Keys.qwenRegion); invalidateConnectionTest() }
-    }
-    var qwenWorkspaceID = "" {
-        didSet { defaults.set(qwenWorkspaceID, forKey: Keys.qwenWorkspace); invalidateConnectionTest() }
-    }
-    var realtimeModel = QwenModelCatalog.defaultRealtimeModel {
-        didSet { defaults.set(realtimeModel, forKey: Keys.realtimeModel); invalidateConnectionTest() }
-    }
-    var reasoningModel = QwenModelCatalog.defaultReasoningModel {
-        didSet { defaults.set(reasoningModel, forKey: Keys.reasoningModel); invalidateConnectionTest() }
-    }
-    /// The saved key; edits stay in a view draft until `commitQwenCredentials` runs.
-    private(set) var apiKey = ""
     var connectionState: ConnectionState = .idle
+    let settings: AppSettings
     let systemPermissions: SystemPermissionController
     let microphoneTest = MicrophoneTestController()
-    // nil means the shortcut is turned off; Fn gestures keep working either way.
-    var voiceInputShortcut: GlobalShortcut? = .defaultVoiceInput {
-        didSet { saveGlobalShortcut(voiceInputShortcut, forKey: Keys.voiceInputShortcut) }
-    }
-    var voiceAgentShortcut: GlobalShortcut? = .defaultVoiceAgent {
-        didSet { saveGlobalShortcut(voiceAgentShortcut, forKey: Keys.voiceAgentShortcut) }
-    }
 
-    @ObservationIgnored private let defaults: UserDefaults
-    @ObservationIgnored private let keychain: KeychainStore
     @ObservationIgnored private let store: LocalStore
     @ObservationIgnored private let audioCapture: any AudioCapturing
     @ObservationIgnored private let realtimeClient: any RealtimeTranscribing
@@ -278,28 +202,19 @@ final class AppState {
         persistenceDelay: Duration = .milliseconds(500),
         dependencies: Dependencies = .live
     ) {
-        self.defaults = defaults
+        settings = AppSettings(defaults: defaults, keychain: keychain)
         self.store = store
-        self.keychain = keychain
         self.persistenceDelay = persistenceDelay
         audioCapture = dependencies.audioCapture
         realtimeClient = dependencies.realtimeClient
         reasoningClient = dependencies.reasoningClient
         textInteraction = dependencies.textInteraction
         systemPermissions = dependencies.systemPermissions
-        loadSettings()
         launchAtLogin = SMAppService.mainApp.status == .enabled
-        apiKey = (try? keychain.string(for: Keys.apiKey)) ?? ""
         systemPermissions.accessibilityChangeHandler = { [weak self] in self?.refreshSystemPermissions() }
-    }
-
-    var configuration: QwenConfiguration {
-        QwenConfiguration(region: qwenRegion, workspaceID: qwenWorkspaceID.trimmingCharacters(in: .whitespacesAndNewlines), realtimeModel: realtimeModel, reasoningModel: reasoningModel)
-    }
-
-    func setShowInMenuBar(_ isVisible: Bool) {
-        guard isVisible || !hideDockIconAfterMainWindowCloses else { return }
-        showInMenuBar = isVisible
+        settings.qwenConnectionChangeHandler = { [weak self] in self?.invalidateConnectionTest() }
+        settings.historyRetentionChangeHandler = { [weak self] in self?.cleanExpiredHistory() }
+        settings.globalShortcutChangeHandler = { [weak self] in self?.shortcutController?.reloadHotKeys() }
     }
 
     func startDictation() {
@@ -361,8 +276,8 @@ final class AppState {
         let context = contextItems
         let conversation = activeAgentSessions
         // Settings can change while the recording is saved; the request uses the ones it started with.
-        let key = apiKey
-        let requestConfiguration = configuration
+        let key = settings.apiKey
+        let requestConfiguration = settings.configuration
         targetSnapshot = nil
         activeAgentSessions = []
         let generation = workflowGeneration
@@ -449,7 +364,7 @@ final class AppState {
         guard let action = pendingAction else { return }
         dismissAnswer()
         let generation = workflowGeneration
-        let engine = searchEngine
+        let engine = settings.searchEngine
         agentCommand = action.intent ?? action.action.title
         withAnimation(Motion.panel) { agentPhase = .processing }
         // Stored as the workflow so the pill's cancel button stops a running shortcut.
@@ -510,7 +425,7 @@ final class AppState {
         let redacted = KnowledgePipeline.redactingPII(in: source)
         var entities: [ProposedEntity] = []
         for chunk in KnowledgePipeline.chunks(redacted.text) {
-            entities += try await reasoningClient.extractKnowledge(apiKey: apiKey, configuration: configuration, text: chunk)
+            entities += try await reasoningClient.extractKnowledge(apiKey: settings.apiKey, configuration: settings.configuration, text: chunk)
         }
         return KnowledgePipeline.analyze(proposals: entities, existing: knowledgeEntities, ignored: redacted.ignored)
     }
@@ -585,7 +500,7 @@ final class AppState {
 
     /// Commits pending edits, then tests the saved credentials.
     func testQwenConnection(_ draft: QwenCredentialsDraft) async {
-        guard connectionState != .testing, commitQwenCredentials(draft), !apiKey.isEmpty else { return }
+        guard connectionState != .testing, commitQwenCredentials(draft), !settings.apiKey.isEmpty else { return }
         await runConnectionTest()
     }
 
@@ -593,11 +508,11 @@ final class AppState {
     @discardableResult
     func commitQwenCredentials(_ draft: QwenCredentialsDraft) -> Bool {
         let workspaceID = draft.workspaceID.trimmingCharacters(in: .whitespacesAndNewlines)
-        if workspaceID != qwenWorkspaceID { qwenWorkspaceID = workspaceID }
+        if workspaceID != settings.qwenWorkspaceID { settings.qwenWorkspaceID = workspaceID }
         let key = draft.apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard key != apiKey else { return true }
+        guard key != settings.apiKey else { return true }
         do {
-            try saveAPIKey(key)
+            try settings.saveAPIKey(key)
             return true
         } catch {
             connectionState = .failed(localizedError(error))
@@ -606,8 +521,8 @@ final class AppState {
     }
 
     private func runConnectionTest() async {
-        let key = apiKey
-        let tested = configuration
+        let key = settings.apiKey
+        let tested = settings.configuration
         connectionState = .testing
         // A client of its own, so testing never tears down a dictation in progress.
         let testClient = QwenRealtimeClient()
@@ -649,15 +564,7 @@ final class AppState {
 
     /// Drops the result when the key or connection settings changed mid-test.
     private func finishConnectionTest(_ result: ConnectionState, apiKey key: String, configuration tested: QwenConfiguration) {
-        connectionState = apiKey == key && configuration == tested ? result : .idle
-    }
-
-    func saveAPIKey(_ value: String) throws {
-        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.isEmpty { try keychain.remove(Keys.apiKey) }
-        else { try keychain.set(trimmed, for: Keys.apiKey) }
-        apiKey = trimmed
-        invalidateConnectionTest()
+        connectionState = settings.apiKey == key && settings.configuration == tested ? result : .idle
     }
 
     func playAudio(for entry: HistoryEntry) async throws -> Data {
@@ -669,7 +576,7 @@ final class AppState {
         guard let index = historyEntries.firstIndex(where: { $0.id == id }),
               historyEntries[index].canRetryTranscription,
               let filename = historyEntries[index].audioFilename else { return }
-        guard !apiKey.isEmpty else {
+        guard !settings.apiKey.isEmpty else {
             showToast(QwenError.missingConfiguration.localizedDescription, symbol: "key.fill")
             return
         }
@@ -678,17 +585,17 @@ final class AppState {
         do {
             let wav = try await store.audio(named: filename)
             let result = try await reasoningClient.transcribeAudio(
-                apiKey: apiKey,
-                configuration: configuration,
+                apiKey: settings.apiKey,
+                configuration: settings.configuration,
                 wav: wav,
-                recognitionLanguage: recognitionLanguage,
-                numberFormat: dictationNumberFormat,
-                cleanup: dictationCleanup,
+                recognitionLanguage: settings.recognitionLanguage,
+                numberFormat: settings.dictationNumberFormat,
+                cleanup: settings.dictationCleanup,
                 // A retry lands in History, not in an app, so there is no tone to match.
                 targetApp: nil,
                 knowledgePrompt: renderKnowledgePrompt(.transcription)
             )
-            let cleaned = try SpeechDisfluencyCleaner.dictation(result, mode: dictationCleanup)
+            let cleaned = try SpeechDisfluencyCleaner.dictation(result, mode: settings.dictationCleanup)
             updateHistory(id, input: cleaned, output: cleaned, status: .completed)
             showToast(localized("Transcribed again"), symbol: "checkmark")
         } catch {
@@ -726,7 +633,7 @@ final class AppState {
 
     func dismissLegacyDataNotice() {
         legacyDataURL = nil
-        defaults.set(true, forKey: Keys.legacyDataNoticeDismissed)
+        settings.legacyDataNoticeDismissed = true
     }
 
     func revealInFinder(_ url: URL) {
@@ -741,9 +648,9 @@ final class AppState {
     }
     func showDomainOnboarding() { presentedSheet = .onboarding }
     func completeDomainOnboarding(domains: Set<DomainPreset>) {
-        if !didCompleteOnboarding { pendingSetupSteps = [.permissions, .qwenSetup] }
-        selectedDomains = domains
-        didCompleteOnboarding = true
+        if !settings.didCompleteOnboarding { pendingSetupSteps = [.permissions, .qwenSetup] }
+        settings.selectedDomains = domains
+        settings.didCompleteOnboarding = true
         presentedSheet = nil
     }
 
@@ -789,7 +696,7 @@ final class AppState {
             systemPermissions.refresh()
             return !systemPermissions.allRequiredPermissionsGranted
         case .qwenSetup:
-            return apiKey.isEmpty
+            return settings.apiKey.isEmpty
         }
     }
 
@@ -818,10 +725,6 @@ final class AppState {
         }
     }
     func setGlobalShortcutsPaused(_ paused: Bool) { shortcutController?.setHotKeysPaused(paused) }
-    private func saveGlobalShortcut(_ shortcut: GlobalShortcut?, forKey key: String) {
-        defaults.set(shortcut?.storageValue ?? "", forKey: key)
-        shortcutController?.reloadHotKeys()
-    }
     func openKeyboardSettings() {
         if let url = URL(string: "x-apple.systempreferences:com.apple.Keyboard-Settings.extension") { NSWorkspace.shared.open(url) }
     }
@@ -896,7 +799,7 @@ final class AppState {
             showMainWindow()
             return
         }
-        guard !apiKey.isEmpty else {
+        guard !settings.apiKey.isEmpty else {
             let message = QwenError.missingConfiguration.localizedDescription
             showOverlayFeedback(message, symbol: "key.fill", duration: .seconds(4))
             showSettings(section: .qwen)
@@ -915,7 +818,7 @@ final class AppState {
         // Realtime needs a workspace ID; without one the full recording goes to batch recognition.
         let chunks: AsyncStream<Data>?
         let onChunk: @Sendable (Data) -> Void
-        if mode == .dictation && configuration.realtimeURL != nil {
+        if mode == .dictation && settings.configuration.realtimeURL != nil {
             // Holds the audio until the Realtime connection is ready to take it.
             let (stream, continuation) = AsyncStream<Data>.makeStream()
             chunks = stream
@@ -931,7 +834,7 @@ final class AppState {
         do {
             let snapshot = try signposter.withIntervalSignpost("captureTarget") {
                 try textInteraction.captureTarget(
-                    requiringWindow: mode == .dictation, includingCaretFrame: overlayPlacement == .caret
+                    requiringWindow: mode == .dictation, includingCaretFrame: settings.overlayPlacement == .caret
                 )
             }
             overlayController?.anchor(to: snapshot)
@@ -966,20 +869,20 @@ final class AppState {
         pendingCopyText = ""
         activeAgentSessions = []
         guard mode == .agent else { return }
-        let conversation = continuousConversation
+        let conversation = settings.continuousConversation
             ? AgentSession.conversation(in: sessions, app: snapshot.bundleID)
             : []
         activeAgentSessions = conversation
         contextItems = ContextCollector.collect(
             snapshot: snapshot,
-            selectedTextAllowed: selectedTextAllowed,
-            currentAppAllowed: currentAppAllowed,
-            windowTitleAllowed: windowTitleAllowed,
-            clipboardAllowed: clipboardAllowed,
-            browserPage: browserPageAllowed ? textInteraction.browserPageAddress(in: snapshot) : nil,
-            screenText: screenTextAllowed ? textInteraction.visibleText(in: snapshot) : "",
+            selectedTextAllowed: settings.selectedTextAllowed,
+            currentAppAllowed: settings.currentAppAllowed,
+            windowTitleAllowed: settings.windowTitleAllowed,
+            clipboardAllowed: settings.clipboardAllowed,
+            browserPage: settings.browserPageAllowed ? textInteraction.browserPageAddress(in: snapshot) : nil,
+            screenText: settings.screenTextAllowed ? textInteraction.visibleText(in: snapshot) : "",
             session: conversation.last,
-            domains: selectedDomains,
+            domains: settings.selectedDomains,
             knowledge: knowledgeEntities
         )
         // After a deletion the last write is kept only for undo; there is nothing left to revise.
@@ -1006,16 +909,16 @@ final class AppState {
 
     /// Chunks recorded before the connection is ready wait in the stream.
     private func connectRealtime(streaming chunks: AsyncStream<Data>, generation: Int) {
-        let shouldAutoStop = autoStop
-        let selectedRecognitionLanguage = recognitionLanguage
-        let selectedNumberFormat = dictationNumberFormat
-        let selectedCleanup = dictationCleanup
+        let shouldAutoStop = settings.autoStop
+        let selectedRecognitionLanguage = settings.recognitionLanguage
+        let selectedNumberFormat = settings.dictationNumberFormat
+        let selectedCleanup = settings.dictationCleanup
         let targetApp = toneTargetApp(for: targetSnapshot)
         let knowledgePrompt = renderKnowledgePrompt(.transcription)
         let realtimeSession = UUID()
         realtimeSessionID = realtimeSession
         let connectInterval = signposter.beginInterval("realtime connect", id: signposter.makeSignpostID())
-        uploadTask = Task { [weak self, realtimeClient, apiKey, configuration, selectedRecognitionLanguage, selectedNumberFormat, selectedCleanup, targetApp, knowledgePrompt] in
+        uploadTask = Task { [weak self, realtimeClient, apiKey = settings.apiKey, configuration = settings.configuration, selectedRecognitionLanguage, selectedNumberFormat, selectedCleanup, targetApp, knowledgePrompt] in
             try await realtimeClient.connect(
                 session: realtimeSession,
                 apiKey: apiKey,
@@ -1073,7 +976,7 @@ final class AppState {
 
     /// Errors stay silent; the overlay already reports them.
     private func playSoundCue(_ cue: SoundCues.Cue) {
-        guard soundCuesEnabled else { return }
+        guard settings.soundCuesEnabled else { return }
         soundCues.play(cue)
     }
 
@@ -1194,7 +1097,7 @@ final class AppState {
                 context: context,
                 sessions: context.contains(where: { $0.kind == .session }) ? conversation : [],
                 textField: snapshot?.agentTextField ?? .absent,
-                matchAppTone: matchAppTone,
+                matchAppTone: settings.matchAppTone,
                 knowledgePrompt: knowledgePrompt
             )
             try Task.checkCancellation()
@@ -1240,7 +1143,7 @@ final class AppState {
                     session: realtimeSession,
                     timeout: .seconds(15 + recording.duration / 4)
                 )
-                return try SpeechDisfluencyCleaner.dictation(result, mode: dictationCleanup)
+                return try SpeechDisfluencyCleaner.dictation(result, mode: settings.dictationCleanup)
             } catch is CancellationError {
                 throw CancellationError()
             } catch {
@@ -1253,22 +1156,22 @@ final class AppState {
             }
         }
         let result = try await reasoningClient.transcribeAudio(
-            apiKey: apiKey,
-            configuration: configuration,
+            apiKey: settings.apiKey,
+            configuration: settings.configuration,
             wav: recording.wav,
-            recognitionLanguage: recognitionLanguage,
-            numberFormat: dictationNumberFormat,
-            cleanup: dictationCleanup,
+            recognitionLanguage: settings.recognitionLanguage,
+            numberFormat: settings.dictationNumberFormat,
+            cleanup: settings.dictationCleanup,
             targetApp: targetApp,
             knowledgePrompt: renderKnowledgePrompt(.transcription)
         )
-        return try SpeechDisfluencyCleaner.dictation(result, mode: dictationCleanup)
+        return try SpeechDisfluencyCleaner.dictation(result, mode: settings.dictationCleanup)
     }
 
     /// The app dictation asks the model to match in tone. Nil keeps the tone rule out of the prompt:
     /// the setting is off, cleanup is verbatim, or the target is sensitive.
     private func toneTargetApp(for snapshot: TextTargetSnapshot?) -> String? {
-        guard matchAppTone, dictationCleanup == .light, let snapshot, !snapshot.isSensitive else { return nil }
+        guard settings.matchAppTone, settings.dictationCleanup == .light, let snapshot, !snapshot.isSensitive else { return nil }
         return snapshot.promptAppName
     }
 
@@ -1278,7 +1181,7 @@ final class AppState {
     ) -> String {
         KnowledgePrompt.render(
             entities: includesKnowledge ? knowledgeEntities : [],
-            domains: includesDomains ? selectedDomains : [],
+            domains: includesDomains ? settings.selectedDomains : [],
             purpose: purpose
         )
     }
@@ -1298,7 +1201,7 @@ final class AppState {
                 guard let text = response.output, !text.isEmpty || response.deletesPrevious else {
                     throw QwenError.invalidResponse
                 }
-                if automaticAgentWriteBack, !AgentActionExecutor.replacesClippedText(response, context: context) {
+                if settings.automaticAgentWriteBack, !AgentActionExecutor.replacesClippedText(response, context: context) {
                     do {
                         let writeTarget: TextTargetSnapshot
                         if response.target == .previous {
@@ -1329,16 +1232,16 @@ final class AppState {
                 output = text
             } else if AgentActionExecutor.needsConfirmation(response, context: context) {
                 // Checked now so the card never offers an action that cannot run.
-                try AgentActionExecutor.validate(response, engine: searchEngine)
+                try AgentActionExecutor.validate(response, engine: settings.searchEngine)
                 actionToConfirm = response
                 output = response.url ?? response.query ?? response.shortcutName ?? ""
             } else {
                 resultCanUndo = false
-                try await AgentActionExecutor.execute(response, engine: searchEngine)
+                try await AgentActionExecutor.execute(response, engine: settings.searchEngine)
                 output = response.url ?? response.query ?? response.shortcutName ?? ""
             }
             updateHistory(historyID, input: command, output: output, status: .completed)
-            if continuousConversation {
+            if settings.continuousConversation {
                 sessions = AgentSession.appending(AgentSession(
                     app: snapshot.bundleID,
                     contextSummary: QwenReasoningClient.sessionContextSummary(context: context, response: response),
@@ -1350,7 +1253,7 @@ final class AppState {
             // A write or action can finish after the user dismissed this workflow or started a new one.
             guard generation == workflowGeneration else { return }
             if needsCopyFallback {
-                presentCopyFallback(output, agent: true, copyImmediately: automaticAgentWriteBack)
+                presentCopyFallback(output, agent: true, copyImmediately: settings.automaticAgentWriteBack)
                 return
             }
             if response.action == .answer || actionToConfirm != nil {
@@ -1389,7 +1292,7 @@ final class AppState {
     }
 
     private func beginHistoryEntry(mode: HistoryMode, recording: AudioCapture.Recording) -> UUID? {
-        guard historyRetention != .off, let snapshot = targetSnapshot, !snapshot.isSensitive else { return nil }
+        guard settings.historyRetention != .off, let snapshot = targetSnapshot, !snapshot.isSensitive else { return nil }
         let id = UUID()
         historyEntries.insert(HistoryEntry(
             id: id, mode: mode, app: snapshot.appName, durationSeconds: recording.duration,
@@ -1402,7 +1305,7 @@ final class AppState {
     private func persistHistoryAudio(_ recording: AudioCapture.Recording, historyID: UUID?) async {
         guard let historyID else { return }
         var saveFailed = false
-        if storeVoiceAudio, !recording.wav.isEmpty {
+        if settings.storeVoiceAudio, !recording.wav.isEmpty {
             do {
                 let filename = try await store.saveAudio(recording.wav, id: historyID)
                 if historyEntries.contains(where: { $0.id == historyID }) {
@@ -1554,7 +1457,7 @@ final class AppState {
     /// remember it on the overlay, where the user can see it from any app.
     func noteCorrection(_ change: CorrectionCandidate, app: String, windowTitle: String) {
         // The clue goes to Qwen with later prompts, so it follows the Window Title privacy setting.
-        let title = windowTitleAllowed ? windowTitle.trimmingCharacters(in: .whitespacesAndNewlines) : ""
+        let title = settings.windowTitleAllowed ? windowTitle.trimmingCharacters(in: .whitespacesAndNewlines) : ""
         let index: Int
         if let existing = corrections.firstIndex(where: { $0.raw == change.before && $0.corrected == change.after }) {
             index = existing
@@ -1588,14 +1491,14 @@ final class AppState {
     }
 
     private func observeCorrection(writtenText: String, snapshot: TextTargetSnapshot, writeID: UUID) {
-        guard learnFromCorrections, let before = snapshot.valueBefore, let range = snapshot.selectedRange else { return }
+        guard settings.learnFromCorrections, let before = snapshot.valueBefore, let range = snapshot.selectedRange else { return }
         let source = before as NSString
         guard range.location >= 0, range.length >= 0, NSMaxRange(NSRange(location: range.location, length: range.length)) <= source.length else { return }
         let expected = source.replacingCharacters(in: NSRange(location: range.location, length: range.length), with: writtenText)
         let writtenRange = range.location..<(range.location + (writtenText as NSString).length)
         Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(5))
-            guard let self, self.learnFromCorrections, self.lastVerifiedWrite?.id == writeID,
+            guard let self, self.settings.learnFromCorrections, self.lastVerifiedWrite?.id == writeID,
                   let actual = self.textInteraction.currentValue(of: snapshot),
                   let change = CorrectionExtractor.extract(expected: expected, actual: actual, writtenRange: writtenRange) else { return }
             self.noteCorrection(change, app: snapshot.appName, windowTitle: snapshot.windowTitle)
@@ -1617,7 +1520,7 @@ final class AppState {
         guard !didStartLoading else { return }
         didStartLoading = true
         localDataIssue = await store.dataIssue
-        if !defaults.bool(forKey: Keys.legacyDataNoticeDismissed) {
+        if !settings.legacyDataNoticeDismissed {
             legacyDataURL = await store.legacyEncryptedDataURL()
         }
         let snapshot: LocalStore.Snapshot
@@ -1656,9 +1559,8 @@ final class AppState {
     /// Earlier builds kept custom words in defaults; they now live in Knowledge as terms.
     /// Runs once Knowledge has loaded, so words already saved there are skipped as duplicates.
     private func migrateLegacyCustomTerms() {
-        guard let terms = defaults.stringArray(forKey: Keys.legacyCustomTerms) else { return }
+        guard let terms = settings.takeLegacyCustomTerms() else { return }
         for term in terms { _ = insertKnowledge(KnowledgeEntity(name: term, type: .term)) }
-        defaults.removeObject(forKey: Keys.legacyCustomTerms)
     }
 
     /// Keeps records added while loading; stored records fill in the rest.
@@ -1679,7 +1581,7 @@ final class AppState {
     }
 
     private func cleanExpiredHistory() {
-        guard let days = historyRetention.days,
+        guard let days = settings.historyRetention.days,
               let cutoff = Calendar.current.date(byAdding: .day, value: -days, to: .now) else { return }
         removeHistory { !$0.isStarred && $0.createdAt < cutoff }
     }
@@ -1738,87 +1640,8 @@ final class AppState {
         return (value, persistenceGeneration)
     }
 
-    private func loadSettings() {
-        if let raw = defaults.string(forKey: Keys.inputMode),
-           let value = InputMode(rawValue: raw) ?? InputMode.legacyRawValues[raw] { inputMode = value }
-        if let raw = defaults.string(forKey: Keys.overlayPlacement),
-           let value = OverlayPlacement(rawValue: raw) { overlayPlacement = value }
-        // The language now lives in `AppleLanguages`; carry an explicit old choice over once.
-        if let raw = defaults.string(forKey: Keys.legacyLanguage) {
-            if appLanguage == .system, let language = AppLanguage(rawValue: raw) { appLanguage = language }
-            defaults.removeObject(forKey: Keys.legacyLanguage)
-        }
-        if let raw = defaults.string(forKey: Keys.recognitionLanguage),
-           let value = RecognitionLanguage(rawValue: raw) { recognitionLanguage = value }
-        if let raw = defaults.string(forKey: Keys.dictationNumberFormat),
-           let value = DictationNumberFormat(rawValue: raw) { dictationNumberFormat = value }
-        if let raw = defaults.string(forKey: Keys.dictationCleanup),
-           let value = DictationCleanup(rawValue: raw) { dictationCleanup = value }
-        selectedDomains = Set((defaults.stringArray(forKey: Keys.selectedDomains) ?? []).compactMap(DomainPreset.init(rawValue:)))
-        didCompleteOnboarding = defaults.bool(forKey: Keys.didCompleteOnboarding)
-        if let raw = defaults.string(forKey: Keys.historyRetention), let value = HistoryRetention(rawValue: raw) { historyRetention = value }
-        if let raw = defaults.string(forKey: Keys.qwenRegion), let value = QwenRegion(rawValue: raw) { qwenRegion = value }
-        qwenWorkspaceID = defaults.string(forKey: Keys.qwenWorkspace) ?? ""
-        // One-time move from the old 3.5 default to 3.8; afterwards an explicit 3.5 choice sticks.
-        realtimeModel = QwenModelCatalog.realtimeModel(
-            stored: defaults.string(forKey: Keys.realtimeModel),
-            upgradesPreviousDefault: !defaults.bool(forKey: Keys.realtimeModelUpgraded)
-        )
-        defaults.set(true, forKey: Keys.realtimeModelUpgraded)
-        reasoningModel = QwenModelCatalog.reasoningModel(stored: defaults.string(forKey: Keys.reasoningModel))
-        storedSearchEngine = defaults.string(forKey: Keys.searchEngine).flatMap(SearchEngine.init(rawValue:))
-        autoStop = storedBool(Keys.autoStop, default: false)
-        matchAppTone = storedBool(Keys.matchAppTone, default: true)
-        continuousConversation = storedBool(Keys.continuousConversation, default: true)
-        automaticAgentWriteBack = storedBool(Keys.automaticAgentWriteBack, default: true)
-        learnFromCorrections = storedBool(Keys.learnCorrections, default: true)
-        soundCuesEnabled = storedBool(Keys.soundCues, default: true)
-        selectedTextAllowed = storedBool(Keys.selectedText, default: true)
-        currentAppAllowed = storedBool(Keys.currentApp, default: true)
-        windowTitleAllowed = storedBool(Keys.windowTitle, default: true)
-        clipboardAllowed = defaults.bool(forKey: Keys.clipboard)
-        browserPageAllowed = defaults.bool(forKey: Keys.browserPage)
-        screenTextAllowed = storedBool(Keys.screenText, default: true)
-        storeVoiceAudio = storedBool(Keys.storeVoiceAudio, default: true)
-        showInMenuBar = storedBool(Keys.showInMenuBar, default: true)
-        hideDockIconAfterMainWindowCloses = storedBool(Keys.hideDockIconAfterMainWindowCloses, default: false)
-        // Earlier builds hard-coded ⇧⌘D / ⇧⌘A without saving them, so upgrades start from the new defaults.
-        if let raw = defaults.string(forKey: Keys.voiceInputShortcut) {
-            voiceInputShortcut = GlobalShortcut.restored(from: raw, fallback: .defaultVoiceInput)
-        }
-        if let raw = defaults.string(forKey: Keys.voiceAgentShortcut) {
-            voiceAgentShortcut = GlobalShortcut.restored(from: raw, fallback: .defaultVoiceAgent)
-        }
-    }
-
-    /// The saved flag, or `fallback` when it was never saved.
-    private func storedBool(_ key: String, default fallback: Bool) -> Bool {
-        defaults.object(forKey: key) == nil ? fallback : defaults.bool(forKey: key)
-    }
-
-    private enum Keys {
-        static let inputMode = "inputMode", legacyLanguage = "appLanguage", autoStop = "autoStop"
-        static let overlayPlacement = "overlay.placement"
-        static let recognitionLanguage = "dictation.recognitionLanguage", dictationNumberFormat = "dictation.numberFormat"
-        static let dictationCleanup = "dictation.cleanup", soundCues = "voice.soundCues"
-        static let matchAppTone = "dictation.matchAppTone"
-        static let selectedDomains = "dictation.selectedDomains", legacyCustomTerms = "dictation.customDomainTerms"
-        static let didCompleteOnboarding = "onboarding.completed"
-        static let continuousConversation = "continuousConversation", learnCorrections = "learnFromCorrections"
-        static let automaticAgentWriteBack = "agent.automaticWriteBack", searchEngine = "agent.searchEngine"
-        static let selectedText = "privacy.selectedText", currentApp = "privacy.currentApp", windowTitle = "privacy.windowTitle"
-        static let clipboard = "privacy.clipboard", browserPage = "privacy.browserPage", screenText = "privacy.screenText"
-        static let historyRetention = "historyRetention", storeVoiceAudio = "storeVoiceAudio", showInMenuBar = "showInMenuBar"
-        static let hideDockIconAfterMainWindowCloses = "hideDockIconAfterMainWindowCloses"
-        static let legacyDataNoticeDismissed = "history.legacyDataNoticeDismissed"
-        static let qwenRegion = "qwen.region", qwenWorkspace = "qwen.workspace", realtimeModel = "qwen.realtimeModel"
-        static let reasoningModel = "qwen.reasoningModel", apiKey = "qwen.apiKey"
-        static let voiceInputShortcut = "shortcuts.voiceInput", voiceAgentShortcut = "shortcuts.voiceAgent"
-        static let realtimeModelUpgraded = "qwen.realtimeModelUpgradedToQwen38"
-    }
-
     private func presentStartupExperienceIfNeeded() {
-        if didCompleteOnboarding {
+        if settings.didCompleteOnboarding {
             presentPermissionGuideIfNeeded()
         } else {
             let laterSteps = [AppSheet.permissions, .qwenSetup].filter { isSetupStepNeeded($0) }
@@ -1836,70 +1659,6 @@ struct SetupProgress: Equatable {
 
     var title: String {
         localized("Step \(step) of \(total)")
-    }
-}
-
-enum InputMode: String, CaseIterable, Identifiable {
-    case hold, tap
-    var id: String { rawValue }
-
-    /// Earlier builds saved the Chinese labels as raw values.
-    static let legacyRawValues: [String: InputMode] = ["按住 Fn": .hold, "单击 Fn": .tap]
-
-    var title: String {
-        switch self {
-        case .hold: localized("Hold Fn")
-        case .tap: localized("Tap Fn")
-        }
-    }
-}
-
-/// The interface language, kept in this app's `AppleLanguages` so macOS localizes its own menus,
-/// alerts and date formats to match. macOS reads it only at launch.
-enum AppLanguage: String, CaseIterable, Identifiable {
-    case system, chinese, english
-    var id: String { rawValue }
-
-    private static let key = "AppleLanguages"
-
-    /// Language names stay in their own language.
-    var title: String {
-        switch self {
-        case .system: localized("System Default")
-        case .chinese: "简体中文"
-        case .english: "English"
-        }
-    }
-
-    /// Reads only this app's domain: `UserDefaults.standard.object(forKey:)` also returns the system-wide list.
-    static var saved: AppLanguage {
-        let domain = Bundle.main.bundleIdentifier.flatMap(UserDefaults.standard.persistentDomain(forName:))
-        return AppLanguage(appleLanguages: domain?[key] as? [String])
-    }
-
-    /// An override set elsewhere, such as in System Settings, reads as System Default unless it matches a choice.
-    init(appleLanguages: [String]?) {
-        switch appleLanguages?.first {
-        case let language? where language.hasPrefix("zh-Hans"): self = .chinese
-        case let language? where language.hasPrefix("en"): self = .english
-        default: self = .system
-        }
-    }
-
-    var appleLanguages: [String]? {
-        switch self {
-        case .system: nil
-        case .chinese: ["zh-Hans"]
-        case .english: ["en"]
-        }
-    }
-
-    func save() {
-        if let appleLanguages {
-            UserDefaults.standard.set(appleLanguages, forKey: Self.key)
-        } else {
-            UserDefaults.standard.removeObject(forKey: Self.key)
-        }
     }
 }
 

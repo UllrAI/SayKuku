@@ -19,7 +19,7 @@ struct DomainOnboardingView: View {
         VStack(spacing: 0) {
             KukuSheetHeader(
                 eyebrow: appState.setupProgress?.title,
-                title: appState.didCompleteOnboarding
+                title: appState.settings.didCompleteOnboarding
                     ? localized("Domains & Vocabulary")
                     : localized("Teach SayKuku Your Vocabulary"),
                 description: localized(
@@ -45,7 +45,7 @@ struct DomainOnboardingView: View {
         }
         .frame(width: KukuLayout.sheetWideWidth, height: KukuLayout.sheetHeight)
         .background(KukuColor.canvas)
-        .interactiveDismissDisabled(!appState.didCompleteOnboarding)
+        .interactiveDismissDisabled(!appState.settings.didCompleteOnboarding)
         .onAppear(perform: loadCurrentProfile)
     }
 
@@ -141,11 +141,11 @@ struct DomainOnboardingView: View {
     private var footer: some View {
         // Opened from Settings, the sheet is already where changes are made.
         KukuSheetFooter(
-            note: appState.didCompleteOnboarding
+            note: appState.settings.didCompleteOnboarding
                 ? nil
                 : KukuSheetNote(text: localized("You can change this later in Settings › Voice Input."))
         ) {
-            if appState.didCompleteOnboarding {
+            if appState.settings.didCompleteOnboarding {
                 Button(localized("Cancel"), action: dismiss.callAsFunction)
                     .buttonStyle(.kukuSecondary)
                     .keyboardShortcut(.cancelAction)
@@ -156,7 +156,7 @@ struct DomainOnboardingView: View {
                 .buttonStyle(.kukuSecondary)
                 .keyboardShortcut(.cancelAction)
             }
-            Button(appState.didCompleteOnboarding
+            Button(appState.settings.didCompleteOnboarding
                    ? localized("Save")
                    : appState.setupContinueTitle) {
                 addTerm()
@@ -189,7 +189,7 @@ struct DomainOnboardingView: View {
     private func loadCurrentProfile() {
         guard !didLoad else { return }
         didLoad = true
-        selectedDomains = appState.selectedDomains
+        selectedDomains = appState.settings.selectedDomains
     }
 
     /// Keeps the typed text when it can't be added, so the hint below the field still applies to it.
