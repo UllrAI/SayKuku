@@ -48,8 +48,8 @@ private struct VoiceInputSettings: View {
                     KukuChoiceRow(
                         title: mode.title,
                         caption: mode == .hold
-                            ? localized("Hold briefly to start, release to insert")
-                            : localized("Tap to start, tap again to insert"),
+                            ? localized("Hold briefly to start, release to insert. Esc cancels.")
+                            : localized("Tap to start, tap again to insert. Esc cancels."),
                         isSelected: appState.settings.inputMode == mode
                     ) {
                         appState.settings.inputMode = mode
@@ -689,16 +689,9 @@ private struct ShortcutStatusRow: View {
                 Text(appState.shortcutStatus.title(appState))
                     .font(.kuku(.subheadline))
                     .foregroundStyle(KukuColor.textSecondary)
-                Group {
-                    Text(localized("If Fn switches input sources, set “Press fn key to” to “Do Nothing” in Keyboard Settings."))
-                    Text(localized("If pressing Fn twice starts Dictation, change the Dictation shortcut."))
-                    Text(localized(
-                        "Press Esc to cancel while recording or processing. The key still goes to the app you’re using."
-                    ))
+                if let fnWarning {
+                    KukuStatusLabel(text: fnWarning, tone: .warning)
                 }
-                .font(.kuku(.subheadline))
-                .foregroundStyle(KukuColor.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
             }
 
             Spacer(minLength: KukuSpacing.md)
@@ -716,6 +709,22 @@ private struct ShortcutStatusRow: View {
             }
         }
         .kukuRowFrame()
+    }
+
+    /// Shown only when the system Fn action competes with SayKuku's Fn gestures.
+    private var fnWarning: String? {
+        guard let usage = appState.systemPermissions.fnKeyUsage else { return nil }
+        let doNothing = FnKeyUsage.doNothing.title
+        switch usage {
+        case .doNothing:
+            return nil
+        case .changeInputSource, .showEmoji:
+            return localized("Fn is set to “\(usage.title)”. Set “Press fn key to” to “\(doNothing)” in Keyboard Settings.")
+        case .startDictation:
+            return localized(
+                "Fn is set to “\(usage.title)”. Pressing Fn twice opens system Dictation; set it to “\(doNothing)” in Keyboard Settings."
+            )
+        }
     }
 }
 
