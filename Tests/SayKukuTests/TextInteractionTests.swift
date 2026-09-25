@@ -216,7 +216,6 @@ struct TextWriteVerificationTests {
             browserPageAllowed: false,
             session: nil,
             domains: [],
-            customDomainTerms: [],
             knowledge: [
                 KnowledgeEntity(name: "WorkBuddy", type: .project),
                 KnowledgeEntity(name: "SayKuku", type: .project)

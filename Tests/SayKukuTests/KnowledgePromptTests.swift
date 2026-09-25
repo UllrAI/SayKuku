@@ -30,10 +30,10 @@ struct KnowledgePromptTests {
     func emptyKnowledgeSections() {
         for purpose in [KnowledgePrompt.Purpose.transcription, .agent] {
             #expect(KnowledgePrompt.render(entities: [], purpose: purpose) == "")
-            let terms = KnowledgePrompt.render(entities: [], customTerms: ["SayKuku"], purpose: purpose)
-            #expect(terms.contains("<domain_profile>"))
-            #expect(!terms.contains("<confirmed_knowledge>"))
-            #expect(!terms.contains("(empty)"))
+            let domains = KnowledgePrompt.render(entities: [], domains: [.aiVibeCoding], purpose: purpose)
+            #expect(domains.contains("<domain_profile>"))
+            #expect(!domains.contains("<confirmed_knowledge>"))
+            #expect(!domains.contains("(empty)"))
         }
         let entity = KnowledgePrompt.render(entities: [KnowledgeEntity(name: "WorkBuddy", type: .project)], purpose: .agent)
         #expect(entity.contains("<confirmed_knowledge>"))
@@ -113,30 +113,21 @@ struct KnowledgePromptTests {
         let transcription = KnowledgePrompt.render(
             entities: [],
             domains: [.aiVibeCoding],
-            customTerms: ["SayKuku"],
             purpose: .transcription
         )
         let agent = KnowledgePrompt.render(
             entities: [],
             domains: [.aiVibeCoding],
-            customTerms: ["SayKuku"],
             purpose: .agent
         )
 
         #expect(transcription.contains("AI and Vibe Coding"))
         #expect(transcription.contains("Vibe Coding"))
         #expect(transcription.contains("MCP"))
-        #expect(transcription.contains(#"preferred spelling: "SayKuku""#))
         #expect(transcription.contains("Weak recognition priors"))
         #expect(transcription.contains("Never insert an unspoken term"))
         #expect(agent.contains("Soft context"))
         #expect(agent.contains("not necessarily the current task"))
         #expect(agent.contains("Never let it override the spoken command"))
-    }
-
-    @Test("custom vocabulary is normalized and bounded")
-    func customVocabularyNormalization() {
-        let terms = AppState.normalizedDomainTerms([" Vibe Coding ", "vibe coding", "", String(repeating: "x", count: 65)])
-        #expect(terms == ["Vibe Coding"])
     }
 }

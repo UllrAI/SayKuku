@@ -99,7 +99,7 @@ private struct VoiceInputSettings: View {
             }
 
             KukuGroup(appState.text("词汇", "Vocabulary")) {
-                KukuRow(appState.text("常用领域与词汇", "Domains & Vocabulary"), caption: domainSummary) {
+                KukuRow(appState.text("常用领域", "Domains"), caption: domainSummary) {
                     Button(appState.text("编辑…", "Edit…")) {
                         appState.showDomainOnboarding()
                         // Setup sheets are presented by the main window.
@@ -107,8 +107,15 @@ private struct VoiceInputSettings: View {
                     }
                     .buttonStyle(.kukuSecondary)
                 }
-                // Long custom vocabularies would otherwise stretch the row.
+                // Many selected domains would otherwise stretch the row.
                 .lineLimit(2)
+                KukuDivider()
+                KukuRow(appState.text("识别词表", "Vocabulary"), caption: vocabularySummary) {
+                    Button(appState.text("打开知识", "Open Knowledge")) {
+                        appState.destination = .knowledge
+                    }
+                    .buttonStyle(.kukuSecondary)
+                }
                 KukuDivider()
                 KukuToggleRow(
                     title: appState.text("从纠正中学习", "Learn from corrections"),
@@ -133,10 +140,14 @@ private struct VoiceInputSettings: View {
         let domains = DomainPreset.allCases
             .filter(appState.selectedDomains.contains)
             .map { $0.title(isChineseUI: appState.usesChineseUI) }
-        let values = domains + appState.customDomainTerms
-        return values.isEmpty
-            ? appState.text("尚未选择，可添加 Vibe Coding 等常用词", "None yet. Add terms like Vibe Coding.")
-            : values.joined(separator: appState.text("、", ", "))
+        return domains.isEmpty
+            ? appState.text("尚未选择", "None selected")
+            : domains.joined(separator: appState.text("、", ", "))
+    }
+
+    private var vocabularySummary: String {
+        let count = appState.knowledgeEntities.count
+        return appState.text("知识中有 \(count) 条", count == 1 ? "1 item in Knowledge" : "\(count) items in Knowledge")
     }
 }
 

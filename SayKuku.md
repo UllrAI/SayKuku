@@ -85,7 +85,7 @@ App 图标不放文字，使用珊瑚红圆角底板与暖白 Lucide Bird 线稿
 ```text
 History    All / Voice Input / Voice Agent
 Knowledge  All / People / Organizations / Projects / Terms
-Memory     Corrections / Short-term / Long-term
+Memory     Corrections / Short-term
 Settings   General / Voice Input / Voice Agent / History / Privacy / Qwen Connection
 ```
 
@@ -497,7 +497,7 @@ Safari / Chrome 当前 URL（默认关闭）
       ↓
 同一输入框最近 5 分钟内经验证的上次写入
       ↓
-Domains & vocabulary
+Domains
       ↓
 Confirmed Knowledge Prompt
 ```
@@ -513,7 +513,7 @@ Context 默认不常驻显示。聆听 Pill 只保留一个低强调的 scope �
 Safari                         ×
 Selected text · 436 字          ×
 上次写入 · 28 字               ×
-Domains & vocabulary            ×
+Domains                         ×
 Knowledge base                  ×
 ```
 
@@ -653,7 +653,7 @@ AgentSession
 
 因为后面装进去的不只是单词。
 
-Knowledge 是一张识别词表，每个条目属于以下 4 种类型之一：
+Knowledge 是一张识别词表，也是用户让 SayKuku 认识一个词的唯一入口：Onboarding 中手动添加的词、接受的纠错建议都作为条目存进这里。每个条目属于以下 4 种类型之一：
 
 ```text
 Person         人物
@@ -986,7 +986,7 @@ Short-term Memory 的目标是：
 
 ## 13. 长期记忆
 
-> 实现状态：`🟡 部分完成`。当前长期内容来自用户确认的 Knowledge 和纠错记录，并进入后续 Prompt；语言习惯、自动偏好提炼和“请记住”指令尚未实现。
+> 实现状态：`🟡 部分完成`。长期内容就是 Knowledge，没有独立页面，Memory 中也不再有“长期”Tab：用户手动添加、导入或接受纠错建议后写入的条目进入后续 Prompt，在“知识”页查看和编辑；语言习惯、自动偏好提炼和“请记住”指令尚未实现。
 
 长期记忆的设计边界是只保存真正稳定的东西：
 
@@ -1166,7 +1166,7 @@ General | Voice Input | Voice Agent | History | Privacy | Qwen Connection
 
 Knowledge 与 Memory 保持为一级侧栏目的地，不在 Settings 中重复。MVP 不提供 Advanced 空壳页面。
 
-首次启动先展示轻量领域 Onboarding，再进入系统权限引导（权限齐全时跳过），最后引导连接 Qwen：按三步说明（打开对应地域的百炼控制台、创建并粘贴 API Key、可选复制以 `llm-` 开头的业务空间 ID）完成填写；“测试连接”是可选的次按钮，连接成功后隐藏；主按钮响应 Return，未填 API Key 时显示为“跳过”；填好的内容在关闭弹窗时即生效，不会丢失；已保存 API Key 时跳过这一步。三个步骤的弹窗尺寸、页头和底栏一致：进行中的步骤主按钮为“继续”，最后一步为“完成”，未完成时可“跳过”；权限在从系统设置返回时自动刷新，全部开启前“继续”不可用。用户可以多选 AI / Vibe Coding、软件开发、产品设计、市场增长等常用领域，也可以手动添加产品名、项目名或技术词。选择会持久化为识别上下文，并以“仅用于词汇消歧、不得补写未说内容”的参考数据加入 Voice Input 与 Voice Agent Prompt；以后可在 Voice Input 设置中重新编辑。
+首次启动先展示轻量领域 Onboarding，再进入系统权限引导（权限齐全时跳过），最后引导连接 Qwen：按三步说明（打开对应地域的百炼控制台、创建并粘贴 API Key、可选复制以 `llm-` 开头的业务空间 ID）完成填写；“测试连接”是可选的次按钮，连接成功后隐藏；主按钮响应 Return，未填 API Key 时显示为“跳过”；填好的内容在关闭弹窗时即生效，不会丢失；已保存 API Key 时跳过这一步。三个步骤的弹窗尺寸、页头和底栏一致：进行中的步骤主按钮为“继续”，最后一步为“完成”，未完成时可“跳过”；权限在从系统设置返回时自动刷新，全部开启前“继续”不可用。用户可以多选 AI / Vibe Coding、软件开发、产品设计、市场增长等常用领域，选择会持久化为识别上下文，并以“仅用于词汇消歧、不得补写未说内容”的参考数据加入 Voice Input 与 Voice Agent Prompt；以后可在 Voice Input 设置中重新编辑。同一页也可以手动添加产品名、项目名或技术词，点“继续”或“保存”时逐个作为术语存进 Knowledge（已有同名条目时就地提示），以后在“知识”页补别名。旧版本存在 UserDefaults `dictation.customDomainTerms` 中的自定义词，会在本地数据加载后一次性迁入 Knowledge（重复的跳过），随后删除该键。
 
 ### Voice Input
 
@@ -1180,7 +1180,11 @@ Knowledge 与 Memory 保持为一级侧栏目的地，不在 Settings 中重复�
 识别语言：自动中英混合 / 简体中文 / English
 数字格式：优先阿拉伯数字 / 保持口述
 口语整理：轻整理 / 原样
-常用领域与词汇：编辑
+
+词汇
+常用领域：已选领域 · 编辑
+识别词表：知识中有 N 条 · 打开知识
+从纠正中学习
 ```
 
 ### Voice Agent
@@ -1282,7 +1286,7 @@ MVP 数据规则：
 * 安全输入（`AXSecureTextField` 或系统安全输入模式）与已知密码管理器为硬性阻断：不开始录音、不读取 Context、不写回，不是可配置开关。
 * 进入 Listening 后，录音音频先保存在内存；停止录音后，只要“保存录音”开启且目标非敏感环境，就在请求完成前将 WAV 文件存入本地 History，不以模型或写回成功为前提。
 * History 默认保留 30 天，可选不保存、1 / 7 / 30 / 90 天或永久；星标记录不自动删除。
-* History 与 Memory 分离：History 保存可回看的输入/输出记录，Memory 只保存明确的短期 Session、纠错与用户确认的长期知识。
+* History 与 Memory 分离：History 保存可回看的输入/输出记录，Memory 只展示短期 Session 和待确认的纠错建议；确认后的长期内容就是 Knowledge。
 * 诊断日志只记录状态、目标 Bundle ID / Accessibility role、可读性和错误信息，不记录原始语音、转写文本、输入框全文或 Context 内容。
 * Short-term Memory 必须有 TTL；长期 Knowledge 只由用户确认后写入。
 
@@ -1809,7 +1813,6 @@ Knowledge
 ```text
 Memory
 → 最近上下文
-→ 人名/术语
 → 用户纠正学习
 ```
 

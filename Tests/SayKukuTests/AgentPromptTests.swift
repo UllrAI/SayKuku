@@ -125,7 +125,6 @@ struct AgentPromptTests {
                 browserPageAllowed: false,
                 session: nil,
                 domains: [],
-                customDomainTerms: [],
                 knowledge: [],
                 isChineseUI: isChineseUI
             )
