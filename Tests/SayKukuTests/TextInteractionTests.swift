@@ -89,12 +89,89 @@ struct TextWriteVerificationTests {
 
     @Test("web search encodes every reserved query character")
     func webSearchURL() {
-        #expect(AgentActionExecutor.webSearchURL(for: "C++ & Rust")?.absoluteString
+        #expect(AgentActionExecutor.webSearchURL(for: "C++ & Rust", region: .singapore)?.absoluteString
             == "https://www.google.com/search?q=C%2B%2B%20%26%20Rust")
-        #expect(AgentActionExecutor.webSearchURL(for: "a=b#c?d/e")?.absoluteString
+        #expect(AgentActionExecutor.webSearchURL(for: "a=b#c?d/e", region: .singapore)?.absoluteString
             == "https://www.google.com/search?q=a%3Db%23c%3Fd%2Fe")
-        #expect(AgentActionExecutor.webSearchURL(for: "你好 swift-6_x.y~")?.absoluteString
+        #expect(AgentActionExecutor.webSearchURL(for: "你好 swift-6_x.y~", region: .singapore)?.absoluteString
             == "https://www.google.com/search?q=%E4%BD%A0%E5%A5%BD%20swift-6_x.y~")
+    }
+
+    @Test("web search uses Bing for the Beijing region")
+    func webSearchEngine() {
+        #expect(AgentActionExecutor.webSearchURL(for: "天气", region: .beijing)?.absoluteString
+            == "https://www.bing.com/search?q=%E5%A4%A9%E6%B0%94")
+        #expect(AgentActionExecutor.webSearchURL(for: "weather", region: .singapore)?.host == "www.google.com")
+    }
+
+    @Test("links and shortcuts chosen with untrusted context wait for confirmation")
+    func actionConfirmation() {
+        let open = AgentResponse(transcript: "打开官网", action: .openURL, url: "https://example.com")
+        let shortcut = AgentResponse(transcript: "运行早安", action: .runShortcut, shortcutName: "早安")
+        let search = AgentResponse(transcript: "搜一下", action: .webSearch, query: "SayKuku")
+        let app = ContextItem(kind: .app, symbol: "app", title: "Notes", value: "com.apple.Notes")
+        let domain = ContextItem(kind: .domain, symbol: "text.bubble", title: "Domains", value: "Swift")
+        #expect(!AgentActionExecutor.needsConfirmation(open, context: [app, domain]))
+        #expect(!AgentActionExecutor.needsConfirmation(shortcut, context: [app, domain]))
+        for kind: ContextItem.Kind in [.selectedText, .previousOutput, .window, .clipboard, .browser, .session] {
+            let untrusted = ContextItem(kind: kind, symbol: "", title: "", value: "text")
+            #expect(AgentActionExecutor.needsConfirmation(open, context: [app, untrusted]))
+            #expect(AgentActionExecutor.needsConfirmation(shortcut, context: [app, untrusted]))
+            #expect(!AgentActionExecutor.needsConfirmation(search, context: [untrusted]))
+        }
+    }
+
+    @Test("actions without a usable payload are rejected before they are offered or run")
+    func actionValidation() throws {
+        func link(_ url: String) -> AgentResponse { AgentResponse(transcript: "打开", action: .openURL, url: url) }
+        #expect(try AgentActionExecutor.validate(link("https://example.com"), region: .singapore)?.host == "example.com")
+        for url in ["file:///etc/passwd", "https://google.com@evil.example/", "https://user:pass@example.com/"] {
+            #expect(throws: QwenError.invalidResponse) { try AgentActionExecutor.validate(link(url), region: .singapore) }
+        }
+        let search = AgentResponse(transcript: "搜一下", action: .webSearch, query: "SayKuku")
+        #expect(try AgentActionExecutor.validate(search, region: .beijing)?.host == "www.bing.com")
+        let emptySearch = AgentResponse(transcript: "搜一下", action: .webSearch, query: "")
+        #expect(throws: QwenError.invalidResponse) { try AgentActionExecutor.validate(emptySearch, region: .beijing) }
+        let shortcut = AgentResponse(transcript: "运行早安", action: .runShortcut, shortcutName: "早安")
+        #expect(try AgentActionExecutor.validate(shortcut, region: .beijing) == nil)
+        let unnamed = AgentResponse(transcript: "运行", action: .runShortcut, shortcutName: "")
+        #expect(throws: QwenError.invalidResponse) { try AgentActionExecutor.validate(unnamed, region: .beijing) }
+    }
+
+    @Test("rewriting clipped text is not written back")
+    func clippedWriteBack() {
+        let clipped = ContextItem(kind: .selectedText, symbol: "", title: "", value: "…", isClipped: true)
+        let whole = ContextItem(kind: .previousOutput, symbol: "", title: "", value: "done")
+        let rewrite = AgentResponse(transcript: "翻译", action: .writeText, target: .current, output: "x")
+        let revision = AgentResponse(transcript: "再短一点", action: .writeText, target: .previous, output: "x")
+        #expect(AgentActionExecutor.replacesClippedText(rewrite, context: [clipped, whole]))
+        #expect(!AgentActionExecutor.replacesClippedText(revision, context: [clipped, whole]))
+        #expect(!AgentActionExecutor.replacesClippedText(rewrite, context: [whole]))
+    }
+
+    @Test("long context is clipped and labeled")
+    func clippedContextItem() {
+        let long = ContextCollector.textItem(
+            kind: .selectedText, symbol: "text.quote", title: "选中文字", value: String(repeating: "字", count: 12),
+            limit: 10, isChineseUI: true
+        )
+        #expect(long.isClipped)
+        #expect(long.title == "选中文字 · 前 10 字")
+        #expect(long.value == String(repeating: "字", count: 10) + "…")
+
+        let short = ContextCollector.textItem(
+            kind: .clipboard, symbol: "clipboard", title: "Clipboard", value: "a", limit: 10, isChineseUI: false
+        )
+        #expect(!short.isClipped)
+        #expect(short.title == "Clipboard · 1 character")
+        #expect(short.value == "a")
+    }
+
+    @Test("browser context keeps only the page address")
+    func browserPageAddress() {
+        #expect(ContextCollector.pageAddress("https://user:secret@example.com:8443/reset/a%20b?token=abc#code=1")
+            == "https://example.com:8443/reset/a%20b")
+        #expect(ContextCollector.pageAddress("https://example.com") == "https://example.com")
     }
 
     @Test("knowledge context only records that saved knowledge is used")
