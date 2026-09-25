@@ -3,6 +3,7 @@ import AVFoundation
 import Observation
 import os
 import ServiceManagement
+import Sparkle
 import SwiftUI
 
 @MainActor
@@ -233,6 +234,8 @@ final class AppState {
     @ObservationIgnored private var overlayFeedbackGeneration = 0
     @ObservationIgnored private var mainWindowOpener: OpenWindowAction?
     @ObservationIgnored private var settingsOpener: OpenSettingsAction?
+    /// Sparkle's controller; nil in dev builds, which never update themselves.
+    @ObservationIgnored private(set) var updater: SPUStandardUpdaterController?
     @ObservationIgnored private var didEvaluateStartupPermissions = false
     @ObservationIgnored private var pendingSetupSteps: [AppSheet] = []
     @ObservationIgnored private var didStartLoading = false
@@ -840,6 +843,10 @@ final class AppState {
 
     func registerSettingsOpener(_ openSettings: OpenSettingsAction) {
         settingsOpener = openSettings
+    }
+
+    func registerUpdater(_ updater: SPUStandardUpdaterController) {
+        self.updater = updater
     }
 
     /// Opens the Settings window on its own; a hidden Dock icon stays hidden.
