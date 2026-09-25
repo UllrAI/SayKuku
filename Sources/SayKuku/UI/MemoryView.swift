@@ -9,9 +9,7 @@ struct MemoryView: View {
     @State private var showingAdd = false
     @State private var editingEntity: MemoryEntity?
     @State private var pendingDeletion: MemoryEntity?
-    @State private var selection: MemoryEntity.ID?
     @FocusState private var searchFocused: Bool
-    @FocusState private var listFocused: Bool
 
     /// "All" first, then one tab per type.
     private static let tabs: [EntityType?] = [nil] + EntityType.allCases.map(Optional.some)
@@ -105,54 +103,30 @@ struct MemoryView: View {
                 searchBar(count: entities.count)
             }
 
-            List(selection: $selection) {
-                if showsSuggestions {
-                    // Untagged, so the list's selection and keyboard commands skip it.
-                    CorrectionSuggestions()
-                        .kukuListRow(EdgeInsets(
-                            top: appState.data.memoryEntities.isEmpty ? KukuLayout.contentTop : 0,
-                            leading: 0,
-                            bottom: KukuLayout.sectionSpacing,
-                            trailing: 0
-                        ))
-                }
-                ForEach(entities) { entity in
-                    EntityRow(entity: entity, isSelected: selection == entity.id) {
-                        pendingDeletion = entity
-                    } onEdit: {
-                        editingEntity = entity
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    if showsSuggestions {
+                        CorrectionSuggestions()
+                            .padding(.bottom, entities.isEmpty ? 0 : KukuLayout.sectionSpacing)
                     }
-                    .tag(entity.id)
-                    .kukuListRow(EdgeInsets(top: 0, leading: 0, bottom: KukuLayout.listSpacing, trailing: 0))
+                    ForEach(entities) { entity in
+                        EntityRow(entity: entity) {
+                            pendingDeletion = entity
+                        } onEdit: {
+                            editingEntity = entity
+                        }
+                        if entity.id != entities.last?.id {
+                            KukuDivider(inset: KukuLayout.iconTile + KukuSpacing.md)
+                        }
+                    }
+                    if entities.isEmpty && !showsSuggestions {
+                        emptyState
+                    }
                 }
-            }
-            .kukuList()
-            .contentMargins(.bottom, KukuLayout.contentBottom, for: .scrollContent)
-            .focused($listFocused)
-            .onDeleteCommand {
-                if let entity = selectedEntity(in: entities) { pendingDeletion = entity }
-            }
-            .onCopyCommand {
-                guard let entity = selectedEntity(in: entities) else { return [] }
-                return [NSItemProvider(object: entity.name as NSString)]
-            }
-            // A key handler on the focused list: a default-action button would also fire
-            // while typing in the search field.
-            .onKeyPress(.return) {
-                guard let entity = selectedEntity(in: entities) else { return .ignored }
-                editingEntity = entity
-                return .handled
-            }
-            .overlay {
-                if entities.isEmpty && !showsSuggestions {
-                    emptyState
-                }
+                .padding(.top, appState.data.memoryEntities.isEmpty ? KukuLayout.contentTop : 0)
+                .padding(.bottom, KukuLayout.contentBottom)
             }
         }
-    }
-
-    private func selectedEntity(in entities: [MemoryEntity]) -> MemoryEntity? {
-        entities.first { $0.id == selection }
     }
 
     @ViewBuilder
@@ -189,7 +163,7 @@ struct MemoryView: View {
                 text: $search,
                 width: nil,
                 focus: $searchFocused,
-                onExit: { listFocused = true }
+                onExit: { searchFocused = false }
             )
             .focusedSceneValue(\.searchFieldFocus, $searchFocused)
             Text(localized("\(count) items"))
@@ -212,7 +186,6 @@ struct MemoryView: View {
     }
 
     private func delete(_ entity: MemoryEntity) {
-        if selection == entity.id { selection = filteredEntities.selectionAfterRemoving(entity.id) }
         appState.data.removeMemory(id: entity.id)
     }
 }
@@ -282,8 +255,8 @@ private struct CorrectionRow: View {
 }
 
 private struct EntityRow: View {
+    @Environment(AppState.self) private var appState
     let entity: MemoryEntity
-    let isSelected: Bool
     let onDelete: () -> Void
     let onEdit: () -> Void
 
@@ -340,11 +313,11 @@ private struct EntityRow: View {
             // Fixed action column keeps the edit buttons aligned from row to row.
             .frame(width: 120, alignment: .trailing)
         }
-        .padding(.horizontal, KukuLayout.rowPadding)
         .padding(.vertical, KukuSpacing.md)
         .frame(maxWidth: .infinity, minHeight: KukuLayout.rowMinHeightWithCaption, alignment: .leading)
-        .kukuInteractiveSurface(isSelected: isSelected)
         .contextMenu {
+            Button(localized("Copy")) { appState.copyText(entity.name) }
+            Divider()
             Button(localized("Edit…"), action: onEdit)
             Divider()
             Button(localized("Delete…"), role: .destructive, action: onDelete)
@@ -365,7 +338,7 @@ private struct MemoryFormSheet: View {
     init(entity: MemoryEntity? = nil) {
         self.entity = entity
         _name = State(initialValue: entity?.name ?? "")
-        _type = State(initialValue: entity?.type ?? .term)
+        _type = State(initialValue: entity?.type ?? .other)
         _detail = State(initialValue: entity?.detail ?? "")
         _aliases = State(initialValue: entity?.aliases.joined(separator: "、") ?? "")
     }

@@ -55,7 +55,7 @@ enum MemoryPipeline {
                 let value = String(redacted[swiftRange])
                 // The row shows a localized label; keep only a masked hint of the original value.
                 ignored.append(ImportCandidate(
-                    entity: MemoryEntity(name: "", type: .term, source: .importText),
+                    entity: MemoryEntity(name: "", type: .other, source: .importText),
                     status: .ignored,
                     evidence: masked(value)
                 ))
@@ -171,7 +171,7 @@ enum MemoryPipeline {
                 aliases: old.aliases + [raw], source: .correction, createdAt: old.createdAt
             )
         } else {
-            entities.append(MemoryEntity(name: corrected, detail: clue, type: .term, aliases: [raw], source: .correction))
+            entities.append(MemoryEntity(name: corrected, detail: clue, type: .other, aliases: [raw], source: .correction))
         }
         return entities
     }
