@@ -35,8 +35,11 @@ final class SystemPermissionController {
 
     @ObservationIgnored private nonisolated(unsafe) var accessibilityObserver: (any NSObjectProtocol)?
     @ObservationIgnored private var accessibilityRetryTask: Task<Void, Never>?
+    /// Tests pass a fixed status, so they never depend on this Mac's microphone grant.
+    @ObservationIgnored private let readMicrophoneStatus: @MainActor () -> SystemPermissionStatus
 
-    init() {
+    init(microphoneStatus: @escaping @MainActor () -> SystemPermissionStatus = SystemPermissionController.systemMicrophoneStatus) {
+        readMicrophoneStatus = microphoneStatus
         refresh()
         // Posted when any app's Accessibility trust changes, so a grant is seen without reactivating SayKuku.
         accessibilityObserver = DistributedNotificationCenter.default().addObserver(
@@ -68,16 +71,7 @@ final class SystemPermissionController {
     func refresh() {
         let previousMicrophone = microphoneStatus
         let previousAccessibility = accessibilityStatus
-        switch AVAudioApplication.shared.recordPermission {
-        case .undetermined:
-            microphoneStatus = .notDetermined
-        case .denied:
-            microphoneStatus = .denied
-        case .granted:
-            microphoneStatus = .authorized
-        @unknown default:
-            microphoneStatus = .restricted
-        }
+        microphoneStatus = readMicrophoneStatus()
 
         if AXIsProcessTrusted() {
             accessibilityStatus = .authorized
@@ -86,6 +80,15 @@ final class SystemPermissionController {
         }
         Self.logChange(.microphone, from: previousMicrophone, to: microphoneStatus)
         Self.logChange(.accessibility, from: previousAccessibility, to: accessibilityStatus)
+    }
+
+    static func systemMicrophoneStatus() -> SystemPermissionStatus {
+        switch AVAudioApplication.shared.recordPermission {
+        case .undetermined: return .notDetermined
+        case .denied: return .denied
+        case .granted: return .authorized
+        @unknown default: return .restricted
+        }
     }
 
     /// Only changes are logged: `refresh` runs on every activation and permission check.

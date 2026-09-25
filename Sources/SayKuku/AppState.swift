@@ -198,7 +198,7 @@ final class AppState {
     /// The saved key; edits stay in a view draft until `commitQwenCredentials` runs.
     private(set) var apiKey = ""
     var connectionState: ConnectionState = .idle
-    let systemPermissions = SystemPermissionController()
+    let systemPermissions: SystemPermissionController
     let microphoneTest = MicrophoneTestController()
     // nil means the shortcut is turned off; Fn gestures keep working either way.
     var voiceInputShortcut: GlobalShortcut? = .defaultVoiceInput {
@@ -211,10 +211,10 @@ final class AppState {
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let keychain: KeychainStore
     @ObservationIgnored private let store: LocalStore
-    @ObservationIgnored private let audioCapture = AudioCapture()
-    @ObservationIgnored private let realtimeClient = QwenRealtimeClient()
-    @ObservationIgnored private let reasoningClient = QwenReasoningClient()
-    @ObservationIgnored private let textInteraction = TextInteraction()
+    @ObservationIgnored private let audioCapture: any AudioCapturing
+    @ObservationIgnored private let realtimeClient: any RealtimeTranscribing
+    @ObservationIgnored private let reasoningClient: any Reasoning
+    @ObservationIgnored private let textInteraction: any TextWriting
     @ObservationIgnored private let soundCues = SoundCues()
     @ObservationIgnored private let signposter = OSSignposter.performance
     /// The workflow whose microphone is starting; nil once it listens or is cancelled.
@@ -251,16 +251,42 @@ final class AppState {
     private static let recordingLimitWarning: Duration = .seconds(15)
     private static let successDisplayDuration: Duration = .seconds(2)
 
+    /// The microphone, Qwen, focused-app and permission services the voice workflows drive; tests pass fakes.
+    struct Dependencies {
+        var audioCapture: any AudioCapturing
+        var realtimeClient: any RealtimeTranscribing
+        var reasoningClient: any Reasoning
+        var textInteraction: any TextWriting
+        var systemPermissions: SystemPermissionController
+
+        /// New instances on every call, so no two states share an engine or a socket.
+        @MainActor static var live: Dependencies {
+            Dependencies(
+                audioCapture: AudioCapture(),
+                realtimeClient: QwenRealtimeClient(),
+                reasoningClient: QwenReasoningClient(),
+                textInteraction: TextInteraction(),
+                systemPermissions: SystemPermissionController()
+            )
+        }
+    }
+
     init(
         defaults: UserDefaults = .standard,
         store: LocalStore = LocalStore(),
         keychain: KeychainStore = KeychainStore(),
-        persistenceDelay: Duration = .milliseconds(500)
+        persistenceDelay: Duration = .milliseconds(500),
+        dependencies: Dependencies = .live
     ) {
         self.defaults = defaults
         self.store = store
         self.keychain = keychain
         self.persistenceDelay = persistenceDelay
+        audioCapture = dependencies.audioCapture
+        realtimeClient = dependencies.realtimeClient
+        reasoningClient = dependencies.reasoningClient
+        textInteraction = dependencies.textInteraction
+        systemPermissions = dependencies.systemPermissions
         loadSettings()
         launchAtLogin = SMAppService.mainApp.status == .enabled
         apiKey = (try? keychain.string(for: Keys.apiKey)) ?? ""
