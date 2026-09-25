@@ -36,11 +36,7 @@
     <true/>
     <key>NSMicrophoneUsageDescription</key>
     <string>SayKuku uses the microphone only for Voice Input, Voice Agent, and the microphone test. Audio is sent to your selected Qwen region for processing. If “Save recordings” is on, recordings stay on this Mac. Microphone test audio is never saved or uploaded.</string>
-    <key>SUFeedURL</key>
-    <string>https://github.com/UllrAI/SayKuku/releases/latest/download/appcast.xml</string>
-    <key>SUPublicEDKey</key>
-    <string>hGCxOUxTrsAh8K1ThHgNkc8ZhVXJlXqUcjOixYWBYnQ=</string>
-    <key>SUEnableAutomaticChecks</key>
-    <true/>
+    <key>SayKukuUpdateURL</key>
+    <string>https://saykuku.ullrai.com/ver.json</string>
 </dict>
 </plist>

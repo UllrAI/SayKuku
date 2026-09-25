@@ -11,13 +11,9 @@ let package = Package(
     products: [
         .executable(name: "SayKuku", targets: ["SayKuku"])
     ],
-    dependencies: [
-        .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.10.0")
-    ],
     targets: [
         .executableTarget(
             name: "SayKuku",
-            dependencies: [.product(name: "Sparkle", package: "Sparkle")],
             path: "Sources/SayKuku",
             resources: [.process("Resources")]
         ),
