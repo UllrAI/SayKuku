@@ -33,7 +33,7 @@ open Build/SayKuku.app
 
 本机需要：
 
-- Xcode 及 Command Line Tools。首次 `swift build` 会解析 Sparkle 并生成 `Package.resolved`，必须提交到仓库，否则依赖版本不固定，`Scripts/release.sh` 的干净工作区检查也会失败。
+- Xcode 26 或更新及 Command Line Tools。首次 `swift build` 会解析 Sparkle 并生成 `Package.resolved`，必须提交到仓库，否则依赖版本不固定，`Scripts/release.sh` 的干净工作区检查也会失败。
 - 钥匙串中带私钥的 `Developer ID Application` 证书。
 - App Store Connect API Key，或 Apple ID 的 App 专用密码。
 - Sparkle 发行包（从 [Sparkle Releases](https://github.com/sparkle-project/Sparkle/releases) 下载与 `Package.swift` 同一大版本的 `Sparkle-<版本>.tar.xz`），解压后把其中的 `bin/` 加入 `PATH`，发布脚本需要 `generate_appcast`。
