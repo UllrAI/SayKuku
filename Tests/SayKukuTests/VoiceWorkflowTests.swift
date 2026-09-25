@@ -189,11 +189,11 @@ struct VoiceWorkflowTests {
         #expect(text.writes.isEmpty)
     }
 
-    @Test("the Agent deletes the last write, which then can't be revised or undone")
+    @Test("the Agent deletes the last write without a History entry, and the deletion can be undone")
     func agentDeletesLastWrite() async throws {
         let environment = AppStateTestEnvironment()
         defer { environment.clean() }
-        let deletion = AgentResponse(transcript: "算了", action: .writeText, target: .previous, intent: "删除", output: "")
+        let deletion = AgentResponse(transcript: "删掉刚才那段", action: .writeText, target: .previous, intent: "删除", output: "")
         let text = FakeTextWriting(snapshot: .fake(valueBefore: "", selectedRange: CFRange(location: 0, length: 0)))
         let state = try makeState(environment, .fake(reasoning: FakeReasoning(agentReply: .success(deletion)), text: text))
         try await startListening(state)
@@ -208,9 +208,22 @@ struct VoiceWorkflowTests {
         state.finishAgentListening()
         #expect(await eventually { state.agentPhase == .result })
         #expect(text.writes == ["Hello world.", ""])
-        #expect(!state.canUndoLastWrite)
-        #expect(!state.resultCanUndo)
+        #expect(state.resultCanUndo)
+        #expect(state.historyEntries.map(\.output) == ["Hello world."])
         #expect(state.sessions.last?.contextSummary == "Action: writeText\nTarget: previous SayKuku output, deleted")
+
+        // The emptied range is not offered as text to revise.
+        text.snapshot = .fake(valueBefore: "", selectedRange: CFRange(location: 0, length: 0))
+        text.fieldValue = ""
+        try await startAgentListening(state)
+        #expect(!state.contextItems.contains { $0.kind == .previousOutput })
+        state.dismissAgent()
+
+        // Undo writes back the text the deletion replaced.
+        #expect(state.canUndoLastWrite)
+        await state.undoLastWrite()
+        #expect(text.writes == ["Hello world.", "", "Hello world."])
+        #expect(!state.canUndoLastWrite)
     }
 
     @Test("undo clears the last write once it lands, and keeps it when the field changed")

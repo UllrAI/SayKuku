@@ -624,7 +624,7 @@ struct QwenReasoningClient: Reasoning {
     Target and source text:
     - If selected text is present, it is the object of implicit commands such as "translate to English", "make it shorter", or "rewrite this": use target "current", transform it, not the spoken command, and return only the replacement text. Use target "previous" only when the user explicitly refers to what SayKuku just wrote.
     - Otherwise, if Previous SayKuku output is present, it is the object of editing commands such as "make it shorter", "more formal", "say it differently", "add the room number", "translate to English", or "drop the last sentence": use target "previous" and transform it. Leave it alone only when the user asks for new text ("write another paragraph", "write it here") or the command is unrelated to it, such as a question, a search, or a link.
-    - To delete Previous SayKuku output ("算了", "撤销", "删掉刚才那段"), reply writeText with target "previous" and output "". No other writeText may have an empty output.
+    - To delete Previous SayKuku output ("撤销刚才写的", "删掉刚才那段", "delete what you just wrote"), reply writeText with target "previous" and output "". Delete only when the request clearly points at what was just written; "算了" or "never mind" alone is no command, so reply only {"transcript":""}. No other writeText may have an empty output.
     - Otherwise writeText uses target "current".
     - When transforming text, make only the requested edit and keep the rest of its content. With no text to transform, write from the spoken command and relevant context, cleaned up like transcript.
 

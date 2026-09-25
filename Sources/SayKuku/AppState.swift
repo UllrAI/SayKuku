@@ -980,7 +980,8 @@ final class AppState {
             domains: selectedDomains,
             knowledge: knowledgeEntities
         )
-        if let lastVerifiedWrite, lastVerifiedWrite.isRecent,
+        // After a deletion the last write is kept only for undo; there is nothing left to revise.
+        if let lastVerifiedWrite, lastVerifiedWrite.isRecent, !lastVerifiedWrite.text.isEmpty,
            let expected = lastVerifiedWrite.expectedValue,
            snapshot.valueBefore == expected,
            textInteraction.currentValue(of: lastVerifiedWrite.target) == expected {
@@ -1200,6 +1201,8 @@ final class AppState {
                   !transcript.isEmpty else { throw QwenError.invalidResponse }
             let command = SpeechDisfluencyCleaner.clean(transcript, mode: .light)
             guard let snapshot else { throw TextInteractionError.targetChanged }
+            // An empty result is not worth keeping; the Session still records the deletion.
+            if response.deletesPrevious, let historyID { deleteHistoryEntry(historyID) }
             updateHistory(historyID, input: command)
             agentCommand = response.intent ?? response.action.title
             withAnimation(Motion.panel) { agentPhase = .processing }
@@ -1307,10 +1310,8 @@ final class AppState {
                         updateHistory(historyID, input: command, output: text, status: .completed)
                         try Task.checkCancellation()
                         guard generation == workflowGeneration else { throw CancellationError() }
-                        // A deletion leaves nothing to revise or undo.
-                        lastVerifiedWrite = outcome == .verified && !text.isEmpty
-                            ? VerifiedWrite(target: writeTarget, text: text) : nil
-                        resultCanUndo = lastVerifiedWrite != nil
+                        lastVerifiedWrite = outcome == .verified ? VerifiedWrite(target: writeTarget, text: text) : nil
+                        resultCanUndo = outcome == .verified
                     } catch let error as TextInteractionError {
                         // A deletion has no text to copy instead.
                         guard !text.isEmpty else { throw error }
