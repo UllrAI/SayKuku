@@ -47,7 +47,7 @@ struct AgentPill: View {
         switch appState.agentPhase {
         case .hidden: 0
         case .listening:
-            KukuPillLayout.width(for: listeningLabel, minimum: 168, fixedContentWidth: 140)
+            KukuPillLayout.width(for: appState.agentCommand, minimum: 168, fixedContentWidth: 140)
         case .copyReady:
             CopyFallbackContent.width(appState)
         case .answerReady:
@@ -59,10 +59,6 @@ struct AgentPill: View {
         case .result:
             KukuPillLayout.width(for: status, minimum: 78, fixedContentWidth: appState.resultCanUndo ? 96 : 38, maximum: 200)
         }
-    }
-
-    private var listeningLabel: String {
-        appState.liveTranscript.isEmpty ? appState.agentCommand : appState.liveTranscript
     }
 
     private var status: String {
@@ -103,7 +99,7 @@ struct AgentPill: View {
                     .frame(width: 22)
                 }
 
-                Text(listeningLabel)
+                Text(appState.agentCommand)
                     .font(.kuku(.callout, weight: .semibold))
                     .foregroundStyle(KukuColor.textPrimary)
                     .lineLimit(1)
@@ -145,7 +141,6 @@ struct AgentPill: View {
         }
         .contentTransition(.interpolate)
         .animation(Motion.snappy, value: appState.agentPhase)
-        .animation(Motion.snappy, value: appState.liveTranscript.isEmpty)
         .padding(.horizontal, KukuSpacing.sm)
         .frame(width: width)
         .frame(minHeight: KukuLayout.pillHeight)
@@ -304,7 +299,7 @@ struct DictationPill: View {
         switch appState.dictationPhase {
         case .idle: 0
         case .listening:
-            KukuPillLayout.width(for: transcriptLabel, minimum: 160, fixedContentWidth: 135, maximum: 340)
+            KukuPillLayout.width(for: status, minimum: 160, fixedContentWidth: 135, maximum: 340)
         case .copyReady:
             CopyFallbackContent.width(appState)
         case .processing:
@@ -319,7 +314,8 @@ struct DictationPill: View {
         appState.dictationPhase.status(appState) ?? ""
     }
 
-    /// While listening and transcribing, live text replaces the status once there is some.
+    /// Realtime deltas only arrive once the audio is committed, so live text can replace
+    /// the status while transcribing but never while listening.
     private var transcriptLabel: String {
         appState.liveTranscript.isEmpty ? status : appState.liveTranscript
     }
@@ -335,7 +331,7 @@ struct DictationPill: View {
                     action: appState.cancelDictation
                 )
                 Waveform(color: KukuColor.coral, level: appState.inputLevel, barCount: 6, height: 16)
-                Text(transcriptLabel)
+                Text(status)
                     .lineLimit(1)
                     .truncationMode(.tail)
                 Spacer(minLength: 0)

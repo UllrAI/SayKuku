@@ -277,12 +277,11 @@ struct ScreenHeader<Accessory: View>: View {
                 Text(title)
                     .font(.kuku(.largeTitle))
                     .foregroundStyle(KukuColor.textPrimary)
-                // A hidden line keeps every header the same height.
-                Text(subtitle ?? " ")
-                    .font(.kuku(.callout))
-                    .foregroundStyle(KukuColor.textSecondary)
-                    .opacity(subtitle == nil ? 0 : 1)
-                    .accessibilityHidden(subtitle == nil)
+                if let subtitle {
+                    Text(subtitle)
+                        .font(.kuku(.callout))
+                        .foregroundStyle(KukuColor.textSecondary)
+                }
             }
             Spacer(minLength: KukuSpacing.xl)
             accessory

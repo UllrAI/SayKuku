@@ -108,6 +108,15 @@ private struct VoiceInputSettings: View {
                 }
                 // Long custom vocabularies would otherwise stretch the row.
                 .lineLimit(2)
+                KukuDivider()
+                KukuToggleRow(
+                    title: appState.text("从纠正中学习", "Learn from corrections"),
+                    caption: appState.text(
+                        "改正识别错的词后，建议会出现在“记忆 › 纠正”中，确认后才会保存",
+                        "Words you fix show up as suggestions in Memory › Corrections. Nothing is saved until you approve it."
+                    ),
+                    isOn: $appState.learnFromCorrections
+                )
             }
         }
     }
@@ -376,13 +385,14 @@ struct QwenConnectionStatus: View {
 struct QwenConnectionButton: View {
     @Environment(AppState.self) private var appState
     let draft: QwenCredentialsDraft
+    var kind: KukuButtonStyle.Kind = .primary
 
     var body: some View {
         let isTesting = appState.connectionState == .testing
         Button(isTesting ? appState.text("正在测试…", "Testing…") : appState.text("测试连接", "Test Connection")) {
             Task { await appState.testQwenConnection(draft) }
         }
-        .buttonStyle(.kukuPrimary)
+        .buttonStyle(.kuku(kind))
         .disabled(isTesting || !draft.hasKey)
     }
 }
