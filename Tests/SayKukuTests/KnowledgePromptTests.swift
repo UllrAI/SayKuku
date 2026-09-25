@@ -48,7 +48,9 @@ struct KnowledgePromptTests {
         for type in EntityType.allCases {
             #expect(prompt.contains("- \(type.rawValue): "))
         }
-        #expect(prompt.contains("likely homophone misspellings"))
+        #expect(prompt.contains("Do not guess misspellings"))
+        #expect(!prompt.contains("homophone"))
+        #expect(prompt.contains("from and to: exactly an extracted entity's name"))
         #expect(prompt.contains("at most one short sentence, in the text's language"))
         #expect(prompt.contains(#""from" is the subject"#))
         #expect(prompt.contains("At most 40 entities"))
