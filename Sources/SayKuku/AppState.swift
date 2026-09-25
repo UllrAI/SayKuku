@@ -204,9 +204,9 @@ final class AppState {
     @ObservationIgnored private var persistenceGeneration = 0
 
     static let mainWindowID = "main"
-    private static let streamingRecordingLimit: Duration = .seconds(600)
-    /// Keeps audio sent in one request (Agent, batch dictation) under `QwenReasoningClient.maximumAudioBytes`.
-    private static let batchRecordingLimit: Duration = .seconds(210)
+    /// Keeps every recording under `QwenReasoningClient.maximumAudioBytes`, so streamed dictation
+    /// can still fall back to batch recognition and be retried from History.
+    private static let recordingLimit: Duration = .seconds(210)
     private static let recordingLimitWarning: Duration = .seconds(15)
     private static let successDisplayDuration: Duration = .seconds(2)
 
@@ -534,13 +534,15 @@ final class AppState {
         let key = apiKey
         let tested = configuration
         connectionState = .testing
+        // A client of its own, so testing never tears down a dictation in progress.
+        let testClient = QwenRealtimeClient()
         let realtimeSession = UUID()
         do {
             // Without a workspace ID there is no realtime endpoint to test; dictation uses batch recognition.
             var realtimeMilliseconds: Int?
             if tested.realtimeURL != nil {
                 let started = ContinuousClock.now
-                try await realtimeClient.connect(
+                try await testClient.connect(
                     session: realtimeSession,
                     apiKey: key,
                     configuration: tested,
@@ -549,7 +551,7 @@ final class AppState {
                     onDelta: { _ in }
                 )
                 realtimeMilliseconds = Int(started.duration(to: .now) / Duration.milliseconds(1))
-                await realtimeClient.cancel(session: realtimeSession)
+                await testClient.cancel(session: realtimeSession)
             }
             let chatLatency = try await reasoningClient.testConnection(apiKey: key, configuration: tested)
             finishConnectionTest(
@@ -560,7 +562,7 @@ final class AppState {
                 apiKey: key, configuration: tested
             )
         } catch {
-            await realtimeClient.cancel(session: realtimeSession)
+            await testClient.cancel(session: realtimeSession)
             finishConnectionTest(.failed(localizedError(error)), apiKey: key, configuration: tested)
         }
     }
@@ -842,8 +844,7 @@ final class AppState {
             }
 
             // Realtime needs a workspace ID; without one the full recording goes to batch recognition.
-            let streamsAudio = mode == .dictation && configuration.realtimeURL != nil
-            if streamsAudio {
+            if mode == .dictation && configuration.realtimeURL != nil {
                 let generation = workflowGeneration
                 let (stream, continuation) = AsyncStream<Data>.makeStream()
                 chunkContinuation = continuation
@@ -885,20 +886,19 @@ final class AppState {
                 try startAudioCapture(for: mode) { _ in }
                 if mode == .dictation { withAnimation(Motion.spring) { dictationPhase = .listening } }
             }
-            scheduleRecordingLimit(for: mode, streamsAudio: streamsAudio)
+            scheduleRecordingLimit(for: mode)
         } catch {
             handleWorkflowError(error, agent: mode == .agent)
         }
     }
 
     /// Warns shortly before the recording cap, then finishes the recording as if the user had stopped it.
-    private func scheduleRecordingLimit(for mode: VoiceWorkflowMode, streamsAudio: Bool) {
+    private func scheduleRecordingLimit(for mode: VoiceWorkflowMode) {
         let generation = workflowGeneration
-        let limit = streamsAudio ? Self.streamingRecordingLimit : Self.batchRecordingLimit
         let warning = Self.recordingLimitWarning
         recordingLimitTask = Task { @MainActor [weak self] in
             do {
-                try await Task.sleep(for: limit - warning)
+                try await Task.sleep(for: Self.recordingLimit - warning)
                 if let self, self.workflowGeneration == generation {
                     let seconds = warning.components.seconds
                     self.showOverlayFeedback(
@@ -1060,8 +1060,11 @@ final class AppState {
                 try await upload.value
                 try Task.checkCancellation()
                 guard generation == workflowGeneration else { throw CancellationError() }
-                let result = try await realtimeClient.commit(session: realtimeSession)
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                // The final text of a longer recording takes longer to arrive.
+                let result = try await realtimeClient.commit(
+                    session: realtimeSession,
+                    timeout: .seconds(15 + recording.duration / 4)
+                ).trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !result.isEmpty else { throw QwenError.noSpeech }
                 return SpeechDisfluencyCleaner.clean(result, mode: dictationCleanup)
             } catch is CancellationError {
