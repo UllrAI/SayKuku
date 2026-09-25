@@ -60,6 +60,12 @@ private struct VoiceInputSettings: View {
                         appState.inputMode = mode
                     }
                 }
+                KukuDivider()
+                KukuToggleRow(
+                    title: appState.text("开始和结束时播放提示音", "Play a sound when recording starts and stops"),
+                    caption: appState.text("语音 Agent 也会播放", "Also plays for Voice Agent"),
+                    isOn: $appState.soundCuesEnabled
+                )
             }
 
             KukuGroup(appState.text("麦克风测试", "Microphone test")) {
