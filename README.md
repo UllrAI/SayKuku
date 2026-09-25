@@ -7,7 +7,7 @@ SayKuku 是一款使用 SwiftUI 与 AppKit 构建的原生 macOS 语音输入应
 - Knowledge：管理人名、项目、组织和术语，提高识别与处理准确度。
 - History / Memory：在本机保存历史、短期 Agent Session 和用户确认的纠错记忆；失败听写可从录音重试。
 
-项目要求 macOS 15+、Swift 6 和完整 Xcode。当前 Swift Package 没有第三方依赖。
+项目要求 macOS 15+、Swift 6 和 Xcode 26 或更新。当前 Swift Package 没有第三方依赖。
 
 ## 开发
 
