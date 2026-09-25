@@ -26,7 +26,7 @@ Scripts/package-app.sh debug
 open Build/SayKuku.app
 ```
 
-开发包的文件路径仍是 `Build/SayKuku.app`，Finder 显示名称为 `SayKuku Dev`。开发版默认使用 `com.saykuku.dev`；正式版固定使用 `com.saykuku.app`，不能混用。日常开发不要覆盖 Bundle ID，更不得给开发构建使用 `com.saykuku.app`。
+开发包的文件路径仍是 `Build/SayKuku.app`，Finder 显示名称为 `SayKuku Dev`。开发版默认使用 `com.saykuku.dev`；正式版固定使用 `com.saykuku.app`，不能混用。日常开发不要覆盖 Bundle ID；给开发构建指定 `com.saykuku.app` 时脚本会直接报错退出。
 
 ## 1. 一次性准备
 
@@ -158,6 +158,8 @@ CFBundleIdentifier = com.saykuku.dev
 CFBundleDisplayName = SayKuku Dev
 ```
 
+开发版同样启用 Hardened Runtime，`flags` 中应包含 `runtime`。这样 entitlement 缺失之类的问题在开发阶段就会暴露，不必等到正式包。脚本会为开发版额外加上 `com.apple.security.get-task-allow`（写入临时文件 `Build/SayKuku.debug.entitlements`），以便 lldb 和 Instruments 附加调试；正式版不能带这项 entitlement，否则公证会失败。开发版只构建本机架构。
+
 ## 4. 正式版本地构建与签名
 
 正式版固定使用 Bundle ID `com.saykuku.app`，不能改成开发 Bundle ID。稳定的 Bundle ID 加稳定的 Developer ID 签名身份，才能让 macOS 在更新后正确识别原有权限记录。
@@ -176,8 +178,8 @@ Scripts/package-app.sh release
 
 脚本会：
 
-1. 以 release 配置编译 Swift Package。
-2. 生成 `Build/SayKuku.app`。
+1. 以 release 配置同时编译 `arm64` 和 `x86_64`，生成通用二进制，并用 `lipo -archs` 确认两个架构都在。
+2. 生成 `Build/SayKuku.app`，资源包放在 `Contents/Resources/SayKuku_SayKuku.bundle`。
 3. 写入正式 Bundle ID 和资源。
 4. 使用 `Scripts/Resources/SayKuku.entitlements` 签名。
 5. 启用 Hardened Runtime、时间戳，并执行严格签名验证。
@@ -196,7 +198,10 @@ codesign -dvvv Build/SayKuku.app 2>&1 | \
   rg 'Identifier|Authority|TeamIdentifier|flags'
 codesign -d --entitlements - Build/SayKuku.app
 codesign --verify --deep --strict --verbose=2 Build/SayKuku.app
+lipo -archs Build/SayKuku.app/Contents/MacOS/SayKuku
 ```
+
+`lipo` 应输出 `x86_64 arm64`。
 
 还应确认版本和 Bundle ID：
 

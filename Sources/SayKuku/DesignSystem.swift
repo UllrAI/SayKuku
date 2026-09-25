@@ -172,7 +172,7 @@ struct BrandMark: View {
 
     var body: some View {
         Group {
-            if let url = Bundle.module.url(forResource: "SayKuku", withExtension: "svg"),
+            if let url = Bundle.appResources.url(forResource: "SayKuku", withExtension: "svg"),
                let image = NSImage(contentsOf: url) {
                 Image(nsImage: image)
                     .resizable()
