@@ -2,13 +2,18 @@ import Foundation
 import Testing
 @testable import SayKuku
 
-/// Recordings are removed in a background task, so poll briefly instead of asserting immediately.
-private func waitForRemoval(of url: URL) async -> Bool {
+/// Files are written and removed in background tasks, so poll briefly instead of asserting immediately.
+@MainActor
+private func eventually(_ condition: () -> Bool) async -> Bool {
     for _ in 0..<100 {
-        if !FileManager.default.fileExists(atPath: url.path) { return true }
+        if condition() { return true }
         try? await Task.sleep(for: .milliseconds(10))
     }
     return false
+}
+
+private func historyEntry(_ text: String, audioFilename: String? = nil) -> HistoryEntry {
+    HistoryEntry(mode: .dictation, app: "Tests", durationSeconds: 1, input: text, output: text, audioFilename: audioFilename)
 }
 
 @Suite("Configuration and persistence")
@@ -110,6 +115,7 @@ struct PersistenceTests {
         #expect(snapshot.history == [entry])
         let storedBytes = try Data(contentsOf: root.appendingPathComponent("store.json"))
         #expect(String(decoding: storedBytes, as: UTF8.self).contains("hello"))
+        #expect(String(decoding: storedBytes, as: UTF8.self).contains(#""version":1"#))
         let fileMode = try FileManager.default.attributesOfItem(atPath: root.appendingPathComponent("store.json").path)[.posixPermissions] as? NSNumber
         #expect(fileMode?.intValue == 0o600)
     }
@@ -120,11 +126,16 @@ struct PersistenceTests {
         defer { try? FileManager.default.removeItem(at: root) }
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let snapshotURL = root.appendingPathComponent("store.json")
-        let original = Data("not valid JSON".utf8)
+        let recordingName = "\(UUID().uuidString).wav"
+        let original = Data(#"{"history":[{"audioFilename":"\#(recordingName)","#.utf8)
         try original.write(to: snapshotURL)
+        let audioDirectory = root.appendingPathComponent("Audio", isDirectory: true)
+        try FileManager.default.createDirectory(at: audioDirectory, withIntermediateDirectories: true)
+        let recording = audioDirectory.appendingPathComponent(recordingName)
+        try Data("audio".utf8).write(to: recording)
         let store = LocalStore(root: root)
 
-        guard case .movedAside(let backup)? = store.dataIssue else {
+        guard case .movedAside(let backup)? = await store.dataIssue else {
             Issue.record("Expected the malformed snapshot to be moved aside")
             return
         }
@@ -134,6 +145,8 @@ struct PersistenceTests {
         #expect(try Data(contentsOf: backup) == original)
         #expect(!FileManager.default.fileExists(atPath: snapshotURL.path))
         #expect(try await store.load().history.isEmpty)
+        // The backed-up history may still point at this recording.
+        #expect(FileManager.default.fileExists(atPath: recording.path))
 
         let entry = HistoryEntry(mode: .dictation, app: "Tests", durationSeconds: 1, input: "hello", output: "hello")
         try await store.replace(.init(history: [entry]))
@@ -141,7 +154,7 @@ struct PersistenceTests {
         #expect(try Data(contentsOf: backup) == original)
 
         let reloaded = LocalStore(root: root)
-        #expect(reloaded.dataIssue == nil)
+        #expect(await reloaded.dataIssue == nil)
         #expect(try await reloaded.load().history.map(\.id) == [entry.id])
     }
 
@@ -183,7 +196,7 @@ struct PersistenceTests {
         try original.write(to: snapshotURL)
         let store = LocalStore(root: root)
 
-        guard case .skippedRecords(let count, let backup)? = store.dataIssue else {
+        guard case .skippedRecords(let count, let backup)? = await store.dataIssue else {
             Issue.record("Expected one skipped record")
             return
         }
@@ -195,6 +208,123 @@ struct PersistenceTests {
         #expect(snapshot.history.map(\.id) == [readableID])
         #expect(snapshot.history.first?.isStarred == true)
         #expect(snapshot.entities.isEmpty)
+    }
+
+    @Test("data written by a newer version stays read-only")
+    func newerSnapshotVersion() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let snapshotURL = root.appendingPathComponent("store.json")
+        let original = Data(#"{"version":2,"history":[],"futureField":true}"#.utf8)
+        try original.write(to: snapshotURL)
+        let store = LocalStore(root: root)
+
+        #expect(await store.dataIssue == .readOnly(file: snapshotURL))
+        await #expect(throws: LocalStoreError.self) { try await store.load() }
+        await #expect(throws: LocalStoreError.self) { try await store.replace(.init(history: [historyEntry("new")])) }
+        #expect(try Data(contentsOf: snapshotURL) == original)
+    }
+
+    @Test("recordings no history entry points to are removed at launch")
+    func unreferencedAudioCleanup() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let audioDirectory = root.appendingPathComponent("Audio", isDirectory: true)
+        let referenced = "\(UUID().uuidString).wav"
+        try await LocalStore(root: root).replace(.init(history: [historyEntry("kept", audioFilename: referenced)]))
+        let backedUpName = "\(UUID().uuidString).wav"
+        let kept = audioDirectory.appendingPathComponent(referenced)
+        let backedUp = audioDirectory.appendingPathComponent(backedUpName)
+        let orphan = audioDirectory.appendingPathComponent("\(UUID().uuidString).wav")
+        let legacy = audioDirectory.appendingPathComponent("\(UUID().uuidString).audio")
+        for url in [kept, backedUp, orphan, legacy] { try Data("audio".utf8).write(to: url) }
+        // A damaged backup still names its recordings even though it no longer parses.
+        let backup = root.appendingPathComponent("store.corrupt-20240101-000000.json")
+        try Data(#"{"history":[{"audioFilename":"\#(backedUpName)""#.utf8).write(to: backup)
+
+        _ = try await LocalStore(root: root).load()
+        #expect(!FileManager.default.fileExists(atPath: orphan.path))
+        #expect(FileManager.default.fileExists(atPath: kept.path))
+        #expect(FileManager.default.fileExists(atPath: backedUp.path))
+        #expect(FileManager.default.fileExists(atPath: legacy.path))
+    }
+
+    @Test("recordings are kept when a backup can't be read")
+    func unreadableBackupKeepsAudio() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let audioDirectory = root.appendingPathComponent("Audio", isDirectory: true)
+        try FileManager.default.createDirectory(at: audioDirectory, withIntermediateDirectories: true)
+        let recording = audioDirectory.appendingPathComponent("\(UUID().uuidString).wav")
+        try Data("audio".utf8).write(to: recording)
+        // A directory stands in for a backup whose contents can't be read.
+        let backup = root.appendingPathComponent("store.corrupt-20240101-000000.json", isDirectory: true)
+        try FileManager.default.createDirectory(at: backup, withIntermediateDirectories: true)
+
+        _ = try await LocalStore(root: root).load()
+        #expect(FileManager.default.fileExists(atPath: recording.path))
+    }
+
+    @Test("changes made while loading never replace stored data")
+    @MainActor
+    func changesDuringLoad() async throws {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let stored = historyEntry("stored")
+        try await LocalStore(root: environment.root).replace(.init(history: [stored]))
+        let state = environment.makeState(persistenceDelay: .seconds(60))
+
+        let loading = Task { await state.loadStoredData() }
+        await Task.yield()
+        let recorded = historyEntry("recorded")
+        let entity = KnowledgeEntity(name: "SayKuku", type: .product)
+        state.historyEntries.insert(recorded, at: 0)
+        state.knowledgeEntities.append(entity)
+        await loading.value
+        await state.loadStoredData()
+        #expect(Set(state.historyEntries.map(\.id)) == [stored.id, recorded.id])
+        #expect(state.knowledgeEntities.map(\.id) == [entity.id])
+
+        await state.flushPersistence()
+        let saved = try await LocalStore(root: environment.root).load()
+        #expect(Set(saved.history.map(\.id)) == [stored.id, recorded.id])
+        #expect(saved.entities.map(\.id) == [entity.id])
+    }
+
+    @Test("a burst of changes is saved in one write")
+    @MainActor
+    func coalescedPersistence() async throws {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let snapshotURL = environment.root.appendingPathComponent("store.json")
+        let state = environment.makeState(persistenceDelay: .seconds(60))
+        await state.loadStoredData()
+
+        for text in ["first", "second", "third"] { state.historyEntries.insert(historyEntry(text), at: 0) }
+        state.toggleHistoryStar(state.historyEntries[0].id)
+        #expect(!FileManager.default.fileExists(atPath: snapshotURL.path))
+
+        await state.flushPersistence()
+        let saved = try await LocalStore(root: environment.root).load()
+        #expect(saved.history.map(\.input) == ["third", "second", "first"])
+        #expect(saved.history.first?.isStarred == true)
+    }
+
+    @Test("pending changes are saved after a short delay")
+    @MainActor
+    func delayedPersistence() async {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let snapshotURL = environment.root.appendingPathComponent("store.json")
+        let state = environment.makeState(persistenceDelay: .milliseconds(10))
+        await state.loadStoredData()
+
+        state.historyEntries = [historyEntry("saved later")]
+        #expect(await eventually {
+            guard let data = try? Data(contentsOf: snapshotURL) else { return false }
+            return String(decoding: data, as: UTF8.self).contains("saved later")
+        })
     }
 
     @Test("legacy encrypted data is reported but left untouched")
@@ -214,7 +344,7 @@ struct PersistenceTests {
         try encrypted.write(to: legacySnapshot)
         let store = LocalStore(root: root)
         #expect(await store.legacyEncryptedDataURL()?.lastPathComponent == "store.data")
-        #expect(store.dataIssue == nil)
+        #expect(await store.dataIssue == nil)
         #expect(try await store.load().history.isEmpty)
         #expect(try Data(contentsOf: legacySnapshot) == encrypted)
         #expect(FileManager.default.fileExists(atPath: legacyAudio.path))
@@ -245,7 +375,7 @@ struct PersistenceTests {
 
         state.deleteHistoryEntry(recorded.id)
         #expect(state.historyEntries.map(\.id) == [starred.id, plain.id])
-        #expect(await waitForRemoval(of: audioURL))
+        #expect(await eventually { !FileManager.default.fileExists(atPath: audioURL.path) })
 
         state.clearHistory(keepingStarred: true)
         #expect(state.historyEntries.map(\.id) == [starred.id])

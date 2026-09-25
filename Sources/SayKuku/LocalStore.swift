@@ -14,6 +14,9 @@ enum LocalStoreError: LocalizedError {
 
 actor LocalStore {
     struct Snapshot: Codable {
+        static let currentVersion = 1
+
+        var version = Snapshot.currentVersion
         var history: [HistoryEntry] = []
         var entities: [KnowledgeEntity] = []
         var relationships: [KnowledgeRelationship] = []
@@ -27,7 +30,8 @@ actor LocalStore {
         case skippedRecords(count: Int, backup: URL)
         /// The file could not be read at all; it was moved to `backup` and an empty store was started.
         case movedAside(backup: URL)
-        /// The file could not be read from disk or backed up, so the store stays read-only to protect it.
+        /// The file could not be read from disk or backed up, or a newer SayKuku wrote it,
+        /// so the store stays read-only to protect it.
         case readOnly(file: URL)
 
         var fileURL: URL {
@@ -38,34 +42,30 @@ actor LocalStore {
         }
     }
 
-    nonisolated let dataIssue: DataIssue?
     private let root: URL
     private let snapshotURL: URL
     private let audioDirectory: URL
-    private var snapshot: Snapshot
-    private let snapshotIsReadable: Bool
+    private var loaded: LoadResult?
     private var latestGeneration = 0
 
     init(root: URL? = nil) {
         let base = root ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent(StorageIdentity().directoryName, isDirectory: true)
-        let url = base.appendingPathComponent("store.json")
         self.root = base
-        snapshotURL = url
+        snapshotURL = base.appendingPathComponent("store.json")
         audioDirectory = base.appendingPathComponent("Audio", isDirectory: true)
-        let loaded = Self.loadSnapshot(from: url)
-        snapshot = loaded.snapshot
-        snapshotIsReadable = loaded.isReadable
-        dataIssue = loaded.issue
     }
 
+    var dataIssue: DataIssue? { loadedSnapshot().issue }
+
     func load() throws -> Snapshot {
-        guard snapshotIsReadable else { throw LocalStoreError.unreadableSnapshot }
-        return snapshot
+        let result = loadedSnapshot()
+        guard result.isReadable else { throw LocalStoreError.unreadableSnapshot }
+        return result.snapshot
     }
 
     func replace(_ newValue: Snapshot, generation: Int? = nil) throws {
-        guard snapshotIsReadable else { throw LocalStoreError.unreadableSnapshot }
+        guard loadedSnapshot().isReadable else { throw LocalStoreError.unreadableSnapshot }
         if let generation, generation < latestGeneration { return }
         try prepareDirectories()
         let encoder = JSONEncoder()
@@ -74,11 +74,11 @@ actor LocalStore {
         try encoder.encode(newValue).write(to: snapshotURL, options: .atomic)
         try restrictPermissions(at: snapshotURL, to: 0o600)
         if let generation { latestGeneration = generation }
-        snapshot = newValue
+        loaded?.snapshot = newValue
     }
 
     func saveAudio(_ wavData: Data, id: UUID) throws -> String {
-        guard snapshotIsReadable else { throw LocalStoreError.unreadableSnapshot }
+        guard loadedSnapshot().isReadable else { throw LocalStoreError.unreadableSnapshot }
         try prepareDirectories()
         let name = "\(id.uuidString).wav"
         let url = audioDirectory.appendingPathComponent(name)
@@ -105,6 +105,34 @@ actor LocalStore {
         if files.fileExists(atPath: legacySnapshot.path) { return legacySnapshot }
         let audio = (try? files.contentsOfDirectory(at: audioDirectory, includingPropertiesForKeys: nil)) ?? []
         return audio.contains { $0.pathExtension == "audio" } ? audioDirectory : nil
+    }
+
+    /// Reads `store.json` on first use instead of in `init`, so launch never decodes it on the main thread.
+    /// This runs before any write, so no recording being saved can be mistaken for a leftover.
+    private func loadedSnapshot() -> LoadResult {
+        if let loaded { return loaded }
+        let result = Self.loadSnapshot(from: snapshotURL)
+        loaded = result
+        if result.isReadable { removeUnreferencedAudio(keeping: result.snapshot.history) }
+        return result
+    }
+
+    /// Deletes recordings left behind by a crash or a failed delete. Recordings named in a backup of
+    /// damaged data are kept, so restoring the backup brings them back.
+    private func removeUnreferencedAudio(keeping history: [HistoryEntry]) {
+        let files = FileManager.default
+        var referenced = Set(history.compactMap(\.audioFilename))
+        let rootNames = (try? files.contentsOfDirectory(atPath: root.path)) ?? []
+        for name in rootNames where name.hasPrefix("store.corrupt-") {
+            // Scan the raw text, since a backup may not parse. If one can't be read, keep everything.
+            guard let data = try? Data(contentsOf: root.appendingPathComponent(name)) else { return }
+            let text = String(decoding: data, as: UTF8.self)
+            referenced.formUnion(text.matches(of: /[0-9A-Fa-f-]{36}\.wav/).map { String($0.output) })
+        }
+        let audio = (try? files.contentsOfDirectory(at: audioDirectory, includingPropertiesForKeys: nil)) ?? []
+        for url in audio where url.pathExtension == "wav" && !referenced.contains(url.lastPathComponent) {
+            try? files.removeItem(at: url)
+        }
     }
 
     private func audioURL(named filename: String) throws -> URL {
@@ -144,6 +172,10 @@ actor LocalStore {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .millisecondsSince1970
         if let decoded = try? decoder.decode(TolerantSnapshot.self, from: data) {
+            // Saving would drop whatever a newer version added, so leave its file alone.
+            guard decoded.snapshot.version <= Snapshot.currentVersion else {
+                return LoadResult(isReadable: false, issue: .readOnly(file: url))
+            }
             guard decoded.skippedCount > 0 else { return LoadResult(snapshot: decoded.snapshot) }
             // Copy rather than move: the next save rewrites store.json without the skipped records.
             guard let backup = try? backUp(url, keepingOriginal: true) else {
@@ -189,7 +221,7 @@ private struct TolerantSnapshot: Decodable {
     let skippedCount: Int
 
     private enum CodingKeys: String, CodingKey {
-        case history, entities, relationships, corrections, sessions
+        case version, history, entities, relationships, corrections, sessions
     }
 
     init(from decoder: Decoder) throws {
@@ -201,6 +233,8 @@ private struct TolerantSnapshot: Decodable {
             return decoded.compactMap(\.value)
         }
         snapshot = try LocalStore.Snapshot(
+            // Files written before versioning have no version and count as version 1.
+            version: container.decodeIfPresent(Int.self, forKey: .version) ?? 1,
             history: records(.history),
             entities: records(.entities),
             relationships: records(.relationships),

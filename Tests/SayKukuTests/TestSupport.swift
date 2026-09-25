@@ -16,8 +16,11 @@ struct AppStateTestEnvironment {
     }
 
     /// A new state reads whatever earlier states in this environment saved.
-    func makeState(store: LocalStore? = nil) -> AppState {
-        AppState(defaults: defaults, store: store ?? LocalStore(root: root), keychain: keychain)
+    func makeState(store: LocalStore? = nil, persistenceDelay: Duration = .milliseconds(500)) -> AppState {
+        AppState(
+            defaults: defaults, store: store ?? LocalStore(root: root),
+            keychain: keychain, persistenceDelay: persistenceDelay
+        )
     }
 
     func clean() {

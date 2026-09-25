@@ -204,8 +204,11 @@ final class AppState {
     @ObservationIgnored private var mainWindowOpener: OpenWindowAction?
     @ObservationIgnored private var didEvaluateStartupPermissions = false
     @ObservationIgnored private var pendingSetupSteps: [AppSheet] = []
+    @ObservationIgnored private var didStartLoading = false
     @ObservationIgnored private var isLoaded = false
     @ObservationIgnored private var persistenceGeneration = 0
+    @ObservationIgnored private let persistenceDelay: Duration
+    @ObservationIgnored private var persistenceTask: Task<Void, Never>?
 
     static let mainWindowID = "main"
     /// Keeps every recording under `QwenReasoningClient.maximumAudioBytes`, so streamed dictation
@@ -217,11 +220,13 @@ final class AppState {
     init(
         defaults: UserDefaults = .standard,
         store: LocalStore = LocalStore(),
-        keychain: KeychainStore = KeychainStore()
+        keychain: KeychainStore = KeychainStore(),
+        persistenceDelay: Duration = .milliseconds(500)
     ) {
         self.defaults = defaults
         self.store = store
         self.keychain = keychain
+        self.persistenceDelay = persistenceDelay
         loadSettings()
         launchAtLogin = SMAppService.mainApp.status == .enabled
         apiKey = (try? keychain.string(for: Keys.apiKey)) ?? ""
@@ -1476,10 +1481,10 @@ final class AppState {
     /// Earlier builds saved these placeholders as detail; clear them so they stay out of the UI and prompts.
     private static let legacyPlaceholderDetails: Set<String> = ["手动添加", "Added manually", "来自纠正记忆", "From correction memory"]
 
-    private func loadStoredData() async {
-        guard !isLoaded else { return }
-        isLoaded = true
-        localDataIssue = store.dataIssue
+    func loadStoredData() async {
+        guard !didStartLoading else { return }
+        didStartLoading = true
+        localDataIssue = await store.dataIssue
         if !defaults.bool(forKey: Keys.legacyDataNoticeDismissed) {
             legacyDataURL = await store.legacyEncryptedDataURL()
         }
@@ -1493,25 +1498,34 @@ final class AppState {
             )
             return
         }
-        historyEntries = Self.recoveringInterruptedHistory(
+        historyEntries = Self.merging(historyEntries, Self.recoveringInterruptedHistory(
             snapshot.history,
             message: text("SayKuku 退出时还没处理完", "SayKuku quit before this finished")
-        ).sorted { $0.createdAt > $1.createdAt }
-        knowledgeEntities = snapshot.entities.map { entity in
+        )).sorted { $0.createdAt > $1.createdAt }
+        knowledgeEntities = Self.merging(knowledgeEntities, snapshot.entities.map { entity in
             var entity = entity
             if Self.legacyPlaceholderDetails.contains(entity.detail) { entity.detail = "" }
             return entity
-        }
-        knowledgeRelationships = snapshot.relationships
-        corrections = snapshot.corrections
-        sessions = snapshot.sessions.filter { $0.expiresAt > .now }
+        })
+        knowledgeRelationships = Self.merging(knowledgeRelationships, snapshot.relationships)
+        corrections = Self.merging(corrections, snapshot.corrections)
+        sessions = Self.merging(sessions, snapshot.sessions.filter { $0.expiresAt > .now })
         cleanExpiredHistory()
+        // Saving before every array is in place would replace the stored data with part of it.
+        isLoaded = true
+        schedulePersistence()
         if localDataIssue != nil {
             showToast(
                 text("读取本机数据时出了问题，原文件已备份，详情见“历史”", "There was a problem reading local data. The original file was backed up. See History for details."),
                 symbol: "exclamationmark.triangle.fill"
             )
         }
+    }
+
+    /// Keeps records added while loading; stored records fill in the rest.
+    private static func merging<Record: Identifiable>(_ current: [Record], _ stored: [Record]) -> [Record] {
+        let currentIDs = Set(current.map(\.id))
+        return current + stored.filter { !currentIDs.contains($0.id) }
     }
 
     /// Entries still processing at launch were cut off by a quit or crash; keep their audio so they can be retried.
@@ -1543,12 +1557,34 @@ final class AppState {
         }
     }
 
+    /// Coalesces a burst of changes, such as the several updates one dictation makes, into one write.
     private func schedulePersistence() {
-        guard let snapshot = nextPersistedSnapshot() else { return }
-        Task { [store] in try? await store.replace(snapshot.value, generation: snapshot.generation) }
+        guard isLoaded else { return }
+        persistenceTask?.cancel()
+        persistenceTask = Task { [weak self, persistenceDelay] in
+            do { try await Task.sleep(for: persistenceDelay) } catch { return }
+            await self?.flushPersistence()
+        }
+    }
+
+    /// Writes pending changes now and reports whether they were saved. Quitting waits for this.
+    @discardableResult
+    func flushPersistence() async -> Bool {
+        do {
+            try await persistCurrentState()
+            return true
+        } catch {
+            showToast(
+                text("本机数据没能保存，最近的更改可能会丢失，请检查磁盘空间", "Couldn’t save your data, so recent changes may be lost. Check your available storage."),
+                symbol: "exclamationmark.triangle.fill"
+            )
+            return false
+        }
     }
 
     private func persistCurrentState() async throws {
+        persistenceTask?.cancel()
+        persistenceTask = nil
         guard let snapshot = nextPersistedSnapshot() else { return }
         try await store.replace(snapshot.value, generation: snapshot.generation)
     }

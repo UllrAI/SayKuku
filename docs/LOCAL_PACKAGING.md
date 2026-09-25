@@ -360,7 +360,7 @@ codesign -dvvv /Applications/SayKuku.app 2>&1 | \
 | Dev（含 `swift run`） | `com.saykuku.dev.secure-storage` | `~/Library/Application Support/SayKuku Dev/` | 无 |
 | Release | `com.saykuku.app.secure-storage` | `~/Library/Application Support/SayKuku/` | `com.saykuku.app`，仅用于迁移 |
 
-正式版第一次读取旧 service 中的 API Key 时，会通过 Security Framework 把它复制到当前 service，同时保留旧条目。旧条目若由命令行工具或其他签名创建，迁移时可能出现一次授权提示；迁移成功后的读取不应持续提示。正式版沿用原有数据目录；开发版使用独立目录，不会读取或复制正式版数据。
+正式版第一次读取旧 service 中的 API Key 时，会通过 Security Framework 把它移到当前 service：写入成功后删除旧 service 中的同一条目，其他旧条目不受影响。旧条目若由命令行工具或其他签名创建，迁移时可能出现一次授权提示；迁移成功后的读取不应持续提示。正式版沿用原有数据目录；开发版使用独立目录，不会读取或复制正式版数据。
 
 Keychain 只保存 API Key。History、Memory、Knowledge 以 JSON 保存在数据目录的 `store.json`，录音保存在 `Audio/*.wav`，均不额外加密。旧版本留下的 `history-encryption-key` 已不参与运行时读写，App 不会用它解密或自动迁移旧数据。旧数据的迁移或清理必须先取得用户明确授权，不要为了消除弹窗或“整理环境”擅自删除该条目或旧文件。也不要用开发包读取或修改正式 service。
 
