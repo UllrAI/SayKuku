@@ -1430,7 +1430,11 @@ QwenReasoningClient
 当前实现的核心模块与源码对应关系：
 
 ```text
-SayKukuApp / AppState
+SayKukuApp / AppState             // 导航、首次运行向导、Toast、窗口、权限、Qwen 连接测试
+│
+├── AppSettings                   // UserDefaults 中的偏好与 Keychain 中的 API Key
+├── LocalData                     // History、记忆与纠正建议的读写
+├── VoiceWorkflow                 // Voice Input / Voice Agent 状态机与浮层反馈
 │
 ├── ShortcutController            // Carbon 快捷键 + AppKit Fn monitor
 ├── AudioCapture                  // 16 kHz PCM / WAV

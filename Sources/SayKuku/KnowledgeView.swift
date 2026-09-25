@@ -689,7 +689,7 @@ private struct KnowledgeImportSheet: View {
                 selected = Set(value.candidates.filter { $0.status == .new || $0.status == .merge }.map(\.id))
                 withAnimation(Motion.panel) { reviewing = true }
             } catch {
-                errorMessage = appState.localizedError(error)
+                errorMessage = localizedError(error)
             }
             analysisTask = nil
         }

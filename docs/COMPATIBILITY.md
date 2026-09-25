@@ -61,7 +61,7 @@
 
 ## Fn 到 Pill 延迟
 
-> SayKuku.md 第 18.6 节要求「Fn UI 首次反馈 P95 < 100 ms」；按 issue #64 的验收标准，蓝牙麦克风下为 < 300 ms。修改 `AppState.beginVoiceWorkflow`、`AudioCapture` 或 `TextInteraction.captureTarget` 后要重测。同样只填真机结果，没测过的格子保持「待测」。
+> SayKuku.md 第 18.6 节要求「Fn UI 首次反馈 P95 < 100 ms」；按 issue #64 的验收标准，蓝牙麦克风下为 < 300 ms。修改 `VoiceWorkflow.beginVoiceWorkflow`、`AudioCapture` 或 `TextInteraction.captureTarget` 后要重测。同样只填真机结果，没测过的格子保持「待测」。
 
 测试日期：待测　SayKuku 提交：待测　macOS 版本：待测
 
