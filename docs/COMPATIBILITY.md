@@ -1,6 +1,6 @@
 # 写入兼容性实测
 
-> 每次修改 `Sources/SayKuku/TextInteraction.swift` 后，都要在真机上重跑下表的全部应用并更新结果。表中只能填写真机实测结果，没测过的格子保持「待测」。
+> 每次修改 `Sources/SayKuku/Voice/` 下的 `TextInteraction.swift`、`PasteboardPolicy.swift`、`KeyboardLayout.swift` 或 `SensitiveApps.swift` 后，都要在真机上重跑下表的全部应用并更新结果。表中只能填写真机实测结果，没测过的格子保持「待测」。
 
 应用列表来自 [SayKuku.md](../SayKuku.md) 第 18.6 节的兼容性矩阵。
 

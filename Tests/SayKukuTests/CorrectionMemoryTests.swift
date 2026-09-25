@@ -118,16 +118,16 @@ struct CorrectionMemoryTests {
         body(environment.makeState())
     }
 
-    @Test("knowledge added without detail keeps it empty")
-    func manualKnowledgeDetail() {
+    @Test("memory added without detail keeps it empty")
+    func manualMemoryDetail() {
         withState { state in
-            #expect(state.data.addKnowledge(name: "AniKuku", type: .project, detail: "  ") == nil)
-            #expect(state.data.knowledgeEntities.first?.detail == "")
-            #expect(state.data.addKnowledge(name: "WorkBuddy", type: .project) == nil)
-            #expect(state.data.knowledgeEntities.first?.detail == "")
-            #expect(state.data.addKnowledge(name: " ani kuku ", type: .term) == .duplicate(existingName: "AniKuku"))
-            #expect(state.data.addKnowledge(name: "  ", type: .term) == .emptyName)
-            #expect(state.data.knowledgeEntities.count == 2)
+            #expect(state.data.addMemory(name: "AniKuku", type: .project, detail: "  ") == nil)
+            #expect(state.data.memoryEntities.first?.detail == "")
+            #expect(state.data.addMemory(name: "WorkBuddy", type: .project) == nil)
+            #expect(state.data.memoryEntities.first?.detail == "")
+            #expect(state.data.addMemory(name: " ani kuku ", type: .term) == .duplicate(existingName: "AniKuku"))
+            #expect(state.data.addMemory(name: "  ", type: .term) == .emptyName)
+            #expect(state.data.memoryEntities.count == 2)
         }
     }
 
@@ -137,7 +137,7 @@ struct CorrectionMemoryTests {
             let record = CorrectionRecord(raw: "王小明", corrected: "王晓明", lastApp: "TextEdit")
             state.data.corrections = [record]
             state.data.acceptCorrection(record.id)
-            let entity = state.data.knowledgeEntities.first { $0.name == "王晓明" }
+            let entity = state.data.memoryEntities.first { $0.name == "王晓明" }
             #expect(entity?.detail == "TextEdit")
             #expect(entity?.aliases == ["王小明"])
             #expect(entity?.source == .correction)
@@ -177,7 +177,7 @@ struct CorrectionMemoryTests {
             #expect(state.data.corrections.first?.count == 3)
             #expect(state.data.corrections.first?.promptCount == CorrectionRecord.promptLimit)
             #expect(state.data.pendingCorrections.count == 1)
-            #expect(state.data.knowledgeEntities.isEmpty)
+            #expect(state.data.memoryEntities.isEmpty)
         }
     }
 
@@ -187,8 +187,8 @@ struct CorrectionMemoryTests {
             let change = CorrectionCandidate(before: "work body", after: "WorkBuddy")
             state.workflow.noteCorrection(change, app: "Notes", windowTitle: "")
             state.workflow.pressOverlayButton(at: 1)
-            #expect(state.data.knowledgeEntities.map(\.name) == ["WorkBuddy"])
-            #expect(state.data.knowledgeEntities.first?.aliases == ["work body"])
+            #expect(state.data.memoryEntities.map(\.name) == ["WorkBuddy"])
+            #expect(state.data.memoryEntities.first?.aliases == ["work body"])
             #expect(state.data.corrections.first?.status == .accepted)
             #expect(state.workflow.overlayError == localized("Remembered"))
             #expect(state.workflow.overlayButtons.isEmpty)
@@ -204,12 +204,12 @@ struct CorrectionMemoryTests {
         withState { state in
             state.workflow.noteCorrection(CorrectionCandidate(before: "张月", after: "张越"), app: "Notes", windowTitle: "Weekly sync")
             state.workflow.pressOverlayButton(at: 1)
-            #expect(state.data.knowledgeEntities.first?.detail == "Notes · Weekly sync")
+            #expect(state.data.memoryEntities.first?.detail == "Notes · Weekly sync")
 
             state.settings.windowTitleAllowed = false
             state.workflow.noteCorrection(CorrectionCandidate(before: "work body", after: "WorkBuddy"), app: "Slack", windowTitle: "#product")
             state.workflow.pressOverlayButton(at: 1)
-            #expect(state.data.knowledgeEntities.last?.detail == "Slack")
+            #expect(state.data.memoryEntities.last?.detail == "Slack")
         }
     }
 
@@ -226,8 +226,8 @@ struct CorrectionMemoryTests {
 
     @Test("a correction to an automatically learned name renames it instead of adding another")
     func selfHealingCorrection() {
-        let learned = KnowledgeEntity(name: "张月", type: .person, aliases: ["张悦"], source: .correction)
-        let entities = KnowledgePipeline.learn("张月", as: "张越", clue: "Notes", into: [learned])
+        let learned = MemoryEntity(name: "张月", type: .person, aliases: ["张悦"], source: .correction)
+        let entities = MemoryPipeline.learn("张月", as: "张越", clue: "Notes", into: [learned])
         #expect(entities.count == 1)
         #expect(entities.first?.id == learned.id)
         #expect(entities.first?.name == "张越")
@@ -239,8 +239,8 @@ struct CorrectionMemoryTests {
 
     @Test("a correction never renames an item the user saved")
     func correctionKeepsSavedItems() {
-        let saved = KnowledgeEntity(name: "张月", type: .person)
-        let entities = KnowledgePipeline.learn("张月", as: "张越", clue: "Notes", into: [saved])
+        let saved = MemoryEntity(name: "张月", type: .person)
+        let entities = MemoryPipeline.learn("张月", as: "张越", clue: "Notes", into: [saved])
         #expect(entities.map(\.name) == ["张月", "张越"])
         #expect(entities.first == saved)
         #expect(entities.last?.aliases == ["张月"])
@@ -248,9 +248,9 @@ struct CorrectionMemoryTests {
 
     @Test("a mistaken learned item folds into the item it should have been")
     func correctionFoldsIntoExistingItem() {
-        let saved = KnowledgeEntity(name: "张越", type: .person, aliases: ["Visoar"])
-        let learned = KnowledgeEntity(name: "张月", type: .term, aliases: ["张悦"], source: .correction)
-        let entities = KnowledgePipeline.learn("张月", as: "张越", clue: "Notes", into: [saved, learned])
+        let saved = MemoryEntity(name: "张越", type: .person, aliases: ["Visoar"])
+        let learned = MemoryEntity(name: "张月", type: .term, aliases: ["张悦"], source: .correction)
+        let entities = MemoryPipeline.learn("张月", as: "张越", clue: "Notes", into: [saved, learned])
         #expect(entities.count == 1)
         #expect(entities.first?.id == saved.id)
         #expect(entities.first?.aliases == ["Visoar", "张悦", "张月"])
@@ -260,8 +260,8 @@ struct CorrectionMemoryTests {
 
     @Test("learning the same correction twice adds the alias once")
     func repeatedCorrection() {
-        let once = KnowledgePipeline.learn("work body", as: "WorkBuddy", clue: "Notes", into: [])
-        let twice = KnowledgePipeline.learn("work body", as: "WorkBuddy", clue: "Mail", into: once)
+        let once = MemoryPipeline.learn("work body", as: "WorkBuddy", clue: "Notes", into: [])
+        let twice = MemoryPipeline.learn("work body", as: "WorkBuddy", clue: "Mail", into: once)
         #expect(twice == once)
         #expect(twice.first?.aliases == ["work body"])
         // A clue someone already has, or edited, is never replaced.

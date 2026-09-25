@@ -211,7 +211,7 @@ struct PersistenceTests {
         #expect(snapshot.entities.isEmpty)
     }
 
-    @Test("retired knowledge types load as their merged types")
+    @Test("retired memory types load as their merged types")
     func legacyEntityTypes() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
@@ -337,13 +337,13 @@ struct PersistenceTests {
         let loading = Task { await state.data.loadStoredData() }
         await Task.yield()
         let recorded = historyEntry("recorded")
-        let entity = KnowledgeEntity(name: "SayKuku", type: .project)
+        let entity = MemoryEntity(name: "SayKuku", type: .project)
         state.data.historyEntries.insert(recorded, at: 0)
-        state.data.knowledgeEntities.append(entity)
+        state.data.memoryEntities.append(entity)
         await loading.value
         await state.data.loadStoredData()
         #expect(Set(state.data.historyEntries.map(\.id)) == [stored.id, recorded.id])
-        #expect(state.data.knowledgeEntities.map(\.id) == [entity.id])
+        #expect(state.data.memoryEntities.map(\.id) == [entity.id])
 
         await state.data.flushPersistence()
         let saved = try await LocalStore(root: environment.root).load()

@@ -227,9 +227,7 @@ final class AudioCapture: AudioCapturing, @unchecked Sendable {
                 let normalized = Double(Int16(littleEndian: sample)) / Double(Int16.max)
                 squareSum += normalized * normalized
             }
-            let rms = sqrt(squareSum / Double(samples.count))
-            let decibels = 20 * log10(max(rms, 0.000_001))
-            return min(1, max(0, (decibels + 58) / 58))
+            return AudioLevel.normalized(rms: sqrt(squareSum / Double(samples.count)))
         }
     }
 
