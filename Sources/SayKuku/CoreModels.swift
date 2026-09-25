@@ -670,6 +670,15 @@ enum KnowledgeNormalizer {
             .joined()
             .lowercased()
     }
+
+    /// Toneless pinyin, so homophones such as 张越 and 张月 compare equal; nil without Han characters.
+    /// `key` folds the tone marks, so no separate diacritic pass is needed.
+    static func pinyinKey(_ value: String) -> String? {
+        guard value.unicodeScalars.contains(where: { (0x4E00...0x9FFF).contains($0.value) }),
+              let latin = value.applyingTransform(.mandarinToLatin, reverse: false) else { return nil }
+        let pinyin = Self.key(latin)
+        return pinyin.isEmpty ? nil : pinyin
+    }
 }
 
 /// Decodes a value or yields nil, so one bad array element does not fail the whole array.

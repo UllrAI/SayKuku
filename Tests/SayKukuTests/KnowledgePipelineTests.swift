@@ -70,6 +70,27 @@ struct KnowledgePipelineTests {
         #expect(statuses["AniKuku"] == .new)
     }
 
+    @Test("homophone Chinese names require confirmation")
+    func pinyinConflict() {
+        #expect(KnowledgeNormalizer.pinyinKey("张越") == "zhangyue")
+        #expect(KnowledgeNormalizer.pinyinKey("张月") == "zhangyue")
+        #expect(KnowledgeNormalizer.pinyinKey("WorkBuddy") == nil)
+
+        let zhangYue = KnowledgeEntity(name: "张越", type: .person)
+        let existing = [zhangYue, KnowledgeEntity(name: "王明", type: .person), KnowledgeEntity(name: "WorkBuddy", type: .product)]
+        let proposals = [
+            ProposedEntity(name: "张月", type: .person, detail: "", aliases: [], evidence: "张月"),
+            ProposedEntity(name: "WorkBudy", type: .product, detail: "", aliases: [], evidence: "WorkBudy"),
+            ProposedEntity(name: "李明", type: .person, detail: "", aliases: [], evidence: "李明")
+        ]
+        let result = KnowledgePipeline.analyze(proposals: proposals, relationships: [], existing: existing, ignored: [])
+        let candidates = Dictionary(uniqueKeysWithValues: result.candidates.map { ($0.entity.name, $0) })
+        #expect(candidates["张月"]?.status == .conflict)
+        #expect(candidates["张月"]?.matchedEntityID == zhangYue.id)
+        #expect(candidates["WorkBudy"]?.status == .conflict)
+        #expect(candidates["李明"]?.status == .new)
+    }
+
     @Test("only selected candidates and evidenced relationships are committed")
     func commit() {
         let proposals = [
