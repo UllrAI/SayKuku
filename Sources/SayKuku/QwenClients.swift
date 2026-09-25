@@ -589,7 +589,10 @@ struct QwenReasoningClient: Sendable {
         let excludedKinds: [ContextItem.Kind] = [.selectedText, .previousOutput, .session, .domain, .knowledge]
         let supplementalContext = context
             .filter { !excludedKinds.contains($0.kind) }
-            .map { "\($0.title):\n\($0.value)" }
+            .map { item in
+                let label = item.isClipped ? "\(item.kind.promptLabel) (truncated)" : item.kind.promptLabel
+                return "\(label):\n\(item.value)"
+            }
             .joined(separator: "\n\n")
         let sessionText = sessions.enumerated().map { index, turn in
             """
