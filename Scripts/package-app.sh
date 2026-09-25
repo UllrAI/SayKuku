@@ -31,8 +31,8 @@ if (( ${SDK_VERSION%%.*} < 26 )); then
     exit 1
 fi
 
-# Sparkle compares CFBundleVersion, so derive it from the commit count: it grows
-# with main and stays the same when one commit is rebuilt.
+# Derive CFBundleVersion from the commit count: it grows with main and stays
+# the same when one commit is rebuilt.
 if [[ "$(git -C "$ROOT_DIR" rev-parse --is-shallow-repository)" == "true" ]]; then
     print -u2 "Shallow clone: the commit count would understate CFBundleVersion; run git fetch --unshallow"
     exit 1
@@ -42,17 +42,10 @@ BUILD_NUMBER="$(git -C "$ROOT_DIR" rev-list --count HEAD)" || {
     exit 1
 }
 
-# Sparkle.framework lives in Contents/Frameworks, which SwiftPM's default rpath does not cover.
-BUILD_ARGS=(-c "$CONFIGURATION" -Xlinker -rpath -Xlinker @executable_path/../Frameworks)
+BUILD_ARGS=(-c "$CONFIGURATION")
 # macOS 15 still runs on Intel, so release builds ship a universal binary.
 if [[ "$CONFIGURATION" == "release" ]]; then
     BUILD_ARGS+=(--arch arm64 --arch x86_64)
-    # Sparkle refuses to start without the EdDSA public key; see docs/LOCAL_PACKAGING.md.
-    ED_PUBLIC_KEY="$(/usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' "$ROOT_DIR/Scripts/Resources/Info.plist" 2>/dev/null || true)"
-    if [[ -z "$ED_PUBLIC_KEY" ]]; then
-        print -u2 "Release builds require SUPublicEDKey in Scripts/Resources/Info.plist"
-        exit 1
-    fi
 fi
 
 cd "$ROOT_DIR"
@@ -62,7 +55,7 @@ PRODUCT_DIR="$(swift build "${BUILD_ARGS[@]}" --show-bin-path)"
 APP_DIR="$ROOT_DIR/Build/SayKuku.app"
 
 rm -rf "$APP_DIR"
-mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources" "$APP_DIR/Contents/Frameworks"
+mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
 
 APP_BINARY="$APP_DIR/Contents/MacOS/SayKuku"
 if [[ "$CONFIGURATION" == "release" ]]; then
@@ -93,9 +86,6 @@ if [[ "$CONFIGURATION" == "release" ]]; then
     fi
 fi
 cp -R "$PRODUCT_DIR/SayKuku_SayKuku.bundle" "$APP_DIR/Contents/Resources/SayKuku_SayKuku.bundle"
-SPARKLE_FRAMEWORK="$APP_DIR/Contents/Frameworks/Sparkle.framework"
-# ditto keeps the framework's Versions symlinks intact.
-ditto "$PRODUCT_DIR/Sparkle.framework" "$SPARKLE_FRAMEWORK"
 cp "$ROOT_DIR/Scripts/Resources/Info.plist" "$APP_DIR/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $BUNDLE_IDENTIFIER" "$APP_DIR/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" "$APP_DIR/Contents/Info.plist"
@@ -131,7 +121,7 @@ if [[ -d "$ICON_SOURCE" ]]; then
 fi
 cp -R "$ROOT_DIR/Scripts/Resources/en.lproj" "$APP_DIR/Contents/Resources/en.lproj"
 cp -R "$ROOT_DIR/Scripts/Resources/zh-Hans.lproj" "$APP_DIR/Contents/Resources/zh-Hans.lproj"
-# Redistributing Sparkle's binaries requires shipping its license notices.
+# Third-party license notices ship inside the App.
 cp -R "$ROOT_DIR/Scripts/Resources/Licenses" "$APP_DIR/Contents/Resources/Licenses"
 
 # Keychain ACLs and TCC permissions survive updates only when the app keeps a
@@ -188,13 +178,6 @@ CODESIGN_ARGS=(--force --options runtime "$TIMESTAMP_ARG" --sign "$SIGNING_IDENT
 if [[ -n "$SIGNING_KEYCHAIN" ]]; then
     CODESIGN_ARGS+=(--keychain "$SIGNING_KEYCHAIN")
 fi
-# Sign inside out without --deep: Sparkle's helpers keep their own entitlements
-# (Downloader.xpc has one) and must never receive the App's.
-SPARKLE_VERSION_DIR="$SPARKLE_FRAMEWORK/Versions/B"
-for NESTED_CODE in "$SPARKLE_VERSION_DIR"/XPCServices/*.xpc "$SPARKLE_VERSION_DIR/Autoupdate" "$SPARKLE_VERSION_DIR/Updater.app"; do
-    codesign "${CODESIGN_ARGS[@]}" --preserve-metadata=entitlements "$NESTED_CODE" >/dev/null
-done
-codesign "${CODESIGN_ARGS[@]}" "$SPARKLE_FRAMEWORK" >/dev/null
 codesign "${CODESIGN_ARGS[@]}" --entitlements "$ENTITLEMENTS" "$APP_DIR" >/dev/null
 codesign --verify --deep --strict --verbose=2 "$APP_DIR"
 print "$APP_DIR"

@@ -53,6 +53,9 @@ final class AppSettings {
         didSet { defaults.set(historyRetention.rawValue, forKey: Keys.historyRetention); historyRetentionChangeHandler?() }
     }
     var storeVoiceAudio = true { didSet { defaults.set(storeVoiceAudio, forKey: Keys.storeVoiceAudio) } }
+    var automaticUpdateChecks = true {
+        didSet { defaults.set(automaticUpdateChecks, forKey: Keys.automaticUpdateChecks) }
+    }
     private(set) var showInMenuBar = true { didSet { defaults.set(showInMenuBar, forKey: Keys.showInMenuBar) } }
     var hideDockIconAfterMainWindowCloses = false {
         didSet {
@@ -125,6 +128,12 @@ final class AppSettings {
         set { defaults.set(newValue, forKey: Keys.legacyDataNoticeDismissed) }
     }
 
+    /// The version the user chose to skip; automatic update checks don't offer it again.
+    var skippedUpdateVersion: String? {
+        get { defaults.string(forKey: Keys.skippedUpdateVersion) }
+        set { defaults.set(newValue, forKey: Keys.skippedUpdateVersion) }
+    }
+
     /// Custom words earlier builds kept in defaults, removed as they are read; nil when there are none.
     func takeLegacyCustomTerms() -> [String]? {
         guard let terms = defaults.stringArray(forKey: Keys.legacyCustomTerms) else { return nil }
@@ -174,6 +183,7 @@ final class AppSettings {
         browserPageAllowed = defaults.bool(forKey: Keys.browserPage)
         screenTextAllowed = storedBool(Keys.screenText, default: true)
         storeVoiceAudio = storedBool(Keys.storeVoiceAudio, default: true)
+        automaticUpdateChecks = storedBool(Keys.automaticUpdateChecks, default: true)
         showInMenuBar = storedBool(Keys.showInMenuBar, default: true)
         hideDockIconAfterMainWindowCloses = storedBool(Keys.hideDockIconAfterMainWindowCloses, default: false)
         // Earlier builds hard-coded ⇧⌘D / ⇧⌘A without saving them, so upgrades start from the new defaults.
@@ -209,6 +219,7 @@ final class AppSettings {
         static let reasoningModel = "qwen.reasoningModel", apiKey = "qwen.apiKey"
         static let voiceInputShortcut = "shortcuts.voiceInput", voiceAgentShortcut = "shortcuts.voiceAgent"
         static let realtimeModelUpgraded = "qwen.realtimeModelUpgradedToQwen38"
+        static let automaticUpdateChecks = "updates.automaticChecks", skippedUpdateVersion = "updates.skippedVersion"
     }
 }
 

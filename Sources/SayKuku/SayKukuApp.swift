@@ -1,5 +1,4 @@
 import AppKit
-import Sparkle
 import SwiftUI
 
 enum AppSheet: String, Identifiable {
@@ -124,19 +123,7 @@ private struct MenuBarIcon: View {
 
 @MainActor
 private final class AppDelegate: NSObject, NSApplicationDelegate {
-    /// Only release builds update themselves: a dev build must never be replaced by the
-    /// release app, and `swift run` has no Info.plist for Sparkle to read.
-    private static let updater: SPUStandardUpdaterController? = StorageIdentity() == .release
-        ? SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
-        : nil
-
-    /// Registers the updater on creation: the app menu is built before launch finishes,
-    /// and `CheckForUpdatesItem` doesn't observe the updater, so it must never read nil first.
-    private(set) lazy var appState: AppState = {
-        let appState = AppState()
-        if let updater = AppDelegate.updater { appState.registerUpdater(updater) }
-        return appState
-    }()
+    private(set) lazy var appState = AppState()
     private weak var mainWindow: NSWindow?
     private var suppressesLaunchWindow = false
 
@@ -144,7 +131,6 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         if Self.wasLaunchedAsLoginItem {
             suppressLaunchWindow()
         }
-        // appState creates the updater, so scheduled checks start even if no menu was built.
         appState.startSystemServices()
     }
 
@@ -344,15 +330,16 @@ private struct MenuBarContent: View {
     }
 }
 
-/// Manual update check for the app menu and the menu bar menu; hidden when updates are off.
+/// Manual update check for the app menu and the menu bar menu; hidden in dev builds.
 private struct CheckForUpdatesItem: View {
     let appState: AppState
 
     var body: some View {
-        if let updater = appState.updater {
+        if let checker = appState.updateChecker {
             Button(localized("Check for Updates…")) {
-                updater.checkForUpdates(nil)
+                Task { await checker.checkManually() }
             }
+            .disabled(checker.isChecking)
         }
     }
 }

@@ -2,7 +2,6 @@ import AppKit
 import Observation
 import os
 import ServiceManagement
-import Sparkle
 import SwiftUI
 
 @MainActor
@@ -50,13 +49,13 @@ final class AppState {
     let workflow: VoiceWorkflow
     let systemPermissions: SystemPermissionController
     let microphoneTest = MicrophoneTestController()
+    /// Nil in dev builds and `swift run`, which never check for updates.
+    let updateChecker: UpdateChecker?
 
     @ObservationIgnored private let reasoningClient: any Reasoning
     @ObservationIgnored private var shortcutController: ShortcutController?
     @ObservationIgnored private var mainWindowOpener: OpenWindowAction?
     @ObservationIgnored private var settingsOpener: OpenSettingsAction?
-    /// Sparkle's controller; nil in dev builds, which never update themselves.
-    @ObservationIgnored private(set) var updater: SPUStandardUpdaterController?
     @ObservationIgnored private var didEvaluateStartupPermissions = false
     @ObservationIgnored private var pendingSetupSteps: [AppSheet] = []
     @ObservationIgnored var savedForRelaunch = false
@@ -97,6 +96,7 @@ final class AppState {
         workflow = VoiceWorkflow(settings: settings, data: data, dependencies: dependencies)
         reasoningClient = dependencies.reasoningClient
         systemPermissions = dependencies.systemPermissions
+        updateChecker = StorageIdentity() == .release ? UpdateChecker(bundle: .main, settings: settings) : nil
         launchAtLogin = SMAppService.mainApp.status == .enabled
         systemPermissions.accessibilityChangeHandler = { [weak self] in self?.refreshSystemPermissions() }
         settings.qwenConnectionChangeHandler = { [weak self] in self?.invalidateConnectionTest() }
@@ -109,6 +109,10 @@ final class AppState {
             self?.showPermissionGuide()
             self?.showMainWindow()
         }
+        updateChecker?.promptHandler = { feed, currentVersion in AppState.offerUpdate(feed, currentVersion: currentVersion) }
+        if let currentVersion = updateChecker?.currentVersion {
+            updateChecker?.resultHandler = { AppState.reportUpdateCheck($0, currentVersion: currentVersion) }
+        }
     }
 
     func startSystemServices() {
@@ -117,6 +121,7 @@ final class AppState {
         let controller = ShortcutController(appState: self)
         shortcutController = controller
         controller.start()
+        updateChecker?.startPeriodicChecks()
         Task { await data.loadStoredData() }
         Task { @MainActor [weak self] in
             await Task.yield()
@@ -326,6 +331,42 @@ final class AppState {
             }
         }
     }
+    /// Brings the app forward, then asks what to do about a new version; Download opens its page.
+    private static func offerUpdate(_ feed: UpdateFeed, currentVersion: String) -> UpdateChecker.Response {
+        let alert = NSAlert()
+        alert.messageText = localized("SayKuku \(feed.version) is available")
+        alert.informativeText = [localized("You’re using \(currentVersion)."), feed.shortNotes]
+            .compactMap { $0 }
+            .joined(separator: "\n\n")
+        alert.addButton(withTitle: localized("Download"))
+        alert.addButton(withTitle: localized("Skip This Version"))
+        alert.addButton(withTitle: localized("Later"))
+        NSApplication.shared.activate()
+        switch alert.runModal() {
+        case .alertFirstButtonReturn:
+            NSWorkspace.shared.open(feed.url)
+            return .download
+        case .alertSecondButtonReturn:
+            return .skip
+        default:
+            return .later
+        }
+    }
+    /// A manual check's answer, as an alert: Settings and the menu bar menu have no toast.
+    private static func reportUpdateCheck(_ result: UpdateChecker.Decision, currentVersion: String) {
+        let alert = NSAlert()
+        if result == .upToDate {
+            alert.messageText = localized("You’re up to date")
+            alert.informativeText = localized("SayKuku \(currentVersion) is the latest version.")
+        } else {
+            alert.alertStyle = .warning
+            alert.messageText = localized("Couldn’t check for updates")
+            alert.informativeText = localized("Check your connection and try again.")
+        }
+        alert.addButton(withTitle: localized("OK"))
+        NSApplication.shared.activate()
+        _ = alert.runModal()
+    }
     func showToast(_ text: String, symbol: String) {
         let message = ToastMessage(text: text, symbol: symbol)
         withAnimation(Motion.snappy) { toast = message }
@@ -350,10 +391,6 @@ final class AppState {
 
     func registerSettingsOpener(_ openSettings: OpenSettingsAction) {
         settingsOpener = openSettings
-    }
-
-    func registerUpdater(_ updater: SPUStandardUpdaterController) {
-        self.updater = updater
     }
 
     /// Opens the Settings window on its own; a hidden Dock icon stays hidden.
