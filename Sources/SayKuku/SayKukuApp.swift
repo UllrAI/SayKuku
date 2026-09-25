@@ -401,17 +401,17 @@ private struct VoiceMenuItems: View {
     let appState: AppState
 
     var body: some View {
-        Button(appState.dictationPhase == .listening
+        Button(appState.workflow.dictationPhase == .listening
                ? localized("Stop Voice Input")
                : localized("Start Voice Input")) {
-            appState.toggleDictation()
+            appState.workflow.toggleDictation()
         }
         .keyboardShortcut(keyboardShortcut(for: .voiceInput))
 
-        Button(appState.agentPhase == .listening
+        Button(appState.workflow.agentPhase == .listening
                ? localized("Stop Voice Agent")
                : localized("Start Voice Agent")) {
-            appState.startAgent()
+            appState.workflow.startAgent()
         }
         .keyboardShortcut(keyboardShortcut(for: .voiceAgent))
     }

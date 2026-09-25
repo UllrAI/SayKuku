@@ -7,3 +7,11 @@ func localized(_ key: String.LocalizationValue) -> String {
 
 /// The catalog language macOS picked for this launch from `AppleLanguages`, such as "en" or "zh-Hans".
 let interfaceLanguage = Locale.Language(identifier: Bundle.appResources.preferredLocalizations.first ?? "en")
+
+/// Errors that adopt `LocalizedError` describe themselves; system errors such as `URLError`
+/// don't, so they get a plain message rather than Foundation's, which follows the system language.
+func localizedError(_ error: Error) -> String {
+    if let description = (error as? LocalizedError)?.errorDescription { return description }
+    if error is URLError { return localized("Couldn’t connect. Check your network and try again.") }
+    return localized("Something went wrong. Try again.")
+}

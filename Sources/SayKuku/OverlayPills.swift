@@ -4,8 +4,8 @@ import SwiftUI
 // Each phase's status is the pill's text without live input, and what VoiceOver
 // announces when the overlay changes (see `FloatingSystemOverlay`).
 
-extension AppState.AgentPhase {
-    @MainActor func status(_ appState: AppState) -> String? {
+extension VoiceWorkflow.AgentPhase {
+    @MainActor func status(_ workflow: VoiceWorkflow) -> String? {
         switch self {
         case .hidden, .answerReady:
             return nil
@@ -15,26 +15,26 @@ extension AppState.AgentPhase {
             return localized("Understanding…")
         case .processing:
             // `agentCommand` holds the understood task by now, unless there was none.
-            let task = appState.agentCommand.trimmingCharacters(in: .whitespacesAndNewlines)
-            return task.isEmpty || task == Self.listening.status(appState)
+            let task = workflow.agentCommand.trimmingCharacters(in: .whitespacesAndNewlines)
+            return task.isEmpty || task == Self.listening.status(workflow)
                 ? localized("Running…")
                 : localized("Running · \(task)")
         case .result:
             return localized("Done (status)")
         case .copyReady:
-            return CopyFallbackContent.status(appState)
+            return CopyFallbackContent.status(workflow)
         }
     }
 }
 
-extension AppState.DictationPhase {
-    @MainActor func status(_ appState: AppState) -> String? {
+extension VoiceWorkflow.DictationPhase {
+    @MainActor func status(_ workflow: VoiceWorkflow) -> String? {
         switch self {
         case .idle: nil
         case .listening: localized("Listening…")
         case .processing: localized("Transcribing…")
         case .success: localized("Inserted")
-        case .copyReady: CopyFallbackContent.status(appState)
+        case .copyReady: CopyFallbackContent.status(workflow)
         }
     }
 }
@@ -44,12 +44,12 @@ struct AgentPill: View {
     @State private var showingContext = false
 
     private var width: CGFloat {
-        switch appState.agentPhase {
+        switch appState.workflow.agentPhase {
         case .hidden: 0
         case .listening:
-            KukuPillLayout.width(for: appState.agentCommand, minimum: 168, fixedContentWidth: 140)
+            KukuPillLayout.width(for: appState.workflow.agentCommand, minimum: 168, fixedContentWidth: 140)
         case .copyReady:
-            CopyFallbackContent.width(appState)
+            CopyFallbackContent.width(appState.workflow)
         case .answerReady:
             0
         case .transcribing:
@@ -57,22 +57,22 @@ struct AgentPill: View {
         case .processing:
             KukuPillLayout.width(for: status, minimum: 145, fixedContentWidth: 82)
         case .result:
-            KukuPillLayout.width(for: status, minimum: 78, fixedContentWidth: appState.resultCanUndo ? 96 : 38, maximum: 200)
+            KukuPillLayout.width(for: status, minimum: 78, fixedContentWidth: appState.workflow.resultCanUndo ? 96 : 38, maximum: 200)
         }
     }
 
     private var status: String {
-        appState.agentPhase.status(appState) ?? ""
+        appState.workflow.agentPhase.status(appState.workflow) ?? ""
     }
 
     var body: some View {
         HStack(spacing: KukuSpacing.sm) {
-            if appState.agentPhase == .copyReady {
+            if appState.workflow.agentPhase == .copyReady {
                 CopyFallbackContent()
-            } else if appState.agentPhase == .listening {
+            } else if appState.workflow.agentPhase == .listening {
                 PillCancelButton(
                     label: localized("Cancel Voice Agent"),
-                    action: appState.dismissAgent
+                    action: appState.workflow.dismissAgent
                 )
 
                 // Fixed-size glyphs below are counted in the listening `fixedContentWidth`.
@@ -92,14 +92,14 @@ struct AgentPill: View {
 
                     Waveform(
                         color: KukuColor.coral,
-                        level: appState.inputLevel,
+                        level: appState.workflow.inputLevel,
                         barCount: 5,
                         height: 15
                     )
                     .frame(width: 22)
                 }
 
-                Text(appState.agentCommand)
+                Text(appState.workflow.agentCommand)
                     .font(.kuku(.callout, weight: .semibold))
                     .foregroundStyle(KukuColor.textPrimary)
                     .lineLimit(1)
@@ -109,9 +109,9 @@ struct AgentPill: View {
 
                 PillConfirmButton(
                     label: localized("Stop recording and run"),
-                    action: appState.finishAgentListening
+                    action: appState.workflow.finishAgentListening
                 )
-            } else if appState.agentPhase == .transcribing || appState.agentPhase == .processing {
+            } else if appState.workflow.agentPhase == .transcribing || appState.workflow.agentPhase == .processing {
                 AgentActivityIndicator()
                 Text(status)
                     .font(.kuku(.callout, weight: .semibold))
@@ -121,9 +121,9 @@ struct AgentPill: View {
                 Spacer(minLength: 0)
                 PillCancelButton(
                     label: localized("Cancel Voice Agent"),
-                    action: appState.dismissAgent
+                    action: appState.workflow.dismissAgent
                 )
-            } else if appState.agentPhase == .result {
+            } else if appState.workflow.agentPhase == .result {
                 Label {
                     Text(status)
                 } icon: {
@@ -133,14 +133,14 @@ struct AgentPill: View {
                 .font(.kuku(.callout, weight: .semibold))
                 .foregroundStyle(KukuColor.textSecondary)
                 .lineLimit(1)
-                if appState.resultCanUndo {
+                if appState.workflow.resultCanUndo {
                     Spacer(minLength: 0)
                     PillUndoButton()
                 }
             }
         }
         .contentTransition(.interpolate)
-        .animation(Motion.snappy, value: appState.agentPhase)
+        .animation(Motion.snappy, value: appState.workflow.agentPhase)
         .padding(.horizontal, KukuSpacing.sm)
         .frame(width: width)
         .frame(minHeight: KukuLayout.pillHeight)
@@ -187,13 +187,13 @@ private struct PillUndoButton: View {
 
     var body: some View {
         Button(localized("Undo")) {
-            Task { await appState.undoLastWrite() }
+            Task { await appState.workflow.undoLastWrite() }
         }
         .buttonStyle(.plain)
         .font(.kuku(.callout, weight: .semibold))
         .foregroundStyle(KukuColor.accentText)
-        .disabled(appState.isWriting)
-        .opacity(appState.isWriting ? KukuState.disabledOpacity : 1)
+        .disabled(appState.workflow.isWriting)
+        .opacity(appState.workflow.isWriting ? KukuState.disabledOpacity : 1)
     }
 }
 
@@ -244,13 +244,13 @@ private struct AgentContextPopover: View {
                 .font(.kuku(.subheadline, weight: .semibold))
                 .foregroundStyle(KukuColor.textSecondary)
 
-            if appState.contextItems.isEmpty {
+            if appState.workflow.contextItems.isEmpty {
                 Text(localized("Only your voice will be sent"))
                     .font(.kuku(.callout))
                     .foregroundStyle(KukuColor.textSecondary)
             }
 
-            ForEach(appState.contextItems) { item in
+            ForEach(appState.workflow.contextItems) { item in
                 HStack(spacing: KukuSpacing.sm) {
                     Image(systemName: item.symbol)
                         .font(.kukuIcon(.regular))
@@ -263,13 +263,13 @@ private struct AgentContextPopover: View {
                         .lineLimit(1)
                         .truncationMode(.tail)
                     Spacer()
-                    if appState.agentPhase == .listening {
+                    if appState.workflow.agentPhase == .listening {
                         KukuIconButton(
                             symbol: "xmark",
                             label: localized("Remove \(item.title)"),
                             size: .small
                         ) {
-                            appState.contextItems.removeAll { $0.id == item.id }
+                            appState.workflow.contextItems.removeAll { $0.id == item.id }
                         }
                     }
                 }
@@ -296,48 +296,48 @@ struct DictationPill: View {
     @Environment(AppState.self) private var appState
 
     private var width: CGFloat {
-        switch appState.dictationPhase {
+        switch appState.workflow.dictationPhase {
         case .idle: 0
         case .listening:
             KukuPillLayout.width(for: status, minimum: 160, fixedContentWidth: 135, maximum: 340)
         case .copyReady:
-            CopyFallbackContent.width(appState)
+            CopyFallbackContent.width(appState.workflow)
         case .processing:
             // Padding 2×8, spinner 16, three 8 pt gaps and the 24 pt cancel button.
             KukuPillLayout.width(for: transcriptLabel, minimum: 145, fixedContentWidth: 80, maximum: 340)
         case .success:
-            KukuPillLayout.width(for: status, minimum: 78, fixedContentWidth: appState.canUndoLastWrite ? 100 : 42, maximum: 200)
+            KukuPillLayout.width(for: status, minimum: 78, fixedContentWidth: appState.workflow.canUndoLastWrite ? 100 : 42, maximum: 200)
         }
     }
 
     private var status: String {
-        appState.dictationPhase.status(appState) ?? ""
+        appState.workflow.dictationPhase.status(appState.workflow) ?? ""
     }
 
     /// Realtime deltas only arrive once the audio is committed, so live text can replace
     /// the status while transcribing but never while listening.
     private var transcriptLabel: String {
-        appState.liveTranscript.isEmpty ? status : appState.liveTranscript
+        appState.workflow.liveTranscript.isEmpty ? status : appState.workflow.liveTranscript
     }
 
     var body: some View {
         HStack(spacing: KukuSpacing.sm) {
-            switch appState.dictationPhase {
+            switch appState.workflow.dictationPhase {
             case .idle:
                 EmptyView()
             case .listening:
                 PillCancelButton(
                     label: localized("Cancel Voice Input"),
-                    action: appState.cancelDictation
+                    action: appState.workflow.cancelDictation
                 )
-                Waveform(color: KukuColor.coral, level: appState.inputLevel, barCount: 6, height: 16)
+                Waveform(color: KukuColor.coral, level: appState.workflow.inputLevel, barCount: 6, height: 16)
                 Text(status)
                     .lineLimit(1)
                     .truncationMode(.tail)
                 Spacer(minLength: 0)
                 PillConfirmButton(
                     label: localized("Stop recording and insert"),
-                    action: appState.finishDictation
+                    action: appState.workflow.finishDictation
                 )
             case .processing:
                 ProgressView().controlSize(.small)
@@ -347,13 +347,13 @@ struct DictationPill: View {
                 Spacer(minLength: 0)
                 PillCancelButton(
                     label: localized("Cancel Voice Input"),
-                    action: appState.cancelDictation
+                    action: appState.workflow.cancelDictation
                 )
             case .success:
                 Image(systemName: "checkmark")
                     .foregroundStyle(KukuColor.success)
                 Text(status)
-                if appState.canUndoLastWrite {
+                if appState.workflow.canUndoLastWrite {
                     Spacer(minLength: 0)
                     PillUndoButton()
                 }
@@ -362,10 +362,10 @@ struct DictationPill: View {
             }
         }
         .contentTransition(.interpolate)
-        .animation(Motion.snappy, value: appState.dictationPhase)
-        .animation(Motion.snappy, value: appState.liveTranscript.isEmpty)
+        .animation(Motion.snappy, value: appState.workflow.dictationPhase)
+        .animation(Motion.snappy, value: appState.workflow.liveTranscript.isEmpty)
         .font(.kuku(.callout, weight: .semibold))
-        .foregroundStyle(appState.dictationPhase == .success ? KukuColor.textSecondary : KukuColor.textPrimary)
+        .foregroundStyle(appState.workflow.dictationPhase == .success ? KukuColor.textSecondary : KukuColor.textPrimary)
         .padding(.horizontal, KukuSpacing.sm)
         .frame(width: width)
         .frame(minHeight: KukuLayout.pillHeight)
@@ -378,35 +378,35 @@ private struct CopyFallbackContent: View {
     @Environment(AppState.self) private var appState
     @State private var hovering = false
 
-    static func width(_ appState: AppState) -> CGFloat {
-        KukuPillLayout.width(for: status(appState), minimum: 180, fixedContentWidth: 96)
+    static func width(_ workflow: VoiceWorkflow) -> CGFloat {
+        KukuPillLayout.width(for: status(workflow), minimum: 180, fixedContentWidth: 96)
     }
 
-    static func status(_ appState: AppState) -> String {
-        appState.hasCopiedPendingText
+    static func status(_ workflow: VoiceWorkflow) -> String {
+        workflow.hasCopiedPendingText
             ? localized("Copied. Press ⌘V to paste.")
             : localized("Click to copy")
     }
 
     var body: some View {
         HStack(spacing: KukuSpacing.sm) {
-            Button(action: appState.copyPendingText) {
+            Button(action: appState.workflow.copyPendingText) {
                 HStack(spacing: KukuSpacing.iconText) {
-                    Image(systemName: appState.hasCopiedPendingText ? "checkmark" : "doc.on.doc")
-                        .foregroundStyle(appState.hasCopiedPendingText ? KukuColor.success : KukuColor.textSecondary)
+                    Image(systemName: appState.workflow.hasCopiedPendingText ? "checkmark" : "doc.on.doc")
+                        .foregroundStyle(appState.workflow.hasCopiedPendingText ? KukuColor.success : KukuColor.textSecondary)
                         .contentTransition(.symbolEffect(.replace))
-                    Text(Self.status(appState))
+                    Text(Self.status(appState.workflow))
                         .lineLimit(1)
                         .truncationMode(.tail)
                 }
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .help(appState.pendingCopyText)
-            .accessibilityLabel(Self.status(appState))
-            .accessibilityValue(appState.pendingCopyText)
+            .help(appState.workflow.pendingCopyText)
+            .accessibilityLabel(Self.status(appState.workflow))
+            .accessibilityValue(appState.workflow.pendingCopyText)
             Spacer(minLength: KukuSpacing.xs)
-            PillCancelButton(label: localized("Close"), action: appState.dismissCopyFallback)
+            PillCancelButton(label: localized("Close"), action: appState.workflow.dismissCopyFallback)
         }
         .font(.kuku(.callout, weight: .semibold))
         .foregroundStyle(KukuColor.textPrimary)
@@ -416,8 +416,8 @@ private struct CopyFallbackContent: View {
             // Collapse after a quiet period; stay while hovered or when VoiceOver needs time to read it.
             guard !hovering, !NSWorkspace.shared.isVoiceOverEnabled else { return }
             do { try await Task.sleep(for: .seconds(10)) } catch { return }
-            guard appState.dictationPhase == .copyReady || appState.agentPhase == .copyReady else { return }
-            appState.dismissCopyFallback()
+            guard appState.workflow.dictationPhase == .copyReady || appState.workflow.agentPhase == .copyReady else { return }
+            appState.workflow.dismissCopyFallback()
         }
     }
 }

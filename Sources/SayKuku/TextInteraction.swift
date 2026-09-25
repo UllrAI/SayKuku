@@ -928,7 +928,7 @@ enum ContextCollector {
             ))
         }
         if !knowledge.isEmpty {
-            // Only marks knowledge as enabled for this run; the prompt is rendered from AppState's entities.
+            // Only marks knowledge as enabled for this run; the prompt is rendered from LocalData's entities.
             items.append(ContextItem(
                 kind: .knowledge,
                 symbol: "books.vertical",
