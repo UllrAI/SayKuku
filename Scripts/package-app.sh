@@ -23,10 +23,17 @@ if [[ "$CONFIGURATION" != "release" && "$BUNDLE_IDENTIFIER" == "com.saykuku.app"
     exit 1
 fi
 
+# Sparkle.framework lives in Contents/Frameworks, which SwiftPM's default rpath does not cover.
+BUILD_ARGS=(-c "$CONFIGURATION" -Xlinker -rpath -Xlinker @executable_path/../Frameworks)
 # macOS 15 still runs on Intel, so release builds ship a universal binary.
-BUILD_ARGS=(-c "$CONFIGURATION")
 if [[ "$CONFIGURATION" == "release" ]]; then
     BUILD_ARGS+=(--arch arm64 --arch x86_64)
+    # Sparkle refuses to start without the EdDSA public key; see docs/LOCAL_PACKAGING.md.
+    ED_PUBLIC_KEY="$(/usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' "$ROOT_DIR/Scripts/Resources/Info.plist" 2>/dev/null || true)"
+    if [[ -z "$ED_PUBLIC_KEY" ]]; then
+        print -u2 "Release builds require SUPublicEDKey in Scripts/Resources/Info.plist"
+        exit 1
+    fi
 fi
 
 cd "$ROOT_DIR"
@@ -36,7 +43,7 @@ PRODUCT_DIR="$(swift build "${BUILD_ARGS[@]}" --show-bin-path)"
 APP_DIR="$ROOT_DIR/Build/SayKuku.app"
 
 rm -rf "$APP_DIR"
-mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
+mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources" "$APP_DIR/Contents/Frameworks"
 
 APP_BINARY="$APP_DIR/Contents/MacOS/SayKuku"
 if [[ "$CONFIGURATION" == "release" ]]; then
@@ -67,6 +74,9 @@ if [[ "$CONFIGURATION" == "release" ]]; then
     fi
 fi
 cp -R "$PRODUCT_DIR/SayKuku_SayKuku.bundle" "$APP_DIR/Contents/Resources/SayKuku_SayKuku.bundle"
+SPARKLE_FRAMEWORK="$APP_DIR/Contents/Frameworks/Sparkle.framework"
+# ditto keeps the framework's Versions symlinks intact.
+ditto "$PRODUCT_DIR/Sparkle.framework" "$SPARKLE_FRAMEWORK"
 cp "$ROOT_DIR/Scripts/Resources/Info.plist" "$APP_DIR/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $BUNDLE_IDENTIFIER" "$APP_DIR/Contents/Info.plist"
 if [[ "$CONFIGURATION" != "release" ]]; then
@@ -75,6 +85,8 @@ fi
 cp "$ROOT_DIR/Scripts/Resources/AppIcon.icns" "$APP_DIR/Contents/Resources/AppIcon.icns"
 cp -R "$ROOT_DIR/Scripts/Resources/en.lproj" "$APP_DIR/Contents/Resources/en.lproj"
 cp -R "$ROOT_DIR/Scripts/Resources/zh-Hans.lproj" "$APP_DIR/Contents/Resources/zh-Hans.lproj"
+# Redistributing Sparkle's binaries requires shipping its license notices.
+cp -R "$ROOT_DIR/Scripts/Resources/Licenses" "$APP_DIR/Contents/Resources/Licenses"
 
 # Keychain ACLs and TCC permissions survive updates only when the app keeps a
 # stable, anchored signing identity. Release builds must use Developer ID;
@@ -126,14 +138,17 @@ else
     /usr/libexec/PlistBuddy -c "Add :com.apple.security.get-task-allow bool true" "$DEBUG_ENTITLEMENTS"
     ENTITLEMENTS="$DEBUG_ENTITLEMENTS"
 fi
-CODESIGN_ARGS=(
-    --force --options runtime "$TIMESTAMP_ARG"
-    --entitlements "$ENTITLEMENTS"
-)
+CODESIGN_ARGS=(--force --options runtime "$TIMESTAMP_ARG" --sign "$SIGNING_IDENTITY")
 if [[ -n "$SIGNING_KEYCHAIN" ]]; then
     CODESIGN_ARGS+=(--keychain "$SIGNING_KEYCHAIN")
 fi
-CODESIGN_ARGS+=(--sign "$SIGNING_IDENTITY" "$APP_DIR")
-codesign "${CODESIGN_ARGS[@]}" >/dev/null
+# Sign inside out without --deep: Sparkle's helpers keep their own entitlements
+# (Downloader.xpc has one) and must never receive the App's.
+SPARKLE_VERSION_DIR="$SPARKLE_FRAMEWORK/Versions/B"
+for NESTED_CODE in "$SPARKLE_VERSION_DIR"/XPCServices/*.xpc "$SPARKLE_VERSION_DIR/Autoupdate" "$SPARKLE_VERSION_DIR/Updater.app"; do
+    codesign "${CODESIGN_ARGS[@]}" --preserve-metadata=entitlements "$NESTED_CODE" >/dev/null
+done
+codesign "${CODESIGN_ARGS[@]}" "$SPARKLE_FRAMEWORK" >/dev/null
+codesign "${CODESIGN_ARGS[@]}" --entitlements "$ENTITLEMENTS" "$APP_DIR" >/dev/null
 codesign --verify --deep --strict --verbose=2 "$APP_DIR"
 print "$APP_DIR"
