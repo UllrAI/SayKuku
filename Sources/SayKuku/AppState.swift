@@ -1,6 +1,7 @@
 import AppKit
 import AVFoundation
 import Observation
+import os
 import ServiceManagement
 import SwiftUI
 
@@ -94,6 +95,10 @@ final class AppState {
     var agentPhase: AgentPhase = .hidden { didSet { overlayController?.refresh() } }
     /// True while the microphone is capturing for either workflow.
     var isRecording: Bool { dictationPhase == .listening || agentPhase == .listening }
+    /// Also true while the microphone is still starting. The pill waits for it, but a release,
+    /// second press or Esc in that window must stop the start instead of going unheard.
+    var dictationIsListening: Bool { dictationPhase == .listening || startingWorkflow == .dictation }
+    var agentIsListening: Bool { agentPhase == .listening || startingWorkflow == .agent }
     var inputMode: InputMode = .hold { didSet { defaults.set(inputMode.rawValue, forKey: Keys.inputMode) } }
     var autoStop = false { didSet { defaults.set(autoStop, forKey: Keys.autoStop) } }
     var recognitionLanguage: RecognitionLanguage = .automatic {
@@ -207,6 +212,9 @@ final class AppState {
     @ObservationIgnored private let reasoningClient = QwenReasoningClient()
     @ObservationIgnored private let textInteraction = TextInteraction()
     @ObservationIgnored private let soundCues = SoundCues()
+    @ObservationIgnored private let signposter = OSSignposter.performance
+    /// The workflow whose microphone is starting; nil once it listens or is cancelled.
+    @ObservationIgnored private var startingWorkflow: VoiceWorkflowMode?
     @ObservationIgnored private var shortcutController: ShortcutController?
     @ObservationIgnored private var overlayController: FloatingOverlayController?
     @ObservationIgnored private var workflowTask: Task<Void, Never>?
@@ -279,7 +287,7 @@ final class AppState {
     }
 
     func toggleDictation() {
-        if dictationPhase == .listening { finishDictation() }
+        if dictationIsListening { finishDictation() }
         else { startDictation() }
     }
 
@@ -290,7 +298,11 @@ final class AppState {
     }
 
     func finishDictation() {
-        guard dictationPhase == .listening else { return }
+        guard dictationPhase == .listening else {
+            // Stopped before the microphone opened, so nothing was recorded.
+            if startingWorkflow == .dictation { cancelDictation() }
+            return
+        }
         let recording = stopRecording()
         playSoundCue(.stop)
         let historyID = beginHistoryEntry(mode: .dictation, recording: recording)
@@ -309,7 +321,7 @@ final class AppState {
     }
 
     func startAgent() {
-        if agentPhase == .listening {
+        if agentIsListening {
             finishAgentListening()
             return
         }
@@ -317,7 +329,11 @@ final class AppState {
     }
 
     func finishAgentListening() {
-        guard agentPhase == .listening else { return }
+        guard agentPhase == .listening else {
+            // Stopped before the microphone opened, so nothing was recorded.
+            if startingWorkflow == .agent { dismissAgent() }
+            return
+        }
         let recording = stopRecording()
         playSoundCue(.stop)
         let historyID = beginHistoryEntry(mode: .agent, recording: recording)
@@ -347,7 +363,7 @@ final class AppState {
     }
 
     func cancelActiveVoiceWorkflow() {
-        guard dictationPhase.isCancellable || agentPhase.isCancellable else { return }
+        guard dictationPhase.isCancellable || agentPhase.isCancellable || startingWorkflow != nil else { return }
         cancelWorkflow()
         playStopCueIfRecording()
         withAnimation(Motion.snappy) {
@@ -850,101 +866,139 @@ final class AppState {
             showToast(message, symbol: "key.fill")
             return
         }
+        let generation = workflowGeneration
+        let pillInterval = signposter.beginInterval("Fn to Pill", id: signposter.makeSignpostID())
+        // Realtime needs a workspace ID; without one the full recording goes to batch recognition.
+        let chunks: AsyncStream<Data>?
+        let onChunk: @Sendable (Data) -> Void
+        if mode == .dictation && configuration.realtimeURL != nil {
+            // Holds the audio until the Realtime connection is ready to take it.
+            let (stream, continuation) = AsyncStream<Data>.makeStream()
+            chunks = stream
+            chunkContinuation = continuation
+            onChunk = { continuation.yield($0) }
+        } else {
+            chunks = nil
+            onChunk = { _ in }
+        }
+        // The engine starts on its own queue while this thread reads the target app.
+        let engineStart = startAudioCapture(for: mode, onChunk: onChunk)
+        startingWorkflow = mode
         do {
-            let snapshot = try textInteraction.captureTarget(requiringWindow: mode == .dictation)
+            let snapshot = try signposter.withIntervalSignpost("captureTarget") {
+                try textInteraction.captureTarget(requiringWindow: mode == .dictation)
+            }
             overlayController?.anchor(to: snapshot)
             guard !snapshot.isSensitive else { throw TextInteractionError.sensitiveTarget }
-            targetSnapshot = snapshot
-            liveTranscript = ""
-            inputLevel = 0
-            pendingCopyText = ""
-            activeAgentSessions = []
-            if mode == .agent {
-                let conversation = continuousConversation
-                    ? AgentSession.conversation(in: sessions, app: snapshot.bundleID)
-                    : []
-                activeAgentSessions = conversation
-                contextItems = ContextCollector.collect(
-                    snapshot: snapshot,
-                    selectedTextAllowed: selectedTextAllowed,
-                    currentAppAllowed: currentAppAllowed,
-                    windowTitleAllowed: windowTitleAllowed,
-                    clipboardAllowed: clipboardAllowed,
-                    browserPageAllowed: browserPageAllowed,
-                    session: conversation.last,
-                    domains: selectedDomains,
-                    knowledge: knowledgeEntities,
-                    isChineseUI: usesChineseUI
-                )
-                if let lastVerifiedWrite, lastVerifiedWrite.isRecent,
-                   let expected = lastVerifiedWrite.expectedValue,
-                   snapshot.valueBefore == expected,
-                   textInteraction.currentValue(of: lastVerifiedWrite.target) == expected {
-                    contextItems.append(ContextCollector.textItem(
-                        kind: .previousOutput,
-                        symbol: "arrow.uturn.backward",
-                        title: text("上次输入", "Last insertion"),
-                        value: lastVerifiedWrite.text,
-                        limit: ContextCollector.textLimit,
-                        isChineseUI: usesChineseUI
-                    ))
-                }
-                agentCommand = text("正在听…", "Listening…")
-                dictationPhase = .idle
-                agentPhase = .listening
-            } else {
-                agentPhase = .hidden
-                dictationPhase = .idle
-            }
-
-            // Realtime needs a workspace ID; without one the full recording goes to batch recognition.
-            if mode == .dictation && configuration.realtimeURL != nil {
-                let generation = workflowGeneration
-                let (stream, continuation) = AsyncStream<Data>.makeStream()
-                chunkContinuation = continuation
-                try startAudioCapture(for: mode) { continuation.yield($0) }
-                withAnimation(Motion.spring) { dictationPhase = .listening }
-                let shouldAutoStop = autoStop
-                let selectedRecognitionLanguage = recognitionLanguage
-                let selectedNumberFormat = dictationNumberFormat
-                let selectedCleanup = dictationCleanup
-                let knowledgePrompt = renderKnowledgePrompt(.transcription)
-                let realtimeSession = UUID()
-                realtimeSessionID = realtimeSession
-                uploadTask = Task { [weak self, realtimeClient, apiKey, configuration, selectedRecognitionLanguage, selectedNumberFormat, selectedCleanup, knowledgePrompt] in
-                    try await realtimeClient.connect(
-                        session: realtimeSession,
-                        apiKey: apiKey,
-                        configuration: configuration,
-                        autoStop: shouldAutoStop,
-                        onSpeechStopped: {
-                            Task { @MainActor in
-                                guard self?.workflowGeneration == generation else { return }
-                                self?.finishDictation()
-                            }
-                        },
-                        onDelta: { transcript in
-                            Task { @MainActor in
-                                guard self?.workflowGeneration == generation else { return }
-                                self?.liveTranscript = transcript
-                            }
-                        },
-                        recognitionLanguage: selectedRecognitionLanguage,
-                        numberFormat: selectedNumberFormat,
-                        cleanup: selectedCleanup,
-                        knowledgePrompt: knowledgePrompt
-                    )
-                    for await chunk in stream { try await realtimeClient.append(chunk, session: realtimeSession) }
-                }
-            } else {
-                try startAudioCapture(for: mode) { _ in }
-                if mode == .dictation { withAnimation(Motion.spring) { dictationPhase = .listening } }
-            }
-            // Both paths are listening with the engine running by now.
-            playSoundCue(.start)
-            scheduleRecordingLimit(for: mode)
+            prepareWorkflow(mode: mode, snapshot: snapshot)
         } catch {
+            startingWorkflow = nil
+            // `AudioCapture.cancel` runs after the pending start, so this also stops that engine.
             handleWorkflowError(error, agent: mode == .agent)
+            return
+        }
+        Task { [weak self] in
+            let started = await engineStart.result
+            // Whatever bumped the generation also cancelled the capture, which stopped this engine.
+            guard let self, generation == self.workflowGeneration else { return }
+            self.startingWorkflow = nil
+            do {
+                try started.get()
+            } catch {
+                self.handleWorkflowError(error, agent: mode == .agent)
+                return
+            }
+            self.signposter.endInterval("Fn to Pill", pillInterval)
+            self.startListening(mode: mode, chunks: chunks, generation: generation)
+        }
+    }
+
+    private func prepareWorkflow(mode: VoiceWorkflowMode, snapshot: TextTargetSnapshot) {
+        targetSnapshot = snapshot
+        liveTranscript = ""
+        inputLevel = 0
+        pendingCopyText = ""
+        activeAgentSessions = []
+        guard mode == .agent else { return }
+        let conversation = continuousConversation
+            ? AgentSession.conversation(in: sessions, app: snapshot.bundleID)
+            : []
+        activeAgentSessions = conversation
+        contextItems = ContextCollector.collect(
+            snapshot: snapshot,
+            selectedTextAllowed: selectedTextAllowed,
+            currentAppAllowed: currentAppAllowed,
+            windowTitleAllowed: windowTitleAllowed,
+            clipboardAllowed: clipboardAllowed,
+            browserPage: browserPageAllowed ? textInteraction.browserPageAddress(in: snapshot) : nil,
+            session: conversation.last,
+            domains: selectedDomains,
+            knowledge: knowledgeEntities,
+            isChineseUI: usesChineseUI
+        )
+        if let lastVerifiedWrite, lastVerifiedWrite.isRecent,
+           let expected = lastVerifiedWrite.expectedValue,
+           snapshot.valueBefore == expected,
+           textInteraction.currentValue(of: lastVerifiedWrite.target) == expected {
+            contextItems.append(ContextCollector.textItem(
+                kind: .previousOutput,
+                symbol: "arrow.uturn.backward",
+                title: text("上次输入", "Last insertion"),
+                value: lastVerifiedWrite.text,
+                limit: ContextCollector.textLimit,
+                isChineseUI: usesChineseUI
+            ))
+        }
+        agentCommand = text("正在听…", "Listening…")
+    }
+
+    /// Shows the pill only once the target is read and the engine runs, so it still means the microphone is open.
+    private func startListening(mode: VoiceWorkflowMode, chunks: AsyncStream<Data>?, generation: Int) {
+        if mode == .agent {
+            agentPhase = .listening
+        } else {
+            withAnimation(Motion.spring) { dictationPhase = .listening }
+        }
+        if let chunks { connectRealtime(streaming: chunks, generation: generation) }
+        playSoundCue(.start)
+        scheduleRecordingLimit(for: mode)
+    }
+
+    /// Chunks recorded before the connection is ready wait in the stream.
+    private func connectRealtime(streaming chunks: AsyncStream<Data>, generation: Int) {
+        let shouldAutoStop = autoStop
+        let selectedRecognitionLanguage = recognitionLanguage
+        let selectedNumberFormat = dictationNumberFormat
+        let selectedCleanup = dictationCleanup
+        let knowledgePrompt = renderKnowledgePrompt(.transcription)
+        let realtimeSession = UUID()
+        realtimeSessionID = realtimeSession
+        let connectInterval = signposter.beginInterval("realtime connect", id: signposter.makeSignpostID())
+        uploadTask = Task { [weak self, realtimeClient, apiKey, configuration, selectedRecognitionLanguage, selectedNumberFormat, selectedCleanup, knowledgePrompt] in
+            try await realtimeClient.connect(
+                session: realtimeSession,
+                apiKey: apiKey,
+                configuration: configuration,
+                autoStop: shouldAutoStop,
+                onSpeechStopped: {
+                    Task { @MainActor in
+                        guard self?.workflowGeneration == generation else { return }
+                        self?.finishDictation()
+                    }
+                },
+                onDelta: { transcript in
+                    Task { @MainActor in
+                        guard self?.workflowGeneration == generation else { return }
+                        self?.liveTranscript = transcript
+                    }
+                },
+                recognitionLanguage: selectedRecognitionLanguage,
+                numberFormat: selectedNumberFormat,
+                cleanup: selectedCleanup,
+                knowledgePrompt: knowledgePrompt
+            )
+            self?.signposter.endInterval("realtime connect", connectInterval)
+            for await chunk in chunks { try await realtimeClient.append(chunk, session: realtimeSession) }
         }
     }
 
@@ -996,9 +1050,12 @@ final class AppState {
         return recording
     }
 
-    private func startAudioCapture(for mode: VoiceWorkflowMode, onChunk: @escaping @Sendable (Data) -> Void) throws {
+    /// Queues the engine start off the main thread at once; the returned task finishes once it runs.
+    private func startAudioCapture(
+        for mode: VoiceWorkflowMode, onChunk: @escaping @Sendable (Data) -> Void
+    ) -> Task<Void, Error> {
         let generation = workflowGeneration
-        try audioCapture.start(
+        return audioCapture.start(
             onLevel: { [weak self] level in
                 Task { @MainActor [weak self] in
                     guard let self else { return }
@@ -1010,7 +1067,7 @@ final class AppState {
                 // Keep what was heard so far, as if the user had stopped the recording.
                 Task { @MainActor [weak self] in
                     guard let self, self.workflowGeneration == generation,
-                          self.dictationPhase == .listening || self.agentPhase == .listening else { return }
+                          self.dictationIsListening || self.agentIsListening else { return }
                     self.finishListening(for: mode)
                     self.showOverlayFeedback(
                         self.text("音频设备已切换，录音已结束", "Audio device changed. Recording stopped."),
@@ -1330,6 +1387,7 @@ final class AppState {
 
     private func cancelWorkflow() {
         workflowGeneration += 1
+        startingWorkflow = nil
         workflowTask?.cancel()
         workflowTask = nil
         uploadTask?.cancel()
@@ -1746,4 +1804,12 @@ struct ToastMessage: Equatable, Identifiable {
     let id = UUID()
     let text: String
     let symbol: String
+}
+
+extension OSSignposter {
+    /// Intervals on the way from Fn to the pill, for the os_signpost instrument (see docs/COMPATIBILITY.md).
+    /// Computed so this nonisolated extension holds no global state of a possibly non-Sendable type.
+    static var performance: OSSignposter {
+        OSSignposter(subsystem: Bundle.main.bundleIdentifier ?? "SayKuku", category: "Performance")
+    }
 }

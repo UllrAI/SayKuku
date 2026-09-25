@@ -96,8 +96,10 @@ final class TextInteraction {
     private static let textRoles = Set(["AXTextArea", "AXTextField", "AXComboBox", "AXSearchField"])
     /// Keeps a slow or hung target app from stalling the main thread for the default ~6 s per AX call.
     private static let messagingTimeout: Float = 0.4
-    /// Upper bound for searching a focused container for its text field.
-    private static let elementSearchBudget = Duration.milliseconds(250)
+    /// Upper bounds for searching an element tree, such as a focused container for its text field.
+    /// Finding nothing is fine: the window is then treated as having no known text field.
+    private static let elementSearchBudget = Duration.milliseconds(100)
+    private static let elementSearchLimit = 40
     /// Delays between reads while verifying a write; roughly the same 0.5 s window with fewer AX round trips.
     private static let verificationDelays = [50, 75, 100, 125, 150]
 
@@ -241,6 +243,44 @@ final class TextInteraction {
 
     func currentValue(of snapshot: TextTargetSnapshot) -> String? {
         currentValue(in: snapshot)
+    }
+
+    /// The address of the page in the captured Safari or Chrome window, read through Accessibility under
+    /// the same per-call timeout. Safari keeps it as `AXURL` on the web area, Chrome as `AXDocument` on the window.
+    func browserPageAddress(in snapshot: TextTargetSnapshot) -> String? {
+        guard let window = snapshot.windowElement else { return nil }
+        let address: AnyObject?
+        switch snapshot.bundleID {
+        case "com.apple.Safari":
+            address = webArea(in: window).flatMap { copyAttribute($0, kAXURLAttribute) }
+        case "com.google.Chrome":
+            address = copyAttribute(window, kAXDocumentAttribute)
+        default:
+            return nil
+        }
+        // AXURL holds a CFURL, AXDocument a string.
+        let url = (address as? URL)?.absoluteString ?? (address as? String)
+        return url.flatMap(ContextCollector.pageAddress)
+    }
+
+    /// Descends only through containers, so toolbar buttons and tabs don't use up the search limit.
+    private func webArea(in window: AXUIElement) -> AXUIElement? {
+        var queue = childElements(of: window)
+        var visited = 0
+        let deadline = ContinuousClock.now + Self.elementSearchBudget
+        while !queue.isEmpty, visited < Self.elementSearchLimit, ContinuousClock.now < deadline {
+            let element = queue.removeFirst()
+            visited += 1
+            switch role(of: element) {
+            case "AXWebArea":
+                return element
+            case "AXSplitGroup", "AXTabGroup", "AXGroup", "AXScrollArea":
+                queue.append(contentsOf: childElements(of: element))
+            default:
+                continue
+            }
+        }
+        return nil
     }
 
     func replacementSnapshot(for write: VerifiedWrite) throws -> TextTargetSnapshot {
@@ -463,7 +503,7 @@ final class TextInteraction {
         var candidates: [AXUIElement] = []
         var visited = 0
         let deadline = ContinuousClock.now + Self.elementSearchBudget
-        while !queue.isEmpty, visited < 80, ContinuousClock.now < deadline {
+        while !queue.isEmpty, visited < Self.elementSearchLimit, ContinuousClock.now < deadline {
             let current = queue.removeFirst()
             guard !seen.contains(where: { CFEqual($0, current.element) }) else { continue }
             seen.append(current.element)
@@ -710,7 +750,7 @@ enum ContextCollector {
         currentAppAllowed: Bool,
         windowTitleAllowed: Bool,
         clipboardAllowed: Bool,
-        browserPageAllowed: Bool,
+        browserPage: String?,
         session: AgentSession?,
         domains: Set<DomainPreset>,
         knowledge: [KnowledgeEntity],
@@ -749,8 +789,8 @@ enum ContextCollector {
                 isChineseUI: isChineseUI
             ))
         }
-        if browserPageAllowed, let url = browserURL(bundleID: snapshot.bundleID), !url.isEmpty {
-            items.append(ContextItem(kind: .browser, symbol: "globe", title: title("浏览器页面", "Browser page"), value: url))
+        if let browserPage, !browserPage.isEmpty {
+            items.append(ContextItem(kind: .browser, symbol: "globe", title: title("浏览器页面", "Browser page"), value: browserPage))
         }
         if let session, session.expiresAt > .now {
             items.append(ContextItem(kind: .session, symbol: "bubble.left.and.bubble.right", title: title("最近对话", "Recent conversation"), value: session.contextSummary))
@@ -783,25 +823,6 @@ enum ContextCollector {
         components.query = nil
         components.fragment = nil
         return components.string
-    }
-
-    @MainActor
-    private static func browserURL(bundleID: String) -> String? {
-        let command: String
-        switch bundleID {
-        case "com.apple.Safari":
-            command = "tell application \"Safari\" to return URL of current tab of front window"
-        case "com.google.Chrome":
-            command = "tell application \"Google Chrome\" to return URL of active tab of front window"
-        default:
-            return nil
-        }
-        // Runs on the main thread, so a busy browser must not hold it for the default two-minute Apple event timeout.
-        let source = "with timeout of 2 seconds\n\(command)\nend timeout"
-        var error: NSDictionary?
-        let result = NSAppleScript(source: source)?.executeAndReturnError(&error)
-        guard error == nil, let url = result?.stringValue else { return nil }
-        return pageAddress(url)
     }
 }
 

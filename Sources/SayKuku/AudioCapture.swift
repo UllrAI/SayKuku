@@ -1,5 +1,6 @@
 import AVFoundation
 import Foundation
+import os
 
 enum AudioCaptureError: LocalizedError {
     case microphoneUnavailable
@@ -21,8 +22,14 @@ final class AudioCapture: @unchecked Sendable {
     }
 
     /// A fresh engine per recording, with its tap installed; a reused engine can keep a stale input format.
+    /// The engine and its observer are only touched on `queue`.
     private var engine: AVAudioEngine?
     private var configurationObserver: NSObjectProtocol?
+    /// Starting an engine can take hundreds of milliseconds with Bluetooth inputs, so it runs here rather
+    /// than on the caller's thread. `stop` and `cancel` go through the same queue, so they always follow
+    /// a start that is still in flight.
+    private let queue = DispatchQueue(label: "com.saykuku.audio-capture")
+    private let signposter = OSSignposter.performance
     private let lock = NSLock()
     private var pcm = Data()
     private var converter: AVAudioConverter?
@@ -37,12 +44,34 @@ final class AudioCapture: @unchecked Sendable {
         interleaved: false
     )!
 
+    /// Queues a fresh engine start and returns at once; the task finishes once the engine runs.
+    /// Queuing before returning keeps call order: a later `start`, `stop` or `cancel` always runs after this one.
     /// `onInterruption` fires once, on an arbitrary thread, when an audio device change stops the engine.
     func start(
         onLevel: @escaping @Sendable (Double) -> Void,
         onChunk: @escaping @Sendable (Data) -> Void,
         onInterruption: @escaping @Sendable () -> Void
+    ) -> Task<Void, Error> {
+        // Used as a one-shot result: finishes empty once the engine runs, or with the error.
+        let (outcome, continuation) = AsyncThrowingStream<Void, Error>.makeStream()
+        queue.async {
+            do {
+                try self.startEngine(onLevel: onLevel, onChunk: onChunk, onInterruption: onInterruption)
+                continuation.finish()
+            } catch {
+                continuation.finish(throwing: error)
+            }
+        }
+        return Task { for try await _ in outcome {} }
+    }
+
+    private func startEngine(
+        onLevel: @escaping @Sendable (Double) -> Void,
+        onChunk: @escaping @Sendable (Data) -> Void,
+        onInterruption: @escaping @Sendable () -> Void
     ) throws {
+        let interval = signposter.beginInterval("audio start")
+        defer { signposter.endInterval("audio start", interval) }
         stopEngine()
         let engine = AVAudioEngine()
         let input = engine.inputNode
@@ -85,16 +114,18 @@ final class AudioCapture: @unchecked Sendable {
     }
 
     func stop() -> Recording {
-        lock.withLock {
-            running = false
-            chunkHandler = nil
-            levelHandler = nil
-            interruptionHandler = nil
-        }
-        stopEngine()
-        let data = lock.withLock { () -> Data in
-            converter = nil
-            return pcm
+        let data = queue.sync { () -> Data in
+            lock.withLock {
+                running = false
+                chunkHandler = nil
+                levelHandler = nil
+                interruptionHandler = nil
+            }
+            stopEngine()
+            return lock.withLock { () -> Data in
+                converter = nil
+                return pcm
+            }
         }
         return Recording(
             wav: Self.makeWAV(pcm16: data, sampleRate: 16_000, channels: 1),
@@ -104,16 +135,18 @@ final class AudioCapture: @unchecked Sendable {
     }
 
     func cancel() {
-        lock.withLock {
-            running = false
-            chunkHandler = nil
-            levelHandler = nil
-            interruptionHandler = nil
-        }
-        stopEngine()
-        lock.withLock {
-            pcm.removeAll()
-            converter = nil
+        queue.sync {
+            lock.withLock {
+                running = false
+                chunkHandler = nil
+                levelHandler = nil
+                interruptionHandler = nil
+            }
+            stopEngine()
+            lock.withLock {
+                pcm.removeAll()
+                converter = nil
+            }
         }
     }
 

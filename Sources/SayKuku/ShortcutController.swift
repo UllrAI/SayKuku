@@ -134,8 +134,8 @@ final class ShortcutController: @unchecked Sendable {
         if sample.kind == .keyDown,
            Self.shouldCancelForEscape(
                keyCode: sample.keyCode,
-               dictationIsCancellable: appState.dictationPhase.isCancellable,
-               agentIsCancellable: appState.agentPhase.isCancellable
+               dictationIsCancellable: appState.dictationPhase.isCancellable || appState.dictationIsListening,
+               agentIsCancellable: appState.agentPhase.isCancellable || appState.agentIsListening
            ) {
             holdTask?.cancel()
             singleTapTask?.cancel()
@@ -148,7 +148,7 @@ final class ShortcutController: @unchecked Sendable {
         if sample.kind == .keyDown, fnIsDown, !isFnKey {
             fnWasChorded = true
             holdTask?.cancel()
-            if appState.dictationPhase == .listening {
+            if appState.dictationIsListening {
                 appState.cancelDictation()
             }
             return
@@ -189,8 +189,8 @@ final class ShortcutController: @unchecked Sendable {
 
         switch Self.releaseAction(
             wasChorded: wasChorded,
-            agentIsListening: appState.agentPhase == .listening,
-            dictationIsListening: appState.dictationPhase == .listening
+            agentIsListening: appState.agentIsListening,
+            dictationIsListening: appState.dictationIsListening
         ) {
         case .ignore:
             firstTapAt = nil
@@ -217,8 +217,8 @@ final class ShortcutController: @unchecked Sendable {
     private static func shouldArmHold(_ appState: AppState) -> Bool {
         shouldArmHold(
             inputMode: appState.inputMode,
-            agentIsListening: appState.agentPhase == .listening,
-            dictationIsListening: appState.dictationPhase == .listening
+            agentIsListening: appState.agentIsListening,
+            dictationIsListening: appState.dictationIsListening
         )
     }
 
