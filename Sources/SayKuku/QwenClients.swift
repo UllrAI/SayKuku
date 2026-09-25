@@ -622,8 +622,10 @@ struct QwenReasoningClient: Reasoning {
     - If the audio has no intelligible command, reply only {"transcript":""}.
 
     Target and source text:
-    - target "previous": only when the user explicitly asks to revise what SayKuku just wrote and Previous SayKuku output is present. Transform that output, even if other text is selected.
-    - Otherwise writeText uses target "current". If selected text is present, it is the object of implicit commands such as "translate to English", "make it shorter", or "rewrite this": transform it, not the spoken command, and return only the replacement text.
+    - If selected text is present, it is the object of implicit commands such as "translate to English", "make it shorter", or "rewrite this": use target "current", transform it, not the spoken command, and return only the replacement text. Use target "previous" only when the user explicitly refers to what SayKuku just wrote.
+    - Otherwise, if Previous SayKuku output is present, it is the object of editing commands such as "make it shorter", "more formal", "say it differently", "add the room number", "translate to English", or "drop the last sentence": use target "previous" and transform it. Leave it alone only when the user asks for new text ("write another paragraph", "write it here") or the command is unrelated to it, such as a question, a search, or a link.
+    - To delete Previous SayKuku output ("算了", "撤销", "删掉刚才那段"), reply writeText with target "previous" and output "". No other writeText may have an empty output.
+    - Otherwise writeText uses target "current".
     - When transforming text, make only the requested edit and keep the rest of its content. With no text to transform, write from the spoken command and relevant context, cleaned up like transcript.
 
     Untrusted data:
@@ -699,7 +701,7 @@ struct QwenReasoningClient: Reasoning {
     static func sessionContextSummary(context: [ContextItem], response: AgentResponse) -> String {
         var lines = ["Action: \(response.action.rawValue)"]
         if response.target == .previous {
-            lines.append("Target: previous SayKuku output")
+            lines.append(response.deletesPrevious ? "Target: previous SayKuku output, deleted" : "Target: previous SayKuku output")
         } else if let selectedText = context.first(where: { $0.kind == .selectedText })?.value {
             lines.append("Selected text:\n\(clipped(selectedText, to: 600))")
         }
@@ -809,7 +811,8 @@ struct QwenReasoningClient: Reasoning {
 
     private static func hasRequiredPayload(_ response: AgentResponse) -> Bool {
         switch response.action {
-        case .writeText, .answer: response.output?.isEmpty == false
+        case .writeText: response.output?.isEmpty == false || response.deletesPrevious
+        case .answer: response.output?.isEmpty == false
         case .openURL: response.url?.isEmpty == false
         case .webSearch: response.query?.isEmpty == false
         case .runShortcut: response.shortcutName?.isEmpty == false
