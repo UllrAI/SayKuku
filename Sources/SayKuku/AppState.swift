@@ -204,6 +204,7 @@ final class AppState {
     @ObservationIgnored private var mainWindowOpener: OpenWindowAction?
     @ObservationIgnored private var didEvaluateStartupPermissions = false
     @ObservationIgnored private var pendingSetupSteps: [AppSheet] = []
+    @ObservationIgnored private var didStartLoading = false
     @ObservationIgnored private var isLoaded = false
     @ObservationIgnored private var persistenceGeneration = 0
     @ObservationIgnored private let persistenceDelay: Duration
@@ -1481,6 +1482,8 @@ final class AppState {
     private static let legacyPlaceholderDetails: Set<String> = ["手动添加", "Added manually", "来自纠正记忆", "From correction memory"]
 
     func loadStoredData() async {
+        guard !didStartLoading else { return }
+        didStartLoading = true
         localDataIssue = await store.dataIssue
         if !defaults.bool(forKey: Keys.legacyDataNoticeDismissed) {
             legacyDataURL = await store.legacyEncryptedDataURL()
@@ -1495,19 +1498,18 @@ final class AppState {
             )
             return
         }
-        // Entries recorded while loading are kept alongside the stored ones.
-        historyEntries = (historyEntries + Self.recoveringInterruptedHistory(
+        historyEntries = Self.merging(historyEntries, Self.recoveringInterruptedHistory(
             snapshot.history,
             message: text("SayKuku 退出时还没处理完", "SayKuku quit before this finished")
         )).sorted { $0.createdAt > $1.createdAt }
-        knowledgeEntities = snapshot.entities.map { entity in
+        knowledgeEntities = Self.merging(knowledgeEntities, snapshot.entities.map { entity in
             var entity = entity
             if Self.legacyPlaceholderDetails.contains(entity.detail) { entity.detail = "" }
             return entity
-        }
-        knowledgeRelationships = snapshot.relationships
-        corrections = snapshot.corrections
-        sessions = snapshot.sessions.filter { $0.expiresAt > .now }
+        })
+        knowledgeRelationships = Self.merging(knowledgeRelationships, snapshot.relationships)
+        corrections = Self.merging(corrections, snapshot.corrections)
+        sessions = Self.merging(sessions, snapshot.sessions.filter { $0.expiresAt > .now })
         cleanExpiredHistory()
         // Saving before every array is in place would replace the stored data with part of it.
         isLoaded = true
@@ -1518,6 +1520,12 @@ final class AppState {
                 symbol: "exclamationmark.triangle.fill"
             )
         }
+    }
+
+    /// Keeps records added while loading; stored records fill in the rest.
+    private static func merging<Record: Identifiable>(_ current: [Record], _ stored: [Record]) -> [Record] {
+        let currentIDs = Set(current.map(\.id))
+        return current + stored.filter { !currentIDs.contains($0.id) }
     }
 
     /// Entries still processing at launch were cut off by a quit or crash; keep their audio so they can be retried.
@@ -1559,15 +1567,18 @@ final class AppState {
         }
     }
 
-    /// Writes pending changes now. Quitting waits for this.
-    func flushPersistence() async {
+    /// Writes pending changes now and reports whether they were saved. Quitting waits for this.
+    @discardableResult
+    func flushPersistence() async -> Bool {
         do {
             try await persistCurrentState()
+            return true
         } catch {
             showToast(
                 text("本机数据没能保存，最近的更改可能会丢失，请检查磁盘空间", "Couldn’t save your data, so recent changes may be lost. Check your available storage."),
                 symbol: "exclamationmark.triangle.fill"
             )
+            return false
         }
     }
 
