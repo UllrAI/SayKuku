@@ -82,8 +82,18 @@ enum DictationTextJoiner {
     }
 }
 
+/// The focused app's text as the voice workflows use it; tests pass a fake.
 @MainActor
-final class TextInteraction {
+protocol TextWriting: AnyObject {
+    func captureTarget(requiringWindow: Bool, includingCaretFrame: Bool) throws -> TextTargetSnapshot
+    func write(_ text: String, to snapshot: TextTargetSnapshot) async throws -> TextWriteOutcome
+    func currentValue(of snapshot: TextTargetSnapshot) -> String?
+    func browserPageAddress(in snapshot: TextTargetSnapshot) -> String?
+    func replacementSnapshot(for write: VerifiedWrite) throws -> TextTargetSnapshot
+}
+
+@MainActor
+final class TextInteraction: TextWriting {
     typealias PasteboardItemSnapshot = [NSPasteboard.PasteboardType: Data]
     typealias PasteboardSnapshot = [PasteboardItemSnapshot]
 
