@@ -60,16 +60,16 @@ final class ShortcutRecorder {
         let result = GlobalShortcut.recordingResult(
             keyCode: keyCode,
             carbonModifiers: modifiers,
-            otherShortcut: appState.globalShortcut(for: action.other)
+            otherShortcut: appState.settings.globalShortcut(for: action.other)
         )
         switch result {
         case .cancel:
             stop()
         case .clear:
-            appState.setGlobalShortcut(nil, for: action)
+            appState.settings.setGlobalShortcut(nil, for: action)
             stop()
         case .record(let shortcut):
-            appState.setGlobalShortcut(shortcut, for: action)
+            appState.settings.setGlobalShortcut(shortcut, for: action)
             stop()
         case .reject(let issue):
             self.issue = issue
@@ -103,7 +103,7 @@ struct ShortcutRecorderButton: View {
 
     var body: some View {
         let isRecording = recorder.action == action
-        let shortcut = appState.globalShortcut(for: action)
+        let shortcut = appState.settings.globalShortcut(for: action)
 
         let shape = RoundedRectangle(cornerRadius: KukuLayout.radiusSmall, style: .continuous)
 
@@ -139,7 +139,7 @@ struct ShortcutRecorderButton: View {
                     size: .small,
                     tint: KukuColor.textTertiary
                 ) {
-                    appState.setGlobalShortcut(nil, for: action)
+                    appState.settings.setGlobalShortcut(nil, for: action)
                 }
             }
         }

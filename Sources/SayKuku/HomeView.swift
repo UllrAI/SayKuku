@@ -68,10 +68,10 @@ struct HomeView: View {
         HomeGestureRow(
             key: "Fn",
             title: localized("Voice Input"),
-            subtitle: appState.inputMode == .hold
+            subtitle: appState.settings.inputMode == .hold
                 ? localized("Hold to talk, release to insert")
                 : localized("Tap to start, tap again to insert"),
-            shortcut: appState.globalShortcut(for: .voiceInput),
+            shortcut: appState.settings.globalShortcut(for: .voiceInput),
             symbol: "mic.fill"
         ) {
             practiceFocused = true
@@ -83,7 +83,7 @@ struct HomeView: View {
             key: "Fn Fn",
             title: localized("Voice Agent"),
             subtitle: localized("Rewrite selected text, ask questions, or open pages"),
-            shortcut: appState.globalShortcut(for: .voiceAgent),
+            shortcut: appState.settings.globalShortcut(for: .voiceAgent),
             symbol: "sparkles"
         ) {
             practiceFocused = true

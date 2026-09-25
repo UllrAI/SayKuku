@@ -228,13 +228,13 @@ private struct CorrectionSuggestions: View {
                 if item.id != pending.first?.id { KukuDivider() }
                 CorrectionRow(item: item)
             }
-            if !appState.learnFromCorrections {
+            if !appState.settings.learnFromCorrections {
                 KukuDivider()
                 KukuRow(
                     localized("Learning from corrections is off"),
                     caption: localized("Turn it on to get new suggestions from words you fix.")
                 ) {
-                    Button(localized("Turn On")) { appState.learnFromCorrections = true }
+                    Button(localized("Turn On")) { appState.settings.learnFromCorrections = true }
                         .buttonStyle(.kukuSecondary)
                 }
             }

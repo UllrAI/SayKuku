@@ -65,7 +65,7 @@ struct SayKukuApp: App {
         .windowResizability(.contentSize)
 
         MenuBarExtra(isInserted: Binding(
-            get: { appState.showInMenuBar },
+            get: { appState.settings.showInMenuBar },
             set: { setMenuBarVisibility($0) }
         )) {
             MenuBarContent()
@@ -79,11 +79,11 @@ struct SayKukuApp: App {
     }
 
     private func setMenuBarVisibility(_ isVisible: Bool) {
-        if !isVisible, appState.hideDockIconAfterMainWindowCloses {
-            appState.hideDockIconAfterMainWindowCloses = false
+        if !isVisible, appState.settings.hideDockIconAfterMainWindowCloses {
+            appState.settings.hideDockIconAfterMainWindowCloses = false
             NSApplication.shared.setActivationPolicy(.regular)
         }
-        appState.setShowInMenuBar(isVisible)
+        appState.settings.setShowInMenuBar(isVisible)
     }
 }
 
@@ -197,7 +197,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Login launches stay in the menu bar. SwiftUI may create the window before or after
     /// `applicationDidFinishLaunching`, so close it now or as soon as it appears.
     private func suppressLaunchWindow() {
-        if appState.hideDockIconAfterMainWindowCloses {
+        if appState.settings.hideDockIconAfterMainWindowCloses {
             NSApplication.shared.setActivationPolicy(.accessory)
         }
         if let mainWindow {
@@ -232,7 +232,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         mainWindow = nil
 
-        if appState.hideDockIconAfterMainWindowCloses {
+        if appState.settings.hideDockIconAfterMainWindowCloses {
             NSApplication.shared.setActivationPolicy(.accessory)
         }
     }
@@ -419,6 +419,6 @@ private struct VoiceMenuItems: View {
     /// Hides a shortcut that failed to register, since it would only work inside SayKuku.
     private func keyboardShortcut(for action: GlobalShortcutAction) -> KeyboardShortcut? {
         if case .hotKeyConflict(let failed) = appState.shortcutStatus, failed.contains(action) { return nil }
-        return appState.globalShortcut(for: action)?.keyboardShortcut
+        return appState.settings.globalShortcut(for: action)?.keyboardShortcut
     }
 }

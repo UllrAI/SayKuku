@@ -112,8 +112,8 @@ struct VoiceWorkflowTests {
             defer { environment.clean() }
             let reasoning = FakeReasoning()
             let state = try makeState(environment, .fake(reasoning: reasoning))
-            state.matchAppTone = matchAppTone
-            state.dictationCleanup = cleanup
+            state.settings.matchAppTone = matchAppTone
+            state.settings.dictationCleanup = cleanup
 
             try await startListening(state)
             state.finishDictation()
@@ -125,7 +125,7 @@ struct VoiceWorkflowTests {
             defer { environment.clean() }
             let realtime = FakeRealtime(transcript: "Hello world.")
             let state = try makeState(environment, .fake(realtime: realtime))
-            state.qwenWorkspaceID = "llm-test"
+            state.settings.qwenWorkspaceID = "llm-test"
 
             try await startListening(state)
             state.finishDictation()
@@ -244,7 +244,7 @@ struct VoiceWorkflowTests {
         #expect(state.contextItems.first { $0.kind == .screen }?.value == "周四方便吗")
         state.dismissAgent()
 
-        state.screenTextAllowed = false
+        state.settings.screenTextAllowed = false
         try await startAgentListening(state)
         #expect(!state.contextItems.contains { $0.kind == .screen })
         #expect(text.visibleTextReads == 1)
@@ -279,8 +279,8 @@ struct VoiceWorkflowTests {
 @MainActor
 private func makeState(_ environment: AppStateTestEnvironment, _ dependencies: AppState.Dependencies) throws -> AppState {
     let state = environment.makeState(dependencies: dependencies)
-    state.soundCuesEnabled = false
-    try state.saveAPIKey("test")
+    state.settings.soundCuesEnabled = false
+    try state.settings.saveAPIKey("test")
     return state
 }
 
@@ -315,7 +315,7 @@ private func dictateOverRealtime(
     let realtime = FakeRealtime(commitError: error)
     let reasoning = FakeReasoning()
     let state = try makeState(environment, .fake(realtime: realtime, reasoning: reasoning))
-    state.qwenWorkspaceID = "llm-test"
+    state.settings.qwenWorkspaceID = "llm-test"
     try await startListening(state)
     state.finishDictation()
     return (state, realtime, reasoning)

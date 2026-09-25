@@ -206,7 +206,7 @@ struct CorrectionMemoryTests {
             state.pressOverlayButton(at: 1)
             #expect(state.knowledgeEntities.first?.detail == "Notes · Weekly sync")
 
-            state.windowTitleAllowed = false
+            state.settings.windowTitleAllowed = false
             state.noteCorrection(CorrectionCandidate(before: "work body", after: "WorkBuddy"), app: "Slack", windowTitle: "#product")
             state.pressOverlayButton(at: 1)
             #expect(state.knowledgeEntities.last?.detail == "Slack")

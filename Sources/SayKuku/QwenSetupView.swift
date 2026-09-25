@@ -50,7 +50,7 @@ struct QwenSetupView: View {
             )) {
                 KukuExternalLink(
                     title: localized("Open Model Studio Console"),
-                    destination: appState.qwenRegion.consoleURL
+                    destination: appState.settings.qwenRegion.consoleURL
                 )
             }
             QwenSetupStep(number: 2, text: localized("On the API Key page, create a key, then paste it below."))
@@ -79,7 +79,7 @@ struct QwenSetupView: View {
     /// Connected, and nothing edited since, so there is nothing left to test.
     private var isConnected: Bool {
         guard case .connected = appState.connectionState else { return false }
-        return draft.matches(apiKey: appState.apiKey, workspaceID: appState.qwenWorkspaceID)
+        return draft.matches(apiKey: appState.settings.apiKey, workspaceID: appState.settings.qwenWorkspaceID)
     }
 }
 
