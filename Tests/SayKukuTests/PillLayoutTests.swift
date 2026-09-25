@@ -34,6 +34,16 @@ struct PillLayoutTests {
         #expect(width < 200)
     }
 
+    @Test("buttons after a message get their own room within the same cap")
+    func errorWidthWithButtons() {
+        let message = "把“张月”记为“张越”？"
+        let plain = KukuPillLayout.errorWidth(for: message)
+        let withButtons = KukuPillLayout.errorWidth(for: message, buttons: ["暂不", "记住"])
+
+        #expect(withButtons > plain)
+        #expect(withButtons <= 340)
+    }
+
     @Test("long error copy caps at a width that fits the overlay panel")
     func longErrorWidth() {
         let width = KukuPillLayout.errorWidth(

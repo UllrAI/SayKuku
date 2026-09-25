@@ -131,14 +131,14 @@ struct CorrectionMemoryTests {
         }
     }
 
-    @Test("accepted corrections carry no placeholder detail")
+    @Test("accepted corrections take where they were made as the clue")
     func acceptedCorrection() {
         withState { state in
             let record = CorrectionRecord(raw: "王小明", corrected: "王晓明", lastApp: "TextEdit")
             state.corrections = [record]
             state.acceptCorrection(record.id)
             let entity = state.knowledgeEntities.first { $0.name == "王晓明" }
-            #expect(entity?.detail == "")
+            #expect(entity?.detail == "TextEdit")
             #expect(entity?.aliases == ["王小明"])
             #expect(entity?.source == .correction)
             #expect(state.corrections.first?.status == .accepted)
@@ -156,22 +156,91 @@ struct CorrectionMemoryTests {
         }
     }
 
+    @Test("the overlay asks about the same correction at most twice")
+    func correctionPromptLimit() {
+        withState { state in
+            let change = CorrectionCandidate(before: "张月", after: "张越")
+            state.noteCorrection(change, app: "Notes", windowTitle: "")
+            #expect(state.overlayError == localized("Remember “\("张月")” as “\("张越")”?"))
+            #expect(state.overlayButtons.map(\.title) == [localized("Not Now"), localized("Remember")])
+            state.pressOverlayButton(at: 0)
+            #expect(state.overlayError == nil)
+            #expect(state.overlayButtons.isEmpty)
+
+            state.noteCorrection(change, app: "Mail", windowTitle: "")
+            #expect(state.overlayError != nil)
+            state.pressOverlayButton(at: 0)
+
+            state.noteCorrection(change, app: "Notes", windowTitle: "")
+            #expect(state.overlayError == nil)
+            #expect(state.corrections.count == 1)
+            #expect(state.corrections.first?.count == 3)
+            #expect(state.corrections.first?.promptCount == CorrectionRecord.promptLimit)
+            #expect(state.pendingCorrections.count == 1)
+            #expect(state.knowledgeEntities.isEmpty)
+        }
+    }
+
+    @Test("Remember on the overlay saves the correction right away")
+    func rememberFromOverlay() {
+        withState { state in
+            let change = CorrectionCandidate(before: "work body", after: "WorkBuddy")
+            state.noteCorrection(change, app: "Notes", windowTitle: "")
+            state.pressOverlayButton(at: 1)
+            #expect(state.knowledgeEntities.map(\.name) == ["WorkBuddy"])
+            #expect(state.knowledgeEntities.first?.aliases == ["work body"])
+            #expect(state.corrections.first?.status == .accepted)
+            #expect(state.overlayError == localized("Remembered"))
+            #expect(state.overlayButtons.isEmpty)
+            #expect(state.pendingCorrections.isEmpty)
+
+            state.noteCorrection(change, app: "Notes", windowTitle: "")
+            #expect(state.overlayButtons.isEmpty)
+        }
+    }
+
+    @Test("the clue names the app and window title, unless window titles aren't shared")
+    func correctionClue() {
+        withState { state in
+            state.noteCorrection(CorrectionCandidate(before: "张月", after: "张越"), app: "Notes", windowTitle: "Weekly sync")
+            state.pressOverlayButton(at: 1)
+            #expect(state.knowledgeEntities.first?.detail == "Notes · Weekly sync")
+
+            state.windowTitleAllowed = false
+            state.noteCorrection(CorrectionCandidate(before: "work body", after: "WorkBuddy"), app: "Slack", windowTitle: "#product")
+            state.pressOverlayButton(at: 1)
+            #expect(state.knowledgeEntities.last?.detail == "Slack")
+        }
+    }
+
+    @Test("a correction noticed while recording waits in Suggestions")
+    func correctionDuringRecording() {
+        withState { state in
+            state.dictationPhase = .listening
+            state.noteCorrection(CorrectionCandidate(before: "张月", after: "张越"), app: "Notes", windowTitle: "")
+            #expect(state.overlayError == nil)
+            #expect(state.corrections.first?.promptCount == 0)
+            #expect(state.pendingCorrections.count == 1)
+        }
+    }
+
     @Test("a correction to an automatically learned name renames it instead of adding another")
     func selfHealingCorrection() {
         let learned = KnowledgeEntity(name: "张月", type: .person, aliases: ["张悦"], source: .correction)
-        let entities = KnowledgePipeline.learn("张月", as: "张越", into: [learned])
+        let entities = KnowledgePipeline.learn("张月", as: "张越", clue: "Notes", into: [learned])
         #expect(entities.count == 1)
         #expect(entities.first?.id == learned.id)
         #expect(entities.first?.name == "张越")
         #expect(entities.first?.aliases == ["张悦", "张月"])
         #expect(entities.first?.type == .person)
         #expect(entities.first?.source == .correction)
+        #expect(entities.first?.detail == "Notes")
     }
 
     @Test("a correction never renames an item the user saved")
     func correctionKeepsSavedItems() {
         let saved = KnowledgeEntity(name: "张月", type: .person)
-        let entities = KnowledgePipeline.learn("张月", as: "张越", into: [saved])
+        let entities = KnowledgePipeline.learn("张月", as: "张越", clue: "Notes", into: [saved])
         #expect(entities.map(\.name) == ["张月", "张越"])
         #expect(entities.first == saved)
         #expect(entities.last?.aliases == ["张月"])
@@ -181,18 +250,21 @@ struct CorrectionMemoryTests {
     func correctionFoldsIntoExistingItem() {
         let saved = KnowledgeEntity(name: "张越", type: .person, aliases: ["Visoar"])
         let learned = KnowledgeEntity(name: "张月", type: .term, aliases: ["张悦"], source: .correction)
-        let entities = KnowledgePipeline.learn("张月", as: "张越", into: [saved, learned])
+        let entities = KnowledgePipeline.learn("张月", as: "张越", clue: "Notes", into: [saved, learned])
         #expect(entities.count == 1)
         #expect(entities.first?.id == saved.id)
         #expect(entities.first?.aliases == ["Visoar", "张悦", "张月"])
         #expect(entities.first?.source == .manual)
+        #expect(entities.first?.detail == "Notes")
     }
 
     @Test("learning the same correction twice adds the alias once")
     func repeatedCorrection() {
-        let once = KnowledgePipeline.learn("work body", as: "WorkBuddy", into: [])
-        let twice = KnowledgePipeline.learn("work body", as: "WorkBuddy", into: once)
+        let once = KnowledgePipeline.learn("work body", as: "WorkBuddy", clue: "Notes", into: [])
+        let twice = KnowledgePipeline.learn("work body", as: "WorkBuddy", clue: "Mail", into: once)
         #expect(twice == once)
         #expect(twice.first?.aliases == ["work body"])
+        // A clue someone already has, or edited, is never replaced.
+        #expect(twice.first?.detail == "Notes")
     }
 }

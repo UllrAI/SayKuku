@@ -150,8 +150,10 @@ enum KnowledgePipeline {
 
     /// Saves a correction as the item `corrected` with `raw` as an alias. An automatically learned item
     /// named `raw` was learned wrong, so it is renamed to `corrected` (or folded into an existing
-    /// `corrected`) instead of being left next to it.
-    static func learn(_ raw: String, as corrected: String, into existing: [KnowledgeEntity]) -> [KnowledgeEntity] {
+    /// `corrected`) instead of being left next to it. `clue` fills a clue only where there is none.
+    static func learn(
+        _ raw: String, as corrected: String, clue: String, into existing: [KnowledgeEntity]
+    ) -> [KnowledgeEntity] {
         var entities = existing
         let rawKey = KnowledgeNormalizer.key(raw)
         let correctedKey = KnowledgeNormalizer.key(corrected)
@@ -160,15 +162,16 @@ enum KnowledgePipeline {
         }
         if let target = entities.firstIndex(where: { $0.normalizedKey == correctedKey }) {
             entities[target] = entities[target].adding(aliases: (mistaken.map { entities[$0].aliases } ?? []) + [raw])
+            if entities[target].detail.isEmpty { entities[target].detail = clue }
             if let mistaken { entities.remove(at: mistaken) }
         } else if let mistaken {
             let old = entities[mistaken]
             entities[mistaken] = KnowledgeEntity(
-                id: old.id, name: corrected, detail: old.detail, type: old.type,
+                id: old.id, name: corrected, detail: old.detail.isEmpty ? clue : old.detail, type: old.type,
                 aliases: old.aliases + [raw], source: .correction, createdAt: old.createdAt
             )
         } else {
-            entities.append(KnowledgeEntity(name: corrected, type: .term, aliases: [raw], source: .correction))
+            entities.append(KnowledgeEntity(name: corrected, detail: clue, type: .term, aliases: [raw], source: .correction))
         }
         return entities
     }

@@ -319,6 +319,17 @@
         }
       }
     },
+    "After you fix a misheard word, SayKuku asks whether to remember it. Nothing is saved until you say yes." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "改正识别错的词后，SayKuku 会问要不要记住，你同意后才保存"
+          }
+        }
+      }
+    },
     "Aliases" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2869,7 +2880,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "以后再说"
+            "value" : "暂不"
           }
         }
       }
@@ -3662,6 +3673,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "记住"
+          }
+        }
+      }
+    },
+    "Remember “%@” as “%@”?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "把“%@”记为“%@”？"
           }
         }
       }
@@ -5279,17 +5301,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "窗口标题"
-          }
-        }
-      }
-    },
-    "Words you fix show up as suggestions in Memory. Nothing is saved until you approve it." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "改正识别错的词后，建议会出现在“记忆”中，确认后才会保存"
           }
         }
       }
