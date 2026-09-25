@@ -164,7 +164,7 @@ final class AppState {
     var reasoningModel = QwenModelCatalog.defaultReasoningModel {
         didSet { defaults.set(reasoningModel, forKey: Keys.reasoningModel); invalidateConnectionTest() }
     }
-    /// The saved key; edits stay in a view draft until `saveAPIKey` runs.
+    /// The saved key; edits stay in a view draft until `saveQwenCredentials` runs.
     private(set) var apiKey = ""
     var connectionState: ConnectionState = .idle
     let systemPermissions = SystemPermissionController()
@@ -504,13 +504,27 @@ final class AppState {
         contextItems.removeAll { $0.kind == .session }
     }
 
-    func testQwenConnection(apiKey draft: String) async {
+    /// Runs the connection button's action for the draft: save, save and test, or test.
+    func submitQwenCredentials(_ draft: QwenCredentialsDraft) async {
+        guard connectionState != .testing else { return }
+        let action = draft.action(savedKey: apiKey, savedWorkspaceID: qwenWorkspaceID)
+        guard action != .unavailable else { return }
         do {
-            try saveAPIKey(draft)
+            try saveQwenCredentials(draft)
         } catch {
             connectionState = .failed(localizedError(error))
             return
         }
+        if action != .save { await testQwenConnection() }
+    }
+
+    func saveQwenCredentials(_ draft: QwenCredentialsDraft) throws {
+        if draft.keyState(saved: apiKey).hasChanges { try saveAPIKey(draft.apiKey) }
+        let workspaceID = draft.workspaceID.trimmingCharacters(in: .whitespacesAndNewlines)
+        if workspaceID != qwenWorkspaceID { qwenWorkspaceID = workspaceID }
+    }
+
+    private func testQwenConnection() async {
         let key = apiKey
         let tested = configuration
         connectionState = .testing
@@ -664,13 +678,25 @@ final class AppState {
                 let step = self.pendingSetupSteps.removeFirst()
                 if self.isSetupStepNeeded(step) {
                     let number = (self.setupProgress?.step ?? 0) + 1
-                    self.setupProgress = SetupProgress(step: number, total: max(self.setupProgress?.total ?? number, number))
+                    // Steps already done elsewhere (say, a permission granted meanwhile) drop out of the count.
+                    let remaining = self.pendingSetupSteps.filter { self.isSetupStepNeeded($0) }.count
+                    self.setupProgress = SetupProgress(step: number, total: number + remaining)
                     self.presentedSheet = step
                     return
                 }
             }
             self.setupProgress = nil
         }
+    }
+
+    /// Primary button of a setup sheet: Continue mid-flow, Done on the last step or outside the flow.
+    var setupContinueTitle: String {
+        setupProgress?.isLastStep == false ? text("继续", "Continue") : text("完成", "Done")
+    }
+
+    /// Secondary button of a setup sheet that leaves the step unfinished.
+    var setupSkipTitle: String {
+        setupProgress == nil ? text("以后再说", "Not Now") : text("跳过", "Skip")
     }
 
     private func isSetupStepNeeded(_ step: AppSheet) -> Bool {
@@ -1555,6 +1581,8 @@ final class AppState {
 struct SetupProgress: Equatable {
     let step: Int
     let total: Int
+
+    var isLastStep: Bool { step >= total }
 
     @MainActor func title(_ appState: AppState) -> String {
         appState.text("第 \(step) 步，共 \(total) 步", "Step \(step) of \(total)")

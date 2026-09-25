@@ -1230,7 +1230,7 @@ General | Voice Input | Voice Agent | History | Privacy | Qwen Connection
 
 Knowledge 与 Memory 保持为一级侧栏目的地，不在 Settings 中重复。MVP 不提供 Advanced 空壳页面。
 
-首次启动先展示轻量领域 Onboarding，再进入系统权限引导（权限齐全时跳过），最后引导连接 Qwen：按三步说明（打开对应地域的百炼控制台、创建并粘贴 API Key、可选复制以 `llm-` 开头的业务空间 ID）完成填写，可“保存并测试”或跳过；已保存 API Key 时跳过这一步。用户可以多选 AI / Vibe Coding、软件开发、产品设计、市场增长等常用领域，也可以手动添加产品名、项目名或技术词。选择会持久化为识别上下文，并以“仅用于词汇消歧、不得补写未说内容”的参考数据加入 Voice Input 与 Voice Agent Prompt；以后可在 Voice Input 设置中重新编辑。
+首次启动先展示轻量领域 Onboarding，再进入系统权限引导（权限齐全时跳过），最后引导连接 Qwen：按三步说明（打开对应地域的百炼控制台、创建并粘贴 API Key、可选复制以 `llm-` 开头的业务空间 ID）完成填写，可“保存并测试”或跳过；已保存 API Key 时跳过这一步。三个步骤的弹窗尺寸、页头和底栏一致：进行中的步骤主按钮为“继续”，最后一步为“完成”，未完成时可“跳过”；权限在从系统设置返回时自动刷新，全部开启前“继续”不可用。用户可以多选 AI / Vibe Coding、软件开发、产品设计、市场增长等常用领域，也可以手动添加产品名、项目名或技术词。选择会持久化为识别上下文，并以“仅用于词汇消歧、不得补写未说内容”的参考数据加入 Voice Input 与 Voice Agent Prompt；以后可在 Voice Input 设置中重新编辑。
 
 ### Voice Input
 
@@ -1263,11 +1263,16 @@ Double Fn
 - 新加坡 / International (Singapore)
 
 API Key
-- 输入 Key；点击“保存”或“保存并测试”后才写入 Keychain 并生效，未保存的修改有明确提示
+- 输入 Key；保存后写入 Keychain 并生效
 
 Workspace ID / 业务空间 ID
 - 可选，但实时语音输入需要它；填写后所有请求使用业务空间专属域名
 - 未填写时语音输入改为停止录音后整段识别，“停顿后自动结束”不可用
+
+保存方式
+- 地域选择后立即生效；API Key 与业务空间 ID 由连接卡片底部的同一个按钮一起保存
+- 按钮随改动变化：有改动时为“保存并测试”，已保存时为“测试连接”，清空 Key 时为“保存”（移除 Key）；在输入框中按回车等同点击该按钮
+- 按钮左侧依次显示未保存提示、测试中或上次测试结果
 
 Realtime 模型版本
 - qwen3.8-omni-flash-realtime（默认）
