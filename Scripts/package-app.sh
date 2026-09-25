@@ -23,6 +23,14 @@ if [[ "$CONFIGURATION" != "release" && "$BUNDLE_IDENTIFIER" == "com.saykuku.app"
     exit 1
 fi
 
+# Theme.swift calls glassEffect behind #available(macOS 26.0, *), which only
+# compiles against the macOS 26 SDK. Fail here instead of deep in swift build.
+SDK_VERSION="$(xcrun --sdk macosx --show-sdk-version)"
+if (( ${SDK_VERSION%%.*} < 26 )); then
+    print -u2 "SayKuku needs the macOS 26 SDK (Xcode 26 or newer); found macOS SDK $SDK_VERSION"
+    exit 1
+fi
+
 # Sparkle compares CFBundleVersion, so derive it from the commit count: it grows
 # with main and stays the same when one commit is rebuilt.
 if [[ "$(git -C "$ROOT_DIR" rev-parse --is-shallow-repository)" == "true" ]]; then
