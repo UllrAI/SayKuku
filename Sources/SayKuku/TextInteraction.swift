@@ -41,6 +41,13 @@ struct TextTargetSnapshot: @unchecked Sendable {
     let isSensitive: Bool
 }
 
+extension TextTargetSnapshot {
+    var agentTextField: AgentTextField {
+        if textElement != nil { return .focused }
+        return windowElement != nil ? .unknown : .absent
+    }
+}
+
 struct VerifiedWrite {
     let id = UUID()
     let target: TextTargetSnapshot

@@ -1,4 +1,5 @@
 import AppKit
+import ApplicationServices
 import Carbon.HIToolbox
 import Foundation
 import Testing
@@ -16,6 +17,14 @@ struct TextWriteVerificationTests {
     func replacement() {
         let snapshot = target(value: "A😀BC", range: CFRange(location: 1, length: 2))
         #expect(TextInteraction.expectedValue(afterWriting: "好", to: snapshot) == "A好BC")
+    }
+
+    @Test("the Agent is told whether a text field is focused, unknown within a window, or absent")
+    func agentTextField() {
+        let element = AXUIElementCreateApplication(getpid())
+        #expect(target(value: nil, range: nil, window: element, text: element).agentTextField == .focused)
+        #expect(target(value: nil, range: nil, window: element).agentTextField == .unknown)
+        #expect(target(value: nil, range: nil).agentTextField == .absent)
     }
 
     @Test("dictation joins ASCII words without changing Chinese or punctuation")
@@ -198,14 +207,16 @@ struct TextWriteVerificationTests {
         #expect(items.first?.value == "2")
     }
 
-    private func target(value: String?, range: CFRange?) -> TextTargetSnapshot {
+    private func target(
+        value: String?, range: CFRange?, window: AXUIElement? = nil, text: AXUIElement? = nil
+    ) -> TextTargetSnapshot {
         TextTargetSnapshot(
             appPID: 0,
             bundleID: "tests",
             appName: "Tests",
             windowTitle: "",
-            windowElement: nil,
-            textElement: nil,
+            windowElement: window,
+            textElement: text,
             selectedRange: range,
             selectedText: "",
             valueBefore: value,

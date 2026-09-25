@@ -516,8 +516,7 @@ final class AppState {
     }
 
     func suggestEntityType(for name: String) async throws -> EntityType {
-        let result = try await reasoningClient.extractKnowledge(apiKey: apiKey, configuration: configuration, text: name)
-        return result.entities.first?.type ?? .unknown
+        try await reasoningClient.classifyEntity(apiKey: apiKey, configuration: configuration, name: name)
     }
 
     func acceptCorrection(_ id: UUID) {
@@ -645,9 +644,8 @@ final class AppState {
                 numberFormat: dictationNumberFormat,
                 cleanup: dictationCleanup,
                 knowledgePrompt: renderKnowledgePrompt(.transcription)
-            ).trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !result.isEmpty else { throw QwenError.noSpeech }
-            let cleaned = SpeechDisfluencyCleaner.clean(result, mode: dictationCleanup)
+            )
+            let cleaned = try SpeechDisfluencyCleaner.dictation(result, mode: dictationCleanup)
             updateHistory(id, input: cleaned, output: cleaned, status: .completed)
             showToast(text("已重新识别", "Transcribed again"), symbol: "checkmark")
         } catch {
@@ -1062,6 +1060,7 @@ final class AppState {
                 wav: recording.wav,
                 context: context,
                 sessions: context.contains(where: { $0.kind == .session }) ? conversation : [],
+                textField: snapshot?.agentTextField ?? .absent,
                 knowledgePrompt: knowledgePrompt
             )
             try Task.checkCancellation()
@@ -1104,9 +1103,8 @@ final class AppState {
                 let result = try await realtimeClient.commit(
                     session: realtimeSession,
                     timeout: .seconds(15 + recording.duration / 4)
-                ).trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !result.isEmpty else { throw QwenError.noSpeech }
-                return SpeechDisfluencyCleaner.clean(result, mode: dictationCleanup)
+                )
+                return try SpeechDisfluencyCleaner.dictation(result, mode: dictationCleanup)
             } catch is CancellationError {
                 throw CancellationError()
             } catch {
@@ -1126,9 +1124,7 @@ final class AppState {
             cleanup: dictationCleanup,
             knowledgePrompt: renderKnowledgePrompt(.transcription)
         )
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !result.isEmpty else { throw QwenError.noSpeech }
-        return SpeechDisfluencyCleaner.clean(result, mode: dictationCleanup)
+        return try SpeechDisfluencyCleaner.dictation(result, mode: dictationCleanup)
     }
 
     /// Saved knowledge and domain terms for a prompt; the Agent leaves out whichever the user removed from its context.
