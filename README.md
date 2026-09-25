@@ -7,7 +7,7 @@ SayKuku 是一款使用 SwiftUI 与 AppKit 构建的原生 macOS 语音输入应
 - 记忆：SayKuku 记住的人名、项目、组织和术语，提高识别与处理准确度；听写后改掉的错词在浮层里点一下「记住」就收进记忆，也可以粘贴文本导入。
 - History：在本机保存输入历史，失败听写可从录音重试；Voice Agent 的连续对话只在内存里保留 30 分钟。
 
-项目要求 macOS 15+、Swift 6 和 Xcode 26 或更新。唯一的第三方依赖是负责自动更新的 [Sparkle 2](https://github.com/sparkle-project/Sparkle)（MIT）。
+项目要求 macOS 15+、Swift 6 和 Xcode 26 或更新，没有第三方 Swift 依赖。
 
 ## 开发
 
@@ -46,11 +46,13 @@ SayKuku 只在语音输入、语音 Agent 和麦克风测试时使用麦克风�
 
 Qwen API Key 保存在这台 Mac 的钥匙串中；输入历史、记忆、纠正建议和可选录音以 JSON 与 WAV 文件保存在本机，不额外加密；Voice Agent 的最近对话只在内存里，退出即清除。不想留下输入历史时，可在“设置 → 历史”中选择“不保存”，此后不再记录新的历史和录音。焦点在密码输入框（含系统安全输入状态）或已知密码管理器（1Password、Bitwarden、LastPass、Dashlane、KeePassXC、钥匙串访问、“密码”）中时，SayKuku 不会开始录音，也不读取或写入内容。无痕浏览窗口不会被单独识别，与普通窗口同样处理。
 
+正式版启动后和之后每 24 小时，会向 `saykuku.ullrai.com` 请求一次版本号文件，请求不含任何个人数据；可在“设置 → 通用”中关闭“自动检查更新”。开发版不检查更新。
+
 ## 发布
 
 正式包固定使用 Bundle ID `com.saykuku.app`，必须由稳定的 Developer ID Application 身份签名并完成 Apple 公证。不要分发 ad-hoc 签名或仅签名但未公证的构建。正式发布运行 `Scripts/release.sh`，它依次完成测试、构建签名、公证、装订、最终 ZIP 和 dSYM；前置条件和排查步骤见 [本地打包与发布](docs/LOCAL_PACKAGING.md)。
 
-正式版通过 Sparkle 2 自动更新：发布脚本最后会用本机钥匙串中的 EdDSA 私钥生成 `appcast.xml`，与最终 ZIP 一起上传到 GitHub Release；App 从最新 Release 读取 appcast 并提示更新。开发版不检查更新。
+App 不在内部下载或安装更新：正式版读取 `https://saykuku.ullrai.com/ver.json`，发现更新的版本号时弹窗，引导用户到 GitHub Release 下载。发布脚本最后会生成 `Dist/ver.json`，发布 GitHub Release 后把它上传到该地址。
 
 ## License
 
