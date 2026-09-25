@@ -81,18 +81,37 @@ struct HistoryView: View {
     }
 
     private var retentionSubtitle: String {
-        guard appState.historyRetention != .forever else {
-            return appState.text("历史记录会一直保留，直到你手动删除。", "History is kept until you delete it.")
+        switch appState.historyRetention {
+        case .off:
+            appState.text("已停止记录新内容，已有记录会保留到你手动清空。", "New items aren’t being saved. Existing ones stay until you clear them.")
+        case .forever:
+            appState.text("历史记录会一直保留，直到你手动删除。", "History is kept until you delete it.")
+        default:
+            appState.text(
+                "保留 \(appState.historyRetention.chineseTitle)，星标记录不会自动删除。",
+                "Kept for \(appState.historyRetention.englishTitle). Starred items are never deleted automatically."
+            )
         }
-        return appState.text(
-            "保留 \(appState.historyRetention.chineseTitle)，星标记录不会自动删除。",
-            "Kept for \(appState.historyRetention.englishTitle). Starred items are never deleted automatically."
-        )
     }
 
     @ViewBuilder
     private var emptyState: some View {
-        if appState.historyEntries.isEmpty {
+        if appState.historyEntries.isEmpty, appState.historyRetention == .off {
+            KukuEmptyState(
+                title: appState.text("已停止记录历史", "History is off"),
+                symbol: "pause.circle",
+                message: appState.text(
+                    "在“设置 › 历史”里选择保留期限即可重新记录。",
+                    "Choose a retention period in Settings › History to start keeping history again."
+                )
+            ) {
+                Button(appState.text("打开设置", "Open Settings")) {
+                    appState.settingsSection = .history
+                    appState.showMainWindow(destination: .settings)
+                }
+                .buttonStyle(.kukuSecondary)
+            }
+        } else if appState.historyEntries.isEmpty {
             KukuEmptyState(
                 title: appState.text("还没有历史记录", "No history yet"),
                 symbol: "waveform",

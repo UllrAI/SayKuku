@@ -1251,7 +1251,7 @@ final class AppState {
     }
 
     private func beginHistoryEntry(mode: HistoryMode, recording: AudioCapture.Recording) -> UUID? {
-        guard let snapshot = targetSnapshot, !snapshot.isSensitive else { return nil }
+        guard historyRetention != .off, let snapshot = targetSnapshot, !snapshot.isSensitive else { return nil }
         let id = UUID()
         historyEntries.insert(HistoryEntry(
             id: id, mode: mode, app: snapshot.appName, durationSeconds: recording.duration,
