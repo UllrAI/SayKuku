@@ -200,6 +200,7 @@ Scripts/package-app.sh release
 2. 用 `dsymutil` 从编译产物提取调试符号到 `Dist/SayKuku-<版本>.dSYM`，再把二进制复制进 App 并执行 `strip -S`；随后用 `lipo -archs` 确认两个架构都在。
 3. 生成 `Build/SayKuku.app`，资源包放在 `Contents/Resources/SayKuku_SayKuku.bundle`，`Sparkle.framework` 放在 `Contents/Frameworks`（二进制带 `@executable_path/../Frameworks` rpath）。
 4. 写入正式 Bundle ID 和资源（App 图标见本节末尾），并把 `Scripts/Resources/Licenses` 中的第三方许可证复制到 `Contents/Resources/Licenses`；`SUPublicEDKey` 为空时直接退出。
+   目前有两份：`Sparkle.txt`（Sparkle 框架）和 `Lucide.txt`（App 图标、菜单栏图标和 `SayKuku.svg` 用到的 Lucide Bird 路径，ISC 许可证，原文取自 [lucide-icons/lucide 的 LICENSE](https://github.com/lucide-icons/lucide/blob/main/LICENSE)）。新增第三方代码或素材时，把许可证原文放进这个目录。
 5. 由内向外签名：先签 `Sparkle.framework/Versions/B` 下的 `XPCServices/*.xpc`、`Autoupdate`、`Updater.app`（保留它们自带的 entitlement），再签框架，最后用 `Scripts/Resources/SayKuku.entitlements` 签 App。不用 `--deep`，否则 App 的 entitlement 会被盖到 Sparkle 的辅助程序上。
 6. 全部使用同一签名身份、Hardened Runtime 和时间戳，并执行严格签名验证。
 
