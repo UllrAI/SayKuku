@@ -1478,7 +1478,7 @@ MVP 只实现 Qwen，不做多供应商设置页，也不做为了“以后可�
 ```text
 QwenRealtimeClient
 ├── connect
-├── appendAudio
+├── append
 ├── commit
 ├── cancel
 
