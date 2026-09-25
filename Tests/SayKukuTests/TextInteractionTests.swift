@@ -213,7 +213,7 @@ struct TextWriteVerificationTests {
             currentAppAllowed: false,
             windowTitleAllowed: false,
             clipboardAllowed: false,
-            browserPageAllowed: false,
+            browserPage: nil,
             session: nil,
             domains: [],
             knowledge: [

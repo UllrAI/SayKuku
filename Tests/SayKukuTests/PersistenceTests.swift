@@ -469,4 +469,14 @@ struct PersistenceTests {
         }
         #expect(AudioCapture.containsSpeech(in: tone))
     }
+
+    @Test("stopping a capture that never started returns an empty recording")
+    func stopWithoutStart() {
+        let capture = AudioCapture()
+        capture.cancel()
+        let recording = capture.stop()
+        #expect(recording.duration == 0)
+        #expect(!recording.hasSpeech)
+        #expect(recording.wav.count == 44)
+    }
 }
