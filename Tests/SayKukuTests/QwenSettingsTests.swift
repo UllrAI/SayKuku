@@ -54,12 +54,10 @@ struct QwenSettingsTests {
         }
     }
 
-    @Test("region titles follow the interface language")
+    @Test("region titles come from the string catalog")
     func regionTitles() {
-        #expect(QwenRegion.beijing.title(isChineseUI: true) == "中国内地（北京）")
-        #expect(QwenRegion.singapore.title(isChineseUI: true) == "国际（新加坡）")
-        #expect(QwenRegion.beijing.title(isChineseUI: false) == "China (Beijing)")
-        #expect(QwenRegion.singapore.title(isChineseUI: false) == "International (Singapore)")
+        #expect(QwenRegion.beijing.title == localized("China (Beijing)"))
+        #expect(QwenRegion.singapore.title == localized("International (Singapore)"))
     }
 
     @Test("saved API Key persists in the Keychain and clearing it removes the key")

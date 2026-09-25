@@ -8,8 +8,8 @@ struct HomeView: View {
     var body: some View {
         VStack(spacing: 0) {
             ScreenHeader(
-                title: appState.text("快速开始", "Quick Start"),
-                subtitle: appState.text("在任意输入框按 Fn 即可，不用打开 SayKuku。", "Press Fn in any text field. No need to open SayKuku.")
+                title: localized("Quick Start"),
+                subtitle: localized("Press Fn in any text field. No need to open SayKuku.")
             )
 
             Spacer()
@@ -30,11 +30,10 @@ struct HomeView: View {
                     }
 
                     VStack(alignment: .leading, spacing: KukuSpacing.sm) {
-                        Text(appState.text("试写区", "Try it here"))
+                        Text(localized("Try it here"))
                             .font(.kuku(.headline))
                             .foregroundStyle(KukuColor.textPrimary)
-                        Text(appState.text(
-                            "点这里，按 Fn 说句话；选中文字后连按两次 Fn，让语音 Agent 改写。",
+                        Text(localized(
                             "Click here and press Fn to talk. Select text and press Fn twice to have Voice Agent rewrite it."
                         ))
                         .font(.kuku(.subheadline))
@@ -47,12 +46,12 @@ struct HomeView: View {
                             .frame(height: 70)
                             .padding(KukuSpacing.sm)
                             .kukuFieldChrome(isFocused: practiceFocused)
-                            .accessibilityLabel(appState.text("语音试写区", "Voice practice field"))
+                            .accessibilityLabel(localized("Voice practice field"))
                     }
                     .kukuCard(radius: KukuLayout.radiusLarge)
 
                     Label(
-                        appState.text("只在你按下 Fn 或快捷键后才录音并发送", "SayKuku only records and sends audio after you press Fn or your shortcut"),
+                        localized("SayKuku only records and sends audio after you press Fn or your shortcut"),
                         systemImage: "lock.fill"
                     )
                     .font(.kuku(.subheadline))
@@ -68,10 +67,10 @@ struct HomeView: View {
     private var voiceInputCard: some View {
         HomeGestureRow(
             key: "Fn",
-            title: appState.voiceInputTitle,
+            title: localized("Voice Input"),
             subtitle: appState.inputMode == .hold
-                ? appState.text("按住说话，松开即输入", "Hold to talk, release to insert")
-                : appState.text("单击开始说话，再单击即输入", "Tap to start, tap again to insert"),
+                ? localized("Hold to talk, release to insert")
+                : localized("Tap to start, tap again to insert"),
             shortcut: appState.globalShortcut(for: .voiceInput),
             symbol: "mic.fill"
         ) {
@@ -82,8 +81,8 @@ struct HomeView: View {
     private var voiceAgentCard: some View {
         HomeGestureRow(
             key: "Fn Fn",
-            title: appState.voiceAgentTitle,
-            subtitle: appState.text("改写选中文字、提问或打开网页", "Rewrite selected text, ask questions, or open pages"),
+            title: localized("Voice Agent"),
+            subtitle: localized("Rewrite selected text, ask questions, or open pages"),
             shortcut: appState.globalShortcut(for: .voiceAgent),
             symbol: "sparkles"
         ) {
@@ -93,7 +92,6 @@ struct HomeView: View {
 }
 
 private struct HomeGestureRow: View {
-    @Environment(AppState.self) private var appState
     let key: String
     let title: String
     let subtitle: String
@@ -123,7 +121,7 @@ private struct HomeGestureRow: View {
                 }
 
                 if let shortcut {
-                    Text(appState.text("或 \(shortcut.displayString)", "or \(shortcut.displayString)"))
+                    Text(localized("or \(shortcut.displayString)"))
                         .font(.kuku(.caption))
                         .foregroundStyle(KukuColor.textSecondary)
                 }

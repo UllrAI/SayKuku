@@ -8,12 +8,9 @@ struct PermissionGuideView: View {
         let allGranted = appState.systemPermissions.allRequiredPermissionsGranted
         VStack(spacing: 0) {
             KukuSheetHeader(
-                eyebrow: appState.setupProgress?.title(appState),
-                title: appState.text("开启麦克风和辅助功能", "Turn On Microphone and Accessibility"),
-                description: appState.text(
-                    "SayKuku 需要麦克风来听你说话，还需要辅助功能把文字写入输入框。",
-                    "SayKuku needs the microphone to hear you and Accessibility to type into text fields."
-                )
+                eyebrow: appState.setupProgress?.title,
+                title: localized("Turn On Microphone and Accessibility"),
+                description: localized("SayKuku needs the microphone to hear you and Accessibility to type into text fields.")
             ) {
                 KukuSheetIcon(symbol: "checkmark.shield.fill")
             }
@@ -28,7 +25,7 @@ struct PermissionGuideView: View {
                         PermissionActionRow(kind: .accessibility)
                     }
 
-                    KukuGroup(appState.text("麦克风测试", "Microphone test")) {
+                    KukuGroup(localized("Microphone test")) {
                         MicrophoneTestPanel()
                     }
                 }
@@ -39,7 +36,7 @@ struct PermissionGuideView: View {
             KukuDivider(inset: 0)
 
             KukuSheetFooter(
-                note: KukuSheetNote(text: appState.text("以后可在“设置 › 通用”中重新检查。", "You can recheck this later in Settings › General."))
+                note: KukuSheetNote(text: localized("You can recheck this later in Settings › General."))
             ) {
                 // Status refreshes when you come back from System Settings, so there is no Recheck button.
                 if !allGranted {
@@ -106,11 +103,11 @@ struct PermissionActionRow: View {
     private func badge(for status: SystemPermissionStatus) -> KukuBadge {
         switch status {
         case .authorized:
-            KukuBadge(text: appState.text("已开启", "On"), tone: .success, symbol: "checkmark.circle.fill")
+            KukuBadge(text: localized("On"), tone: .success, symbol: "checkmark.circle.fill")
         case .restricted:
-            KukuBadge(text: appState.text("受限制", "Restricted"), tone: .warning, symbol: "exclamationmark.triangle.fill")
+            KukuBadge(text: localized("Restricted"), tone: .warning, symbol: "exclamationmark.triangle.fill")
         case .notDetermined, .denied:
-            KukuBadge(text: appState.text("未开启", "Off"))
+            KukuBadge(text: localized("Off"))
         }
     }
 
@@ -123,18 +120,17 @@ struct PermissionActionRow: View {
 
     private var title: String {
         switch kind {
-        case .microphone: appState.text("麦克风", "Microphone")
-        case .accessibility: appState.text("辅助功能", "Accessibility")
+        case .microphone: localized("Microphone")
+        case .accessibility: localized("Accessibility")
         }
     }
 
     private var subtitle: String {
         switch kind {
         case .microphone:
-            appState.text("仅在语音输入、语音 Agent 和麦克风测试时使用", "Used only for Voice Input, Voice Agent, and the microphone test")
+            localized("Used only for Voice Input, Voice Agent, and the microphone test")
         case .accessibility:
-            appState.text(
-                "用来识别 Fn 手势、把文字写入输入框并核对结果，使用语音 Agent 时也会读取选中文字。SayKuku 不会记录你的按键。",
+            localized(
                 "Lets SayKuku detect Fn, type into text fields and check the result, and read selected text when you use Voice Agent. SayKuku never logs your keystrokes."
             )
         }
@@ -143,18 +139,18 @@ struct PermissionActionRow: View {
     private func buttonTitle(for status: SystemPermissionStatus) -> String {
         if appState.systemPermissions.requesting == kind {
             return kind == .accessibility
-                ? appState.text("正在打开…", "Opening…")
-                : appState.text("正在请求…", "Requesting…")
+                ? localized("Opening…")
+                : localized("Requesting…")
         }
         switch status {
         case .notDetermined:
-            return appState.text("开启", "Enable")
+            return localized("Enable")
         case .denied, .restricted:
             return kind == .microphone || appState.systemPermissions.hasPromptedForAccessibility
-                ? appState.text("打开系统设置", "Open System Settings")
-                : appState.text("开启", "Enable")
+                ? localized("Open System Settings")
+                : localized("Enable")
         case .authorized:
-            return appState.text("已开启", "On")
+            return localized("On")
         }
     }
 }
@@ -167,7 +163,7 @@ struct MicrophoneTestPanel: View {
         VStack(alignment: .leading, spacing: KukuSpacing.md) {
             HStack(spacing: KukuSpacing.sm) {
                 VStack(alignment: .leading, spacing: KukuSpacing.xxs) {
-                    Text(appState.text("麦克风音量", "Microphone level"))
+                    Text(localized("Microphone level"))
                         .font(.kuku(.body))
                         .foregroundStyle(KukuColor.textPrimary)
                     Text(deviceSubtitle)
@@ -187,7 +183,7 @@ struct MicrophoneTestPanel: View {
 
             HStack(spacing: KukuSpacing.sm) {
                 Label(
-                    appState.text("只检测音量，不会保存、上传或回放", "Checks the level only. Nothing is saved, uploaded, or played back."),
+                    localized("Checks the level only. Nothing is saved, uploaded, or played back."),
                     systemImage: "lock.fill"
                 )
                 .font(.kuku(.subheadline))
@@ -195,7 +191,7 @@ struct MicrophoneTestPanel: View {
 
                 Spacer()
 
-                Button(test.isRunning ? appState.text("停止测试", "Stop Test") : startButtonTitle) {
+                Button(test.isRunning ? localized("Stop Test") : startButtonTitle) {
                     if test.isRunning {
                         test.stop()
                     } else {
@@ -231,37 +227,36 @@ struct MicrophoneTestPanel: View {
         if !appState.microphoneTest.deviceName.isEmpty {
             return appState.microphoneTest.deviceName
         }
-        return appState.text("使用系统默认输入设备", "Uses the system default input device")
+        return localized("Uses the system default input device")
     }
 
     private var startButtonTitle: String {
         appState.systemPermissions.microphoneStatus.isAuthorized
-            ? appState.text("开始测试", "Start Test")
-            : appState.text("开启并测试", "Enable & Test")
+            ? localized("Start Test")
+            : localized("Enable & Test")
     }
 
     private var testStatus: String {
         switch appState.microphoneTest.phase {
         case .idle:
-            return appState.text("尚未测试", "Not tested")
+            return localized("Not tested")
         case .starting:
-            return appState.text("正在启动…", "Starting…")
+            return localized("Starting…")
         case .running:
             return appState.microphoneTest.level > 0.08
-                ? appState.text("已检测到声音", "Sound detected")
-                : appState.text("正在监听", "Listening")
+                ? localized("Sound detected")
+                : localized("Listening")
         case .failed(.permissionRequired):
-            return appState.text("需要麦克风权限", "Microphone permission required")
+            return localized("Microphone permission required")
         case .failed(.noInputDevice):
-            return appState.text("未找到输入设备", "No input device found")
+            return localized("No input device found")
         case .failed(.couldNotStart):
-            return appState.text("无法启动", "Couldn’t start")
+            return localized("Couldn’t start")
         }
     }
 }
 
 private struct AudioLevelMeter: View {
-    @Environment(AppState.self) private var appState
     let level: Double
     private let barCount = 24
 
@@ -278,7 +273,7 @@ private struct AudioLevelMeter: View {
         .frame(height: 18) // Meter geometry.
         .animation(Motion.meter, value: level)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(appState.text("麦克风输入音量", "Microphone input level"))
+        .accessibilityLabel(localized("Microphone input level"))
         .accessibilityValue("\(Int(level * 100))%")
     }
 }

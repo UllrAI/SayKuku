@@ -1,0 +1,5675 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    " · Dev builds don’t check for updates" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : " · 开发版不检查更新"
+          }
+        }
+      }
+    },
+    "%@ for %@ is already in use by another app. Record a new one." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@（%@）已被其他 App 占用，请重新设置"
+          }
+        }
+      }
+    },
+    "%@ shortcut: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@快捷键：%@"
+          }
+        }
+      }
+    },
+    "%lld characters" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld character"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld characters"
+                }
+              }
+            }
+          }
+        },
+        "zh-Hans" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld 字"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld days" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld day"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld days"
+                }
+              }
+            }
+          }
+        },
+        "zh-Hans" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld 天"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld items" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld item"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld items"
+                }
+              }
+            }
+          }
+        },
+        "zh-Hans" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld 条"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld items in Knowledge" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld item in Knowledge"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld items in Knowledge"
+                }
+              }
+            }
+          }
+        },
+        "zh-Hans" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "知识中有 %lld 条"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld saved items couldn’t be read and were skipped" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld saved item couldn’t be read and was skipped"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld saved items couldn’t be read and were skipped"
+                }
+              }
+            }
+          }
+        },
+        "zh-Hans" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "有 %lld 条本机记录无法读取，已跳过"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld selected" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已选 %lld 条"
+          }
+        }
+      }
+    },
+    "%lld suggestions need your review before they’re saved." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld suggestion needs your review before it’s saved."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld suggestions need your review before they’re saved."
+                }
+              }
+            }
+          }
+        },
+        "zh-Hans" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "有 %lld 条建议待确认，确认后才会保存。"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    ", " : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "、"
+          }
+        }
+      }
+    },
+    "A name needs at least one letter or number" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "名称里要有文字或数字"
+          }
+        }
+      }
+    },
+    "Accessibility" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "辅助功能"
+          }
+        }
+      }
+    },
+    "Add" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加"
+          }
+        }
+      }
+    },
+    "Add an API Key to test the connection" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "填入 API Key 后即可测试连接"
+          }
+        }
+      }
+    },
+    "Add names, projects, and terms for more accurate transcription." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加常用的人名、项目和术语，让识别更准确。"
+          }
+        }
+      }
+    },
+    "Add to Knowledge" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "加入知识"
+          }
+        }
+      }
+    },
+    "Add your Qwen API Key first" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请先添加 Qwen API Key"
+          }
+        }
+      }
+    },
+    "Added manually" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "手动添加"
+          }
+        }
+      }
+    },
+    "Added to Knowledge" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已加入知识"
+          }
+        }
+      }
+    },
+    "Add…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加…"
+          }
+        }
+      }
+    },
+    "Aliases" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "别名"
+          }
+        }
+      }
+    },
+    "Aliases are recognized too" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "别名同样能被识别"
+          }
+        }
+      }
+    },
+    "Aliases: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "别名：%@"
+          }
+        }
+      }
+    },
+    "All" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全部"
+          }
+        }
+      }
+    },
+    "All history and recordings will be removed from this Mac. This can’t be undone." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "所有历史记录和录音都会从这台 Mac 上删除，且无法恢复。"
+          }
+        }
+      }
+    },
+    "Allow Accessibility access for SayKuku first" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请先允许 SayKuku 使用辅助功能"
+          }
+        }
+      }
+    },
+    "Allow access to" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "允许使用"
+          }
+        }
+      }
+    },
+    "Allow microphone access first" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请先允许 SayKuku 使用麦克风"
+          }
+        }
+      }
+    },
+    "Already used for %@. Try another." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已用于%@，请换一个"
+          }
+        }
+      }
+    },
+    "Also plays for Voice Agent" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "语音 Agent 也会播放"
+          }
+        }
+      }
+    },
+    "Also used to organize Knowledge and retry recordings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "也用于整理知识和重新识别录音"
+          }
+        }
+      }
+    },
+    "Always off-limits" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "始终不读取或写入"
+          }
+        }
+      }
+    },
+    "Analyze" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "分析"
+          }
+        }
+      }
+    },
+    "Analyzing…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在分析…"
+          }
+        }
+      }
+    },
+    "Answer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "回答"
+          }
+        }
+      }
+    },
+    "Answer copied" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已复制回答"
+          }
+        }
+      }
+    },
+    "As spoken" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保持口述"
+          }
+        }
+      }
+    },
+    "Audio device changed. Recording stopped." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "音频设备已切换，录音已结束"
+          }
+        }
+      }
+    },
+    "Auto (Chinese & English)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自动（中英混合）"
+          }
+        }
+      }
+    },
+    "Back" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "返回"
+          }
+        }
+      }
+    },
+    "Baidu" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "百度"
+          }
+        }
+      }
+    },
+    "Before analysis, SayKuku removes phone numbers, emails, and ID and bank card numbers in common formats, plus labeled addresses" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "分析前会先去掉常见格式的电话号码、邮箱、身份证号和银行卡号，以及标注为地址的内容"
+          }
+        }
+      }
+    },
+    "Both global shortcuts are already in use by other apps. Record new ones." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "两个全局快捷键都已被其他 App 占用，请重新设置"
+          }
+        }
+      }
+    },
+    "Bottom center" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "底部居中"
+          }
+        }
+      }
+    },
+    "Browser page" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "浏览器页面"
+          }
+        }
+      }
+    },
+    "Cancel" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取消"
+          }
+        }
+      }
+    },
+    "Cancel Voice Agent" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取消语音 Agent"
+          }
+        }
+      }
+    },
+    "Cancel Voice Input" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取消语音输入"
+          }
+        }
+      }
+    },
+    "Cancelled" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已取消"
+          }
+        }
+      }
+    },
+    "Can’t undo. The text changed, or this app doesn’t support it." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法撤销，文字已被改动，或这个 App 不支持撤销"
+          }
+        }
+      }
+    },
+    "Category" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "类别"
+          }
+        }
+      }
+    },
+    "Changes take effect when SayKuku reopens" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新打开 SayKuku 后生效"
+          }
+        }
+      }
+    },
+    "Check for Updates…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "检查更新…"
+          }
+        }
+      }
+    },
+    "Check for updates automatically" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自动检查更新"
+          }
+        }
+      }
+    },
+    "Check the address before you open it" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "先核对网址，再决定是否打开"
+          }
+        }
+      }
+    },
+    "Check the search terms before they go to %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "先核对搜索词，再决定是否发给 %@"
+          }
+        }
+      }
+    },
+    "Checks in the background on Sparkle’s default schedule" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按 Sparkle 默认周期在后台检查"
+          }
+        }
+      }
+    },
+    "Checks the level only. Nothing is saved, uploaded, or played back." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "只检测音量，不会保存、上传或回放"
+          }
+        }
+      }
+    },
+    "China (Beijing)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "中国内地（北京）"
+          }
+        }
+      }
+    },
+    "Choose All to see your other items." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "切换到“全部”查看其他条目。"
+          }
+        }
+      }
+    },
+    "Choose What to Import" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择要导入的内容"
+          }
+        }
+      }
+    },
+    "Choose a retention period in Settings › History to start keeping history again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在“设置 › 历史”里选择保留期限即可重新记录。"
+          }
+        }
+      }
+    },
+    "Clear All" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全部清除"
+          }
+        }
+      }
+    },
+    "Clear All…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全部清除…"
+          }
+        }
+      }
+    },
+    "Clear Filter" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "清除筛选"
+          }
+        }
+      }
+    },
+    "Clear Filters" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "清除筛选"
+          }
+        }
+      }
+    },
+    "Clear all history" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "清空全部历史"
+          }
+        }
+      }
+    },
+    "Clear all history?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "清空全部历史？"
+          }
+        }
+      }
+    },
+    "Clear all recent conversations?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "清除全部最近对话？"
+          }
+        }
+      }
+    },
+    "Clear search" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "清除搜索"
+          }
+        }
+      }
+    },
+    "Clear…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "清空…"
+          }
+        }
+      }
+    },
+    "Click here and press Fn to talk. Select text and press Fn twice to have Voice Agent rewrite it." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "点这里，按 Fn 说句话；选中文字后连按两次 Fn，让语音 Agent 改写。"
+          }
+        }
+      }
+    },
+    "Click to copy" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "点按复制结果"
+          }
+        }
+      }
+    },
+    "Click where you want to type first" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请先点一下要输入文字的位置"
+          }
+        }
+      }
+    },
+    "Click, then press a new shortcut" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "点击后按下新的组合键"
+          }
+        }
+      }
+    },
+    "Clipboard" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "剪贴板"
+          }
+        }
+      }
+    },
+    "Close" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关闭"
+          }
+        }
+      }
+    },
+    "Common domains (select any)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "常用领域（可多选）"
+          }
+        }
+      }
+    },
+    "Connect Qwen and choose models for Voice Input and Voice Agent." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连接 Qwen，并选择语音输入和语音 Agent 使用的模型。"
+          }
+        }
+      }
+    },
+    "Connect to Qwen" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连接 Qwen"
+          }
+        }
+      }
+    },
+    "Connected · Voice Agent %lld ms · Without a Workspace ID, Voice Input transcribes after you stop" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连接正常 · 语音 Agent %lld ms · 未填写业务空间 ID，语音输入会在说完后识别"
+          }
+        }
+      }
+    },
+    "Connected · Voice Input %lld ms · Voice Agent %lld ms" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连接正常 · 语音输入 %lld ms · 语音 Agent %lld ms"
+          }
+        }
+      }
+    },
+    "Connecting to Qwen…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在连接 Qwen…"
+          }
+        }
+      }
+    },
+    "Connection" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连接"
+          }
+        }
+      }
+    },
+    "Connection details" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连接信息"
+          }
+        }
+      }
+    },
+    "Content Creation" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "内容创作"
+          }
+        }
+      }
+    },
+    "Continue" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "继续"
+          }
+        }
+      }
+    },
+    "Continuous conversation" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连续对话"
+          }
+        }
+      }
+    },
+    "Continuous conversation is off" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已关闭“连续对话”"
+          }
+        }
+      }
+    },
+    "Copied" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已复制"
+          }
+        }
+      }
+    },
+    "Copied. Press ⌘V to paste." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已复制，按 ⌘V 粘贴"
+          }
+        }
+      }
+    },
+    "Copy" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "复制"
+          }
+        }
+      }
+    },
+    "Copy Result" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "复制结果"
+          }
+        }
+      }
+    },
+    "Copy it, or insert it where you were typing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可复制，或写入刚才的输入位置"
+          }
+        }
+      }
+    },
+    "Corrected %lld times" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Corrected once"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Corrected %lld times"
+                }
+              }
+            }
+          }
+        },
+        "zh-Hans" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "累计纠正 %lld 次"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Correction suggestions" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "纠正建议"
+          }
+        }
+      }
+    },
+    "Corrections" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "纠正"
+          }
+        }
+      }
+    },
+    "Corrections go into Knowledge only after you approve them. Recent conversations clear after 30 minutes." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "纠正建议经你确认才会进入知识；最近对话 30 分钟后自动清除。"
+          }
+        }
+      }
+    },
+    "Couldn’t connect. Check your network and try again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法连接网络，请检查网络后重试"
+          }
+        }
+      }
+    },
+    "Couldn’t get a result. Try again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有拿到结果，请重试"
+          }
+        }
+      }
+    },
+    "Couldn’t play this recording. The file may have been moved or deleted." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法播放这段录音，文件可能已被移动或删除"
+          }
+        }
+      }
+    },
+    "Couldn’t reach Qwen. Check the Region and Workspace ID in Settings › Qwen Connection." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法连接 Qwen，请在“设置 › Qwen 连接”中检查地域和业务空间 ID"
+          }
+        }
+      }
+    },
+    "Couldn’t read local data, so new changes won’t be saved. See History for details." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法读取本机数据，新的更改暂时不会保存，详情见“历史”"
+          }
+        }
+      }
+    },
+    "Couldn’t read local data. Restart SayKuku and try again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法读取本机数据，请重启 SayKuku 后重试"
+          }
+        }
+      }
+    },
+    "Couldn’t reopen SayKuku. Quit and open it again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法重新打开 SayKuku，请退出后再打开"
+          }
+        }
+      }
+    },
+    "Couldn’t run the shortcut. Check it in the Shortcuts app." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "快捷指令运行失败，请在“快捷指令”App 中检查"
+          }
+        }
+      }
+    },
+    "Couldn’t save the API Key. Check Keychain on this Mac." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法保存 API Key，请检查这台 Mac 的钥匙串"
+          }
+        }
+      }
+    },
+    "Couldn’t save this to History. Transcription will continue." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这条历史没能保存，识别不受影响"
+          }
+        }
+      }
+    },
+    "Couldn’t save your data, so recent changes may be lost. Check your available storage." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本机数据没能保存，最近的更改可能会丢失，请检查磁盘空间"
+          }
+        }
+      }
+    },
+    "Couldn’t save your latest changes" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没能保存最近的更改"
+          }
+        }
+      }
+    },
+    "Couldn’t start" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法启动"
+          }
+        }
+      }
+    },
+    "Couldn’t update Login Items. Check System Settings › General › Login Items." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法更新登录项，请在“系统设置 › 通用 › 登录项”中检查"
+          }
+        }
+      }
+    },
+    "Couldn’t use the microphone. Check your input device and microphone access." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法使用麦克风，请检查输入设备和麦克风权限"
+          }
+        }
+      }
+    },
+    "Current app" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当前 App"
+          }
+        }
+      }
+    },
+    "Custom vocabulary" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自定义词汇"
+          }
+        }
+      }
+    },
+    "Custom…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自定义…"
+          }
+        }
+      }
+    },
+    "Delete" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除"
+          }
+        }
+      }
+    },
+    "Delete All" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全部删除"
+          }
+        }
+      }
+    },
+    "Delete All also removes %lld starred items and every recording. This can’t be undone. To keep starred items, choose Delete All but Starred." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Delete All also removes %lld starred item and every recording. This can’t be undone. To keep starred items, choose Delete All but Starred."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Delete All also removes %lld starred items and every recording. This can’t be undone. To keep starred items, choose Delete All but Starred."
+                }
+              }
+            }
+          }
+        },
+        "zh-Hans" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "“全部删除”会连同 %lld 条星标记录和所有录音一起删除，且无法恢复。想保留星标记录，请选“保留星标，删除其余”。"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Delete All but Starred" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留星标，删除其余"
+          }
+        }
+      }
+    },
+    "Delete this item" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除这条记录"
+          }
+        }
+      }
+    },
+    "Delete this starred item?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除这条星标记录？"
+          }
+        }
+      }
+    },
+    "Delete “%@”?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除“%@”？"
+          }
+        }
+      }
+    },
+    "Deleted" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已删除"
+          }
+        }
+      }
+    },
+    "Delete…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除…"
+          }
+        }
+      }
+    },
+    "Development build" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开发构建"
+          }
+        }
+      }
+    },
+    "Didn’t catch that. Try again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有听清，请再说一次"
+          }
+        }
+      }
+    },
+    "Discard" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "放弃"
+          }
+        }
+      }
+    },
+    "Discard this import?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "放弃这次导入？"
+          }
+        }
+      }
+    },
+    "Domains" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "常用领域"
+          }
+        }
+      }
+    },
+    "Domains & Vocabulary" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "常用领域与词汇"
+          }
+        }
+      }
+    },
+    "Done" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "完成"
+          }
+        }
+      }
+    },
+    "Done (status)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Done"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已完成"
+          }
+        }
+      }
+    },
+    "Don’t keep" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不保存"
+          }
+        }
+      }
+    },
+    "Edit Item" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑条目"
+          }
+        }
+      }
+    },
+    "Edit Text" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "返回修改"
+          }
+        }
+      }
+    },
+    "Edit “%@”" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑“%@”"
+          }
+        }
+      }
+    },
+    "Edit…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑…"
+          }
+        }
+      }
+    },
+    "Enable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开启"
+          }
+        }
+      }
+    },
+    "Enable & Test" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开启并测试"
+          }
+        }
+      }
+    },
+    "Enable Fn" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "启用 Fn"
+          }
+        }
+      }
+    },
+    "Encrypted history from an earlier version wasn’t carried over" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "旧版本的加密记录没有迁移过来"
+          }
+        }
+      }
+    },
+    "Ends recording after about 1 second of silence" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停顿约 1 秒后结束录音"
+          }
+        }
+      }
+    },
+    "Enter a name" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "输入名称"
+          }
+        }
+      }
+    },
+    "Enter a name to continue" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "填写名称后即可添加"
+          }
+        }
+      }
+    },
+    "Enter a name to save" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "填写名称后即可保存"
+          }
+        }
+      }
+    },
+    "Everything else loaded normally. The original file was backed up as %@." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其余内容都已正常载入。原文件已完整备份为 %@。"
+          }
+        }
+      }
+    },
+    "Expires in %lld min" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还剩 %lld 分钟"
+          }
+        }
+      }
+    },
+    "Filtered sensitive info" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已过滤的敏感信息"
+          }
+        }
+      }
+    },
+    "Finance & Investing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "金融与投资"
+          }
+        }
+      }
+    },
+    "Find Your Workspace ID" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "查看业务空间 ID"
+          }
+        }
+      }
+    },
+    "Find…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "查找…"
+          }
+        }
+      }
+    },
+    "Fn and global shortcuts ready" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fn 与全局快捷键已就绪"
+          }
+        }
+      }
+    },
+    "Fn needs Accessibility · Global shortcuts off" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fn 需要辅助功能权限 · 全局快捷键已关闭"
+          }
+        }
+      }
+    },
+    "Fn ready · Global shortcuts off" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fn 已就绪 · 全局快捷键已关闭"
+          }
+        }
+      }
+    },
+    "Follow the cursor" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "跟随光标"
+          }
+        }
+      }
+    },
+    "Follows macOS by default. Changes take effect when SayKuku reopens." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "默认跟随 macOS，重新打开 SayKuku 后生效"
+          }
+        }
+      }
+    },
+    "For example: Vibe Coding, SayKuku, project names" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "例如：Vibe Coding、SayKuku、项目代号"
+          }
+        }
+      }
+    },
+    "Forever" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "永久"
+          }
+        }
+      }
+    },
+    "From a correction" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "来自纠正建议"
+          }
+        }
+      }
+    },
+    "General" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通用"
+          }
+        }
+      }
+    },
+    "Get an API Key" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "获取 API Key"
+          }
+        }
+      }
+    },
+    "Global shortcuts ready · Fn needs Accessibility" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全局快捷键可用 · Fn 需要辅助功能权限"
+          }
+        }
+      }
+    },
+    "Healthcare" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "医疗健康"
+          }
+        }
+      }
+    },
+    "Hide Dock icon when window is closed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关闭窗口后隐藏 Dock 图标"
+          }
+        }
+      }
+    },
+    "History" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "历史"
+          }
+        }
+      }
+    },
+    "History and recordings stay on this Mac and are deleted on schedule." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "历史记录和录音只保存在这台 Mac 上，并按期限自动删除。"
+          }
+        }
+      }
+    },
+    "History cleared" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已清空历史"
+          }
+        }
+      }
+    },
+    "History cleared. Starred items were kept." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已清空历史，星标记录已保留"
+          }
+        }
+      }
+    },
+    "History is kept until you delete it." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "历史记录会一直保留，直到你手动删除。"
+          }
+        }
+      }
+    },
+    "History is off" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已停止记录历史"
+          }
+        }
+      }
+    },
+    "History isn’t being kept" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已选择不保存历史"
+          }
+        }
+      }
+    },
+    "History, Knowledge, and Memory saved by an earlier encrypted version can’t be opened here. SayKuku won’t migrate or delete these files. They’re still on this Mac for you to keep or remove." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "早期版本加密保存的历史、知识和记忆无法在当前版本打开。SayKuku 不会自动迁移或删除它们，文件仍在这台 Mac 上，保留还是删除由你决定。"
+          }
+        }
+      }
+    },
+    "Hold Fn" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按住 Fn"
+          }
+        }
+      }
+    },
+    "Hold briefly to start, release to insert" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按住片刻开始录音，松开即输入"
+          }
+        }
+      }
+    },
+    "Hold to talk, release to insert" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按住说话，松开即输入"
+          }
+        }
+      }
+    },
+    "Home" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "首页"
+          }
+        }
+      }
+    },
+    "If Fn switches input sources, set “Press fn key to” to “Do Nothing” in Keyboard Settings." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "若按 Fn 会切换输入法，请在键盘设置中将“按下 fn 键时”设为“不执行任何操作”。"
+          }
+        }
+      }
+    },
+    "If pressing Fn twice starts Dictation, change the Dictation shortcut." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "若连按两次 Fn 会打开系统听写，请更改听写的快捷键。"
+          }
+        }
+      }
+    },
+    "Ignore" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "忽略"
+          }
+        }
+      }
+    },
+    "Ignored" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已忽略"
+          }
+        }
+      }
+    },
+    "Import %lld Items" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Import %lld Item"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Import %lld Items"
+                }
+              }
+            }
+          }
+        },
+        "zh-Hans" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "导入 %lld 条"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Import from Text" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "从文本导入"
+          }
+        }
+      }
+    },
+    "Import from Text…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "从文本导入…"
+          }
+        }
+      }
+    },
+    "Imported %lld items to Knowledge" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Imported %lld item to Knowledge"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Imported %lld items to Knowledge"
+                }
+              }
+            }
+          }
+        },
+        "zh-Hans" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "已导入 %lld 条到知识"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Imported from text" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "从文本导入"
+          }
+        }
+      }
+    },
+    "Includes private windows" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "包括无痕窗口"
+          }
+        }
+      }
+    },
+    "Input gesture" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "输入方式"
+          }
+        }
+      }
+    },
+    "Insert" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "写入"
+          }
+        }
+      }
+    },
+    "Insert automatically" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自动写入"
+          }
+        }
+      }
+    },
+    "Inserted" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已输入"
+          }
+        }
+      }
+    },
+    "Interaction" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "交互"
+          }
+        }
+      }
+    },
+    "Interface language" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "界面语言"
+          }
+        }
+      }
+    },
+    "International (Singapore)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "国际（新加坡）"
+          }
+        }
+      }
+    },
+    "Its recording will be deleted too. This can’t be undone." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "录音也会一起删除，且无法恢复。"
+          }
+        }
+      }
+    },
+    "Keep Fn gestures ready" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "确保 Fn 手势随时可用"
+          }
+        }
+      }
+    },
+    "Keep Importing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "继续导入"
+          }
+        }
+      }
+    },
+    "Keep history" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留历史"
+          }
+        }
+      }
+    },
+    "Keep recordings so you can replay or retry them. They’re deleted with their history items." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留录音，方便回放和重新识别，并随对应的历史记录一起删除"
+          }
+        }
+      }
+    },
+    "Kept for %@. Starred items are never deleted automatically." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留 %@，星标记录不会自动删除。"
+          }
+        }
+      }
+    },
+    "Keyboard Settings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "键盘设置"
+          }
+        }
+      }
+    },
+    "Knowledge" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "知识"
+          }
+        }
+      }
+    },
+    "Knowledge updated" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已更新知识"
+          }
+        }
+      }
+    },
+    "Language" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "语言"
+          }
+        }
+      }
+    },
+    "Language, permissions, startup, overlay, shortcuts, and updates." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "语言、权限、启动方式、浮层、快捷键和更新。"
+          }
+        }
+      }
+    },
+    "Last in %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最近在 %@"
+          }
+        }
+      }
+    },
+    "Last insertion" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上次输入"
+          }
+        }
+      }
+    },
+    "Later" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "稍后"
+          }
+        }
+      }
+    },
+    "Learn from corrections" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "从纠正中学习"
+          }
+        }
+      }
+    },
+    "Learning from corrections is off" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已关闭“从纠正中学习”"
+          }
+        }
+      }
+    },
+    "Legal" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "法律"
+          }
+        }
+      }
+    },
+    "Lets SayKuku detect Fn, type into text fields and check the result, and read selected text when you use Voice Agent. SayKuku never logs your keystrokes." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用来识别 Fn 手势、把文字写入输入框并核对结果，使用语音 Agent 时也会读取选中文字。SayKuku 不会记录你的按键。"
+          }
+        }
+      }
+    },
+    "Light cleanup" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "轻整理"
+          }
+        }
+      }
+    },
+    "Light cleanup removes fillers and accidental repeats. Verbatim keeps hesitations and repeats." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "轻整理会去掉无意义口癖和紧邻重复；原样保留说话时的停顿与重复。"
+          }
+        }
+      }
+    },
+    "Listening" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在监听"
+          }
+        }
+      }
+    },
+    "Listening…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在听…"
+          }
+        }
+      }
+    },
+    "Local data can’t be read right now" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本机数据暂时无法读取"
+          }
+        }
+      }
+    },
+    "Local data couldn’t be read, so SayKuku started fresh" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本机数据无法读取，已从空白记录重新开始"
+          }
+        }
+      }
+    },
+    "Lost connection to Qwen. Try again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "与 Qwen 的连接中断了，请重试"
+          }
+        }
+      }
+    },
+    "Make sure this is the shortcut you meant" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "确认这是你要运行的快捷指令"
+          }
+        }
+      }
+    },
+    "Manage" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "管理"
+          }
+        }
+      }
+    },
+    "Marketing & Growth" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "市场与增长"
+          }
+        }
+      }
+    },
+    "May duplicate “%@”" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可能与“%@”重复"
+          }
+        }
+      }
+    },
+    "Memory" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "记忆"
+          }
+        }
+      }
+    },
+    "Microphone" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "麦克风"
+          }
+        }
+      }
+    },
+    "Microphone input level" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "麦克风输入音量"
+          }
+        }
+      }
+    },
+    "Microphone level" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "麦克风音量"
+          }
+        }
+      }
+    },
+    "Microphone permission required" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "需要麦克风权限"
+          }
+        }
+      }
+    },
+    "Microphone test" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "麦克风测试"
+          }
+        }
+      }
+    },
+    "Model ID" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "模型 ID"
+          }
+        }
+      }
+    },
+    "Models" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "模型"
+          }
+        }
+      }
+    },
+    "More actions" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更多操作"
+          }
+        }
+      }
+    },
+    "Must match where your API Key was created" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "需与 API Key 所属地域一致"
+          }
+        }
+      }
+    },
+    "Name" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "名称"
+          }
+        }
+      }
+    },
+    "Name of the app you’re using" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你正在使用的 App 名称"
+          }
+        }
+      }
+    },
+    "Names, projects, and terms you use often. SayKuku spells them the way you saved them." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存常用的人名、项目和术语，识别时按这里的写法输出。"
+          }
+        }
+      }
+    },
+    "New" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新增"
+          }
+        }
+      }
+    },
+    "New items aren’t being saved. Existing ones stay until you clear them." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已停止记录新内容，已有记录会保留到你手动清空。"
+          }
+        }
+      }
+    },
+    "New items aren’t saved. Existing ones stay until you clear them." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不再记录新内容，已有记录会保留到你手动清空"
+          }
+        }
+      }
+    },
+    "No correction suggestions yet" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有纠正建议"
+          }
+        }
+      }
+    },
+    "No history in this category" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这个分类还没有历史记录"
+          }
+        }
+      }
+    },
+    "No history yet" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有历史记录"
+          }
+        }
+      }
+    },
+    "No input device found" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未找到输入设备"
+          }
+        }
+      }
+    },
+    "No items in this category" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这个分类还没有条目"
+          }
+        }
+      }
+    },
+    "No matching history" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有找到匹配的历史记录"
+          }
+        }
+      }
+    },
+    "No matching items" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有找到匹配的条目"
+          }
+        }
+      }
+    },
+    "No names or terms found" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有找到可以保存的名称或术语"
+          }
+        }
+      }
+    },
+    "No recent conversations yet" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有最近对话"
+          }
+        }
+      }
+    },
+    "No recording" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有录音"
+          }
+        }
+      }
+    },
+    "None selected" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "尚未选择"
+          }
+        }
+      }
+    },
+    "Not Now" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "以后再说"
+          }
+        }
+      }
+    },
+    "Not tested" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "尚未测试"
+          }
+        }
+      }
+    },
+    "Notes" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "备注"
+          }
+        }
+      }
+    },
+    "Nothing in Knowledge yet" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "知识里还没有内容"
+          }
+        }
+      }
+    },
+    "Number format" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "数字格式"
+          }
+        }
+      }
+    },
+    "Off" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未开启"
+          }
+        }
+      }
+    },
+    "Off. %@ still works." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已关闭，%@ 照常可用"
+          }
+        }
+      }
+    },
+    "On" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已开启"
+          }
+        }
+      }
+    },
+    "On the API Key page, create a key, then paste it below." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在“API Key”页面创建一个 Key，复制后粘贴到下方。"
+          }
+        }
+      }
+    },
+    "Only your voice will be sent" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本次只发送你的语音"
+          }
+        }
+      }
+    },
+    "Open" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开"
+          }
+        }
+      }
+    },
+    "Open Guide" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开引导"
+          }
+        }
+      }
+    },
+    "Open Knowledge" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开知识"
+          }
+        }
+      }
+    },
+    "Open Model Studio Console" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开百炼控制台"
+          }
+        }
+      }
+    },
+    "Open SayKuku" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开 SayKuku"
+          }
+        }
+      }
+    },
+    "Open Settings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开设置"
+          }
+        }
+      }
+    },
+    "Open System Settings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开系统设置"
+          }
+        }
+      }
+    },
+    "Open at login" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登录时打开"
+          }
+        }
+      }
+    },
+    "Open link" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开网址"
+          }
+        }
+      }
+    },
+    "Open this link?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开这个网址？"
+          }
+        }
+      }
+    },
+    "Opened Settings › Qwen Connection" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已打开“设置 › Qwen 连接”"
+          }
+        }
+      }
+    },
+    "Opening…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在打开…"
+          }
+        }
+      }
+    },
+    "Optional. Lets Voice Input transcribe as you speak instead of after you stop." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可选，填写后语音输入会边说边识别，不用等你说完"
+          }
+        }
+      }
+    },
+    "Optional: click your avatar in the top-right corner of the console and copy your Workspace ID (it starts with llm-). With it, Voice Input transcribes as you speak." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可选：点击控制台右上角的头像，复制业务空间 ID（以 llm- 开头）填到下方，语音输入就能边说边识别。"
+          }
+        }
+      }
+    },
+    "Organization" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "组织"
+          }
+        }
+      }
+    },
+    "Organizations" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "组织"
+          }
+        }
+      }
+    },
+    "Overlay" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "浮层"
+          }
+        }
+      }
+    },
+    "Overlay position" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "浮层位置"
+          }
+        }
+      }
+    },
+    "Password fields" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "密码框"
+          }
+        }
+      }
+    },
+    "Password managers" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "密码管理器"
+          }
+        }
+      }
+    },
+    "Password managers include 1Password, Bitwarden, LastPass, Dashlane, KeePassXC, Keychain Access, and Passwords." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "密码管理器包括 1Password、Bitwarden、LastPass、Dashlane、KeePassXC、钥匙串访问和“密码”。"
+          }
+        }
+      }
+    },
+    "Paste some text and SayKuku will pick out names, projects, and terms." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "粘贴一段文字，SayKuku 会找出其中的人名、项目和术语。"
+          }
+        }
+      }
+    },
+    "People" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "人物"
+          }
+        }
+      }
+    },
+    "Permission guide" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "权限引导"
+          }
+        }
+      }
+    },
+    "Person" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "人物"
+          }
+        }
+      }
+    },
+    "Pick the domains you talk about most, and SayKuku will favor their terms when transcribing. You can also add your own product names, technical terms, or industry jargon." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择你常聊的领域，识别时会优先考虑相关术语。你也可以添加自己的产品名、技术词或行业词。"
+          }
+        }
+      }
+    },
+    "Play Recording" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "播放录音"
+          }
+        }
+      }
+    },
+    "Play a sound when recording starts and stops" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开始和结束时播放提示音"
+          }
+        }
+      }
+    },
+    "Play recording" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "播放录音"
+          }
+        }
+      }
+    },
+    "Position" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "位置"
+          }
+        }
+      }
+    },
+    "Possible duplicate" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可能重复"
+          }
+        }
+      }
+    },
+    "Prefer digits" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "优先阿拉伯数字"
+          }
+        }
+      }
+    },
+    "Press Esc to cancel while recording or processing. The key still goes to the app you’re using." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "录音或处理时按 Esc 可取消，这个按键也会传给当前 App。"
+          }
+        }
+      }
+    },
+    "Press Fn and start talking. Your history shows up here." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按 Fn 说句话，记录就会出现在这里。"
+          }
+        }
+      }
+    },
+    "Press Fn in any text field. No need to open SayKuku." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在任意输入框按 Fn 即可，不用打开 SayKuku。"
+          }
+        }
+      }
+    },
+    "Press Fn twice to write, edit, or ask by voice." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连按两次 Fn，说出要写、修改或查询的内容。"
+          }
+        }
+      }
+    },
+    "Press keys…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按下快捷键…"
+          }
+        }
+      }
+    },
+    "Press new keys · Esc to cancel · Delete to turn off" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按下新的组合键 · Esc 取消 · Delete 关闭"
+          }
+        }
+      }
+    },
+    "Press to start, press again to finish. %@ still works." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按一次开始，再按一次结束；%@ 照常可用"
+          }
+        }
+      }
+    },
+    "Pressing Fn twice" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连按两次 Fn"
+          }
+        }
+      }
+    },
+    "Privacy" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "隐私"
+          }
+        }
+      }
+    },
+    "Processing failed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "处理失败"
+          }
+        }
+      }
+    },
+    "Processing…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在处理…"
+          }
+        }
+      }
+    },
+    "Product Design" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "产品设计"
+          }
+        }
+      }
+    },
+    "Product Management" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "产品管理"
+          }
+        }
+      }
+    },
+    "Project" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "项目"
+          }
+        }
+      }
+    },
+    "Projects" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "项目"
+          }
+        }
+      }
+    },
+    "Puts results right into the text field you’re using. When off, they stay in the overlay for you to copy." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "把结果直接写入你正在用的输入框；关闭后结果留在浮层，供你复制"
+          }
+        }
+      }
+    },
+    "Quick Start" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "快速开始"
+          }
+        }
+      }
+    },
+    "Quit Anyway" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "仍然退出"
+          }
+        }
+      }
+    },
+    "Quit SayKuku" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "退出 SayKuku"
+          }
+        }
+      }
+    },
+    "Qwen Connection" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Qwen 连接"
+          }
+        }
+      }
+    },
+    "Qwen couldn’t handle the request. Try again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Qwen 暂时无法处理，请重试"
+          }
+        }
+      }
+    },
+    "Qwen rejected this request. Try again, or check the model in Settings › Qwen Connection." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Qwen 没有接受这次请求，请重试，或在“设置 › Qwen 连接”中检查模型"
+          }
+        }
+      }
+    },
+    "Qwen took too long to respond. Try again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Qwen 响应超时，请重试"
+          }
+        }
+      }
+    },
+    "Real-time transcription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "实时识别语音"
+          }
+        }
+      }
+    },
+    "Recent conversation" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最近对话"
+          }
+        }
+      }
+    },
+    "Recent conversations cleared" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已清除最近对话"
+          }
+        }
+      }
+    },
+    "Recheck status, enable access, and test the microphone" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新检查状态、开启权限并测试麦克风"
+          }
+        }
+      }
+    },
+    "Recognition" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "识别"
+          }
+        }
+      }
+    },
+    "Recognition language" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "识别语言"
+          }
+        }
+      }
+    },
+    "Record Shortcut" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "录制快捷键"
+          }
+        }
+      }
+    },
+    "Recording stops in %lld seconds" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 秒后自动结束录音"
+          }
+        }
+      }
+    },
+    "Region" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "地域"
+          }
+        }
+      }
+    },
+    "Remembers recent conversations in the same app for 30 minutes. See Memory › Short-Term." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "记住同一个 App 中最近的对话，30 分钟后自动清除，可在“记忆 › 短期”中查看"
+          }
+        }
+      }
+    },
+    "Remove %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移除“%@”"
+          }
+        }
+      }
+    },
+    "Remove Star" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取消星标"
+          }
+        }
+      }
+    },
+    "Remove every history item and recording from this Mac" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除这台 Mac 上的所有历史记录和录音"
+          }
+        }
+      }
+    },
+    "Remove star" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取消星标"
+          }
+        }
+      }
+    },
+    "Reopen Now" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "现在重新打开"
+          }
+        }
+      }
+    },
+    "Report a Problem…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "反馈问题…"
+          }
+        }
+      }
+    },
+    "Requesting…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在请求…"
+          }
+        }
+      }
+    },
+    "Required while the Dock icon is hidden" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开启“关闭窗口后隐藏 Dock 图标”时需保留"
+          }
+        }
+      }
+    },
+    "Requires a Workspace ID in Qwen Connection" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "需先在“Qwen 连接”中填写业务空间 ID"
+          }
+        }
+      }
+    },
+    "Restricted" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "受限制"
+          }
+        }
+      }
+    },
+    "Result" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "结果"
+          }
+        }
+      }
+    },
+    "Retry Transcription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新识别"
+          }
+        }
+      }
+    },
+    "Review the suggestions and choose what to save to Knowledge." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "检查建议，选择要保存到知识的内容。"
+          }
+        }
+      }
+    },
+    "Review what’s sent" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "查看本次会发送的内容"
+          }
+        }
+      }
+    },
+    "Rewrite selected text, ask questions, or open pages" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "改写选中文字、提问或打开网页"
+          }
+        }
+      }
+    },
+    "Run" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "运行"
+          }
+        }
+      }
+    },
+    "Run shortcut" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "运行快捷指令"
+          }
+        }
+      }
+    },
+    "Run this shortcut?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "运行这个快捷指令？"
+          }
+        }
+      }
+    },
+    "Running · %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在执行 · %@"
+          }
+        }
+      }
+    },
+    "Running…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在执行…"
+          }
+        }
+      }
+    },
+    "Save" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存"
+          }
+        }
+      }
+    },
+    "Save recordings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存录音"
+          }
+        }
+      }
+    },
+    "Saved in this Mac’s Keychain" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已保存在这台 Mac 的钥匙串中"
+          }
+        }
+      }
+    },
+    "Saved knowledge" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已保存的知识"
+          }
+        }
+      }
+    },
+    "Saving recording…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在保存录音…"
+          }
+        }
+      }
+    },
+    "SayKuku doesn’t work in password fields or password managers." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "为保护隐私，SayKuku 不在密码框和密码管理器中使用"
+          }
+        }
+      }
+    },
+    "SayKuku keeps running in the menu bar. Reopening the window brings the Dock icon back." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SayKuku 仍在菜单栏运行，重新打开窗口时 Dock 图标会恢复"
+          }
+        }
+      }
+    },
+    "SayKuku needs the microphone to hear you and Accessibility to type into text fields." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SayKuku 需要麦克风来听你说话，还需要辅助功能把文字写入输入框。"
+          }
+        }
+      }
+    },
+    "SayKuku only records and sends audio after you press Fn or your shortcut" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "只在你按下 Fn 或快捷键后才录音并发送"
+          }
+        }
+      }
+    },
+    "SayKuku quit before this finished" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SayKuku 退出时还没处理完"
+          }
+        }
+      }
+    },
+    "SayKuku uses Qwen on Alibaba Cloud Model Studio to transcribe your voice and handle commands. Follow the steps below to get an API Key." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SayKuku 用阿里云百炼的 Qwen 识别语音、处理指令。按下面的步骤拿到 API Key，就能开始用了。"
+          }
+        }
+      }
+    },
+    "SayKuku voice overlay" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SayKuku 语音浮层"
+          }
+        }
+      }
+    },
+    "Search" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜索"
+          }
+        }
+      }
+    },
+    "Search engine" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜索引擎"
+          }
+        }
+      }
+    },
+    "Search for this?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜索这段内容？"
+          }
+        }
+      }
+    },
+    "Search names, aliases, or notes" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜索名称、别名或备注"
+          }
+        }
+      }
+    },
+    "Search text or apps" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜索内容或 App"
+          }
+        }
+      }
+    },
+    "Search the web" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "网页搜索"
+          }
+        }
+      }
+    },
+    "Selected text" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选中文字"
+          }
+        }
+      }
+    },
+    "Separate aliases with commas" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "多个别名用顿号或逗号分隔"
+          }
+        }
+      }
+    },
+    "Settings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "设置"
+          }
+        }
+      }
+    },
+    "Settings…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "设置…"
+          }
+        }
+      }
+    },
+    "Short-Term" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "短期"
+          }
+        }
+      }
+    },
+    "Shortcut status" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "快捷键状态"
+          }
+        }
+      }
+    },
+    "Shortcuts" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "快捷键"
+          }
+        }
+      }
+    },
+    "Shortcuts need ⌘ or ⌃" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "快捷键需包含 ⌘ 或 ⌃"
+          }
+        }
+      }
+    },
+    "Shortcuts with only ⌘ or ⇧⌘ belong to apps. Add ⌃ or ⌥." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "只含 ⌘ 或 ⇧⌘ 的组合留给各个 App，请加上 ⌃ 或 ⌥"
+          }
+        }
+      }
+    },
+    "Show Less" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "收起"
+          }
+        }
+      }
+    },
+    "Show More" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "展开"
+          }
+        }
+      }
+    },
+    "Show in Finder" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在访达中显示"
+          }
+        }
+      }
+    },
+    "Show in menu bar" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在菜单栏显示"
+          }
+        }
+      }
+    },
+    "Sign in to the Alibaba Cloud Model Studio console in the region you pick below." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登录阿里云百炼控制台，地域与下方所选一致。"
+          }
+        }
+      }
+    },
+    "Skip" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "跳过"
+          }
+        }
+      }
+    },
+    "Software Development" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "软件开发"
+          }
+        }
+      }
+    },
+    "Software Update" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "软件更新"
+          }
+        }
+      }
+    },
+    "Something went wrong. Try again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "出了点问题，请重试"
+          }
+        }
+      }
+    },
+    "Sound detected" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已检测到声音"
+          }
+        }
+      }
+    },
+    "Speech cleanup" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "口语整理"
+          }
+        }
+      }
+    },
+    "Spoken" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你说的"
+          }
+        }
+      }
+    },
+    "Star" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "加星标"
+          }
+        }
+      }
+    },
+    "Star and keep forever" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "加星标，永久保留"
+          }
+        }
+      }
+    },
+    "Starred items are never deleted automatically" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "星标记录不受此期限影响"
+          }
+        }
+      }
+    },
+    "Start Test" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开始测试"
+          }
+        }
+      }
+    },
+    "Start Voice Agent" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开始语音 Agent"
+          }
+        }
+      }
+    },
+    "Start Voice Input" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开始语音输入"
+          }
+        }
+      }
+    },
+    "Start input, open the app, and check shortcut status" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "快速开始输入、打开窗口并查看快捷键状态"
+          }
+        }
+      }
+    },
+    "Starting shortcuts…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在启动快捷键…"
+          }
+        }
+      }
+    },
+    "Starting…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在启动…"
+          }
+        }
+      }
+    },
+    "Startup & background" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "启动与后台"
+          }
+        }
+      }
+    },
+    "Step %lld of %lld" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "第 %lld 步，共 %lld 步"
+          }
+        }
+      }
+    },
+    "Stop & output" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "结束与输出"
+          }
+        }
+      }
+    },
+    "Stop Playback" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止播放"
+          }
+        }
+      }
+    },
+    "Stop Test" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止测试"
+          }
+        }
+      }
+    },
+    "Stop Voice Agent" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "结束语音 Agent"
+          }
+        }
+      }
+    },
+    "Stop Voice Input" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "结束语音输入"
+          }
+        }
+      }
+    },
+    "Stop after a pause" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停顿后自动结束"
+          }
+        }
+      }
+    },
+    "Stop playback" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止播放"
+          }
+        }
+      }
+    },
+    "Stop recording and insert" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "结束录音并输入"
+          }
+        }
+      }
+    },
+    "Stop recording and run" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "结束录音并执行"
+          }
+        }
+      }
+    },
+    "Storage" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "存储"
+          }
+        }
+      }
+    },
+    "Stored in this Mac’s Keychain" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存在这台 Mac 的钥匙串中"
+          }
+        }
+      }
+    },
+    "Suggestion ignored" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已忽略这条建议"
+          }
+        }
+      }
+    },
+    "Switch categories, or clear the filter to see everything." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "换个分类，或清除筛选查看全部。"
+          }
+        }
+      }
+    },
+    "System Default" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "跟随系统"
+          }
+        }
+      }
+    },
+    "System permissions" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "系统权限"
+          }
+        }
+      }
+    },
+    "Tap Fn" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "单击 Fn"
+          }
+        }
+      }
+    },
+    "Tap to start, tap again to insert" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "单击开始说话，再单击即输入"
+          }
+        }
+      }
+    },
+    "Teach SayKuku Your Vocabulary" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "先让 SayKuku 认识你的词"
+          }
+        }
+      }
+    },
+    "Teach SayKuku this name." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "让 SayKuku 认识这个名称。"
+          }
+        }
+      }
+    },
+    "Term" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "术语"
+          }
+        }
+      }
+    },
+    "Terms" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "术语"
+          }
+        }
+      }
+    },
+    "Test Connection" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "测试连接"
+          }
+        }
+      }
+    },
+    "Testing…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在测试…"
+          }
+        }
+      }
+    },
+    "Text is sent to Qwen for analysis. SayKuku doesn’t keep a copy." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "文本会发送给 Qwen 分析，SayKuku 不保存原文"
+          }
+        }
+      }
+    },
+    "Text on your clipboard, excluding passwords" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "剪贴板中的文字，密码类内容除外"
+          }
+        }
+      }
+    },
+    "Text to import" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "要导入的文本"
+          }
+        }
+      }
+    },
+    "That key can’t be used. Try another." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这个键不能用作快捷键，请换一个"
+          }
+        }
+      }
+    },
+    "That recording is too long. Try shorter parts." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "录音太长了，请分成几段说"
+          }
+        }
+      }
+    },
+    "The analysis results won’t be saved." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "分析结果不会保存。"
+          }
+        }
+      }
+    },
+    "The original file wasn’t overwritten. It’s saved as %@." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "原文件没有被覆盖，已完整备份为 %@。"
+          }
+        }
+      }
+    },
+    "The shortcut took over a minute, so it was stopped." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "快捷指令超过 1 分钟没有完成，已停止"
+          }
+        }
+      }
+    },
+    "The text field changed. Click back into it and try again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "输入位置变了，请回到输入框再试一次"
+          }
+        }
+      }
+    },
+    "The text field changed. Copy the answer instead." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "输入位置变了，请复制回答后手动粘贴"
+          }
+        }
+      }
+    },
+    "There was a problem reading local data. The original file was backed up. See History for details." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "读取本机数据时出了问题，原文件已备份，详情见“历史”"
+          }
+        }
+      }
+    },
+    "These words are saved to Knowledge, where you can add aliases later." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这些词会保存到“知识”，以后可以在那里补别名。"
+          }
+        }
+      }
+    },
+    "This app didn’t accept the text. Try again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这个 App 没有接收文字，请重试"
+          }
+        }
+      }
+    },
+    "This can’t be undone." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除后无法恢复。"
+          }
+        }
+      }
+    },
+    "To avoid overwriting the file, new changes won’t be saved. Check the file’s permissions or update SayKuku, then reopen it." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "为避免覆盖原文件，新的更改暂不保存。请检查文件权限或更新 SayKuku，然后重新打开。"
+          }
+        }
+      }
+    },
+    "Today" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今天"
+          }
+        }
+      }
+    },
+    "Too many requests. Try again in a moment." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请求太频繁，请稍后再试"
+          }
+        }
+      }
+    },
+    "Top" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "顶部"
+          }
+        }
+      }
+    },
+    "Transcribed again" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已重新识别"
+          }
+        }
+      }
+    },
+    "Transcribing…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在识别…"
+          }
+        }
+      }
+    },
+    "Tried to undo. Check the text." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已尝试撤销，请核对"
+          }
+        }
+      }
+    },
+    "Try a different search or category." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "换个关键词或分类试试。"
+          }
+        }
+      }
+    },
+    "Try a different search." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "换个关键词试试。"
+          }
+        }
+      }
+    },
+    "Try it here" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "试写区"
+          }
+        }
+      }
+    },
+    "Try text that mentions people, projects, or products." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "试试包含人名、项目或产品名的文本。"
+          }
+        }
+      }
+    },
+    "Turn On" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开启"
+          }
+        }
+      }
+    },
+    "Turn On Microphone and Accessibility" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开启麦克风和辅助功能"
+          }
+        }
+      }
+    },
+    "Turn it on so Voice Agent remembers recent conversations in the same app." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开启后，语音 Agent 会记住同一个 App 中最近的对话。"
+          }
+        }
+      }
+    },
+    "Turn it on to see suggestions from words you fix." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开启后，你改正的识别结果会作为建议出现在这里。"
+          }
+        }
+      }
+    },
+    "Turn off %@ shortcut" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关闭%@快捷键"
+          }
+        }
+      }
+    },
+    "Types what you say, without changing what you mean." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "说什么就输入什么，不改你的意思。"
+          }
+        }
+      }
+    },
+    "URL of the current Safari or Chrome page" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Safari 或 Chrome 当前页面的网址"
+          }
+        }
+      }
+    },
+    "Understanding…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在理解…"
+          }
+        }
+      }
+    },
+    "Undo" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "撤销"
+          }
+        }
+      }
+    },
+    "Undone" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已撤销"
+          }
+        }
+      }
+    },
+    "Updates existing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更新已有条目"
+          }
+        }
+      }
+    },
+    "Use" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用"
+          }
+        }
+      }
+    },
+    "Used only for Voice Input, Voice Agent, and the microphone test" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "仅在语音输入、语音 Agent 和麦克风测试时使用"
+          }
+        }
+      }
+    },
+    "Used to rewrite or ask about the text you’ve selected" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用于改写选中的文字，或针对它提问"
+          }
+        }
+      }
+    },
+    "Used when Voice Agent searches the web" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "语音 Agent 搜索时打开的网站"
+          }
+        }
+      }
+    },
+    "Uses the system default input device" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用系统默认输入设备"
+          }
+        }
+      }
+    },
+    "Verbatim" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "原样"
+          }
+        }
+      }
+    },
+    "Version" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "版本"
+          }
+        }
+      }
+    },
+    "Vocabulary" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "识别词表"
+          }
+        }
+      }
+    },
+    "Voice" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "语音"
+          }
+        }
+      }
+    },
+    "Voice Agent" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "语音 Agent"
+          }
+        }
+      }
+    },
+    "Voice Agent uses these in the same app. They’re cleared after 30 minutes." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在同一个 App 中再次使用语音 Agent 时，会参考这些对话，30 分钟后自动清除。"
+          }
+        }
+      }
+    },
+    "Voice Agent will stop using them. This can’t be undone." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "清除后语音 Agent 不会再参考这些对话，且无法恢复。"
+          }
+        }
+      }
+    },
+    "Voice Input" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "语音输入"
+          }
+        }
+      }
+    },
+    "Voice practice field" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "语音试写区"
+          }
+        }
+      }
+    },
+    "What Voice Agent can use" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "语音 Agent 可使用的内容"
+          }
+        }
+      }
+    },
+    "What’s sent" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本次会发送的内容"
+          }
+        }
+      }
+    },
+    "When you fix a word SayKuku got wrong, a suggestion shows up here. Nothing is saved until you approve it." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "改正识别错的词后，SayKuku 会在这里给出建议，确认后才会保存。"
+          }
+        }
+      }
+    },
+    "Where the Voice Input and Voice Agent overlay appears" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "语音输入和语音 Agent 的浮层显示在哪里"
+          }
+        }
+      }
+    },
+    "Where to find them" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "获取方式"
+          }
+        }
+      }
+    },
+    "While you talk, the overlay shows what’s sent." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "说话时，可在浮层中查看本次会发送的内容。"
+          }
+        }
+      }
+    },
+    "Window title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "窗口标题"
+          }
+        }
+      }
+    },
+    "Words you fix show up as suggestions in Memory › Corrections. Nothing is saved until you approve it." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "改正识别错的词后，建议会出现在“记忆 › 纠正”中，确认后才会保存"
+          }
+        }
+      }
+    },
+    "Workspace ID" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "业务空间 ID"
+          }
+        }
+      }
+    },
+    "Write text" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "写入文字"
+          }
+        }
+      }
+    },
+    "Yesterday" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "昨天"
+          }
+        }
+      }
+    },
+    "You can change this later in Settings › Qwen Connection." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "以后可在“设置 › Qwen 连接”中修改。"
+          }
+        }
+      }
+    },
+    "You can change this later in Settings › Voice Input." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "以后可在“设置 › 语音输入”中修改。"
+          }
+        }
+      }
+    },
+    "You can recheck this later in Settings › General." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "以后可在“设置 › 通用”中重新检查。"
+          }
+        }
+      }
+    },
+    "Your API Key was rejected. Check Settings › Qwen Connection." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "API Key 无效或没有权限，请在“设置 › Qwen 连接”中检查"
+          }
+        }
+      }
+    },
+    "Your recent Voice Agent conversations stay here for 30 minutes." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用语音 Agent 后，最近的对话会在这里保留 30 分钟。"
+          }
+        }
+      }
+    },
+    "Your selected domains and terms are sent to Qwen with voice requests." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选中的领域和词汇会随语音请求发送给 Qwen。"
+          }
+        }
+      }
+    },
+    "e.g. Team lead, main project" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "例如：团队负责人、常用项目名"
+          }
+        }
+      }
+    },
+    "first %lld characters" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "前 %lld 字"
+          }
+        }
+      }
+    },
+    "macOS already uses this shortcut. Try another." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这是 macOS 常用快捷键，请换一个"
+          }
+        }
+      }
+    },
+    "off" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已关闭"
+          }
+        }
+      }
+    },
+    "or %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "或 %@"
+          }
+        }
+      }
+    },
+    "press new keys" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请按下新的组合键"
+          }
+        }
+      }
+    },
+    "“%@” is already in Knowledge" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已有同名条目“%@”"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

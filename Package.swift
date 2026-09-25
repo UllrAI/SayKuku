@@ -4,6 +4,7 @@ import PackageDescription
 
 let package = Package(
     name: "SayKuku",
+    defaultLocalization: "en",
     platforms: [
         .macOS(.v15)
     ],
