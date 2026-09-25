@@ -120,6 +120,7 @@ final class AppState {
     var automaticAgentWriteBack = true {
         didSet { defaults.set(automaticAgentWriteBack, forKey: Keys.automaticAgentWriteBack) }
     }
+    var searchEngine: SearchEngine = .google { didSet { defaults.set(searchEngine.rawValue, forKey: Keys.searchEngine) } }
     var learnFromCorrections = true { didSet { defaults.set(learnFromCorrections, forKey: Keys.learnCorrections) } }
     var soundCuesEnabled = true { didSet { defaults.set(soundCuesEnabled, forKey: Keys.soundCues) } }
     var selectedTextAllowed = true { didSet { defaults.set(selectedTextAllowed, forKey: Keys.selectedText) } }
@@ -409,13 +410,13 @@ final class AppState {
         guard let action = pendingAction else { return }
         dismissAnswer()
         let generation = workflowGeneration
-        let region = configuration.region
+        let engine = searchEngine
         agentCommand = action.intent ?? action.action.title(isChineseUI: usesChineseUI)
         withAnimation(Motion.panel) { agentPhase = .processing }
         // Stored as the workflow so the pill's cancel button stops a running shortcut.
         workflowTask = Task { [weak self] in
             do {
-                try await AgentActionExecutor.execute(action, region: region)
+                try await AgentActionExecutor.execute(action, engine: engine)
                 guard let self, generation == self.workflowGeneration else { return }
                 await self.showAgentResult(generation: generation)
             } catch {
@@ -1198,12 +1199,12 @@ final class AppState {
                 output = text
             } else if AgentActionExecutor.needsConfirmation(response, context: context) {
                 // Checked now so the card never offers an action that cannot run.
-                try AgentActionExecutor.validate(response, region: configuration.region)
+                try AgentActionExecutor.validate(response, engine: searchEngine)
                 actionToConfirm = response
-                output = response.url ?? response.shortcutName ?? ""
+                output = response.url ?? response.query ?? response.shortcutName ?? ""
             } else {
                 resultCanUndo = false
-                try await AgentActionExecutor.execute(response, region: configuration.region)
+                try await AgentActionExecutor.execute(response, engine: searchEngine)
                 output = response.url ?? response.query ?? response.shortcutName ?? ""
             }
             updateHistory(historyID, input: command, output: output, status: .completed)
@@ -1634,6 +1635,9 @@ final class AppState {
         )
         defaults.set(true, forKey: Keys.realtimeModelUpgraded)
         reasoningModel = QwenModelCatalog.reasoningModel(stored: defaults.string(forKey: Keys.reasoningModel))
+        // Saved on first read, so a later region change leaves the engine alone.
+        searchEngine = defaults.string(forKey: Keys.searchEngine).flatMap(SearchEngine.init(rawValue:))
+            ?? SearchEngine.defaultEngine(for: qwenRegion)
         autoStop = storedBool(Keys.autoStop, default: false)
         continuousConversation = storedBool(Keys.continuousConversation, default: true)
         automaticAgentWriteBack = storedBool(Keys.automaticAgentWriteBack, default: true)
@@ -1668,7 +1672,7 @@ final class AppState {
         static let selectedDomains = "dictation.selectedDomains", customDomainTerms = "dictation.customDomainTerms"
         static let didCompleteOnboarding = "onboarding.completed"
         static let continuousConversation = "continuousConversation", learnCorrections = "learnFromCorrections"
-        static let automaticAgentWriteBack = "agent.automaticWriteBack"
+        static let automaticAgentWriteBack = "agent.automaticWriteBack", searchEngine = "agent.searchEngine"
         static let selectedText = "privacy.selectedText", currentApp = "privacy.currentApp", windowTitle = "privacy.windowTitle"
         static let clipboard = "privacy.clipboard", browserPage = "privacy.browserPage"
         static let historyRetention = "historyRetention", storeVoiceAudio = "storeVoiceAudio", showInMenuBar = "showInMenuBar"

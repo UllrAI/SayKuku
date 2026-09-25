@@ -813,18 +813,14 @@ enum AgentActionError: Error {
 }
 
 enum AgentActionExecutor {
-    /// RFC 3986 unreserved characters; everything else, including `&`, `+` and `=`, is percent-encoded.
-    private static let queryValueAllowed = CharacterSet(
-        charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~"
-    )
     /// Context that someone other than the user may have written, such as a web page hiding instructions.
     private static let untrustedContextKinds: [ContextItem.Kind] = [
         .selectedText, .previousOutput, .window, .clipboard, .browser, .session
     ]
 
     @MainActor
-    static func execute(_ response: AgentResponse, region: QwenRegion) async throws {
-        if let url = try validate(response, region: region) {
+    static func execute(_ response: AgentResponse, engine: SearchEngine) async throws {
+        if let url = try validate(response, engine: engine) {
             NSWorkspace.shared.open(url)
         } else if response.action == .runShortcut, let name = response.shortcutName {
             try await runShortcut(named: name)
@@ -834,7 +830,7 @@ enum AgentActionExecutor {
     /// Checks the payload an action needs, before a confirmation card offers it or the action runs.
     /// Returns the address to open for links and searches.
     @discardableResult
-    static func validate(_ response: AgentResponse, region: QwenRegion) throws -> URL? {
+    static func validate(_ response: AgentResponse, engine: SearchEngine) throws -> URL? {
         switch response.action {
         case .writeText, .answer:
             return nil
@@ -842,7 +838,7 @@ enum AgentActionExecutor {
             guard let url = webURL(response.url) else { throw QwenError.invalidResponse }
             return url
         case .webSearch:
-            guard let query = response.query, !query.isEmpty, let url = webSearchURL(for: query, region: region) else {
+            guard let query = response.query, !query.isEmpty, let url = engine.url(for: query) else {
                 throw QwenError.invalidResponse
             }
             return url
@@ -852,10 +848,12 @@ enum AgentActionExecutor {
         }
     }
 
-    /// The model reads context and picks the action in one reply, so injected text could choose a link or
-    /// shortcut, and even the transcript beside it. With untrusted context attached, the user confirms these.
+    /// The model reads context and picks the action in one reply, so injected text could choose a link, a search
+    /// that sends the clipboard away, or a shortcut, and even the transcript beside it. Every action that leaves
+    /// the app waits for the user when untrusted context is attached; writes and answers stay in view.
     static func needsConfirmation(_ response: AgentResponse, context: [ContextItem]) -> Bool {
-        [.openURL, .runShortcut].contains(response.action) && context.contains { untrustedContextKinds.contains($0.kind) }
+        [.openURL, .webSearch, .runShortcut].contains(response.action)
+            && context.contains { untrustedContextKinds.contains($0.kind) }
     }
 
     /// Whether a writeText reply replaces text the model saw only the start of, which would drop the rest.
@@ -869,13 +867,6 @@ enum AgentActionExecutor {
         guard let value, let url = URL(string: value), ["http", "https"].contains(url.scheme?.lowercased()),
               url.user == nil, url.password == nil else { return nil }
         return url
-    }
-
-    /// Google is blocked in mainland China, where Beijing-region users usually are.
-    static func webSearchURL(for query: String, region: QwenRegion) -> URL? {
-        guard let encoded = query.addingPercentEncoding(withAllowedCharacters: queryValueAllowed) else { return nil }
-        let engine = region == .beijing ? "https://www.bing.com/search?q=" : "https://www.google.com/search?q="
-        return URL(string: engine + encoded)
     }
 
     /// Waits for `shortcuts run` off the main thread so a failing shortcut is reported instead of shown as done.

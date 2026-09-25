@@ -106,24 +106,32 @@ struct TextWriteVerificationTests {
         #expect(!SensitiveApps.contains(bundleID: "com.apple.Safari"))
     }
 
-    @Test("web search encodes every reserved query character")
-    func webSearchURL() {
-        #expect(AgentActionExecutor.webSearchURL(for: "C++ & Rust", region: .singapore)?.absoluteString
-            == "https://www.google.com/search?q=C%2B%2B%20%26%20Rust")
-        #expect(AgentActionExecutor.webSearchURL(for: "a=b#c?d/e", region: .singapore)?.absoluteString
-            == "https://www.google.com/search?q=a%3Db%23c%3Fd%2Fe")
-        #expect(AgentActionExecutor.webSearchURL(for: "你好 swift-6_x.y~", region: .singapore)?.absoluteString
-            == "https://www.google.com/search?q=%E4%BD%A0%E5%A5%BD%20swift-6_x.y~")
+    @Test("every search engine encodes each reserved query character")
+    func searchEngineURL() {
+        let prefixes: [SearchEngine: String] = [
+            .google: "https://www.google.com/search?q=",
+            .bing: "https://www.bing.com/search?q=",
+            .baidu: "https://www.baidu.com/s?wd=",
+            .duckduckgo: "https://duckduckgo.com/?q=",
+        ]
+        #expect(Set(prefixes.keys) == Set(SearchEngine.allCases))
+        for (engine, prefix) in prefixes {
+            #expect(engine.url(for: "C++ & Rust")?.absoluteString == prefix + "C%2B%2B%20%26%20Rust")
+            #expect(engine.url(for: "a=b#c?d/e")?.absoluteString == prefix + "a%3Db%23c%3Fd%2Fe")
+            #expect(engine.url(for: "你好 swift-6_x.y~")?.absoluteString == prefix + "%E4%BD%A0%E5%A5%BD%20swift-6_x.y~")
+        }
     }
 
-    @Test("web search uses Bing for the Beijing region")
-    func webSearchEngine() {
-        #expect(AgentActionExecutor.webSearchURL(for: "天气", region: .beijing)?.absoluteString
-            == "https://www.bing.com/search?q=%E5%A4%A9%E6%B0%94")
-        #expect(AgentActionExecutor.webSearchURL(for: "weather", region: .singapore)?.host == "www.google.com")
+    @Test("the first search engine follows the region, and Baidu is the only localized name")
+    func searchEngineDefaults() {
+        #expect(SearchEngine.defaultEngine(for: .beijing) == .bing)
+        #expect(SearchEngine.defaultEngine(for: .singapore) == .google)
+        #expect(SearchEngine.baidu.title(isChineseUI: true) == "百度")
+        #expect(SearchEngine.baidu.title(isChineseUI: false) == "Baidu")
+        #expect(SearchEngine.duckduckgo.title(isChineseUI: true) == "DuckDuckGo")
     }
 
-    @Test("links and shortcuts chosen with untrusted context wait for confirmation")
+    @Test("links, searches and shortcuts chosen with untrusted context wait for confirmation")
     func actionConfirmation() {
         let open = AgentResponse(transcript: "打开官网", action: .openURL, url: "https://example.com")
         let shortcut = AgentResponse(transcript: "运行早安", action: .runShortcut, shortcutName: "早安")
@@ -132,29 +140,32 @@ struct TextWriteVerificationTests {
         let domain = ContextItem(kind: .domain, symbol: "text.bubble", title: "Domains", value: "Swift")
         #expect(!AgentActionExecutor.needsConfirmation(open, context: [app, domain]))
         #expect(!AgentActionExecutor.needsConfirmation(shortcut, context: [app, domain]))
+        #expect(!AgentActionExecutor.needsConfirmation(search, context: [app, domain]))
+        #expect(!AgentActionExecutor.needsConfirmation(search, context: []))
         for kind: ContextItem.Kind in [.selectedText, .previousOutput, .window, .clipboard, .browser, .session] {
             let untrusted = ContextItem(kind: kind, symbol: "", title: "", value: "text")
             #expect(AgentActionExecutor.needsConfirmation(open, context: [app, untrusted]))
             #expect(AgentActionExecutor.needsConfirmation(shortcut, context: [app, untrusted]))
-            #expect(!AgentActionExecutor.needsConfirmation(search, context: [untrusted]))
+            #expect(AgentActionExecutor.needsConfirmation(search, context: [untrusted]))
         }
     }
 
     @Test("actions without a usable payload are rejected before they are offered or run")
     func actionValidation() throws {
         func link(_ url: String) -> AgentResponse { AgentResponse(transcript: "打开", action: .openURL, url: url) }
-        #expect(try AgentActionExecutor.validate(link("https://example.com"), region: .singapore)?.host == "example.com")
+        #expect(try AgentActionExecutor.validate(link("https://example.com"), engine: .google)?.host == "example.com")
         for url in ["file:///etc/passwd", "https://google.com@evil.example/", "https://user:pass@example.com/"] {
-            #expect(throws: QwenError.invalidResponse) { try AgentActionExecutor.validate(link(url), region: .singapore) }
+            #expect(throws: QwenError.invalidResponse) { try AgentActionExecutor.validate(link(url), engine: .google) }
         }
         let search = AgentResponse(transcript: "搜一下", action: .webSearch, query: "SayKuku")
-        #expect(try AgentActionExecutor.validate(search, region: .beijing)?.host == "www.bing.com")
+        #expect(try AgentActionExecutor.validate(search, engine: .bing)?.host == "www.bing.com")
+        #expect(try AgentActionExecutor.validate(search, engine: .duckduckgo)?.host == "duckduckgo.com")
         let emptySearch = AgentResponse(transcript: "搜一下", action: .webSearch, query: "")
-        #expect(throws: QwenError.invalidResponse) { try AgentActionExecutor.validate(emptySearch, region: .beijing) }
+        #expect(throws: QwenError.invalidResponse) { try AgentActionExecutor.validate(emptySearch, engine: .bing) }
         let shortcut = AgentResponse(transcript: "运行早安", action: .runShortcut, shortcutName: "早安")
-        #expect(try AgentActionExecutor.validate(shortcut, region: .beijing) == nil)
+        #expect(try AgentActionExecutor.validate(shortcut, engine: .bing) == nil)
         let unnamed = AgentResponse(transcript: "运行", action: .runShortcut, shortcutName: "")
-        #expect(throws: QwenError.invalidResponse) { try AgentActionExecutor.validate(unnamed, region: .beijing) }
+        #expect(throws: QwenError.invalidResponse) { try AgentActionExecutor.validate(unnamed, engine: .bing) }
     }
 
     @Test("rewriting clipped text is not written back")
