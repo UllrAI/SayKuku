@@ -90,4 +90,5 @@ Rule failures: spacing 4, casing 3, translation 2, punctuation 3
 - 改 Prompt 前跑一次，改完再跑一次，两次使用同一份 `Build/eval-audio`；中途不要换语音或改句子。
 - 模型输出有少量随机性，个别句子可能在两次之间来回变化。差一两句不足以下结论，必要时前后各多跑一次。
 - PR 正文附上前后两次的汇总行。
+- 要衡量某条新规则本身的效果，可以临时删掉 `makeDictationInstructions` 里插入它的那一行跑出基线，恢复后用同一份音频再跑一次。
 - 修改评测集会让旧结果失去基准：先单独提交评测集的改动，跑出新的基线，再改 Prompt。

@@ -75,6 +75,7 @@ struct DictationPromptTests {
         for language in RecognitionLanguage.allCases {
             let prompt = QwenRealtimeClient.makeDictationInstructions(knowledgePrompt: "", recognitionLanguage: language)
             #expect(prompt.contains(PromptRules.mixedLanguage), "missing for \(language)")
+            #expect(prompt.contains("ordinary English words in lowercase inside a Chinese sentence, even at its start"))
         }
     }
 
