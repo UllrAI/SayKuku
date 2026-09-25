@@ -122,6 +122,8 @@ final class AppState {
     private(set) var hasCopiedPendingText = false
     var pendingAnswerText = ""
     var pendingAnswerStatus: String?
+    /// A link or shortcut the answer card asks about first, because the model chose it while reading untrusted context.
+    var pendingAction: AgentResponse?
     var resultCanUndo = false
     /// Set while Insert or Undo is writing, so a double click can't paste the same text twice.
     private(set) var isWriting = false
@@ -365,6 +367,7 @@ final class AppState {
         pendingAnswerText = ""
         pendingAnswerStatus = nil
         pendingAnswerTarget = nil
+        pendingAction = nil
         agentPhase = .hidden
     }
 
@@ -372,7 +375,28 @@ final class AppState {
         guard !pendingAnswerText.isEmpty else { return }
         pendingCopyText = pendingAnswerText
         copyPendingText()
-        pendingAnswerStatus = text("已复制回答", "Answer copied")
+        pendingAnswerStatus = pendingAction == nil ? text("已复制回答", "Answer copied") : text("已复制", "Copied")
+    }
+
+    func confirmPendingAction() {
+        guard let action = pendingAction else { return }
+        dismissAnswer()
+        let generation = workflowGeneration
+        let region = configuration.region
+        agentCommand = action.intent ?? action.action.title(isChineseUI: usesChineseUI)
+        withAnimation(Motion.panel) { agentPhase = .processing }
+        // Stored as the workflow so the pill's cancel button stops a running shortcut.
+        workflowTask = Task { [weak self] in
+            do {
+                try await AgentActionExecutor.execute(action, region: region)
+                guard let self, generation == self.workflowGeneration else { return }
+                await self.showAgentResult(generation: generation)
+            } catch {
+                // A cancel bumps the generation first, so only real failures get past this guard.
+                guard let self, generation == self.workflowGeneration else { return }
+                self.handleWorkflowError(error, agent: true)
+            }
+        }
     }
 
     func insertAnswer() async {
@@ -833,12 +857,13 @@ final class AppState {
                    let expected = lastVerifiedWrite.expectedValue,
                    snapshot.valueBefore == expected,
                    textInteraction.currentValue(of: lastVerifiedWrite.target) == expected {
-                    contextItems.append(ContextItem(
+                    contextItems.append(ContextCollector.textItem(
                         kind: .previousOutput,
                         symbol: "arrow.uturn.backward",
-                        title: text("上次输入", "Last insertion")
-                            + " · " + ContextCollector.characterCount(lastVerifiedWrite.text.count, isChineseUI: usesChineseUI),
-                        value: lastVerifiedWrite.text
+                        title: text("上次输入", "Last insertion"),
+                        value: lastVerifiedWrite.text,
+                        limit: ContextCollector.textLimit,
+                        isChineseUI: usesChineseUI
                     ))
                 }
                 agentCommand = text("正在听…", "Listening…")
@@ -1041,7 +1066,7 @@ final class AppState {
             let command = SpeechDisfluencyCleaner.clean(transcript, mode: .light)
             guard let snapshot else { throw TextInteractionError.targetChanged }
             updateHistory(historyID, input: command)
-            agentCommand = response.intent
+            agentCommand = response.intent ?? response.action.title(isChineseUI: usesChineseUI)
             withAnimation(Motion.panel) { agentPhase = .processing }
             await executeAgent(
                 response, snapshot: snapshot, context: context,
@@ -1123,10 +1148,11 @@ final class AppState {
             guard generation == workflowGeneration else { throw CancellationError() }
             let output: String
             var needsCopyFallback = false
+            var actionToConfirm: AgentResponse?
             if response.action == .writeText {
                 // Generated text is final prose, not a speech trace; cleaning it could alter names or code.
                 guard let text = response.output, !text.isEmpty else { throw QwenError.invalidResponse }
-                if automaticAgentWriteBack {
+                if automaticAgentWriteBack, !AgentActionExecutor.replacesClippedText(response, context: context) {
                     do {
                         let writeTarget: TextTargetSnapshot
                         if response.target == .previous {
@@ -1152,10 +1178,15 @@ final class AppState {
             } else if response.action == .answer {
                 guard let text = response.output, !text.isEmpty else { throw QwenError.invalidResponse }
                 output = text
+            } else if AgentActionExecutor.needsConfirmation(response, context: context) {
+                // Checked now so the card never offers an action that cannot run.
+                try AgentActionExecutor.validate(response, region: configuration.region)
+                actionToConfirm = response
+                output = response.url ?? response.shortcutName ?? ""
             } else {
                 resultCanUndo = false
-                try await AgentActionExecutor.execute(response)
-                output = response.url ?? response.query ?? response.shortcutName ?? response.intent
+                try await AgentActionExecutor.execute(response, region: configuration.region)
+                output = response.url ?? response.query ?? response.shortcutName ?? ""
             }
             updateHistory(historyID, input: command, output: output, status: .completed)
             if continuousConversation {
@@ -1167,28 +1198,33 @@ final class AppState {
                     expiresAt: .now.addingTimeInterval(30 * 60)
                 ), to: sessions)
             }
-            // Actions such as shortcuts can outlive a dismissed or newer workflow.
+            // A write or action can finish after the user dismissed this workflow or started a new one.
             guard generation == workflowGeneration else { return }
             if needsCopyFallback {
                 presentCopyFallback(output, agent: true, copyImmediately: automaticAgentWriteBack)
                 return
             }
-            if response.action == .answer {
+            if response.action == .answer || actionToConfirm != nil {
                 pendingAnswerText = output
                 pendingAnswerTarget = snapshot
+                pendingAction = actionToConfirm
                 withAnimation(Motion.panel) { agentPhase = .answerReady }
                 return
             }
-            withAnimation(Motion.panel) { agentPhase = .result }
-            try? await Task.sleep(for: Self.successDisplayDuration)
-            if generation == workflowGeneration, agentPhase == .result {
-                withAnimation(Motion.snappy) { agentPhase = .hidden }
-            }
+            await showAgentResult(generation: generation)
         } catch is CancellationError {
             updateHistory(historyID, status: .cancelled)
             if generation == workflowGeneration { agentPhase = .hidden }
         } catch {
             finishFailedWorkflow(error, historyID: historyID, agent: true, generation: generation)
+        }
+    }
+
+    private func showAgentResult(generation: Int) async {
+        withAnimation(Motion.panel) { agentPhase = .result }
+        try? await Task.sleep(for: Self.successDisplayDuration)
+        if generation == workflowGeneration, agentPhase == .result {
+            withAnimation(Motion.snappy) { agentPhase = .hidden }
         }
     }
 
@@ -1280,6 +1316,7 @@ final class AppState {
         pendingAnswerText = ""
         pendingAnswerStatus = nil
         pendingAnswerTarget = nil
+        pendingAction = nil
         resultCanUndo = false
         overlayError = nil
     }
@@ -1425,8 +1462,13 @@ final class AppState {
         if error is URLError {
             return text("无法连接网络，请检查网络后重试", "Couldn’t connect. Check your network and try again.")
         }
-        if error is AgentActionError {
-            return text("快捷指令运行失败，请在“快捷指令”App 中检查", "Couldn’t run the shortcut. Check it in the Shortcuts app.")
+        if let actionError = error as? AgentActionError {
+            switch actionError {
+            case .shortcutFailed:
+                return text("快捷指令运行失败，请在“快捷指令”App 中检查", "Couldn’t run the shortcut. Check it in the Shortcuts app.")
+            case .shortcutTimedOut:
+                return text("快捷指令超过 1 分钟没有完成，已停止", "The shortcut took over a minute, so it was stopped.")
+            }
         }
         return text("出了点问题，请重试", "Something went wrong. Try again.")
     }
