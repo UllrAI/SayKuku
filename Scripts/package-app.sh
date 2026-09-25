@@ -112,6 +112,7 @@ cp "$ROOT_DIR/Scripts/Resources/AppIcon.icns" "$APP_DIR/Contents/Resources/AppIc
 # CFBundleIconName; older systems keep AppIcon.icns via CFBundleIconFile.
 # A missing or failing actool only costs the layered icon, never the package.
 ICON_SOURCE="$ROOT_DIR/Scripts/Resources/AppIcon.icon"
+ICON_COMPILED=0
 if [[ -d "$ICON_SOURCE" ]]; then
     ICON_WORK_DIR="$ROOT_DIR/Build/AppIcon.actool"
     ICON_PARTIAL_PLIST="$ICON_WORK_DIR/assetcatalog_generated_info.plist"
@@ -130,6 +131,7 @@ if [[ -d "$ICON_SOURCE" ]]; then
         && [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconName' "$ICON_PARTIAL_PLIST" 2>/dev/null)" == "AppIcon" ]]; then
         cp "$ICON_WORK_DIR/Assets.car" "$APP_DIR/Contents/Resources/Assets.car"
         /usr/libexec/PlistBuddy -c "Add :CFBundleIconName string AppIcon" "$APP_DIR/Contents/Info.plist"
+        ICON_COMPILED=1
     else
         print -u2 "warning: actool could not compile AppIcon.icon (see $ICON_WORK_DIR/actool.log); shipping AppIcon.icns only"
     fi
@@ -158,4 +160,10 @@ if [[ -n "$SIGNING_KEYCHAIN" ]]; then
 fi
 codesign "${CODESIGN_ARGS[@]}" --entitlements "$ENTITLEMENTS" "$APP_DIR" >/dev/null
 codesign --verify --deep --strict --verbose=2 "$APP_DIR"
+if (( ICON_COMPILED )); then
+    rm -rf "$ICON_WORK_DIR"
+fi
+if [[ "$CONFIGURATION" != "release" ]]; then
+    rm "$DEBUG_ENTITLEMENTS"
+fi
 print "$APP_DIR"
