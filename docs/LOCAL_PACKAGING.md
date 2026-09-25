@@ -128,7 +128,7 @@ git status --short
 ```
 
 - `CFBundleShortVersionString`：用户看到的版本，例如 `1.0.0`。发布者只需要维护这一项。
-- `CFBundleVersion`：构建号，由 `Scripts/package-app.sh` 打包时写入，取值为当前提交的提交数（`git rev-list --count HEAD`）。它随主分支单调递增，同一提交重复打包得到同一个号。仓库里的 `Info.plist` 固定写 `0`，不用手动修改。Sparkle 按构建号判断是否有新版本，所以要在完整（非 shallow）的 Git 仓库里打包。
+- `CFBundleVersion`：构建号，由 `Scripts/package-app.sh` 打包时写入，取值为当前提交的提交数（`git rev-list --count HEAD`）。它随主分支单调递增，同一提交重复打包得到同一个号。仓库里的 `Info.plist` 固定写 `0`，不用手动修改。Sparkle 按构建号判断是否有新版本，所以要在完整（非 shallow）的 Git 仓库里打包，浅克隆会被脚本拒绝。
 
 版本号属于源代码。需要变更时应先修改、测试并提交，再生成发布包。
 

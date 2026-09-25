@@ -25,6 +25,10 @@ fi
 
 # Sparkle compares CFBundleVersion, so derive it from the commit count: it grows
 # with main and stays the same when one commit is rebuilt.
+if [[ "$(git -C "$ROOT_DIR" rev-parse --is-shallow-repository)" == "true" ]]; then
+    print -u2 "Shallow clone: the commit count would understate CFBundleVersion; run git fetch --unshallow"
+    exit 1
+fi
 BUILD_NUMBER="$(git -C "$ROOT_DIR" rev-list --count HEAD)" || {
     print -u2 "Could not count commits for CFBundleVersion; package from a Git checkout"
     exit 1
