@@ -327,17 +327,19 @@ struct KukuPageScroll<Content: View>: View {
 }
 
 /// Segmented control for a page's second-level navigation.
+/// Only the selection indicator animates; the content below switches at once, like a native tab view.
 struct KukuTabBar<Item: Hashable>: View {
     let items: [Item]
     @Binding var selection: Item
     let title: (Item) -> String
+    @Namespace private var indicator
 
     var body: some View {
         HStack(spacing: KukuSpacing.xxs) {
             ForEach(items, id: \.self) { item in
                 let isSelected = selection == item
                 Button {
-                    withAnimation(Motion.snappy) { selection = item }
+                    selection = item
                 } label: {
                     Text(title(item))
                         .font(.kuku(.callout, weight: isSelected ? .semibold : .medium))
@@ -349,6 +351,7 @@ struct KukuTabBar<Item: Hashable>: View {
                                 RoundedRectangle(cornerRadius: KukuLayout.radiusSmall, style: .continuous)
                                     .fill(KukuColor.surfaceRaised)
                                     .kukuShadow(.raised)
+                                    .matchedGeometryEffect(id: "indicator", in: indicator)
                             }
                         }
                         .contentShape(Rectangle())
@@ -357,6 +360,8 @@ struct KukuTabBar<Item: Hashable>: View {
                 .accessibilityAddTraits(isSelected ? .isSelected : [])
             }
         }
+        // Scoped here so the indicator slides without animating the page it controls.
+        .animation(Motion.snappy, value: selection)
         .padding(KukuSpacing.xxs)
         .background(KukuColor.fill, in: RoundedRectangle(cornerRadius: KukuLayout.radiusMedium, style: .continuous))
         .overlay {
@@ -684,6 +689,16 @@ extension View {
             }
             .animation(Motion.snappy, value: isFocused)
     }
+
+    /// Plain `TextField` or `SecureField` in the shared chrome. The caller owns the focus state.
+    func kukuField(isFocused: Bool) -> some View {
+        self
+            .textFieldStyle(.plain)
+            .font(.kuku(.body))
+            .padding(.horizontal, KukuSpacing.md)
+            .frame(maxWidth: .infinity, minHeight: KukuLayout.controlHeight, alignment: .leading)
+            .kukuFieldChrome(isFocused: isFocused)
+    }
 }
 
 struct KukuSearchField: View {
@@ -729,7 +744,7 @@ struct KukuSearchField: View {
     }
 }
 
-/// Text input for sheet forms. Settings rows keep the system `.roundedBorder` field next to system pickers.
+/// Text input that owns its focus, for forms and custom values.
 struct KukuTextField: View {
     let prompt: String
     @Binding var text: String
@@ -757,26 +772,84 @@ struct KukuTextField: View {
             if multiline {
                 TextField(prompt, text: $text, axis: .vertical)
                     .lineLimit(2...4)
+                    .padding(.vertical, KukuSpacing.sm)
+                    // Two lines of body text plus vertical padding.
+                    .frame(minHeight: 56, alignment: .topLeading)
             } else {
                 TextField(prompt, text: $text)
             }
         }
-        .textFieldStyle(.plain)
-        .font(.kuku(.body))
         .focused($isFocused)
         .onSubmit { onSubmit?() }
-        .padding(.horizontal, KukuSpacing.md)
-        .padding(.vertical, multiline ? KukuSpacing.sm : 0)
-        .frame(
-            maxWidth: .infinity,
-            // Two lines of body text plus vertical padding.
-            minHeight: multiline ? 56 : KukuLayout.controlHeight,
-            alignment: multiline ? .topLeading : .leading
-        )
-        .kukuFieldChrome(isFocused: isFocused)
+        .kukuField(isFocused: isFocused)
         .onAppear {
             if autoFocus { isFocused = true }
         }
+    }
+}
+
+/// Pop-up choice drawn in the field chrome. The menu itself stays native, with a check on the current option.
+/// `extra` adds items below the options, such as a Custom… entry.
+struct KukuPicker<Option: Hashable, Extra: View>: View {
+    let title: String
+    let options: [Option]
+    @Binding var selection: Option
+    let label: (Option) -> String
+    @ViewBuilder let extra: Extra
+
+    init(
+        _ title: String,
+        options: [Option],
+        selection: Binding<Option>,
+        label: @escaping (Option) -> String,
+        @ViewBuilder extra: () -> Extra
+    ) {
+        self.title = title
+        self.options = options
+        _selection = selection
+        self.label = label
+        self.extra = extra()
+    }
+
+    var body: some View {
+        Menu {
+            Picker(title, selection: $selection) {
+                ForEach(options, id: \.self) { option in
+                    Text(label(option)).tag(option)
+                }
+            }
+            .pickerStyle(.inline)
+            .labelsHidden()
+            extra
+        } label: {
+            HStack(spacing: KukuSpacing.sm) {
+                Text(label(selection))
+                    .foregroundStyle(KukuColor.textPrimary)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.kukuIcon(.mini, weight: .semibold))
+                    .foregroundStyle(KukuColor.textSecondary)
+            }
+            .font(.kuku(.body))
+            .padding(.horizontal, KukuSpacing.md)
+            .frame(width: KukuLayout.pickerWidth, height: KukuLayout.controlHeight)
+            .kukuFieldChrome(isFocused: false)
+            .contentShape(Rectangle())
+        }
+        // A plain button style lets the menu draw this label instead of a system pop-up button.
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .accessibilityLabel(title)
+        .accessibilityValue(label(selection))
+    }
+}
+
+extension KukuPicker where Extra == EmptyView {
+    init(_ title: String, options: [Option], selection: Binding<Option>, label: @escaping (Option) -> String) {
+        self.init(title, options: options, selection: selection, label: label) { EmptyView() }
     }
 }
 

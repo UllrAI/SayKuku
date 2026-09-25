@@ -50,6 +50,8 @@ struct MemoryView: View {
                     }
                 }
             }
+            // Each tab opens at the top instead of at the last tab's scroll offset.
+            .id(selectedScope)
         }
     }
 
