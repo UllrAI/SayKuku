@@ -12,6 +12,20 @@ struct QwenRequestContractTests {
         #expect(!QwenReasoningClient.isRetryableNetworkError(URLError(.notConnectedToInternet)))
     }
 
+    @Test("chat requests sample at a low temperature with thinking off")
+    func requestBody() {
+        let json = QwenReasoningClient.requestBody(model: "m", messages: [["role": "user", "content": "hi"]], jsonResponse: true)
+        #expect(json["temperature"] as? Double == PromptRules.temperature)
+        #expect(json["enable_thinking"] as? Bool == false)
+        #expect(json["reasoning_effort"] == nil)
+        #expect((json["response_format"] as? [String: String])?["type"] == "json_object")
+
+        let text = QwenReasoningClient.requestBody(model: "m", messages: [], jsonResponse: false)
+        #expect(text["temperature"] as? Double == PromptRules.temperature)
+        #expect(text["enable_thinking"] as? Bool == false)
+        #expect(text["response_format"] == nil)
+    }
+
     @Test("realtime failures fall back to batch recognition only for transient errors")
     func batchFallbackPolicy() {
         #expect(QwenError.allowsBatchFallback(after: URLError(.networkConnectionLost)))
@@ -159,7 +173,8 @@ struct QwenRequestContractTests {
             context: selectedText.map {
                 [ContextItem(kind: .selectedText, symbol: "text.quote", title: "Selected text", value: $0)]
             } ?? [],
-            sessions: []
+            sessions: [],
+            textField: .focused
         )
         #expect(response.transcript?.contains(expectedTranscript) == true)
         if let expectedOutput {
