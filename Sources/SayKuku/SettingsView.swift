@@ -630,7 +630,9 @@ private struct HistorySettings: View {
             KukuGroup(appState.text("存储", "Storage")) {
                 KukuRow(
                     appState.text("自动删除", "Delete history after"),
-                    caption: appState.text("星标记录不受此期限影响", "Starred items are never deleted automatically")
+                    caption: appState.historyRetention == .off
+                        ? appState.text("不再记录新内容，已有记录会保留到你手动清空", "New items aren’t saved. Existing ones stay until you clear them.")
+                        : appState.text("星标记录不受此期限影响", "Starred items are never deleted automatically")
                 ) {
                     KukuPicker(
                         appState.text("自动删除", "Delete history after"),
