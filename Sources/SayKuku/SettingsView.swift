@@ -557,7 +557,7 @@ private struct GeneralSettings: View {
                 GlobalShortcutSettings()
             }
 
-            SoftwareUpdateSettings()
+            SoftwareUpdateSettings(updater: appState.updater)
         }
     }
 }
@@ -565,27 +565,33 @@ private struct GeneralSettings: View {
 /// Version and Sparkle controls. Dev builds have no updater, so only the version shows.
 private struct SoftwareUpdateSettings: View {
     @Environment(AppState.self) private var appState
+    let updater: SPUStandardUpdaterController?
+    /// Mirrors Sparkle's setting, which SwiftUI can't observe; Sparkle persists it in its own defaults.
+    @State private var automaticallyChecks: Bool
+
+    init(updater: SPUStandardUpdaterController?) {
+        self.updater = updater
+        _automaticallyChecks = State(initialValue: updater?.updater.automaticallyChecksForUpdates ?? false)
+    }
 
     var body: some View {
         KukuGroup(appState.text("软件更新", "Software Update")) {
             KukuRow(appState.text("版本", "Version"), caption: versionCaption) {
-                if let updater = appState.updater {
+                if let updater {
                     Button(appState.text("检查更新…", "Check for Updates…")) {
                         updater.checkForUpdates(nil)
                     }
                     .buttonStyle(.kukuSecondary)
                 }
             }
-            if let updater = appState.updater?.updater {
+            if let updater {
                 KukuDivider()
-                // Sparkle persists this in its own defaults.
                 KukuToggleRow(
                     title: appState.text("自动检查更新", "Check for updates automatically"),
-                    isOn: Binding(
-                        get: { updater.automaticallyChecksForUpdates },
-                        set: { updater.automaticallyChecksForUpdates = $0 }
-                    )
+                    caption: appState.text("按 Sparkle 默认周期在后台检查", "Checks in the background on Sparkle’s default schedule"),
+                    isOn: $automaticallyChecks
                 )
+                .onChange(of: automaticallyChecks) { updater.updater.automaticallyChecksForUpdates = $1 }
             }
         }
     }
@@ -598,7 +604,7 @@ private struct SoftwareUpdateSettings: View {
             return appState.text("开发构建", "Development build")
         }
         let caption = "\(version) (\(build))"
-        guard appState.updater == nil else { return caption }
+        guard updater == nil else { return caption }
         return caption + appState.text(" · 开发版不检查更新", " · Dev builds don’t check for updates")
     }
 }
