@@ -178,13 +178,16 @@ Scripts/package-app.sh release
 
 脚本会：
 
-1. 以 release 配置同时编译 `arm64` 和 `x86_64`，生成通用二进制，并用 `lipo -archs` 确认两个架构都在。
-2. 生成 `Build/SayKuku.app`，资源包放在 `Contents/Resources/SayKuku_SayKuku.bundle`。
-3. 写入正式 Bundle ID 和资源。
-4. 使用 `Scripts/Resources/SayKuku.entitlements` 签名。
-5. 启用 Hardened Runtime、时间戳，并执行严格签名验证。
+1. 以 release 配置同时编译 `arm64` 和 `x86_64`，生成通用二进制。
+2. 用 `dsymutil` 从编译产物提取调试符号到 `Dist/SayKuku-<版本>.dSYM`，再把二进制复制进 App 并执行 `strip -S`；随后用 `lipo -archs` 确认两个架构都在。
+3. 生成 `Build/SayKuku.app`，资源包放在 `Contents/Resources/SayKuku_SayKuku.bundle`。
+4. 写入正式 Bundle ID 和资源。
+5. 使用 `Scripts/Resources/SayKuku.entitlements` 签名。
+6. 启用 Hardened Runtime、时间戳，并执行严格签名验证。
 
-脚本到此为止，只生成已签名的 `Build/SayKuku.app`；它不会自动提交 Apple 公证、装订票据或生成 `Dist/` ZIP。后续步骤必须继续按第 5 节执行。
+脚本到此为止，只生成已签名的 `Build/SayKuku.app` 和 dSYM；它不会提交 Apple 公证、装订票据或生成 `Dist/` ZIP。正式发布请直接运行第 5 节的 `Scripts/release.sh`，它会先调用本脚本。
+
+同版本的 dSYM 会被本脚本直接覆盖；`Scripts/release.sh` 会先把旧 dSYM 加时间戳备份。
 
 正式 entitlement 至少要包含：
 
@@ -215,6 +218,38 @@ lipo -archs Build/SayKuku.app/Contents/MacOS/SayKuku
 此时 `spctl` 显示 `Unnotarized Developer ID` 是正常的，因为公证尚未完成；不要把这个阶段的包交给用户。
 
 ## 5. 公证、装订与最终 ZIP
+
+完成第 2 节的版本号修改并提交后，在干净的工作区运行：
+
+```bash
+export SAYKUKU_SIGNING_IDENTITY='Developer ID Application: Your Name (TEAMID)'
+Scripts/release.sh
+```
+
+`SAYKUKU_KEYCHAIN` 的用法与第 4 节相同。脚本任何一步失败都会立即退出，不重试，也不会等待输入。它按顺序执行：
+
+1. 前置检查：`git status --porcelain` 为空、已设置 `SAYKUKU_SIGNING_IDENTITY`、`v<版本>` 标签尚不存在、`xcrun notarytool history --keychain-profile 'SayKuku-Notary'` 能正常执行。
+2. 运行 `swift test`。
+3. 若 `Dist/` 已有同版本的 ZIP 或 dSYM，先加时间戳后缀备份。
+4. 调用 `Scripts/package-app.sh release`，生成已签名的 App 和 dSYM。
+5. 生成公证 ZIP 并提交 Apple；状态不是 `Accepted` 时打印 `notarytool log` 后退出。结果保存在 `Build/notarization-result.json`，其中有 submission `id`。
+6. `stapler staple`、`stapler validate`；`spctl` 输出里没有 `source=Notarized Developer ID` 就退出。
+7. 从装订后的 App 重新生成最终 ZIP，确认不含 AppleDouble 文件，并输出 SHA-256。
+8. 给构建时的提交打 `v<版本>` 标签。脚本不会推送，确认产物无误后手动执行 `git push origin v<版本>`。
+
+成功后 `Dist/` 中有：
+
+| 文件 | 用途 |
+| --- | --- |
+| `SayKuku-<版本>.zip` | 分发给用户的最终包 |
+| `SayKuku-<版本>.dSYM` | 符号化崩溃日志，必须和对应 ZIP 一起长期保存 |
+| `SayKuku-<版本>-notarization.zip` | 只用于提交 Apple，不要分发 |
+
+脚本不递增版本号，也不上传 GitHub Release。
+
+### 脚本出错时的手动排查步骤
+
+以下命令与脚本执行的步骤一致，可以从失败的环节开始逐条重跑，定位问题。
 
 从 `Info.plist` 读取版本，并制作只用于提交 Apple 的 ZIP。`COPYFILE_DISABLE=1` 和 `--norsrc` 用于避免把无关的 AppleDouble 元数据写入压缩包：
 
@@ -285,6 +320,13 @@ if unzip -l "$FINAL_ARCHIVE" | rg -q '(^|/)\._'; then
   echo '错误：ZIP 含有 AppleDouble 元数据' >&2
   exit 1
 fi
+```
+
+确认 dSYM 与 App 中的二进制对应：两条命令输出的每个架构 UUID 必须一致。
+
+```bash
+dwarfdump --uuid Build/SayKuku.app/Contents/MacOS/SayKuku
+dwarfdump --uuid "Dist/SayKuku-${VERSION}.dSYM"
 ```
 
 终端变量只对当前 shell 有效；打开新终端后需重新设置 `VERSION`、`NOTARY_ARCHIVE` 和 `FINAL_ARCHIVE`。
@@ -373,7 +415,7 @@ Keychain 只保存 API Key。History、Memory、Knowledge 以 JSON 保存在数�
 - Key ID、Issuer ID、Team ID：不是私钥，但应和 `.p8` 的备份说明一起保存。
 - `SayKuku-Notary` profile：保存在本机钥匙串中，不需要也不应导出到仓库。
 
-当前项目的签名脚本是 `Scripts/package-app.sh`，正式权限声明是 `Scripts/Resources/SayKuku.entitlements`。`Build/` 和 `Dist/` 都是本地产物，不是源代码。
+当前项目的签名脚本是 `Scripts/package-app.sh`，发布脚本是 `Scripts/release.sh`，正式权限声明是 `Scripts/Resources/SayKuku.entitlements`。`Build/` 和 `Dist/` 都是本地产物，不是源代码；但已发布版本的 dSYM 需要另行长期备份。
 
 ## 10. 常见错误
 
