@@ -1,6 +1,7 @@
 import ApplicationServices
 import AppKit
 import Carbon.HIToolbox
+import os
 
 private struct KeyboardEventSample: Sendable {
     enum Kind: Sendable {
@@ -267,11 +268,13 @@ final class ShortcutController: @unchecked Sendable {
 
     @MainActor
     private func installFnMonitors() {
+        let rebuilding = globalKeyMonitor != nil || localKeyMonitor != nil
         removeFnMonitors()
 
         // Do not install a global keyboard monitor before Accessibility is
         // already trusted. This keeps startup entirely outside Input Monitoring.
         guard AXIsProcessTrusted() else {
+            Log.shortcut.info("Fn monitors not installed: Accessibility not granted")
             fnMonitorReady = false
             publishStatus()
             return
@@ -286,6 +289,12 @@ final class ShortcutController: @unchecked Sendable {
             return event
         }
         fnMonitorReady = globalKeyMonitor != nil && localKeyMonitor != nil
+        let ready = fnMonitorReady
+        let change = rebuilding ? "rebuilt" : "installed"
+        Log.shortcut.log(
+            level: ready ? .info : .error,
+            "Fn monitors \(change, privacy: .public), ready: \(ready, privacy: .public)"
+        )
         publishStatus()
     }
 
@@ -372,6 +381,9 @@ final class ShortcutController: @unchecked Sendable {
             Unmanaged.passUnretained(self).toOpaque(),
             &hotKeyHandler
         )
+        if status != noErr {
+            Log.shortcut.error("Carbon hot key handler failed to install: OSStatus \(status, privacy: .public)")
+        }
         return status == noErr
     }
 
@@ -388,6 +400,13 @@ final class ShortcutController: @unchecked Sendable {
             OptionBits(kEventHotKeyExclusive),
             &hotKey
         )
+        if status != noErr {
+            let keys = shortcut.displayString
+            let name = String(describing: action)
+            Log.shortcut.error(
+                "Carbon hot key \(keys, privacy: .public) for \(name, privacy: .public) failed: OSStatus \(status, privacy: .public)"
+            )
+        }
         return status == noErr ? hotKey : nil
     }
 

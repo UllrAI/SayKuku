@@ -47,7 +47,7 @@
      --predicate 'subsystem == "com.saykuku.dev" AND category == "TextInteraction" AND eventMessage BEGINSWITH "Text write"'
    ```
 
-   每次写入结束会打印一行 `Text write bundle=… route=… result=…`，日志不含文本内容。
+   每次写入结束会打印一行 `Text write bundle=… route=… result=…`，日志不含文本内容。去掉 `category` 和 `eventMessage` 两个条件，就能看到音频引擎、Qwen 连接、本地存储、快捷键和权限等全部子系统的日志。
 
 3. 对表中每个应用依次做下面几步：
    1. 在一段已有文字的中间放好光标，用语音输入说一句中英混合的短句。

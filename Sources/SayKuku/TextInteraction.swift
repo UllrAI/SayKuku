@@ -87,10 +87,6 @@ final class TextInteraction {
     typealias PasteboardItemSnapshot = [NSPasteboard.PasteboardType: Data]
     typealias PasteboardSnapshot = [PasteboardItemSnapshot]
 
-    private static let logger = Logger(
-        subsystem: Bundle.main.bundleIdentifier ?? "SayKuku",
-        category: "TextInteraction"
-    )
     private static let pasteSessionType = NSPasteboard.PasteboardType("com.saykuku.paste-session")
     private static let textRoles = Set(["AXTextArea", "AXTextField", "AXComboBox", "AXSearchField"])
     /// Keeps a slow or hung target app from stalling the main thread for the default ~6 s per AX call.
@@ -125,7 +121,7 @@ final class TextInteraction {
             ? element.flatMap { element in range.flatMap { caretFrame(of: element, at: $0) } }
             : nil
 
-        Self.logger.info(
+        Log.text.info(
             "Captured target bundle=\(bundleID, privacy: .public) role=\(element.map(self.role(of:)) ?? "unavailable", privacy: .public) readable=\(value != nil, privacy: .public)"
         )
         return TextTargetSnapshot(
@@ -236,7 +232,7 @@ final class TextInteraction {
     }
 
     private func logWrite(to snapshot: TextTargetSnapshot, route: String, result: String) {
-        Self.logger.info(
+        Log.text.info(
             "Text write bundle=\(snapshot.bundleID, privacy: .public) route=\(route, privacy: .public) result=\(result, privacy: .public)"
         )
     }
@@ -356,14 +352,14 @@ final class TextInteraction {
             if expectedValue != nil,
                let current = currentValue(in: snapshot),
                current == snapshot.valueBefore {
-                Self.logger.error("Synthetic paste posted but readable target text did not change")
+                Log.text.error("Synthetic paste posted but readable target text did not change")
                 restore(previous, ifOwnedBy: sessionID, on: pasteboard)
                 throw TextInteractionError.writeFailed
             }
 
             guard element != nil else {
                 // Nothing shows where a blind paste landed, so keep the text on the clipboard.
-                Self.logger.info("Text pasted without an exposed text field; kept on the clipboard")
+                Log.text.info("Text pasted without an exposed text field; kept on the clipboard")
                 return .deliveredUnverified
             }
             try? await Task.sleep(for: .milliseconds(350))
