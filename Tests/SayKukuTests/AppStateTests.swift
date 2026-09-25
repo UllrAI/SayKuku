@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 import Testing
 @testable import SayKuku
 
@@ -64,6 +64,44 @@ struct AppStateTests {
         #expect(HistoryRetention.allCases.first == .off)
         #expect(state.historyEntries == [old])
         #expect(environment.makeState().historyRetention == .off)
+    }
+
+    @Test("sound cues default on and survive a relaunch")
+    @MainActor
+    func soundCuesSetting() {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let state = environment.makeState()
+        #expect(state.soundCuesEnabled)
+        state.soundCuesEnabled = false
+        #expect(!environment.makeState().soundCuesEnabled)
+    }
+
+    @Test("only the listening phase counts as recording, so cancels elsewhere stay silent")
+    @MainActor
+    func recordingPhases() {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let state = environment.makeState()
+        #expect(!state.isRecording)
+        state.dictationPhase = .listening
+        #expect(state.isRecording)
+        state.dictationPhase = .processing
+        #expect(!state.isRecording)
+        state.agentPhase = .listening
+        #expect(state.isRecording)
+        state.agentPhase = .transcribing
+        #expect(!state.isRecording)
+    }
+
+    @Test("each sound cue is bundled, loads, and stays short")
+    @MainActor
+    func soundCueClips() throws {
+        for cue in SoundCues.Cue.allCases {
+            let url = try #require(cue.url)
+            let sound = try #require(NSSound(contentsOf: url, byReference: true))
+            #expect(sound.duration > 0 && sound.duration <= 0.15)
+        }
     }
 
     @Test("toasts with the same copy are still distinct")

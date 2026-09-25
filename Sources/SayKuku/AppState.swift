@@ -94,6 +94,8 @@ final class AppState {
     var appLanguage: AppLanguage = .system { didSet { defaults.set(appLanguage.rawValue, forKey: Keys.language) } }
     var dictationPhase: DictationPhase = .idle { didSet { overlayController?.refresh() } }
     var agentPhase: AgentPhase = .hidden { didSet { overlayController?.refresh() } }
+    /// True while the microphone is capturing for either workflow.
+    var isRecording: Bool { dictationPhase == .listening || agentPhase == .listening }
     var inputMode: InputMode = .hold { didSet { defaults.set(inputMode.rawValue, forKey: Keys.inputMode) } }
     var autoStop = false { didSet { defaults.set(autoStop, forKey: Keys.autoStop) } }
     var recognitionLanguage: RecognitionLanguage = .automatic {
@@ -119,6 +121,7 @@ final class AppState {
         didSet { defaults.set(automaticAgentWriteBack, forKey: Keys.automaticAgentWriteBack) }
     }
     var learnFromCorrections = true { didSet { defaults.set(learnFromCorrections, forKey: Keys.learnCorrections) } }
+    var soundCuesEnabled = true { didSet { defaults.set(soundCuesEnabled, forKey: Keys.soundCues) } }
     var selectedTextAllowed = true { didSet { defaults.set(selectedTextAllowed, forKey: Keys.selectedText) } }
     var currentAppAllowed = true { didSet { defaults.set(currentAppAllowed, forKey: Keys.currentApp) } }
     var windowTitleAllowed = true { didSet { defaults.set(windowTitleAllowed, forKey: Keys.windowTitle) } }
@@ -199,6 +202,7 @@ final class AppState {
     @ObservationIgnored private let realtimeClient = QwenRealtimeClient()
     @ObservationIgnored private let reasoningClient = QwenReasoningClient()
     @ObservationIgnored private let textInteraction = TextInteraction()
+    @ObservationIgnored private let soundCues = SoundCues()
     @ObservationIgnored private var shortcutController: ShortcutController?
     @ObservationIgnored private var overlayController: FloatingOverlayController?
     @ObservationIgnored private var workflowTask: Task<Void, Never>?
@@ -276,12 +280,14 @@ final class AppState {
 
     func cancelDictation() {
         cancelWorkflow()
+        playStopCueIfRecording()
         withAnimation(Motion.snappy) { dictationPhase = .idle }
     }
 
     func finishDictation() {
         guard dictationPhase == .listening else { return }
         let recording = stopRecording()
+        playSoundCue(.stop)
         let historyID = beginHistoryEntry(mode: .dictation, recording: recording)
         let snapshot = targetSnapshot
         let upload = uploadTask
@@ -308,6 +314,7 @@ final class AppState {
     func finishAgentListening() {
         guard agentPhase == .listening else { return }
         let recording = stopRecording()
+        playSoundCue(.stop)
         let historyID = beginHistoryEntry(mode: .agent, recording: recording)
         let snapshot = targetSnapshot
         let context = contextItems
@@ -330,12 +337,14 @@ final class AppState {
 
     func dismissAgent() {
         cancelWorkflow()
+        playStopCueIfRecording()
         withAnimation(Motion.snappy) { agentPhase = .hidden }
     }
 
     func cancelActiveVoiceWorkflow() {
         guard dictationPhase.isCancellable || agentPhase.isCancellable else { return }
         cancelWorkflow()
+        playStopCueIfRecording()
         withAnimation(Motion.snappy) {
             dictationPhase = .idle
             agentPhase = .hidden
@@ -932,6 +941,8 @@ final class AppState {
                 try startAudioCapture(for: mode) { _ in }
                 if mode == .dictation { withAnimation(Motion.spring) { dictationPhase = .listening } }
             }
+            // Both paths are listening with the engine running by now.
+            playSoundCue(.start)
             scheduleRecordingLimit(for: mode)
         } catch {
             handleWorkflowError(error, agent: mode == .agent)
@@ -963,6 +974,17 @@ final class AppState {
 
     private func finishListening(for mode: VoiceWorkflowMode) {
         if mode == .agent { finishAgentListening() } else { finishDictation() }
+    }
+
+    /// Errors stay silent; the overlay already reports them.
+    private func playSoundCue(_ cue: SoundCues.Cue) {
+        guard soundCuesEnabled else { return }
+        soundCues.play(cue)
+    }
+
+    /// For cancel paths: `cancelWorkflow` leaves the phases alone, so they still show whether a recording just ended.
+    private func playStopCueIfRecording() {
+        if isRecording { playSoundCue(.stop) }
     }
 
     private func stopRecording() -> AudioCapture.Recording {
@@ -1634,6 +1656,7 @@ final class AppState {
         continuousConversation = storedBool(Keys.continuousConversation, default: true)
         automaticAgentWriteBack = storedBool(Keys.automaticAgentWriteBack, default: true)
         learnFromCorrections = storedBool(Keys.learnCorrections, default: true)
+        soundCuesEnabled = storedBool(Keys.soundCues, default: true)
         selectedTextAllowed = storedBool(Keys.selectedText, default: true)
         currentAppAllowed = storedBool(Keys.currentApp, default: true)
         windowTitleAllowed = storedBool(Keys.windowTitle, default: true)
@@ -1659,7 +1682,7 @@ final class AppState {
     private enum Keys {
         static let inputMode = "inputMode", language = "appLanguage", autoStop = "autoStop"
         static let recognitionLanguage = "dictation.recognitionLanguage", dictationNumberFormat = "dictation.numberFormat"
-        static let dictationCleanup = "dictation.cleanup"
+        static let dictationCleanup = "dictation.cleanup", soundCues = "voice.soundCues"
         static let selectedDomains = "dictation.selectedDomains", customDomainTerms = "dictation.customDomainTerms"
         static let didCompleteOnboarding = "onboarding.completed"
         static let continuousConversation = "continuousConversation", learnCorrections = "learnFromCorrections"
