@@ -35,7 +35,7 @@ open Build/SayKuku.app
 ## 文档
 
 - [产品与实现说明](SayKuku.md)：功能范围、交互、数据模型和当前实现状态。
-- [本地打包与发布](docs/LOCAL_PACKAGING.md)：Release 构建、Developer ID 签名、公证、装订和最终 ZIP。
+- [本地打包与发布](docs/LOCAL_PACKAGING.md)：Release 构建、Developer ID 签名、发布脚本、公证、装订、最终 ZIP 和 dSYM。
 - [Agent 协作约定](AGENTS.md)：代码修改、测试、Keychain、权限和发布约束。
 
 ## 隐私与权限
@@ -46,7 +46,7 @@ Qwen API Key 保存在这台 Mac 的钥匙串中；输入历史、知识、记�
 
 ## 发布
 
-正式包固定使用 Bundle ID `com.saykuku.app`，必须由稳定的 Developer ID Application 身份签名并完成 Apple 公证。不要分发 ad-hoc 签名或仅签名但未公证的构建；完整命令见 [本地打包与发布](docs/LOCAL_PACKAGING.md)。
+正式包固定使用 Bundle ID `com.saykuku.app`，必须由稳定的 Developer ID Application 身份签名并完成 Apple 公证。不要分发 ad-hoc 签名或仅签名但未公证的构建。正式发布运行 `Scripts/release.sh`，它依次完成测试、构建签名、公证、装订、最终 ZIP 和 dSYM；前置条件和排查步骤见 [本地打包与发布](docs/LOCAL_PACKAGING.md)。
 
 ## License
 
