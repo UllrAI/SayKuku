@@ -57,6 +57,8 @@ struct KeychainStore: Sendable {
         for legacyService in legacyServices {
             guard let value = try readString(for: account, service: legacyService) else { continue }
             try set(value, for: account)
+            // The value is already migrated, so a failed delete must not block reading; `remove(_:)` clears it later.
+            try? delete(account, service: legacyService)
             return value
         }
         return nil
@@ -98,10 +100,14 @@ struct KeychainStore: Sendable {
 
     func remove(_ account: String) throws {
         for itemService in legacyServices + [service] {
-            let status = SecItemDelete(baseQuery(account, service: itemService) as CFDictionary)
-            guard status == errSecSuccess || status == errSecItemNotFound else {
-                throw SecureStorageError.keychain(status)
-            }
+            try delete(account, service: itemService)
+        }
+    }
+
+    private func delete(_ account: String, service: String) throws {
+        let status = SecItemDelete(baseQuery(account, service: service) as CFDictionary)
+        guard status == errSecSuccess || status == errSecItemNotFound else {
+            throw SecureStorageError.keychain(status)
         }
     }
 
