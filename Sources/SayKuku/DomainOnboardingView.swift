@@ -126,7 +126,7 @@ struct DomainOnboardingView: View {
                         }
                         .padding(.leading, KukuSpacing.md)
                         .padding(.trailing, KukuSpacing.xxs)
-                        .frame(height: KukuLayout.controlHeightSmall)
+                        .frame(minHeight: KukuLayout.controlHeightSmall)
                         .background(KukuColor.fill, in: Capsule())
                     }
                 }
