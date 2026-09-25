@@ -154,7 +154,7 @@ private struct VoiceInputSettings: View {
     }
 
     private var memorySummary: String {
-        let count = appState.knowledgeEntities.count
+        let count = appState.data.knowledgeEntities.count
         return localized("\(count) items")
     }
 }
@@ -764,7 +764,7 @@ private struct HistorySettings: View {
                 ) {
                     Button(localized("Clear…")) { isConfirmingClear = true }
                         .buttonStyle(.kukuSecondary)
-                        .disabled(appState.historyEntries.isEmpty)
+                        .disabled(appState.data.historyEntries.isEmpty)
                 }
             }
         }
@@ -774,11 +774,11 @@ private struct HistorySettings: View {
             titleVisibility: .visible
         ) {
             Button(localized("Delete All"), role: .destructive) {
-                appState.clearHistory(keepingStarred: false)
+                appState.data.clearHistory(keepingStarred: false)
             }
             if starredCount > 0 {
                 Button(localized("Delete All but Starred")) {
-                    appState.clearHistory(keepingStarred: true)
+                    appState.data.clearHistory(keepingStarred: true)
                 }
             }
             Button(localized("Cancel"), role: .cancel) {}
@@ -788,7 +788,7 @@ private struct HistorySettings: View {
     }
 
     private var starredCount: Int {
-        appState.historyEntries.filter(\.isStarred).count
+        appState.data.historyEntries.filter(\.isStarred).count
     }
 
     private var clearMessage: String {

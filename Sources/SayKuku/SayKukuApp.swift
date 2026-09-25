@@ -159,7 +159,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         Task {
-            let saved = await appState.flushPersistence()
+            let saved = await appState.data.flushPersistence()
             NSApplication.shared.reply(toApplicationShouldTerminate: saved || confirmQuitWithoutSaving())
         }
         return .terminateLater
