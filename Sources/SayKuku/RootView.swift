@@ -1,5 +1,4 @@
 import Accessibility
-import AppKit
 import SwiftUI
 
 struct RootView: View {
@@ -35,8 +34,6 @@ struct RootView: View {
                         KnowledgeView(search: $knowledgeSearch, filter: $knowledgeFilter)
                     case .memory:
                         MemoryView(selectedScope: $memoryScope)
-                    case .settings:
-                        SettingsView(selection: $appState.settingsSection)
                     }
                 }
                 .id(appState.destination)
@@ -66,16 +63,12 @@ struct RootView: View {
                     .environment(appState)
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            appState.refreshSystemPermissions()
-        }
     }
 }
 
 private struct Sidebar: View {
     @Environment(AppState.self) private var appState
     @Binding var selection: AppState.Destination
-    @State private var hovered: AppState.Destination?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -99,8 +92,14 @@ private struct Sidebar: View {
             .padding(.bottom, KukuSpacing.xl)
 
             VStack(spacing: KukuSpacing.xs) {
-                ForEach(AppState.Destination.allCases.filter { $0 != .settings }) { destination in
-                    navigationButton(destination)
+                ForEach(AppState.Destination.allCases) { destination in
+                    SidebarButton(
+                        title: destination.title(appState),
+                        symbol: destination.symbol,
+                        isSelected: selection == destination
+                    ) {
+                        selection = destination
+                    }
                 }
             }
             .padding(.horizontal, KukuSpacing.sm)
@@ -111,27 +110,34 @@ private struct Sidebar: View {
                 .padding(.horizontal, KukuSpacing.lg)
                 .padding(.bottom, KukuSpacing.sm)
 
-            navigationButton(.settings)
-                .padding(.horizontal, KukuSpacing.sm)
-                .padding(.bottom, KukuSpacing.md)
+            // Settings lives in its own window, so this button never shows as selected.
+            SidebarButton(title: appState.text("设置", "Settings"), symbol: "gearshape", isSelected: false) {
+                appState.showSettings()
+            }
+            .padding(.horizontal, KukuSpacing.sm)
+            .padding(.bottom, KukuSpacing.md)
         }
         .background(KukuColor.sidebar)
         .toolbar(removing: .sidebarToggle)
     }
+}
 
-    private func navigationButton(_ destination: AppState.Destination) -> some View {
-        let isSelected = selection == destination
-        let isHovered = hovered == destination
-        return Button {
-            selection = destination
-        } label: {
+private struct SidebarButton: View {
+    let title: String
+    let symbol: String
+    let isSelected: Bool
+    let action: () -> Void
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: action) {
             HStack(spacing: KukuSpacing.sm) {
-                Image(systemName: destination.symbol)
+                Image(systemName: symbol)
                     .symbolVariant(isSelected ? .fill : .none)
                     .font(.kukuIcon(.regular))
                     // Fixed icon column so titles line up whatever the symbol's width.
                     .frame(width: 18)
-                Text(destination.title(appState))
+                Text(title)
                     .font(.kuku(.body, weight: isSelected ? .semibold : .medium))
                 Spacer()
             }
@@ -145,10 +151,10 @@ private struct Sidebar: View {
             )
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(destination.title(appState))
+        .accessibilityLabel(title)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
-        .onHover { inside in hovered = inside ? destination : nil }
-        .animation(Motion.snappy, value: hovered)
+        .onHover { isHovered = $0 }
+        .animation(Motion.snappy, value: isHovered)
     }
 }
 
