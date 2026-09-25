@@ -123,6 +123,8 @@ final class AppState {
     var pendingAnswerText = ""
     var pendingAnswerStatus: String?
     var resultCanUndo = false
+    /// Set while Insert or Undo is writing, so a double click can't paste the same text twice.
+    private(set) var isWriting = false
     var overlayErrorSymbol = "exclamationmark"
     var overlayError: String? { didSet { overlayController?.refresh() } }
     var toast: ToastMessage?
@@ -331,7 +333,9 @@ final class AppState {
     var canUndoLastWrite: Bool { lastVerifiedWrite != nil }
 
     func undoLastWrite() async {
-        guard let lastVerifiedWrite else { return }
+        guard !isWriting, let lastVerifiedWrite else { return }
+        isWriting = true
+        defer { isWriting = false }
         let generation = workflowGeneration
         do {
             let replacement = try textInteraction.replacementSnapshot(for: lastVerifiedWrite)
@@ -372,7 +376,9 @@ final class AppState {
     }
 
     func insertAnswer() async {
-        guard let snapshot = pendingAnswerTarget, !pendingAnswerText.isEmpty else { return }
+        guard !isWriting, let snapshot = pendingAnswerTarget, !pendingAnswerText.isEmpty else { return }
+        isWriting = true
+        defer { isWriting = false }
         let answer = pendingAnswerText
         let generation = workflowGeneration
         do {
@@ -981,6 +987,10 @@ final class AppState {
                     observeCorrection(writtenText: raw, snapshot: snapshot, writeID: verifiedWrite.id)
                 }
             } catch is TextInteractionError {
+                // A write can still fail after a cancel; the copy fallback must not replace the user's
+                // clipboard or cover a newer recording.
+                try Task.checkCancellation()
+                guard generation == workflowGeneration else { throw CancellationError() }
                 updateHistory(historyID, status: .completed)
                 presentCopyFallback(raw, agent: false)
                 await realtimeClient.cancel(session: realtimeSession)

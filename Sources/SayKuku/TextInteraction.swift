@@ -185,7 +185,11 @@ final class TextInteraction {
                 text as CFTypeRef
             )
             if setStatus == .success {
-                if try await waitForExpectedValue(expectedValue, in: element, snapshot: snapshot) {
+                // The text is already in, so a cancel must not cut verification short (see `paste`).
+                let verified = try await Task {
+                    try await waitForExpectedValue(expectedValue, in: element, snapshot: snapshot)
+                }.value
+                if verified {
                     Self.logger.info("Text delivered with verified Accessibility insertion")
                     return .verified
                 }
@@ -261,52 +265,63 @@ final class TextInteraction {
         do {
             try await Task.sleep(for: .milliseconds(80))
             _ = try validate(snapshot)
-            try await postPasteCommand()
+            try postPasteCommand()
         } catch {
             restore(previous, ifOwnedBy: sessionID, on: pasteboard)
             throw error
         }
 
-        let expectedValue = Self.expectedValue(afterWriting: text, to: snapshot)
-        if let element, let expectedValue,
-           try await waitForExpectedValue(expectedValue, in: element, snapshot: snapshot) {
-            try? await Task.sleep(for: .milliseconds(180))
+        // A posted ⌘V can't be taken back. Verifying and restoring the clipboard run in their own
+        // task, so a cancel from here on neither loses the user's clipboard nor reports a
+        // delivered write as cancelled.
+        return try await Task<TextWriteOutcome, Error> {
+            let expectedValue = Self.expectedValue(afterWriting: text, to: snapshot)
+            if let element, let expectedValue,
+               try await waitForExpectedValue(expectedValue, in: element, snapshot: snapshot) {
+                try? await Task.sleep(for: .milliseconds(180))
+                restore(previous, ifOwnedBy: sessionID, on: pasteboard)
+                Self.logger.info("Text delivered with verified synthetic paste")
+                return .verified
+            }
+
+            if expectedValue != nil,
+               let current = currentValue(in: snapshot),
+               current == snapshot.valueBefore {
+                Self.logger.error("Synthetic paste posted but readable target text did not change")
+                restore(previous, ifOwnedBy: sessionID, on: pasteboard)
+                throw TextInteractionError.writeFailed
+            }
+
+            guard element != nil else {
+                // Nothing shows where a blind paste landed, so keep the text on the clipboard.
+                Self.logger.info("Text pasted without an exposed text field; kept on the clipboard")
+                return .deliveredUnverified
+            }
+            try? await Task.sleep(for: .milliseconds(350))
             restore(previous, ifOwnedBy: sessionID, on: pasteboard)
-            Self.logger.info("Text delivered with verified synthetic paste")
-            return .verified
-        }
-
-        if expectedValue != nil,
-           let current = currentValue(in: snapshot),
-           current == snapshot.valueBefore {
-            Self.logger.error("Synthetic paste posted but readable target text did not change")
-            throw TextInteractionError.writeFailed
-        }
-
-        guard element != nil else {
-            // Nothing shows where a blind paste landed, so keep the text on the clipboard.
-            Self.logger.info("Text pasted without an exposed text field; kept on the clipboard")
+            Self.logger.info("Text delivered with synthetic paste; target does not expose verifiable text")
             return .deliveredUnverified
-        }
-        try? await Task.sleep(for: .milliseconds(350))
-        restore(previous, ifOwnedBy: sessionID, on: pasteboard)
-        Self.logger.info("Text delivered with synthetic paste; target does not expose verifiable text")
-        return .deliveredUnverified
+        }.value
     }
 
-    private func postPasteCommand() async throws {
+    /// Posts ⌘ down, V down, V up, ⌘ up back to back with no suspension point in between, so a
+    /// cancel can't leave Command held. The ⌘ key events stay for remote desktop and VM clients
+    /// that only sync modifiers from flagsChanged.
+    private func postPasteCommand() throws {
+        let command = CGKeyCode(kVK_Command)
+        let key = KeyboardLayout.currentPasteKeyCode
         guard let source = CGEventSource(stateID: .privateState),
-              let commandDown = CGEvent(keyboardEventSource: source, virtualKey: 0x37, keyDown: true),
-              let pasteDown = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: true),
-              let pasteUp = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: false),
-              let commandUp = CGEvent(keyboardEventSource: source, virtualKey: 0x37, keyDown: false) else {
+              let commandDown = CGEvent(keyboardEventSource: source, virtualKey: command, keyDown: true),
+              let pasteDown = CGEvent(keyboardEventSource: source, virtualKey: key, keyDown: true),
+              let pasteUp = CGEvent(keyboardEventSource: source, virtualKey: key, keyDown: false),
+              let commandUp = CGEvent(keyboardEventSource: source, virtualKey: command, keyDown: false) else {
             throw TextInteractionError.writeFailed
         }
+        commandDown.flags = .maskCommand
         pasteDown.flags = .maskCommand
         pasteUp.flags = .maskCommand
         for event in [commandDown, pasteDown, pasteUp, commandUp] {
             event.post(tap: .cghidEventTap)
-            try await Task.sleep(for: .milliseconds(8))
         }
     }
 
@@ -557,6 +572,46 @@ enum PasteboardPolicy {
             result.append(type)
         }
         return result
+    }
+}
+
+/// Key codes name physical keys, so ⌘V has to be looked up in the active layout: on Dvorak the
+/// ANSI V position types "k" and would send a different shortcut. Text Input Sources APIs must be
+/// called on the main thread.
+@MainActor
+enum KeyboardLayout {
+    /// The key that types "v" in the current keyboard layout, or ANSI V if none does. Input methods
+    /// such as Pinyin report the ASCII layout they type with.
+    static var currentPasteKeyCode: CGKeyCode {
+        guard let source = TISCopyCurrentKeyboardLayoutInputSource()?.takeRetainedValue(),
+              let layoutData = layoutData(of: source),
+              let keyCode = pasteKeyCode(in: layoutData) else { return CGKeyCode(kVK_ANSI_V) }
+        return keyCode
+    }
+
+    static func layoutData(of source: TISInputSource) -> Data? {
+        guard let pointer = TISGetInputSourceProperty(source, kTISPropertyUnicodeKeyLayoutData) else { return nil }
+        return Unmanaged<CFData>.fromOpaque(pointer).takeUnretainedValue() as Data
+    }
+
+    /// Translates with Command held, as apps match key equivalents, so layouts that switch to
+    /// QWERTY under ⌘ (Dvorak – QWERTY ⌘) keep the V key.
+    static func pasteKeyCode(in layoutData: Data) -> CGKeyCode? {
+        let v = UniChar(UInt8(ascii: "v"))
+        let commandModifier = UInt32(cmdKey >> 8) & 0xFF
+        return layoutData.withUnsafeBytes { buffer -> CGKeyCode? in
+            guard let layout = buffer.baseAddress?.assumingMemoryBound(to: UCKeyboardLayout.self) else { return nil }
+            return (0..<CGKeyCode(128)).first { keyCode in
+                var deadKeyState: UInt32 = 0
+                var length = 0
+                var characters = [UniChar](repeating: 0, count: 4)
+                let status = UCKeyTranslate(
+                    layout, keyCode, UInt16(kUCKeyActionDown), commandModifier, UInt32(LMGetKbdType()),
+                    OptionBits(kUCKeyTranslateNoDeadKeysMask), &deadKeyState, characters.count, &length, &characters
+                )
+                return status == OSStatus(noErr) && length == 1 && characters[0] == v
+            }
+        }
     }
 }
 
