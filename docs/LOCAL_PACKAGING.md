@@ -1,12 +1,13 @@
 # SayKuku 本地打包与发布
 
-本文记录 SayKuku macOS App 的本地构建、Developer ID 签名、公证、装订和验证流程。默认在 macOS 15+、仓库根目录执行。
+本文记录 SayKuku macOS App 的本地构建、Developer ID 签名、公证、装订、验证和 Sparkle 更新源（appcast）生成流程。默认在 macOS 15+、仓库根目录执行。
 
 发布链路如下：
 
 ```text
 测试 → Release 构建 → Developer ID 签名 → 生成公证 ZIP
-    → Apple 公证 → Staple 票据 → 重新生成最终 ZIP → Gatekeeper 验证
+    → Apple 公证 → Staple 票据 → Gatekeeper 验证 → 重新生成最终 ZIP
+    → 生成并签名 appcast
 ```
 
 公证前生成的 ZIP 只能用于上传 Apple；用户最终下载的 ZIP 必须从已经装订票据的 `.app` 重新生成。
@@ -35,6 +36,7 @@ open Build/SayKuku.app
 - Xcode 及 Command Line Tools。
 - 钥匙串中带私钥的 `Developer ID Application` 证书。
 - App Store Connect API Key，或 Apple ID 的 App 专用密码。
+- Sparkle 发行包（从 [Sparkle Releases](https://github.com/sparkle-project/Sparkle/releases) 下载与 `Package.swift` 同一大版本的 `Sparkle-<版本>.tar.xz`），解压后把其中的 `bin/` 加入 `PATH`，发布脚本需要 `generate_appcast`。
 
 确认工具链和签名身份：
 
@@ -88,6 +90,24 @@ xcrun notarytool submit Dist/SayKuku-1.0.0-notarization.zip \
 
 不要把 `.p8`、`.p12`、私钥密码、Apple ID App 专用密码或 API Key 提交到仓库。
 
+### 配置 Sparkle 更新签名
+
+App 通过 Sparkle 2 检查更新，每个更新包都要用 EdDSA 私钥签名，App 用 `Info.plist` 里的公钥验证。首次发布前在发布机上生成密钥：
+
+```bash
+generate_keys
+```
+
+私钥只保存在本机登录钥匙串中，命令会打印对应的公钥。把公钥填入 `Scripts/Resources/Info.plist` 的 `SUPublicEDKey` 并提交；`SUPublicEDKey` 为空时 `Scripts/package-app.sh release` 会直接报错退出。之后可随时查看公钥：
+
+```bash
+generate_keys -p
+```
+
+私钥绝不进仓库。换一台发布机时用 `generate_keys -x <文件>` 导出、在新机器上 `generate_keys -f <文件>` 导入，导入后立即删除导出的文件。私钥一旦丢失，已安装的用户就再也收不到更新，备份要求见第 9 节。
+
+更新源地址是 `Info.plist` 里的 `SUFeedURL`，当前指向 `https://github.com/UllrAI/SayKuku/releases/latest/download/appcast.xml`，也就是最新一个正式 GitHub Release 中的 `appcast.xml`。换托管地址时只改这个值，并确保旧版本能访问的地址继续可用。
+
 ## 2. 每次打包前检查
 
 确认工具链和工作区状态：
@@ -110,7 +130,7 @@ git status --short
 ```
 
 - `CFBundleShortVersionString`：用户看到的版本，例如 `1.0.0`。
-- `CFBundleVersion`：每次发布递增的构建号，例如 `10`。
+- `CFBundleVersion`：每次发布递增的构建号，例如 `10`。Sparkle 按它判断是否有新版本，不递增用户就收不到更新。
 
 版本号属于源代码。需要变更时应先修改、测试并提交，再生成发布包。
 
@@ -180,10 +200,12 @@ Scripts/package-app.sh release
 
 1. 以 release 配置同时编译 `arm64` 和 `x86_64`，生成通用二进制。
 2. 用 `dsymutil` 从编译产物提取调试符号到 `Dist/SayKuku-<版本>.dSYM`，再把二进制复制进 App 并执行 `strip -S`；随后用 `lipo -archs` 确认两个架构都在。
-3. 生成 `Build/SayKuku.app`，资源包放在 `Contents/Resources/SayKuku_SayKuku.bundle`。
-4. 写入正式 Bundle ID 和资源。
-5. 使用 `Scripts/Resources/SayKuku.entitlements` 签名。
-6. 启用 Hardened Runtime、时间戳，并执行严格签名验证。
+3. 生成 `Build/SayKuku.app`，资源包放在 `Contents/Resources/SayKuku_SayKuku.bundle`，`Sparkle.framework` 放在 `Contents/Frameworks`（二进制带 `@executable_path/../Frameworks` rpath）。
+4. 写入正式 Bundle ID 和资源；`SUPublicEDKey` 为空时直接退出。
+5. 由内向外签名：先签 `Sparkle.framework/Versions/B` 下的 `XPCServices/*.xpc`、`Autoupdate`、`Updater.app`（保留它们自带的 entitlement），再签框架，最后用 `Scripts/Resources/SayKuku.entitlements` 签 App。不用 `--deep`，否则 App 的 entitlement 会被盖到 Sparkle 的辅助程序上。
+6. 全部使用同一签名身份、Hardened Runtime 和时间戳，并执行严格签名验证。
+
+开发版走同一套嵌套签名，只是换成 Apple Development 身份且不加时间戳。开发版和 `swift run` 不启动 Sparkle，也不显示“检查更新…”，避免开发包被正式版替换。
 
 脚本到此为止，只生成已签名的 `Build/SayKuku.app` 和 dSYM；它不会提交 Apple 公证、装订票据或生成 `Dist/` ZIP。正式发布请直接运行第 5 节的 `Scripts/release.sh`，它会先调用本脚本。
 
@@ -201,6 +223,8 @@ codesign -dvvv Build/SayKuku.app 2>&1 | \
   rg 'Identifier|Authority|TeamIdentifier|flags'
 codesign -d --entitlements - Build/SayKuku.app
 codesign --verify --deep --strict --verbose=2 Build/SayKuku.app
+codesign -dvvv Build/SayKuku.app/Contents/Frameworks/Sparkle.framework 2>&1 | \
+  rg 'Authority|TeamIdentifier|flags'
 lipo -archs Build/SayKuku.app/Contents/MacOS/SayKuku
 ```
 
@@ -228,14 +252,15 @@ Scripts/release.sh
 
 `SAYKUKU_KEYCHAIN` 的用法与第 4 节相同。脚本任何一步失败都会立即退出，不重试，也不会等待输入。它按顺序执行：
 
-1. 前置检查：`git status --porcelain` 为空、已设置 `SAYKUKU_SIGNING_IDENTITY`、`v<版本>` 标签尚不存在、`xcrun notarytool history --keychain-profile 'SayKuku-Notary'` 能正常执行。
+1. 前置检查：`git status --porcelain` 为空、已设置 `SAYKUKU_SIGNING_IDENTITY`、`v<版本>` 标签尚不存在、`xcrun notarytool history --keychain-profile 'SayKuku-Notary'` 能正常执行、`generate_appcast` 在 `PATH` 中。
 2. 运行 `swift test`。
 3. 若 `Dist/` 已有同版本的 ZIP 或 dSYM，先加时间戳后缀备份。
 4. 调用 `Scripts/package-app.sh release`，生成已签名的 App 和 dSYM。
 5. 生成公证 ZIP 并提交 Apple；状态不是 `Accepted` 时打印 `notarytool log` 后退出。结果保存在 `Build/notarization-result.json`，其中有 submission `id`。
 6. `stapler staple`、`stapler validate`；`spctl` 输出里没有 `source=Notarized Developer ID` 就退出。
 7. 从装订后的 App 重新生成最终 ZIP，确认不含 AppleDouble 文件，并输出 SHA-256。
-8. 给构建时的提交打 `v<版本>` 标签。脚本不会推送，确认产物无误后手动执行 `git push origin v<版本>`。
+8. 清空并重建 `Dist/appcast/`，放入最终 ZIP 后运行 `generate_appcast`，用钥匙串中的 EdDSA 私钥签名，生成只含本版本的 `appcast.xml`；下载地址指向 `https://github.com/UllrAI/SayKuku/releases/download/v<版本>/`。首次读取私钥时 macOS 可能弹出钥匙串授权。
+9. 给构建时的提交打 `v<版本>` 标签。脚本不会推送，确认产物无误后手动执行 `git push origin v<版本>`。
 
 成功后 `Dist/` 中有：
 
@@ -244,8 +269,16 @@ Scripts/release.sh
 | `SayKuku-<版本>.zip` | 分发给用户的最终包 |
 | `SayKuku-<版本>.dSYM` | 符号化崩溃日志，必须和对应 ZIP 一起长期保存 |
 | `SayKuku-<版本>-notarization.zip` | 只用于提交 Apple，不要分发 |
+| `appcast/appcast.xml` | Sparkle 更新源，与最终 ZIP 一起上传到 GitHub Release |
 
-脚本不递增版本号，也不上传 GitHub Release。
+脚本不递增版本号，也不上传 GitHub Release。推送标签后手动发布：
+
+```bash
+gh release create "v${VERSION}" \
+  "Dist/SayKuku-${VERSION}.zip" Dist/appcast/appcast.xml
+```
+
+不要把它标成 draft 或 prerelease：`SUFeedURL` 使用 `releases/latest/download/`，只认最新的正式 Release。发布后已安装的 App 会在下一次自动检查时提示更新，用户也可从菜单“检查更新…”立即检查。
 
 ### 脚本出错时的手动排查步骤
 
@@ -414,6 +447,7 @@ Keychain 只保存 API Key。History、Memory、Knowledge 以 JSON 保存在数�
 - App Store Connect `.p8` 私钥：通常只能下载一次，应放入密码管理器或加密离线备份；不放 Git，也不以明文放进共享网盘。
 - Key ID、Issuer ID、Team ID：不是私钥，但应和 `.p8` 的备份说明一起保存。
 - `SayKuku-Notary` profile：保存在本机钥匙串中，不需要也不应导出到仓库。
+- Sparkle EdDSA 私钥：由 `generate_keys` 存在本机登录钥匙串中。用 `generate_keys -x` 导出后放进密码管理器或加密离线备份，再删除导出的文件；丢失后已安装的 App 无法再验证任何更新。
 
 当前项目的签名脚本是 `Scripts/package-app.sh`，发布脚本是 `Scripts/release.sh`，正式权限声明是 `Scripts/Resources/SayKuku.entitlements`。`Build/` 和 `Dist/` 都是本地产物，不是源代码；但已发布版本的 dSYM 需要另行长期备份。
 
