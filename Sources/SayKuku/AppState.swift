@@ -30,8 +30,19 @@ final class AppState {
         }
     }
 
-    enum DictationPhase: Equatable { case idle, listening, processing, success, copyReady }
-    enum AgentPhase: Equatable { case hidden, listening, transcribing, processing, result, copyReady, answerReady }
+    enum DictationPhase: Equatable {
+        case idle, listening, processing, success, copyReady
+
+        /// Recording or waiting on the model. Finished states close on their own or from their card.
+        var isCancellable: Bool { self == .listening || self == .processing }
+    }
+
+    enum AgentPhase: Equatable {
+        case hidden, listening, transcribing, processing, result, copyReady, answerReady
+
+        /// Recording or waiting on the model. Finished states close on their own or from their card.
+        var isCancellable: Bool { self == .listening || self == .transcribing || self == .processing }
+    }
     enum ConnectionState: Equatable {
         case idle, testing, failed(String)
         /// `realtimeMilliseconds` is nil when realtime was skipped for lack of a workspace ID.
@@ -322,7 +333,7 @@ final class AppState {
     }
 
     func cancelActiveVoiceWorkflow() {
-        guard dictationPhase != .idle || agentPhase != .hidden else { return }
+        guard dictationPhase.isCancellable || agentPhase.isCancellable else { return }
         cancelWorkflow()
         withAnimation(Motion.snappy) {
             dictationPhase = .idle
