@@ -122,6 +122,14 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         false
     }
 
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        Task {
+            await appState.flushPersistence()
+            NSApplication.shared.reply(toApplicationShouldTerminate: true)
+        }
+        return .terminateLater
+    }
+
     func observeMainWindow(_ window: NSWindow?) {
         guard let window, mainWindow !== window else { return }
 
