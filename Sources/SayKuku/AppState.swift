@@ -20,7 +20,7 @@ final class AppState {
             case .memory: "sparkles.rectangle.stack"
             }
         }
-        @MainActor func title(_ appState: AppState) -> String {
+        var title: String {
             switch self {
             case .home: localized("Home")
             case .history: localized("History")
@@ -78,14 +78,15 @@ final class AppState {
                     return localized("Both global shortcuts are already in use by other apps. Record new ones.")
                 }
                 let keys = appState.globalShortcut(for: action)?.displayString ?? ""
-                return localized("\(keys) for \(action.title(appState)) is already in use by another app. Record a new one.")
+                return localized("\(keys) for \(action.title) is already in use by another app. Record a new one.")
             }
         }
     }
 
     var destination: Destination = .home
     var settingsSection: SettingsSection = .general
-    var appLanguage: AppLanguage = .system { didSet { defaults.set(appLanguage.rawValue, forKey: Keys.language) } }
+    /// Saved as this app's `AppleLanguages`, which macOS applies at the next launch.
+    var appLanguage: AppLanguage = .saved { didSet { appLanguage.save() } }
     var dictationPhase: DictationPhase = .idle { didSet { overlayController?.refresh() } }
     var agentPhase: AgentPhase = .hidden { didSet { overlayController?.refresh() } }
     /// True while the microphone is capturing for either workflow.
@@ -287,21 +288,9 @@ final class AppState {
         systemPermissions.accessibilityChangeHandler = { [weak self] in self?.refreshSystemPermissions() }
     }
 
-    var usesChineseUI: Bool {
-        switch appLanguage {
-        case .chinese: true
-        case .english: false
-        case .system: Locale.preferredLanguages.first?.lowercased().hasPrefix("zh") == true
-        }
-    }
-
     var configuration: QwenConfiguration {
         QwenConfiguration(region: qwenRegion, workspaceID: qwenWorkspaceID.trimmingCharacters(in: .whitespacesAndNewlines), realtimeModel: realtimeModel, reasoningModel: reasoningModel)
     }
-
-    func text(_ chinese: String, _ english: String) -> String { usesChineseUI ? chinese : english }
-    var voiceInputTitle: String { localized("Voice Input") }
-    var voiceAgentTitle: String { localized("Voice Agent") }
 
     func setShowInMenuBar(_ isVisible: Bool) {
         guard isVisible || !hideDockIconAfterMainWindowCloses else { return }
@@ -456,7 +445,7 @@ final class AppState {
         dismissAnswer()
         let generation = workflowGeneration
         let engine = searchEngine
-        agentCommand = action.intent ?? action.action.title(isChineseUI: usesChineseUI)
+        agentCommand = action.intent ?? action.action.title
         withAnimation(Motion.panel) { agentPhase = .processing }
         // Stored as the workflow so the pill's cancel button stops a running shortcut.
         workflowTask = Task { [weak self] in
@@ -839,6 +828,24 @@ final class AppState {
     func openKeyboardSettings() {
         if let url = URL(string: "x-apple.systempreferences:com.apple.Keyboard-Settings.extension") { NSWorkspace.shared.open(url) }
     }
+    /// Opens a new instance, then quits this one, so a new `appLanguage` takes effect.
+    func relaunch() {
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.createsNewApplicationInstance = true
+        NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: configuration) { @Sendable _, error in
+            Task { @MainActor in
+                guard let error else {
+                    NSApplication.shared.terminate(nil)
+                    return
+                }
+                Log.workflow.error("Relaunch failed: \(Log.describe(error), privacy: .public)")
+                self.showToast(
+                    localized("Couldn’t reopen SayKuku. Quit and open it again."),
+                    symbol: "exclamationmark.triangle.fill"
+                )
+            }
+        }
+    }
     func showToast(_ text: String, symbol: String) {
         let message = ToastMessage(text: text, symbol: symbol)
         withAnimation(Motion.snappy) { toast = message }
@@ -972,8 +979,7 @@ final class AppState {
             browserPage: browserPageAllowed ? textInteraction.browserPageAddress(in: snapshot) : nil,
             session: conversation.last,
             domains: selectedDomains,
-            knowledge: knowledgeEntities,
-            isChineseUI: usesChineseUI
+            knowledge: knowledgeEntities
         )
         if let lastVerifiedWrite, lastVerifiedWrite.isRecent,
            let expected = lastVerifiedWrite.expectedValue,
@@ -984,8 +990,7 @@ final class AppState {
                 symbol: "arrow.uturn.backward",
                 title: localized("Last insertion"),
                 value: lastVerifiedWrite.text,
-                limit: ContextCollector.textLimit,
-                isChineseUI: usesChineseUI
+                limit: ContextCollector.textLimit
             ))
         }
         agentCommand = localized("Listening…")
@@ -1199,7 +1204,7 @@ final class AppState {
             let command = SpeechDisfluencyCleaner.clean(transcript, mode: .light)
             guard let snapshot else { throw TextInteractionError.targetChanged }
             updateHistory(historyID, input: command)
-            agentCommand = response.intent ?? response.action.title(isChineseUI: usesChineseUI)
+            agentCommand = response.intent ?? response.action.title
             withAnimation(Motion.panel) { agentPhase = .processing }
             await executeAgent(
                 response, snapshot: snapshot, context: context,
@@ -1732,10 +1737,12 @@ final class AppState {
     }
 
     private func loadSettings() {
-        if let raw = defaults.string(forKey: Keys.inputMode), let value = InputMode(rawValue: raw) { inputMode = value }
+        if let raw = defaults.string(forKey: Keys.inputMode),
+           let value = InputMode(rawValue: raw) ?? InputMode.legacyRawValues[raw] { inputMode = value }
         if let raw = defaults.string(forKey: Keys.overlayPlacement),
            let value = OverlayPlacement(rawValue: raw) { overlayPlacement = value }
-        if let raw = defaults.string(forKey: Keys.language), let value = AppLanguage(rawValue: raw) { appLanguage = value }
+        // The language now lives in `AppleLanguages`; the old in-app setting is dropped.
+        defaults.removeObject(forKey: Keys.legacyLanguage)
         if let raw = defaults.string(forKey: Keys.recognitionLanguage),
            let value = RecognitionLanguage(rawValue: raw) { recognitionLanguage = value }
         if let raw = defaults.string(forKey: Keys.dictationNumberFormat),
@@ -1783,7 +1790,7 @@ final class AppState {
     }
 
     private enum Keys {
-        static let inputMode = "inputMode", language = "appLanguage", autoStop = "autoStop"
+        static let inputMode = "inputMode", legacyLanguage = "appLanguage", autoStop = "autoStop"
         static let overlayPlacement = "overlay.placement"
         static let recognitionLanguage = "dictation.recognitionLanguage", dictationNumberFormat = "dictation.numberFormat"
         static let dictationCleanup = "dictation.cleanup", soundCues = "voice.soundCues"
@@ -1819,24 +1826,71 @@ struct SetupProgress: Equatable {
 
     var isLastStep: Bool { step >= total }
 
-    @MainActor func title(_ appState: AppState) -> String {
+    var title: String {
         localized("Step \(step) of \(total)")
     }
 }
 
 enum InputMode: String, CaseIterable, Identifiable {
-    case hold = "按住 Fn", tap = "单击 Fn"
+    case hold, tap
     var id: String { rawValue }
+
+    /// Earlier builds saved the Chinese labels as raw values.
+    static let legacyRawValues: [String: InputMode] = ["按住 Fn": .hold, "单击 Fn": .tap]
+
+    var title: String {
+        switch self {
+        case .hold: localized("Hold Fn")
+        case .tap: localized("Tap Fn")
+        }
+    }
 }
 
+/// The interface language, kept in this app's `AppleLanguages` so macOS localizes its own menus,
+/// alerts and date formats to match. macOS reads it only at launch.
 enum AppLanguage: String, CaseIterable, Identifiable {
     case system, chinese, english
     var id: String { rawValue }
-    func title(isChineseUI: Bool) -> String {
+
+    private static let key = "AppleLanguages"
+
+    /// Language names stay in their own language.
+    var title: String {
         switch self {
         case .system: localized("System Default")
         case .chinese: "简体中文"
         case .english: "English"
+        }
+    }
+
+    /// Reads only this app's domain: `UserDefaults.standard.object(forKey:)` also returns the system-wide list.
+    static var saved: AppLanguage {
+        let domain = Bundle.main.bundleIdentifier.flatMap(UserDefaults.standard.persistentDomain(forName:))
+        return AppLanguage(appleLanguages: domain?[key] as? [String])
+    }
+
+    /// An override set elsewhere, such as in System Settings, reads as System Default unless it matches a choice.
+    init(appleLanguages: [String]?) {
+        switch appleLanguages?.first {
+        case let language? where language.hasPrefix("zh-Hans"): self = .chinese
+        case let language? where language.hasPrefix("en"): self = .english
+        default: self = .system
+        }
+    }
+
+    var appleLanguages: [String]? {
+        switch self {
+        case .system: nil
+        case .chinese: ["zh-Hans"]
+        case .english: ["en"]
+        }
+    }
+
+    func save() {
+        if let appleLanguages {
+            UserDefaults.standard.set(appleLanguages, forKey: Self.key)
+        } else {
+            UserDefaults.standard.removeObject(forKey: Self.key)
         }
     }
 }

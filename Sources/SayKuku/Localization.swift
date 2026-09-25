@@ -4,3 +4,6 @@ import Foundation
 func localized(_ key: String.LocalizationValue) -> String {
     String(localized: key, bundle: .appResources)
 }
+
+/// The catalog language macOS picked for this launch from `AppleLanguages`, such as "en" or "zh-Hans".
+let interfaceLanguage = Locale.Language(identifier: Bundle.appResources.preferredLocalizations.first ?? "en")

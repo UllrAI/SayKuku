@@ -727,15 +727,10 @@ enum ContextCollector {
 
     /// A text item titled with its length; text past `limit` is not sent, and the title says so.
     static func textItem(
-        kind: ContextItem.Kind, symbol: String, title: String, value: String, limit: Int, isChineseUI: Bool
+        kind: ContextItem.Kind, symbol: String, title: String, value: String, limit: Int
     ) -> ContextItem {
         let isClipped = value.count > limit
-        let length = switch (isClipped, isChineseUI) {
-        case (true, true): "前 \(limit) 字"
-        case (true, false): "first \(limit) characters"
-        case (false, true): "\(value.count) 字"
-        case (false, false): value.count == 1 ? "1 character" : "\(value.count) characters"
-        }
+        let length = isClipped ? localized("first \(limit) characters") : localized("\(value.count) characters")
         return ContextItem(
             kind: kind, symbol: symbol, title: "\(title) · \(length)",
             value: clipped(value, to: limit), isClipped: isClipped
@@ -752,11 +747,9 @@ enum ContextCollector {
         browserPage: String?,
         session: AgentSession?,
         domains: Set<DomainPreset>,
-        knowledge: [KnowledgeEntity],
-        isChineseUI: Bool
+        knowledge: [KnowledgeEntity]
     ) -> [ContextItem] {
         guard !snapshot.isSensitive else { return [] }
-        func title(_ chinese: String, _ english: String) -> String { isChineseUI ? chinese : english }
         var items: [ContextItem] = []
         if currentAppAllowed {
             // The display name tells the model what a niche app is; the bundle ID keeps it unambiguous.
@@ -770,8 +763,7 @@ enum ContextCollector {
                 symbol: "text.quote",
                 title: localized("Selected text"),
                 value: snapshot.selectedText,
-                limit: textLimit,
-                isChineseUI: isChineseUI
+                limit: textLimit
             ))
         }
         if windowTitleAllowed, !snapshot.windowTitle.isEmpty {
@@ -784,8 +776,7 @@ enum ContextCollector {
                 symbol: "clipboard",
                 title: localized("Clipboard"),
                 value: clipboard,
-                limit: clipboardLimit,
-                isChineseUI: isChineseUI
+                limit: clipboardLimit
             ))
         }
         if let browserPage, !browserPage.isEmpty {

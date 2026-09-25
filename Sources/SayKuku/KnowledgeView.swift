@@ -37,7 +37,7 @@ struct KnowledgeView: View {
             KukuPageTabs(
                 items: Self.tabs,
                 selection: $filter,
-                title: { $0?.title(appState, plural: true) ?? localized("All") }
+                title: { $0?.pluralTitle ?? localized("All") }
             )
             KukuDivider(inset: 0)
 
@@ -177,7 +177,7 @@ struct KnowledgeView: View {
                 onExit: { listFocused = true }
             )
             .focusedSceneValue(\.searchFieldFocus, $searchFocused)
-            Text(appState.text("\(count) 条", count == 1 ? "1 item" : "\(count) items"))
+            Text(localized("\(count) items"))
                 .font(.kuku(.subheadline))
                 .monospacedDigit()
                 .foregroundStyle(KukuColor.textSecondary)
@@ -203,7 +203,6 @@ struct KnowledgeView: View {
 }
 
 private struct EntityRow: View {
-    @Environment(AppState.self) private var appState
     let entity: KnowledgeEntity
     let isSelected: Bool
     let onDelete: () -> Void
@@ -217,18 +216,15 @@ private struct EntityRow: View {
                     Text(entity.name)
                         .font(.kuku(.headline))
                         .foregroundStyle(KukuColor.textPrimary)
-                    KukuBadge(text: entity.type.title(appState))
+                    KukuBadge(text: entity.type.title)
                 }
                 Group {
                     if !entity.detail.isEmpty {
                         Text(entity.detail)
                     } else if !entity.aliases.isEmpty {
-                        Text(appState.text(
-                            "别名：" + entity.aliases.joined(separator: "、"),
-                            "Aliases: " + entity.aliases.joined(separator: ", ")
-                        ))
+                        Text(localized("Aliases: \(entity.aliases.joined(separator: localized(", ")))"))
                     } else {
-                        Text(entity.source.title(appState))
+                        Text(entity.source.title)
                     }
                 }
                 .font(.kuku(.subheadline))
@@ -322,7 +318,7 @@ private struct KnowledgeFormSheet: View {
                             localized("Category"),
                             options: EntityType.allCases,
                             selection: $type,
-                            label: { $0.title(appState) }
+                            label: { $0.title }
                         )
                     }
 
@@ -395,7 +391,7 @@ private struct KnowledgeFormSheet: View {
         }
         // The sheet covers the toast area, so failures stay in the footer.
         if let error {
-            note = KukuSheetNote(text: error.message(appState), isError: true)
+            note = KukuSheetNote(text: error.message, isError: true)
             return
         }
         dismiss()
@@ -515,7 +511,7 @@ private struct KnowledgeImportSheet: View {
                         badgeTone: candidate.status.tone,
                         badgeSymbol: candidate.status.symbol,
                         detail: KnowledgePipeline.displayEvidence(candidate.evidence),
-                        trailing: ignored ? nil : candidate.entity.type.title(appState),
+                        trailing: ignored ? nil : candidate.entity.type.title,
                         isSelected: selected.contains(candidate.id),
                         isIgnored: ignored
                     ) {
@@ -560,7 +556,7 @@ private struct KnowledgeImportSheet: View {
                 .disabled(source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || analyzing)
         } else if hasResults {
             let count = selected.count
-            Button(appState.text("导入 \(count) 条", count == 1 ? "Import 1 Item" : "Import \(count) Items")) { importSelection() }
+            Button(localized("Import \(count) Items")) { importSelection() }
                 .buttonStyle(.kukuPrimary)
                 .keyboardShortcut(.defaultAction)
                 .disabled(selected.isEmpty)
@@ -574,7 +570,7 @@ private struct KnowledgeImportSheet: View {
     private func badge(for candidate: ImportCandidate) -> String {
         guard candidate.status == .conflict,
               let match = appState.knowledgeEntities.first(where: { $0.id == candidate.matchedEntityID }) else {
-            return candidate.status.title(appState)
+            return candidate.status.title
         }
         return localized("May duplicate “\(match.name)”")
     }
@@ -620,7 +616,7 @@ private struct KnowledgeImportSheet: View {
         let count = selected.count
         appState.commitKnowledge(analysis, selectedIDs: selected)
         appState.showToast(
-            appState.text("已导入 \(count) 条到知识", count == 1 ? "Imported 1 item to Knowledge" : "Imported \(count) items to Knowledge"),
+            localized("Imported \(count) items to Knowledge"),
             symbol: "checkmark.seal.fill"
         )
         dismiss()
@@ -680,7 +676,7 @@ private struct ImportRow: View {
 }
 
 private extension EntitySource {
-    @MainActor func title(_ appState: AppState) -> String {
+    var title: String {
         switch self {
         case .manual: localized("Added manually")
         case .importText: localized("Imported from text")

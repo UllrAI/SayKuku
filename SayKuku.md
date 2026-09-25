@@ -54,7 +54,7 @@ App 图标不放文字，使用珊瑚红圆角底板与暖白 Lucide Bird 线稿
 | History | ✅ 已完成 | 停止录音即创建历史；原始语音优先落盘；识别或 Agent 失败仍保留输入及失败状态；支持回放、搜索、筛选、星标、删除、清空和按期限清理；列表支持键盘选择、Delete 删除、⌘C 复制结果、⌘F 搜索；本地数据损坏时先备份再恢复 | — |
 | Knowledge | ✅ 已完成 | 手动添加、模型抽取、PII 预过滤、分段、归一化、去重、实体 Review、本地存储，以及作为模型 Prompt 的结构化知识块；列表支持键盘选择、Return 编辑、Delete 删除、⌘C 复制名称、⌘F 搜索 | — |
 | Memory | 🟡 部分完成 | Agent Session 在 30 分钟 TTL 内进入同一 App 的后续 Agent Prompt；纠错建议经用户确认后进入长期 Knowledge Prompt | [#1](https://github.com/UllrAI/SayKuku/issues/1)：实现可审阅的自动记忆提炼链路 |
-| Settings 与中英文 | ✅ 已完成 | 独立设置窗口（⌘,，不拉起主窗口，隐藏 Dock 图标时也不恢复）、统一水平 Tab、语言、输入模式、浮层位置、隐私开关、菜单栏、登录项、关闭窗口后的 Dock 行为、快捷键状态和持久化 | — |
+| Settings 与中英文 | ✅ 已完成 | 独立设置窗口（⌘,，不拉起主窗口，隐藏 Dock 图标时也不恢复）、统一水平 Tab、语言、输入模式、浮层位置、隐私开关、菜单栏、登录项、关闭窗口后的 Dock 行为、快捷键状态和持久化；界面文案在 String Catalog（英文源语言 + 简体中文），界面语言写入 `AppleLanguages`，重新打开后与系统菜单、对话框和日期一起切换 | — |
 | Qwen Realtime / Omni | ✅ 已完成 | Realtime WebSocket、Omni 请求式 API、批处理音频 fallback、错误与超时 | — |
 | 麦克风与系统写回 | ✅ 已完成 | 16kHz PCM 录音、可选 Semantic VAD、目标快照、写回前校验和 Accessibility 写回 | — |
 | 本地存储 | ✅ 已完成 | API Key 使用 Keychain；History / Memory / Knowledge 使用 Application Support JSON，录音使用 WAV 文件，并按保留期限清理 | — |
@@ -1193,6 +1193,8 @@ Knowledge 与 Memory 保持为一级侧栏目的地，不在 Settings 中重复�
 自动检查更新
 （开发版只显示版本号）
 ```
+
+界面语言保存在本 App 的 `AppleLanguages` 里：简体中文写 `["zh-Hans"]`，English 写 `["en"]`，跟随系统时删除该键。macOS 在启动时据此统一决定 App 文案、系统菜单、对话框和日期格式的语言，所以切换后会提示“重新打开 SayKuku 后生效”，可选“现在重新打开”或“稍后”。文案集中在 `Sources/SayKuku/Resources/Localizable.xcstrings`，以英文为源语言，提供简体中文翻译，数量相关的文案用复数变体。目录不含繁体中文：macOS 不会把 zh-Hant 回落到 zh-Hans，繁体中文系统会显示英文界面；以后补上 zh-Hant 翻译即可支持。发给模型的 Prompt 不做本地化。
 
 首次启动先展示轻量领域 Onboarding，再进入系统权限引导（权限齐全时跳过），最后引导连接 Qwen：按三步说明（打开对应地域的百炼控制台、创建并粘贴 API Key、可选复制以 `llm-` 开头的业务空间 ID）完成填写；“测试连接”是可选的次按钮，连接成功后隐藏；主按钮响应 Return，未填 API Key 时显示为“跳过”；填好的内容在关闭弹窗时即生效，不会丢失；已保存 API Key 时跳过这一步。三个步骤的弹窗尺寸、页头和底栏一致：进行中的步骤主按钮为“继续”，最后一步为“完成”，未完成时可“跳过”；权限在从系统设置返回时自动刷新，全部开启前“继续”不可用。用户可以多选 AI / Vibe Coding、软件开发、产品设计、市场增长等常用领域，选择会持久化为识别上下文，并以“仅用于词汇消歧、不得补写未说内容”的参考数据加入 Voice Input 与 Voice Agent Prompt；以后可在 Voice Input 设置中重新编辑。同一页也可以手动添加产品名、项目名或技术词，点“继续”或“保存”时逐个作为术语存进 Knowledge（已有同名条目时就地提示），以后在“知识”页补别名。旧版本存在 UserDefaults `dictation.customDomainTerms` 中的自定义词，会在本地数据加载后一次性迁入 Knowledge（重复的跳过），随后删除该键。
 

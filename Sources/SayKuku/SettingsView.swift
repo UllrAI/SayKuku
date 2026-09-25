@@ -1,3 +1,4 @@
+import AppKit
 import Sparkle
 import SwiftUI
 
@@ -11,7 +12,7 @@ struct SettingsView: View {
             KukuPageTabs(
                 items: SettingsSection.allCases,
                 selection: $appState.settingsSection,
-                title: { $0.title(appState) }
+                title: { $0.title }
             )
             .padding(.top, KukuLayout.pageTop)
 
@@ -38,14 +39,14 @@ private struct VoiceInputSettings: View {
 
     var body: some View {
         @Bindable var appState = appState
-        SettingsStack(title: appState.voiceInputTitle, subtitle: localized("Types what you say, without changing what you mean.")) {
+        SettingsStack(title: localized("Voice Input"), subtitle: localized("Types what you say, without changing what you mean.")) {
             KukuGroup(localized("Input gesture")) {
                 ForEach(InputMode.allCases) { mode in
                     if mode != InputMode.allCases.first {
                         KukuDivider()
                     }
                     KukuChoiceRow(
-                        title: mode == .hold ? localized("Hold Fn") : localized("Tap Fn"),
+                        title: mode.title,
                         caption: mode == .hold
                             ? localized("Hold briefly to start, release to insert")
                             : localized("Tap to start, tap again to insert"),
@@ -73,21 +74,21 @@ private struct VoiceInputSettings: View {
                     title: localized("Recognition language"),
                     selection: $appState.recognitionLanguage
                 ) { language in
-                    language.title(isChineseUI: appState.usesChineseUI)
+                    language.title
                 }
                 KukuDivider()
                 SettingsOptionRow(
                     title: localized("Number format"),
                     selection: $appState.dictationNumberFormat
                 ) { format in
-                    format.title(isChineseUI: appState.usesChineseUI)
+                    format.title
                 }
                 KukuDivider()
                 SettingsOptionRow(
                     title: localized("Speech cleanup"),
                     selection: $appState.dictationCleanup
                 ) { cleanup in
-                    cleanup.title(isChineseUI: appState.usesChineseUI)
+                    cleanup.title
                 }
                 Text(localized("Light cleanup removes fillers and accidental repeats. Verbatim keeps hesitations and repeats."))
                 .font(.kuku(.subheadline))
@@ -136,7 +137,7 @@ private struct VoiceInputSettings: View {
     private var domainSummary: String {
         let domains = DomainPreset.allCases
             .filter(appState.selectedDomains.contains)
-            .map { $0.title(isChineseUI: appState.usesChineseUI) }
+            .map { $0.title }
         return domains.isEmpty
             ? localized("None selected")
             : domains.joined(separator: localized(", "))
@@ -144,7 +145,7 @@ private struct VoiceInputSettings: View {
 
     private var vocabularySummary: String {
         let count = appState.knowledgeEntities.count
-        return appState.text("知识中有 \(count) 条", count == 1 ? "1 item in Knowledge" : "\(count) items in Knowledge")
+        return localized("\(count) items in Knowledge")
     }
 }
 
@@ -153,7 +154,7 @@ private struct VoiceAgentSettings: View {
 
     var body: some View {
         @Bindable var appState = appState
-        SettingsStack(title: appState.voiceAgentTitle, subtitle: localized("Press Fn twice to write, edit, or ask by voice.")) {
+        SettingsStack(title: localized("Voice Agent"), subtitle: localized("Press Fn twice to write, edit, or ask by voice.")) {
             KukuGroup(localized("Interaction")) {
                 KukuToggleRow(
                     title: localized("Continuous conversation"),
@@ -177,7 +178,7 @@ private struct VoiceAgentSettings: View {
                         localized("Search engine"),
                         options: SearchEngine.allCases,
                         selection: $appState.searchEngine,
-                        label: { $0.title(isChineseUI: appState.usesChineseUI) }
+                        label: { $0.title }
                     )
                 }
             }
@@ -239,14 +240,14 @@ private struct QwenSettings: View {
             }
             KukuGroup(localized("Models")) {
                 ModelPickerRow(
-                    title: appState.voiceInputTitle,
+                    title: localized("Voice Input"),
                     caption: localized("Real-time transcription"),
                     value: $appState.realtimeModel,
                     presets: QwenModelCatalog.realtimeModels
                 )
                 KukuDivider()
                 ModelPickerRow(
-                    title: appState.voiceAgentTitle,
+                    title: localized("Voice Agent"),
                     caption: localized("Also used to organize Knowledge and retry recordings"),
                     value: $appState.reasoningModel,
                     presets: QwenModelCatalog.reasoningModels
@@ -277,7 +278,7 @@ struct QwenConnectionForm: View {
                     localized("Region"),
                     options: QwenRegion.allCases,
                     selection: $appState.qwenRegion,
-                    label: { $0.title(isChineseUI: appState.usesChineseUI) }
+                    label: { $0.title }
                 )
             }
             KukuDivider()
@@ -335,7 +336,7 @@ struct QwenConnectionForm: View {
     }
 
     private func helpLink(_ title: String, page: String) -> KukuExternalLink {
-        KukuExternalLink(title: title, destination: URL(string: appState.usesChineseUI
+        KukuExternalLink(title: title, destination: URL(string: interfaceLanguage.languageCode == Locale.LanguageCode.chinese
             ? "https://help.aliyun.com/zh/model-studio/\(page)"
             : "https://www.alibabacloud.com/help/en/model-studio/\(page)")!)
     }
@@ -407,7 +408,6 @@ struct QwenConnectionButton: View {
 }
 
 private struct ModelPickerRow: View {
-    @Environment(AppState.self) private var appState
     let title: String
     let caption: String
     @Binding var value: String
@@ -460,13 +460,13 @@ private struct GeneralSettings: View {
             KukuGroup(localized("Language")) {
                 KukuRow(
                     localized("Interface language"),
-                    caption: localized("Follows macOS by default. Change it anytime.")
+                    caption: localized("Follows macOS by default. Changes take effect when SayKuku reopens.")
                 ) {
                     KukuPicker(
                         localized("Interface language"),
                         options: AppLanguage.allCases,
-                        selection: $appState.appLanguage,
-                        label: { $0.title(isChineseUI: appState.usesChineseUI) }
+                        selection: Binding(get: { appState.appLanguage }, set: { changeLanguage(to: $0) }),
+                        label: { $0.title }
                     )
                 }
             }
@@ -526,7 +526,7 @@ private struct GeneralSettings: View {
                         localized("Overlay position"),
                         options: OverlayPlacement.allCases,
                         selection: $appState.overlayPlacement,
-                        label: { $0.title(isChineseUI: appState.usesChineseUI) }
+                        label: { $0.title }
                     )
                 }
             }
@@ -538,11 +538,24 @@ private struct GeneralSettings: View {
             SoftwareUpdateSettings(updater: appState.updater)
         }
     }
+
+    /// macOS applies `AppleLanguages` only at launch, so offer to reopen now.
+    private func changeLanguage(to language: AppLanguage) {
+        guard language != appState.appLanguage else { return }
+        appState.appLanguage = language
+        // After the menu closes and SwiftUI finishes applying the selection.
+        Task {
+            let alert = NSAlert()
+            alert.messageText = localized("Changes take effect when SayKuku reopens")
+            alert.addButton(withTitle: localized("Reopen Now"))
+            alert.addButton(withTitle: localized("Later"))
+            if alert.runModal() == .alertFirstButtonReturn { appState.relaunch() }
+        }
+    }
 }
 
 /// Version and Sparkle controls. Dev builds have no updater, so only the version shows.
 private struct SoftwareUpdateSettings: View {
-    @Environment(AppState.self) private var appState
     let updater: SPUStandardUpdaterController?
     /// Mirrors Sparkle's setting, which SwiftUI can't observe; Sparkle persists it in its own defaults.
     @State private var automaticallyChecks: Bool
@@ -612,12 +625,12 @@ private struct GlobalShortcutRow: View {
 
         HStack(spacing: KukuSpacing.md) {
             VStack(alignment: .leading, spacing: KukuSpacing.xxs) {
-                Text(action.title(appState))
+                Text(action.title)
                     .font(.kuku(.body))
                     .foregroundStyle(KukuColor.textPrimary)
                 Group {
                     if let issue {
-                        KukuStatusLabel(text: issue.message(for: action, appState), tone: .warning)
+                        KukuStatusLabel(text: issue.message(for: action), tone: .warning)
                     } else {
                         Text(subtitle).foregroundStyle(KukuColor.textSecondary)
                     }
@@ -631,7 +644,7 @@ private struct GlobalShortcutRow: View {
     }
 
     private var subtitle: String {
-        let gesture = action.fnGesture(appState)
+        let gesture = action.fnGesture
         if recorder.action == action {
             return localized("Press new keys · Esc to cancel · Delete to turn off")
         }
@@ -712,7 +725,7 @@ private struct HistorySettings: View {
                         localized("Keep history"),
                         options: HistoryRetention.allCases,
                         selection: $appState.historyRetention,
-                        label: { $0.title(appState) }
+                        label: { $0.title }
                     )
                 }
 
@@ -767,10 +780,8 @@ private struct HistorySettings: View {
         guard count > 0 else {
             return localized("All history and recordings will be removed from this Mac. This can’t be undone.")
         }
-        let starredItems = count == 1 ? "1 starred item" : "\(count) starred items"
-        return appState.text(
-            "“全部删除”会连同 \(count) 条星标记录和所有录音一起删除，且无法恢复。想保留星标记录，请选“保留星标，删除其余”。",
-            "Delete All also removes \(starredItems) and every recording. This can’t be undone. To keep starred items, choose Delete All but Starred."
+        return localized(
+            "Delete All also removes \(count) starred items and every recording. This can’t be undone. To keep starred items, choose Delete All but Starred."
         )
     }
 }
@@ -812,11 +823,11 @@ where Option.AllCases: RandomAccessCollection {
 enum SettingsSection: String, CaseIterable, Identifiable {
     case general, voiceInput, voiceAgent, history, privacy, qwen
     var id: String { rawValue }
-    @MainActor func title(_ appState: AppState) -> String {
+    var title: String {
         switch self {
         case .general: localized("General")
-        case .voiceInput: appState.voiceInputTitle
-        case .voiceAgent: appState.voiceAgentTitle
+        case .voiceInput: localized("Voice Input")
+        case .voiceAgent: localized("Voice Agent")
         case .history: localized("History")
         case .privacy: localized("Privacy")
         case .qwen: localized("Qwen Connection")

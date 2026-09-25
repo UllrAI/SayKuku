@@ -18,7 +18,7 @@ struct DomainOnboardingView: View {
     var body: some View {
         VStack(spacing: 0) {
             KukuSheetHeader(
-                eyebrow: appState.setupProgress?.title(appState),
+                eyebrow: appState.setupProgress?.title,
                 title: appState.didCompleteOnboarding
                     ? localized("Domains & Vocabulary")
                     : localized("Teach SayKuku Your Vocabulary"),
@@ -89,7 +89,7 @@ struct DomainOnboardingView: View {
                 }
 
                 KukuSheetNote(
-                    text: termError?.message(appState) ?? localized(
+                    text: termError?.message ?? localized(
                         "These words are saved to Knowledge, where you can add aliases later."
                     ),
                     isError: termError != nil
@@ -203,7 +203,6 @@ struct DomainOnboardingView: View {
 }
 
 private struct DomainChoice: View {
-    @Environment(AppState.self) private var appState
     let domain: DomainPreset
     let selected: Bool
     let action: () -> Void
@@ -212,7 +211,7 @@ private struct DomainChoice: View {
         Button(action: action) {
             HStack(spacing: KukuSpacing.sm) {
                 KukuIconTile(symbol: domain.symbol)
-                Text(domain.title(isChineseUI: appState.usesChineseUI))
+                Text(domain.title)
                     .font(.kuku(.callout, weight: .medium))
                     .foregroundStyle(KukuColor.textPrimary)
                     .lineLimit(2)

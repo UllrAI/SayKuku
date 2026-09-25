@@ -34,6 +34,181 @@
         }
       }
     },
+    "%lld characters" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld character"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld characters"
+                }
+              }
+            }
+          }
+        },
+        "zh-Hans" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld 字"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld days" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld day"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld days"
+                }
+              }
+            }
+          }
+        },
+        "zh-Hans" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld 天"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld items" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld item"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld items"
+                }
+              }
+            }
+          }
+        },
+        "zh-Hans" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld 条"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld items in Knowledge" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld item in Knowledge"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld items in Knowledge"
+                }
+              }
+            }
+          }
+        },
+        "zh-Hans" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "知识中有 %lld 条"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld saved items couldn’t be read and were skipped" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld saved item couldn’t be read and was skipped"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld saved items couldn’t be read and were skipped"
+                }
+              }
+            }
+          }
+        },
+        "zh-Hans" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "有 %lld 条本机记录无法读取，已跳过"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%lld selected" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -41,6 +216,41 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已选 %lld 条"
+          }
+        }
+      }
+    },
+    "%lld suggestions need your review before they’re saved." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld suggestion needs your review before it’s saved."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld suggestions need your review before they’re saved."
+                }
+              }
+            }
+          }
+        },
+        "zh-Hans" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "有 %lld 条建议待确认，确认后才会保存。"
+                }
+              }
+            }
           }
         }
       }
@@ -184,6 +394,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "别名同样能被识别"
+          }
+        }
+      }
+    },
+    "Aliases: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "别名：%@"
           }
         }
       }
@@ -492,6 +713,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "类别"
+          }
+        }
+      }
+    },
+    "Changes take effect when SayKuku reopens" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新打开 SayKuku 后生效"
           }
         }
       }
@@ -958,6 +1190,41 @@
         }
       }
     },
+    "Corrected %lld times" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Corrected once"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Corrected %lld times"
+                }
+              }
+            }
+          }
+        },
+        "zh-Hans" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "累计纠正 %lld 次"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "Correction suggestions" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1053,6 +1320,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "无法读取本机数据，请重启 SayKuku 后重试"
+          }
+        }
+      }
+    },
+    "Couldn’t reopen SayKuku. Quit and open it again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法重新打开 SayKuku，请退出后再打开"
           }
         }
       }
@@ -1196,6 +1474,41 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "全部删除"
+          }
+        }
+      }
+    },
+    "Delete All also removes %lld starred items and every recording. This can’t be undone. To keep starred items, choose Delete All but Starred." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Delete All also removes %lld starred item and every recording. This can’t be undone. To keep starred items, choose Delete All but Starred."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Delete All also removes %lld starred items and every recording. This can’t be undone. To keep starred items, choose Delete All but Starred."
+                }
+              }
+            }
+          }
+        },
+        "zh-Hans" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "“全部删除”会连同 %lld 条星标记录和所有录音一起删除，且无法恢复。想保留星标记录，请选“保留星标，删除其余”。"
+                }
+              }
+            }
           }
         }
       }
@@ -1356,6 +1669,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已完成"
+          }
+        }
+      }
+    },
+    "Don’t keep" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不保存"
           }
         }
       }
@@ -1602,13 +1926,13 @@
         }
       }
     },
-    "Follows macOS by default. Change it anytime." : {
+    "Follows macOS by default. Changes take effect when SayKuku reopens." : {
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "默认跟随 macOS，可随时切换"
+            "value" : "默认跟随 macOS，重新打开 SayKuku 后生效"
           }
         }
       }
@@ -1620,6 +1944,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "例如：Vibe Coding、SayKuku、项目代号"
+          }
+        }
+      }
+    },
+    "Forever" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "永久"
           }
         }
       }
@@ -1866,6 +2201,41 @@
         }
       }
     },
+    "Import %lld Items" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Import %lld Item"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Import %lld Items"
+                }
+              }
+            }
+          }
+        },
+        "zh-Hans" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "导入 %lld 条"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "Import from Text" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1884,6 +2254,41 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "从文本导入…"
+          }
+        }
+      }
+    },
+    "Imported %lld items to Knowledge" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Imported %lld item to Knowledge"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Imported %lld items to Knowledge"
+                }
+              }
+            }
+          }
+        },
+        "zh-Hans" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "已导入 %lld 条到知识"
+                }
+              }
+            }
           }
         }
       }
@@ -2042,6 +2447,17 @@
         }
       }
     },
+    "Kept for %@. Starred items are never deleted automatically." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留 %@，星标记录不会自动删除。"
+          }
+        }
+      }
+    },
     "Keyboard Settings" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2097,6 +2513,17 @@
         }
       }
     },
+    "Last in %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最近在 %@"
+          }
+        }
+      }
+    },
     "Last insertion" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2104,6 +2531,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "上次输入"
+          }
+        }
+      }
+    },
+    "Later" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "稍后"
           }
         }
       }
@@ -2834,6 +3272,28 @@
         }
       }
     },
+    "Organization" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "组织"
+          }
+        }
+      }
+    },
+    "Organizations" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "组织"
+          }
+        }
+      }
+    },
     "Overlay" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2900,6 +3360,17 @@
         }
       }
     },
+    "People" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "人物"
+          }
+        }
+      }
+    },
     "Permission guide" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2907,6 +3378,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "权限引导"
+          }
+        }
+      }
+    },
+    "Person" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "人物"
           }
         }
       }
@@ -2922,6 +3404,17 @@
         }
       }
     },
+    "Play Recording" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "播放录音"
+          }
+        }
+      }
+    },
     "Play a sound when recording starts and stops" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2929,6 +3422,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "开始和结束时播放提示音"
+          }
+        }
+      }
+    },
+    "Play recording" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "播放录音"
           }
         }
       }
@@ -3105,6 +3609,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "产品管理"
+          }
+        }
+      }
+    },
+    "Project" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "项目"
+          }
+        }
+      }
+    },
+    "Projects" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "项目"
           }
         }
       }
@@ -3347,6 +3873,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "取消星标"
+          }
+        }
+      }
+    },
+    "Reopen Now" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "现在重新打开"
           }
         }
       }
@@ -4077,6 +4614,17 @@
         }
       }
     },
+    "Stop Playback" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止播放"
+          }
+        }
+      }
+    },
     "Stop Test" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4117,6 +4665,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "停顿后自动结束"
+          }
+        }
+      }
+    },
+    "Stop playback" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止播放"
           }
         }
       }
@@ -4249,6 +4808,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "让 SayKuku 认识这个名称。"
+          }
+        }
+      }
+    },
+    "Term" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "术语"
+          }
+        }
+      }
+    },
+    "Terms" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "术语"
           }
         }
       }
@@ -5019,6 +5600,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "例如：团队负责人、常用项目名"
+          }
+        }
+      }
+    },
+    "first %lld characters" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "前 %lld 字"
           }
         }
       }

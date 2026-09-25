@@ -4,20 +4,36 @@ import Testing
 
 @Suite("App state")
 struct AppStateTests {
-    @Test("main navigation titles follow the selected language")
-    @MainActor
+    @Test("main navigation titles come from the string catalog")
     func navigationLocalization() {
+        #expect(AppState.Destination.knowledge.title == localized("Knowledge"))
+        #expect(GlobalShortcutAction.voiceInput.title == localized("Voice Input"))
+        #expect(HistoryMode.agent.title == localized("Voice Agent"))
+    }
+
+    @Test("the interface language maps to and from AppleLanguages")
+    func appLanguageOverride() {
+        #expect(AppLanguage(appleLanguages: nil) == .system)
+        #expect(AppLanguage(appleLanguages: ["zh-Hans-CN", "en"]) == .chinese)
+        #expect(AppLanguage(appleLanguages: ["en-GB"]) == .english)
+        // Set elsewhere, such as in System Settings, and not one of the choices.
+        #expect(AppLanguage(appleLanguages: ["zh-Hant"]) == .system)
+        for language in AppLanguage.allCases {
+            #expect(AppLanguage(appleLanguages: language.appleLanguages) == language)
+        }
+    }
+
+    @Test("settings saved by earlier builds are migrated once")
+    @MainActor
+    func legacySettings() {
         let environment = AppStateTestEnvironment()
         defer { environment.clean() }
+        environment.defaults.set("单击 Fn", forKey: "inputMode")
+        environment.defaults.set("english", forKey: "appLanguage")
         let state = environment.makeState()
-        state.appLanguage = .chinese
-        #expect(AppState.Destination.knowledge.title(state) == "知识")
-        #expect(state.voiceInputTitle == "语音输入")
-        #expect(state.voiceAgentTitle == "语音 Agent")
-        state.appLanguage = .english
-        #expect(AppState.Destination.knowledge.title(state) == "Knowledge")
-        #expect(state.voiceInputTitle == "Voice Input")
-        #expect(state.voiceAgentTitle == "Voice Agent")
+        #expect(state.inputMode == .tap)
+        #expect(environment.defaults.string(forKey: "inputMode") == "tap")
+        #expect(environment.defaults.object(forKey: "appLanguage") == nil)
     }
 
     @Test("failed or cancelled dictation with a recording can be transcribed again")
@@ -39,13 +55,13 @@ struct AppStateTests {
         let environment = AppStateTestEnvironment()
         defer { environment.clean() }
         let state = environment.makeState()
-        state.appLanguage = .english
         #expect(AppState.DictationPhase.idle.status(state) == nil)
         #expect(AppState.AgentPhase.answerReady.status(state) == nil)
-        state.agentCommand = "Listening…"
-        #expect(AppState.AgentPhase.processing.status(state) == "Running…")
-        state.agentCommand = "Summarize this page"
-        #expect(AppState.AgentPhase.processing.status(state) == "Running · Summarize this page")
+        state.agentCommand = localized("Listening…")
+        #expect(AppState.AgentPhase.processing.status(state) == localized("Running…"))
+        let task = "Summarize this page"
+        state.agentCommand = task
+        #expect(AppState.AgentPhase.processing.status(state) == localized("Running · \(task)"))
     }
 
     @Test("Don’t keep never expires existing history and survives a relaunch")

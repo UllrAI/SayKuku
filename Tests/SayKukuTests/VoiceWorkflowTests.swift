@@ -113,7 +113,7 @@ struct VoiceWorkflowTests {
         try await startListening(state)
         state.finishDictation()
         #expect(await eventually { state.historyEntries.first?.status == .failed })
-        #expect(state.overlayError == "没有听清，请再说一次")
+        #expect(state.overlayError == localized("Didn’t catch that. Try again."))
         #expect(state.dictationPhase == .idle)
         #expect(reasoning.transcribeCount == 0)
         #expect(text.writes.isEmpty)
@@ -168,23 +168,22 @@ struct VoiceWorkflowTests {
         text.replacementError = .targetChanged
         await state.undoLastWrite()
         #expect(state.canUndoLastWrite)
-        #expect(state.overlayError == "无法撤销，文字已被改动，或这个 App 不支持撤销")
+        #expect(state.overlayError == localized("Can’t undo. The text changed, or this app doesn’t support it."))
         #expect(text.writes == ["Hello world."])
 
         text.replacementError = nil
         await state.undoLastWrite()
         #expect(!state.canUndoLastWrite)
-        #expect(state.overlayError == "已撤销")
+        #expect(state.overlayError == localized("Undone"))
         #expect(text.writes == ["Hello world.", ""])
         #expect(state.dictationPhase == .idle)
     }
 }
 
-/// Chinese UI, no sound cues, and a saved key, so a workflow can start.
+/// No sound cues and a saved key, so a workflow can start.
 @MainActor
 private func makeState(_ environment: AppStateTestEnvironment, _ dependencies: AppState.Dependencies) throws -> AppState {
     let state = environment.makeState(dependencies: dependencies)
-    state.appLanguage = .chinese
     state.soundCuesEnabled = false
     try state.saveAPIKey("test")
     return state

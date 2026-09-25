@@ -17,7 +17,7 @@ struct MemoryView: View {
             KukuPageTabs(
                 items: MemoryScope.allCases,
                 selection: $selectedScope,
-                title: { $0.title(appState) }
+                title: { $0.title }
             )
 
             KukuDivider(inset: 0)
@@ -66,7 +66,6 @@ struct MemoryView: View {
 
 /// Empty state for a tab whose feature is turned off, with a way to turn it back on.
 private struct FeatureOffView: View {
-    @Environment(AppState.self) private var appState
     let title: String
     let message: String
     let systemImage: String
@@ -81,7 +80,6 @@ private struct FeatureOffView: View {
 }
 
 private struct CorrectionSummary: View {
-    @Environment(AppState.self) private var appState
     let pendingCount: Int
 
     var body: some View {
@@ -91,12 +89,7 @@ private struct CorrectionSummary: View {
                 Text(localized("Correction suggestions"))
                     .font(.kuku(.headline))
                     .foregroundStyle(KukuColor.textPrimary)
-                Text(appState.text(
-                    "有 \(pendingCount) 条建议待确认，确认后才会保存。",
-                    pendingCount == 1
-                        ? "1 suggestion needs your review before it’s saved."
-                        : "\(pendingCount) suggestions need your review before they’re saved."
-                ))
+                Text(localized("\(pendingCount) suggestions need your review before they’re saved."))
                     .font(.kuku(.subheadline))
                     .foregroundStyle(KukuColor.textSecondary)
             }
@@ -124,10 +117,7 @@ private struct CorrectionRow: View {
                         .foregroundStyle(KukuColor.textPrimary)
                 }
                 .font(.kuku(.title3, weight: .regular))
-                Text(appState.text(
-                    "累计纠正 \(item.count) 次 · 最近在 \(item.lastApp)",
-                    "Corrected \(item.count == 1 ? "once" : "\(item.count) times") · Last in \(item.lastApp)"
-                ))
+                Text(localized("Corrected \(item.count) times") + " · " + localized("Last in \(item.lastApp)"))
                     .font(.kuku(.caption))
                     .foregroundStyle(KukuColor.textSecondary)
             }
@@ -219,7 +209,6 @@ private struct SessionMemoryView: View {
 }
 
 private struct SessionRow: View {
-    @Environment(AppState.self) private var appState
     let session: AgentSession
     let isLatest: Bool
     let isLast: Bool
@@ -284,7 +273,7 @@ private struct SessionRow: View {
 enum MemoryScope: String, CaseIterable, Identifiable {
     case corrections, shortTerm
     var id: String { rawValue }
-    @MainActor func title(_ appState: AppState) -> String {
+    var title: String {
         switch self {
         case .corrections: localized("Corrections")
         case .shortTerm: localized("Short-Term")

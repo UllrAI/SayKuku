@@ -94,7 +94,7 @@ private struct Sidebar: View {
             VStack(spacing: KukuSpacing.xs) {
                 ForEach(AppState.Destination.allCases) { destination in
                     SidebarButton(
-                        title: destination.title(appState),
+                        title: destination.title,
                         symbol: destination.symbol,
                         isSelected: selection == destination
                     ) {
