@@ -111,10 +111,12 @@ struct GlobalShortcut: Hashable, Sendable {
     }
 
     /// Decodes a stored setting. An empty string means the shortcut was turned off;
-    /// an unreadable value falls back to the default.
+    /// an unreadable value, or a reserved one saved by an older version, falls back to the default.
     static func restored(from storageValue: String, fallback: GlobalShortcut) -> GlobalShortcut? {
         guard !storageValue.isEmpty else { return nil }
-        return GlobalShortcut(storageValue: storageValue) ?? fallback
+        guard let shortcut = GlobalShortcut(storageValue: storageValue),
+              !reserved.contains(shortcut) else { return fallback }
+        return shortcut
     }
 
     /// Interprets one key press while the settings page is recording.

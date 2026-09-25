@@ -131,10 +131,18 @@ struct GlobalShortcutTests {
         #expect(GlobalShortcut.recordingResult(
             keyCode: UInt16(kVK_ANSI_V), carbonModifiers: optionCommandV.carbonModifiers, otherShortcut: nil
         ) == .record(optionCommandV))
-        let controlSpace = GlobalShortcut(keyCode: UInt32(kVK_Space), carbonModifiers: UInt32(controlKey))
+        let controlShiftSpace = GlobalShortcut(keyCode: UInt32(kVK_Space), carbonModifiers: UInt32(controlKey | shiftKey))
         #expect(GlobalShortcut.recordingResult(
-            keyCode: UInt16(kVK_Space), carbonModifiers: controlSpace.carbonModifiers, otherShortcut: nil
-        ) == .record(controlSpace))
+            keyCode: UInt16(kVK_Space), carbonModifiers: controlShiftSpace.carbonModifiers, otherShortcut: nil
+        ) == .record(controlShiftSpace))
+    }
+
+    @Test("a reserved combination saved by an older version falls back to the default")
+    func restoredReservedCombination() {
+        let commandV = GlobalShortcut(keyCode: UInt32(kVK_ANSI_V), carbonModifiers: UInt32(cmdKey))
+        #expect(GlobalShortcut.restored(from: commandV.storageValue, fallback: .defaultVoiceInput) == .defaultVoiceInput)
+        let shiftCommandZ = GlobalShortcut(keyCode: UInt32(kVK_ANSI_Z), carbonModifiers: UInt32(shiftKey | cmdKey))
+        #expect(GlobalShortcut.restored(from: shiftCommandZ.storageValue, fallback: .defaultVoiceAgent) == .defaultVoiceAgent)
     }
 
     @Test("status reports which shortcut failed before Accessibility")
