@@ -14,7 +14,18 @@ enum AudioCaptureError: LocalizedError {
     }
 }
 
-final class AudioCapture: @unchecked Sendable {
+/// The microphone as the voice workflows use it; tests pass a fake.
+protocol AudioCapturing: AnyObject, Sendable {
+    func start(
+        onLevel: @escaping @Sendable (Double) -> Void,
+        onChunk: @escaping @Sendable (Data) -> Void,
+        onInterruption: @escaping @Sendable () -> Void
+    ) -> Task<Void, Error>
+    func stop() -> AudioCapture.Recording
+    func cancel()
+}
+
+final class AudioCapture: AudioCapturing, @unchecked Sendable {
     struct Recording: Sendable {
         let wav: Data
         let duration: Double
