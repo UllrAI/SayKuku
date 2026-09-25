@@ -866,6 +866,13 @@ final class AppState {
             showToast(message, symbol: "key.fill")
             return
         }
+        // A hard block: the microphone must not even turn on in a password field or manager.
+        // `captureTarget` still checks the focused element for a secure text field.
+        let frontmostBundleID = NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? ""
+        guard !TextInteraction.isSensitiveWithoutAccessibility(bundleID: frontmostBundleID) else {
+            handleWorkflowError(TextInteractionError.sensitiveTarget, agent: mode == .agent)
+            return
+        }
         let generation = workflowGeneration
         let pillInterval = signposter.beginInterval("Fn to Pill", id: signposter.makeSignpostID())
         // Realtime needs a workspace ID; without one the full recording goes to batch recognition.
