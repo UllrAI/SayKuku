@@ -175,6 +175,8 @@ private struct PillUndoButton: View {
         .buttonStyle(.plain)
         .font(.kuku(.callout, weight: .semibold))
         .foregroundStyle(KukuColor.accentText)
+        .disabled(appState.isWriting)
+        .opacity(appState.isWriting ? KukuState.disabledOpacity : 1)
     }
 }
 
