@@ -151,6 +151,8 @@ final class AppState {
     private(set) var isWriting = false
     var overlayErrorSymbol = "exclamationmark"
     var overlayError: String? { didSet { overlayController?.refresh() } }
+    /// Buttons after the overlay message, secondary first and primary last; empty for a plain notice.
+    private(set) var overlayButtons: [OverlayButton] = []
     var toast: ToastMessage?
     var historyEntries: [HistoryEntry] = [] { didSet { schedulePersistence() } }
     var knowledgeEntities: [KnowledgeEntity] = [] { didSet { schedulePersistence() } }
@@ -571,7 +573,9 @@ final class AppState {
         guard let index = corrections.firstIndex(where: { $0.id == id }) else { return }
         corrections[index].status = .accepted
         let record = corrections[index]
-        knowledgeEntities = KnowledgePipeline.learn(record.raw, as: record.corrected, into: knowledgeEntities)
+        knowledgeEntities = KnowledgePipeline.learn(
+            record.raw, as: record.corrected, clue: record.clue, into: knowledgeEntities
+        )
     }
 
     func ignoreCorrection(_ id: UUID) {
@@ -1461,6 +1465,7 @@ final class AppState {
         pendingAnswerTarget = nil
         pendingAction = nil
         resultCanUndo = false
+        overlayButtons = []
         overlayError = nil
     }
 
@@ -1514,16 +1519,68 @@ final class AppState {
         }
     }
 
-    private func showOverlayFeedback(_ message: String, symbol: String, duration: Duration = .seconds(2.4)) {
+    private func showOverlayFeedback(
+        _ message: String, symbol: String, duration: Duration = .seconds(2.4), buttons: [OverlayButton] = []
+    ) {
         overlayFeedbackGeneration += 1
         let generation = overlayFeedbackGeneration
         overlayErrorSymbol = symbol
+        overlayButtons = buttons
         overlayError = message
         Task { @MainActor [weak self] in
             try? await Task.sleep(for: duration)
-            guard self?.overlayFeedbackGeneration == generation else { return }
-            withAnimation(Motion.snappy) { self?.overlayError = nil }
+            guard let self, self.overlayFeedbackGeneration == generation else { return }
+            self.overlayButtons = []
+            withAnimation(Motion.snappy) { self.overlayError = nil }
         }
+    }
+
+    /// Runs an overlay button, then closes the message unless the button showed another one.
+    func pressOverlayButton(at index: Int) {
+        guard overlayButtons.indices.contains(index) else { return }
+        let action = overlayButtons[index].action
+        let generation = overlayFeedbackGeneration
+        overlayButtons = []
+        action()
+        guard generation == overlayFeedbackGeneration else { return }
+        withAnimation(Motion.snappy) { overlayError = nil }
+    }
+
+    /// Counts a correction the user just made and, until it has been asked about twice, offers to
+    /// remember it on the overlay, where the user can see it from any app.
+    func noteCorrection(_ change: CorrectionCandidate, app: String, windowTitle: String) {
+        // The clue goes to Qwen with later prompts, so it follows the Window Title privacy setting.
+        let title = windowTitleAllowed ? windowTitle.trimmingCharacters(in: .whitespacesAndNewlines) : ""
+        let index: Int
+        if let existing = corrections.firstIndex(where: { $0.raw == change.before && $0.corrected == change.after }) {
+            index = existing
+            corrections[index].count += 1
+            corrections[index].lastSeenAt = .now
+            corrections[index].lastApp = app
+            corrections[index].lastWindowTitle = title
+        } else {
+            corrections.append(CorrectionRecord(
+                raw: change.before, corrected: change.after, lastApp: app, lastWindowTitle: title
+            ))
+            index = corrections.index(before: corrections.endIndex)
+        }
+        // The message would cover a recording that started since the write; the suggestion waits in Memory.
+        let isBusy = dictationPhase != .idle || agentPhase != .hidden || startingWorkflow != nil
+        guard corrections[index].shouldPrompt, !isBusy else { return }
+        corrections[index].promptCount += 1
+        let record = corrections[index]
+        showOverlayFeedback(
+            localized("Remember “\(record.raw)” as “\(record.corrected)”?"),
+            symbol: "brain",
+            duration: .seconds(6),
+            buttons: [
+                OverlayButton(title: localized("Not Now")),
+                OverlayButton(title: localized("Remember")) { [weak self] in
+                    self?.acceptCorrection(record.id)
+                    self?.showOverlayFeedback(localized("Remembered"), symbol: "checkmark")
+                }
+            ]
+        )
     }
 
     private func observeCorrection(writtenText: String, snapshot: TextTargetSnapshot, writeID: UUID) {
@@ -1534,16 +1591,10 @@ final class AppState {
         let writtenRange = range.location..<(range.location + (writtenText as NSString).length)
         Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(5))
-            guard let self, self.lastVerifiedWrite?.id == writeID,
+            guard let self, self.learnFromCorrections, self.lastVerifiedWrite?.id == writeID,
                   let actual = self.textInteraction.currentValue(of: snapshot),
                   let change = CorrectionExtractor.extract(expected: expected, actual: actual, writtenRange: writtenRange) else { return }
-            if let index = self.corrections.firstIndex(where: { $0.raw == change.before && $0.corrected == change.after }) {
-                self.corrections[index].count += 1
-                self.corrections[index].lastSeenAt = .now
-                self.corrections[index].lastApp = snapshot.appName
-            } else {
-                self.corrections.append(CorrectionRecord(raw: change.before, corrected: change.after, lastApp: snapshot.appName))
-            }
+            self.noteCorrection(change, app: snapshot.appName, windowTitle: snapshot.windowTitle)
         }
     }
 

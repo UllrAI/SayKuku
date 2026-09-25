@@ -160,24 +160,8 @@ private struct FloatingSystemOverlay: View {
                 AgentAnswerCard()
                     .transition(.scale(scale: 0.96, anchor: .bottom).combined(with: .opacity))
             } else if let error = appState.overlayError {
-                // A calm notice, not an alarm: neutral icon, primary text.
-                Label {
-                    Text(error)
-                        .foregroundStyle(KukuColor.textPrimary)
-                } icon: {
-                    Image(systemName: appState.overlayErrorSymbol)
-                        .foregroundStyle(KukuColor.textSecondary)
-                }
-                .font(.kuku(.callout, weight: .medium))
-                .lineLimit(2)
-                .truncationMode(.tail)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.horizontal, KukuSpacing.md)
-                .padding(.vertical, KukuSpacing.sm)
-                .frame(width: KukuPillLayout.errorWidth(for: error))
-                .frame(minHeight: KukuLayout.controlHeight)
-                .kukuGlassPill()
-                .transition(.scale(scale: 0.94, anchor: .bottom).combined(with: .opacity))
+                OverlayNotice(message: error)
+                    .transition(.scale(scale: 0.94, anchor: .bottom).combined(with: .opacity))
             } else if appState.agentPhase != .hidden {
                 AgentPill()
                     .transition(.scale(scale: 0.94, anchor: .bottom).combined(with: .opacity))
@@ -205,6 +189,44 @@ private struct FloatingSystemOverlay: View {
         return appState.overlayError
             ?? appState.agentPhase.status(appState)
             ?? appState.dictationPhase.status(appState)
+    }
+}
+
+/// Feedback over other apps. A calm notice, not an alarm: neutral icon, primary text, and at most
+/// two text buttons, styled like the pill's Undo.
+private struct OverlayNotice: View {
+    @Environment(AppState.self) private var appState
+    let message: String
+
+    var body: some View {
+        let buttons = appState.overlayButtons
+        HStack(spacing: KukuSpacing.md) {
+            Label {
+                Text(message)
+                    .foregroundStyle(KukuColor.textPrimary)
+            } icon: {
+                Image(systemName: appState.overlayErrorSymbol)
+                    .foregroundStyle(KukuColor.textSecondary)
+            }
+            .lineLimit(2)
+            .truncationMode(.tail)
+            .fixedSize(horizontal: false, vertical: true)
+            // Counted in `errorWidth`, so the message keeps its full line next to them.
+            ForEach(buttons.indices, id: \.self) { index in
+                let isPrimary = index == buttons.count - 1
+                Button(buttons[index].title) { appState.pressOverlayButton(at: index) }
+                    .buttonStyle(.plain)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(isPrimary ? KukuColor.accentText : KukuColor.textSecondary)
+                    .fixedSize()
+            }
+        }
+        .font(.kuku(.callout, weight: .medium))
+        .padding(.horizontal, KukuSpacing.md)
+        .padding(.vertical, KukuSpacing.sm)
+        .frame(width: KukuPillLayout.errorWidth(for: message, buttons: buttons.map(\.title)))
+        .frame(minHeight: KukuLayout.controlHeight)
+        .kukuGlassPill()
     }
 }
 

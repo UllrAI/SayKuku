@@ -4,7 +4,7 @@ SayKuku 是一款使用 SwiftUI 与 AppKit 构建的原生 macOS 语音输入应
 
 - `Fn`：Voice Input，支持轻整理口癖、原样听写和口述格式；转写后写入当前输入位置，可撤销经验证的写入。
 - `Fn Fn`：Voice Agent，结合选中文字和当前应用上下文改写、翻译、生成或回答；支持修改上次写入。
-- 记忆：SayKuku 记住的人名、项目、组织和术语，提高识别与处理准确度；听写后改掉的错词经确认收进记忆，也可以粘贴文本导入。
+- 记忆：SayKuku 记住的人名、项目、组织和术语，提高识别与处理准确度；听写后改掉的错词在浮层里点一下「记住」就收进记忆，也可以粘贴文本导入。
 - History：在本机保存输入历史，失败听写可从录音重试；Voice Agent 的连续对话只在内存里保留 30 分钟。
 
 项目要求 macOS 15+、Swift 6 和 Xcode 26 或更新。唯一的第三方依赖是负责自动更新的 [Sparkle 2](https://github.com/sparkle-project/Sparkle)（MIT）。

@@ -425,16 +425,21 @@ enum KukuPillLayout {
         maximum: CGFloat = 350,
         fontWeight: NSFont.Weight = .semibold
     ) -> CGFloat {
-        // Pill text is always callout; only the weight differs between states and errors.
-        // Read the size on each call so the width follows the current Text Size setting.
-        let size = NSFont.preferredFont(forTextStyle: .callout).pointSize
-        let font = NSFont.systemFont(ofSize: size, weight: fontWeight)
-        let textWidth = (text as NSString).size(withAttributes: [.font: font]).width
-        return min(max(ceil(textWidth + fixedContentWidth), minimum), maximum)
+        min(max(ceil(textWidth(text, weight: fontWeight) + fixedContentWidth), minimum), maximum)
     }
 
-    /// Error feedback wraps to a second line once it reaches the maximum width.
-    static func errorWidth(for text: String) -> CGFloat {
-        width(for: text, minimum: 120, fixedContentWidth: 46, maximum: 340, fontWeight: .medium)
+    /// Error feedback wraps to a second line once it reaches the maximum width. `buttons` are the
+    /// titles of the text buttons after the message, each with the gap before it.
+    static func errorWidth(for text: String, buttons: [String] = []) -> CGFloat {
+        let buttonsWidth = buttons.reduce(0) { $0 + ceil(textWidth($1, weight: .semibold)) + KukuSpacing.md }
+        return width(for: text, minimum: 120, fixedContentWidth: 46 + buttonsWidth, maximum: 340, fontWeight: .medium)
+    }
+
+    /// Pill text is always callout; only the weight differs between states and errors.
+    /// Read the size on each call so the width follows the current Text Size setting.
+    private static func textWidth(_ text: String, weight: NSFont.Weight) -> CGFloat {
+        let size = NSFont.preferredFont(forTextStyle: .callout).pointSize
+        let font = NSFont.systemFont(ofSize: size, weight: weight)
+        return (text as NSString).size(withAttributes: [.font: font]).width
     }
 }
