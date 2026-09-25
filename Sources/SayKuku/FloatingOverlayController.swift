@@ -8,7 +8,6 @@ final class FloatingOverlayController {
     /// Where the target was when the current workflow began. The overlay stays there until the
     /// next workflow, even if the mouse moves to another screen.
     private var caretFrame: CGRect?
-    private var windowFrame: CGRect?
     private var visibleFrame: CGRect?
 
     init(appState: AppState) {
@@ -45,11 +44,12 @@ final class FloatingOverlayController {
     }
 
     /// Called once per workflow, when its target is captured. Errors before that reuse the last anchor.
+    /// The snapshot only carries a caret when the overlay follows the cursor; otherwise the overlay
+    /// goes on the screen with keyboard focus.
     func anchor(to snapshot: TextTargetSnapshot) {
         caretFrame = snapshot.caretFrame
-        windowFrame = snapshot.windowFrame
-        let screen = (caretFrame ?? windowFrame).flatMap { target in
-            NSScreen.screens.first { $0.frame.contains(CGPoint(x: target.midX, y: target.midY)) }
+        let screen = caretFrame.flatMap { caret in
+            NSScreen.screens.first { $0.frame.contains(CGPoint(x: caret.midX, y: caret.midY)) }
         } ?? NSScreen.main
         visibleFrame = screen?.visibleFrame
     }
@@ -78,7 +78,7 @@ final class FloatingOverlayController {
         // Error feedback can wrap to two lines; the pill height is close enough for the caret gap.
         let contentHeight = appState.agentPhase == .answerReady ? appState.answerCardHeight : KukuLayout.pillHeight
         let origin = OverlayLayout.origin(
-            caretFrame: caretFrame, windowFrame: windowFrame, visibleFrame: visibleFrame,
+            placement: appState.overlayPlacement, caretFrame: caretFrame, visibleFrame: visibleFrame,
             panelSize: size, contentHeight: contentHeight
         )
         panel.setFrame(NSRect(origin: origin, size: size), display: true)
@@ -91,7 +91,7 @@ enum OverlayLayout {
     static let caretGap: CGFloat = 12
     /// Space below the pill or card inside the panel; the content sits at the panel's bottom.
     static let contentBottomInset = KukuSpacing.lg
-    /// Space between the panel and the bottom of the window or screen it sits on.
+    /// Space between the panel and the bottom of the screen, or between the content and the top.
     static let bottomInset: CGFloat = 8
     static let answerCardWidth: CGFloat = 440
     static let answerCardHeights: ClosedRange<CGFloat> = 160...420
@@ -101,23 +101,28 @@ enum OverlayLayout {
     static let answerCardChrome: CGFloat = KukuLayout.cardPadding * 2 + KukuLayout.iconButton
         + KukuLayout.controlHeight + KukuSpacing.md * 2
 
-    /// Below the caret, centered on it, or above it when there's no room below. Without a caret,
-    /// the bottom center of the target window, then of the screen. Always kept inside `visibleFrame`.
-    /// `contentHeight` is the pill or card inside the panel, so the caret gap is measured to it.
+    /// `.bottom` and `.top` center the overlay at the bottom or top of `visibleFrame`, which already
+    /// excludes the Dock and the menu bar (notch included). `.caret` puts it below the caret, centered
+    /// on it, or above it when there's no room below, kept inside `visibleFrame`; without a caret it
+    /// falls back to `.bottom`. `contentHeight` is the pill or card inside the panel, so gaps are
+    /// measured to it rather than to the panel's transparent headroom.
     static func origin(
-        caretFrame: CGRect?, windowFrame: CGRect?, visibleFrame: CGRect, panelSize: CGSize, contentHeight: CGFloat
+        placement: OverlayPlacement, caretFrame: CGRect?,
+        visibleFrame: CGRect, panelSize: CGSize, contentHeight: CGFloat
     ) -> CGPoint {
-        var origin: CGPoint
-        if let caret = caretFrame {
-            origin = CGPoint(
-                x: caret.midX - panelSize.width / 2,
-                y: caret.minY - caretGap - contentBottomInset - contentHeight
-            )
-            if origin.y < visibleFrame.minY { origin.y = caret.maxY + caretGap - contentBottomInset }
-        } else {
-            let base = windowFrame ?? visibleFrame
-            origin = CGPoint(x: base.midX - panelSize.width / 2, y: base.minY + bottomInset)
+        let centerX = visibleFrame.midX - panelSize.width / 2
+        if placement == .top {
+            // The content sits at the panel's bottom, so the headroom above it may pass under the menu bar.
+            return CGPoint(x: centerX, y: visibleFrame.maxY - bottomInset - contentBottomInset - contentHeight)
         }
+        guard placement == .caret, let caret = caretFrame else {
+            return CGPoint(x: centerX, y: visibleFrame.minY + bottomInset)
+        }
+        var origin = CGPoint(
+            x: caret.midX - panelSize.width / 2,
+            y: caret.minY - caretGap - contentBottomInset - contentHeight
+        )
+        if origin.y < visibleFrame.minY { origin.y = caret.maxY + caretGap - contentBottomInset }
         origin.x = min(max(origin.x, visibleFrame.minX), visibleFrame.maxX - panelSize.width)
         origin.y = min(max(origin.y, visibleFrame.minY), visibleFrame.maxY - panelSize.height)
         return origin
