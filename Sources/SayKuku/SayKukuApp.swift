@@ -126,11 +126,17 @@ private struct MenuBarIcon: View {
 private final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Only release builds update themselves: a dev build must never be replaced by the
     /// release app, and `swift run` has no Info.plist for Sparkle to read.
-    static let updater: SPUStandardUpdaterController? = StorageIdentity() == .release
+    private static let updater: SPUStandardUpdaterController? = StorageIdentity() == .release
         ? SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
         : nil
 
-    private(set) lazy var appState = AppState()
+    /// Registers the updater on creation: the app menu is built before launch finishes,
+    /// and `CheckForUpdatesItem` doesn't observe the updater, so it must never read nil first.
+    private(set) lazy var appState: AppState = {
+        let appState = AppState()
+        if let updater = AppDelegate.updater { appState.registerUpdater(updater) }
+        return appState
+    }()
     private weak var mainWindow: NSWindow?
     private var suppressesLaunchWindow = false
 
@@ -138,9 +144,8 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         if Self.wasLaunchedAsLoginItem {
             suppressLaunchWindow()
         }
+        // appState creates the updater, so scheduled checks start even if no menu was built.
         appState.startSystemServices()
-        // Start scheduled checks even if no menu has touched the updater yet.
-        _ = Self.updater
     }
 
     /// Covers every window, including Settings when the main window is closed.
@@ -342,7 +347,7 @@ private struct CheckForUpdatesItem: View {
     let appState: AppState
 
     var body: some View {
-        if let updater = AppDelegate.updater {
+        if let updater = appState.updater {
             Button(appState.text("检查更新…", "Check for Updates…")) {
                 updater.checkForUpdates(nil)
             }
