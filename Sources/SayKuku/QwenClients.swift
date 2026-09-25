@@ -205,7 +205,7 @@ actor QwenRealtimeClient {
     private var transcript = ""
     /// Deltas keep arriving until `response.text.done`; only then is `transcript` final.
     private var transcriptDone = false
-    /// Set once server VAD has committed the audio buffer on its own.
+    /// Set once the server reports the audio buffer committed.
     private var audioCommitted = false
     /// The first failure, kept so a later send or wait reports it instead of timing out.
     private var sessionError: Error?

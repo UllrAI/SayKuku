@@ -40,10 +40,13 @@ struct QwenRequestContractTests {
     @Test("realtime dictation returns the done text, not the deltas before it")
     func transcriptWaitsForDone() async throws {
         let client = QwenRealtimeClient()
+        let sent = SentEvents()
         let session = UUID()
-        await client.begin(session: session, send: { _ in })
+        await client.begin(session: session, send: { await sent.record($0) })
         try await client.handle(serverEvent(["type": "response.text.delta", "delta": "明天下午"]), session: session)
         async let transcript = client.commit(session: session, timeout: .seconds(5))
+        // Let commit send its events and start waiting before the response finishes.
+        while await sent.types != ["input_audio_buffer.commit", "response.create"] { await Task.yield() }
         try await client.handle(serverEvent(["type": "response.text.done", "text": "明天下午开会。"]), session: session)
         #expect(try await transcript == "明天下午开会。")
     }
