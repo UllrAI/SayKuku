@@ -19,7 +19,6 @@ actor LocalStore {
         var version = Snapshot.currentVersion
         var history: [HistoryEntry] = []
         var entities: [KnowledgeEntity] = []
-        var relationships: [KnowledgeRelationship] = []
         var corrections: [CorrectionRecord] = []
         var sessions: [AgentSession] = []
     }
@@ -221,7 +220,7 @@ private struct TolerantSnapshot: Decodable {
     let skippedCount: Int
 
     private enum CodingKeys: String, CodingKey {
-        case version, history, entities, relationships, corrections, sessions
+        case version, history, entities, corrections, sessions
     }
 
     init(from decoder: Decoder) throws {
@@ -237,7 +236,6 @@ private struct TolerantSnapshot: Decodable {
             version: container.decodeIfPresent(Int.self, forKey: .version) ?? 1,
             history: records(.history),
             entities: records(.entities),
-            relationships: records(.relationships),
             corrections: records(.corrections),
             sessions: records(.sessions)
         )

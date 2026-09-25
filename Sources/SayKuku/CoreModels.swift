@@ -443,34 +443,34 @@ struct HistoryEntry: Identifiable, Codable, Equatable {
 }
 
 enum EntityType: String, Codable, CaseIterable, Identifiable {
-    case person, organization, orgUnit, project, product, term, unknown
+    case person, organization, project, term
     var id: String { rawValue }
-    @MainActor func title(_ appState: AppState) -> String {
+
+    /// Maps retired types and unrecognized values, so older stores and loose model output still load.
+    init(from decoder: Decoder) throws {
+        switch try decoder.singleValueContainer().decode(String.self).lowercased() {
+        case "person": self = .person
+        case "organization", "orgunit": self = .organization
+        case "project", "product": self = .project
+        default: self = .term
+        }
+    }
+
+    /// `plural` names a filter tab rather than a single item.
+    @MainActor func title(_ appState: AppState, plural: Bool = false) -> String {
         switch self {
-        case .person: appState.text("人物", "Person")
-        case .organization: appState.text("组织", "Organization")
-        case .orgUnit: appState.text("部门", "Department")
-        case .project: appState.text("项目", "Project")
-        case .product: appState.text("产品", "Product")
-        case .term: appState.text("术语", "Term")
-        case .unknown: appState.text("未分类", "Uncategorized")
+        case .person: appState.text("人物", plural ? "People" : "Person")
+        case .organization: appState.text("组织", plural ? "Organizations" : "Organization")
+        case .project: appState.text("项目", plural ? "Projects" : "Project")
+        case .term: appState.text("术语", plural ? "Terms" : "Term")
         }
     }
     var symbol: String {
         switch self {
         case .person: "person.fill"
-        case .organization, .orgUnit: "building.2.fill"
+        case .organization: "building.2.fill"
         case .project: "folder.fill"
-        case .product: "shippingbox.fill"
-        case .term, .unknown: "character.book.closed.fill"
-        }
-    }
-    var filter: KnowledgeFilter {
-        switch self {
-        case .person: .people
-        case .organization, .orgUnit: .organizations
-        case .project, .product: .projects
-        case .term, .unknown: .terms
+        case .term: "character.book.closed.fill"
         }
     }
 }
@@ -524,27 +524,6 @@ enum KnowledgeSaveError: Error, Equatable {
     }
 }
 
-enum RelationshipType: String, Codable, CaseIterable {
-    case belongsTo, worksOn, owns, relatedTo
-
-    @MainActor func title(_ appState: AppState) -> String {
-        switch self {
-        case .belongsTo: appState.text("属于", "belongs to")
-        case .worksOn: appState.text("参与", "works on")
-        case .owns: appState.text("负责", "owns")
-        case .relatedTo: appState.text("相关", "related to")
-        }
-    }
-}
-
-struct KnowledgeRelationship: Identifiable, Codable, Equatable {
-    var id: UUID = UUID()
-    var fromEntityID: UUID
-    var type: RelationshipType
-    var toEntityID: UUID
-    var evidence: String
-}
-
 enum ImportStatus: String, Codable {
     case new = "NEW", merge = "MERGE", conflict = "CONFLICT", ignored = "IGNORED"
 
@@ -564,19 +543,6 @@ struct ImportCandidate: Identifiable, Equatable {
     var status: ImportStatus
     var evidence: String
     var matchedEntityID: UUID?
-}
-
-struct ProposedRelationship: Codable, Equatable {
-    var from: String
-    var type: RelationshipType
-    var to: String
-    var evidence: String
-}
-
-struct ImportRelationshipCandidate: Identifiable, Equatable {
-    var id: UUID = UUID()
-    var relationship: ProposedRelationship
-    var status: ImportStatus
 }
 
 struct ProposedEntity: Codable, Equatable {
