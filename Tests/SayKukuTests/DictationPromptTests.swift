@@ -70,6 +70,24 @@ struct DictationPromptTests {
         #expect(!verbatim.contains("Light cleanup"))
     }
 
+    @Test("the tone rule follows the cleanup rule only when a target app is named")
+    func toneRule() throws {
+        let prompt = QwenRealtimeClient.makeDictationInstructions(knowledgePrompt: "")
+        #expect(!prompt.contains("Tone:"))
+
+        let knowledge = KnowledgePrompt.render(entities: [], domains: [.aiVibeCoding], purpose: .transcription)
+        let toned = QwenRealtimeClient.makeDictationInstructions(
+            knowledgePrompt: knowledge, targetApp: "微信 (com.tencent.xinWeChat)"
+        )
+        #expect(toned.contains("Tone: the text will be inserted into 微信 (com.tencent.xinWeChat)."))
+        #expect(toned.contains("no period at the end of a short single-sentence message"))
+        #expect(toned.contains("If you are not sure what kind of app it is, use full punctuation."))
+        let cleanup = try #require(toned.range(of: "Light cleanup"))
+        let tone = try #require(toned.range(of: "Tone:"))
+        #expect(cleanup.upperBound < tone.lowerBound)
+        #expect(toned.hasSuffix(knowledge))
+    }
+
     @Test("light cleanup removes accidental repeats and formats Chinese punctuation")
     func finalSpeechCleanup() {
         let source = "我们今天讲这个这个新版本的好不好?"

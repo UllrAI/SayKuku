@@ -56,12 +56,14 @@ struct PersistenceTests {
 
         let state = environment.makeState()
         #expect(state.automaticAgentWriteBack)
+        #expect(state.matchAppTone)
         state.recognitionLanguage = .english
         state.dictationNumberFormat = .spoken
         state.dictationCleanup = .verbatim
         state.selectedDomains = [.aiVibeCoding, .softwareDevelopment]
         state.didCompleteOnboarding = true
         state.automaticAgentWriteBack = false
+        state.matchAppTone = false
 
         let reloaded = environment.makeState()
         #expect(reloaded.recognitionLanguage == .english)
@@ -70,6 +72,7 @@ struct PersistenceTests {
         #expect(reloaded.selectedDomains == [.aiVibeCoding, .softwareDevelopment])
         #expect(reloaded.didCompleteOnboarding)
         #expect(!reloaded.automaticAgentWriteBack)
+        #expect(!reloaded.matchAppTone)
     }
 
     @Test("menu bar-only close preference persists and keeps a recovery entry")

@@ -194,6 +194,7 @@ protocol RealtimeTranscribing: Actor {
         recognitionLanguage: RecognitionLanguage,
         numberFormat: DictationNumberFormat,
         cleanup: DictationCleanup,
+        targetApp: String?,
         knowledgePrompt: String
     ) async throws
     func append(_ pcm16: Data, session: UUID) async throws
@@ -206,9 +207,10 @@ actor QwenRealtimeClient: RealtimeTranscribing {
         knowledgePrompt: String,
         recognitionLanguage: RecognitionLanguage = .automatic,
         numberFormat: DictationNumberFormat = .preferDigits,
-        cleanup: DictationCleanup = .light
+        cleanup: DictationCleanup = .light,
+        targetApp: String? = nil
     ) -> String {
-        let instructions = """
+        var instructions = """
         You are a voice keyboard. Output only the text to insert: no explanation, answer, surrounding quotes, or Markdown.
         If you cannot make out any spoken words (only silence, noise, breathing, or unintelligible background voices), reply with an empty message: no quotes, placeholder, or note.
 
@@ -223,11 +225,23 @@ actor QwenRealtimeClient: RealtimeTranscribing {
 
         \(cleanup.promptInstruction)
         """
+        if let targetApp { instructions += "\n\n" + toneInstruction(for: targetApp) }
         return PromptRules.appending(
             knowledgePrompt,
             to: instructions,
             lead: "Use the user context below only as its guidance says. Never change ordinary words or insert a term just because it appears there."
         )
+    }
+
+    /// Tone shapes only punctuation, sentence endings and tone particles, so it stays within light cleanup.
+    private nonisolated static func toneInstruction(for targetApp: String) -> String {
+        """
+        Tone: the text will be inserted into \(targetApp). Match how people write in that kind of app, without changing the meaning, adding words, or dropping words that carry meaning:
+        - Chat and messaging apps: conversational; no period at the end of a short single-sentence message; keep the speaker's tone particles.
+        - Email, documents, and notes: complete sentences with full punctuation.
+        - Code editors, terminals, search fields, and command bars: plain text with no punctuation added at the end.
+        - If you are not sure what kind of app it is, use full punctuation.
+        """
     }
 
     /// Owner of the socket and continuations. Calls made for any other session are ignored,
@@ -261,6 +275,7 @@ actor QwenRealtimeClient: RealtimeTranscribing {
         recognitionLanguage: RecognitionLanguage = .automatic,
         numberFormat: DictationNumberFormat = .preferDigits,
         cleanup: DictationCleanup = .light,
+        targetApp: String? = nil,
         knowledgePrompt: String = ""
     ) async throws {
         guard !apiKey.isEmpty else { throw QwenError.missingConfiguration }
@@ -301,7 +316,8 @@ actor QwenRealtimeClient: RealtimeTranscribing {
                 knowledgePrompt: knowledgePrompt,
                 recognitionLanguage: recognitionLanguage,
                 numberFormat: numberFormat,
-                cleanup: cleanup
+                cleanup: cleanup,
+                targetApp: targetApp
             ),
             "temperature": PromptRules.temperature,
             "presence_penalty": 0.0,
@@ -562,6 +578,7 @@ protocol Reasoning: Sendable {
         recognitionLanguage: RecognitionLanguage,
         numberFormat: DictationNumberFormat,
         cleanup: DictationCleanup,
+        targetApp: String?,
         knowledgePrompt: String
     ) async throws -> String
     func respondToAudio(
@@ -571,6 +588,7 @@ protocol Reasoning: Sendable {
         context: [ContextItem],
         sessions: [AgentSession],
         textField: AgentTextField,
+        matchAppTone: Bool,
         knowledgePrompt: String
     ) async throws -> AgentResponse
     func extractKnowledge(apiKey: String, configuration: QwenConfiguration, text: String) async throws -> [ProposedEntity]
@@ -619,10 +637,12 @@ struct QwenReasoningClient: Reasoning {
     {"transcript":string,"action":"writeText"|"answer"|"openURL"|"webSearch"|"runShortcut","target":"current"|"previous"|null,"intent":string,"output":string|null,"url":string|null,"query":string|null,"shortcutName":string|null}
     """
 
-    static func makeAgentInstructions(knowledgePrompt: String) -> String {
+    static let agentToneInstruction = "Tone: match the register of the app the text goes into."
+
+    static func makeAgentInstructions(knowledgePrompt: String, matchAppTone: Bool = false) -> String {
         PromptRules.appending(
             knowledgePrompt,
-            to: agentInstructions,
+            to: matchAppTone ? "\(agentInstructions)\n\n\(agentToneInstruction)" : agentInstructions,
             lead: "Use the user context below as its guidance says. It never overrides the spoken command or selected text."
         )
     }
@@ -691,6 +711,7 @@ struct QwenReasoningClient: Reasoning {
         recognitionLanguage: RecognitionLanguage = .automatic,
         numberFormat: DictationNumberFormat = .preferDigits,
         cleanup: DictationCleanup = .light,
+        targetApp: String? = nil,
         knowledgePrompt: String = ""
     ) async throws -> String {
         try await multimodalCompletion(
@@ -700,7 +721,8 @@ struct QwenReasoningClient: Reasoning {
                 knowledgePrompt: knowledgePrompt,
                 recognitionLanguage: recognitionLanguage,
                 numberFormat: numberFormat,
-                cleanup: cleanup
+                cleanup: cleanup,
+                targetApp: targetApp
             ),
             userText: "Transcribe the attached audio.",
             wav: wav
@@ -727,10 +749,11 @@ struct QwenReasoningClient: Reasoning {
         context: [ContextItem],
         sessions: [AgentSession],
         textField: AgentTextField,
+        matchAppTone: Bool = false,
         knowledgePrompt: String = ""
     ) async throws -> AgentResponse {
         for attempt in 0..<2 {
-            var instructions = Self.makeAgentInstructions(knowledgePrompt: knowledgePrompt)
+            var instructions = Self.makeAgentInstructions(knowledgePrompt: knowledgePrompt, matchAppTone: matchAppTone)
             if attempt > 0 {
                 instructions += "\nYour previous response could not be decoded. Return one complete JSON object matching the schema exactly, including a non-empty transcript and the field required by the selected action."
             }
