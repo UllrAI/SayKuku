@@ -230,7 +230,9 @@ struct TextWriteVerificationTests {
             selectedRange: range,
             selectedText: "",
             valueBefore: value,
-            isSensitive: false
+            isSensitive: false,
+            caretFrame: nil,
+            windowFrame: nil
         )
     }
 }

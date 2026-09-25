@@ -111,7 +111,9 @@ struct AgentPromptTests {
             selectedRange: nil,
             selectedText: "明天下午见",
             valueBefore: nil,
-            isSensitive: false
+            isSensitive: false,
+            caretFrame: nil,
+            windowFrame: nil
         )
         func input(isChineseUI: Bool) -> String {
             var context = ContextCollector.collect(
