@@ -80,7 +80,7 @@ struct AgentPromptTests {
         let previous = #"{"transcript":"改短刚才那句","action":"writeText","target":"previous","intent":"精简","output":"短句","url":null,"query":null,"shortcutName":null}"#
         #expect(QwenReasoningClient.decodeAgentResponse(previous)?.target == .previous)
         // Only the previous output may be replaced with nothing.
-        let deletion = #"{"transcript":"算了","action":"writeText","target":"previous","intent":"删除","output":"","url":null,"query":null,"shortcutName":null}"#
+        let deletion = #"{"transcript":"删掉刚才那段","action":"writeText","target":"previous","intent":"删除","output":"","url":null,"query":null,"shortcutName":null}"#
         #expect(QwenReasoningClient.decodeAgentResponse(deletion)?.deletesPrevious == true)
         let emptyWrite = #"{"transcript":"写一段","action":"writeText","target":"current","intent":"写作","output":"","url":null,"query":null,"shortcutName":null}"#
         #expect(QwenReasoningClient.decodeAgentResponse(emptyWrite) == nil)
@@ -188,7 +188,8 @@ struct AgentPromptTests {
         #expect(prompt.contains(#"Use target "previous" only when the user explicitly refers to what SayKuku just wrote."#))
         #expect(prompt.contains(#"Otherwise, if Previous SayKuku output is present, it is the object of editing commands"#))
         #expect(prompt.contains(#"use target "previous" and transform it. Leave it alone only when the user asks for new text"#))
-        #expect(prompt.contains(#"reply writeText with target "previous" and output "". No other writeText may have an empty output."#))
+        #expect(prompt.contains(#"reply writeText with target "previous" and output "". Delete only when the request clearly points at what was just written"#))
+        #expect(prompt.contains(#""算了" or "never mind" alone is no command, so reply only {"transcript":""}. No other writeText may have an empty output."#))
         #expect(!prompt.contains("explicitly asks to revise"))
     }
 
@@ -230,7 +231,7 @@ struct AgentPromptTests {
         let selected = ContextItem(kind: .selectedText, symbol: "text.quote", title: "选中文字 · 5 字", value: "明天下午见")
         let rewrite = AgentResponse(transcript: "改成英文", action: .writeText, target: .current, intent: "翻译", output: "See you tomorrow afternoon")
         let revision = AgentResponse(transcript: "再短一点", action: .writeText, target: .previous, intent: "精简", output: "See you")
-        let deletion = AgentResponse(transcript: "算了", action: .writeText, target: .previous, intent: "删除", output: "")
+        let deletion = AgentResponse(transcript: "删掉刚才那段", action: .writeText, target: .previous, intent: "删除", output: "")
         let answer = AgentResponse(transcript: "这是什么", action: .answer, target: nil, intent: "解释", output: "说明")
 
         #expect(QwenReasoningClient.sessionContextSummary(context: [selected], response: rewrite) == "Action: writeText\nSelected text:\n明天下午见")

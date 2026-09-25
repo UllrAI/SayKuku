@@ -259,6 +259,11 @@ final class FakeTextWriting: TextWriting {
 
     func replacementSnapshot(for write: VerifiedWrite) throws -> TextTargetSnapshot {
         if let replacementError { throw replacementError }
-        return write.target
+        // Like the real one: the written text, selected in the field it was written to.
+        return .fake(
+            selectedText: write.text,
+            valueBefore: write.expectedValue,
+            selectedRange: CFRange(location: write.target.selectedRange?.location ?? 0, length: (write.text as NSString).length)
+        )
     }
 }

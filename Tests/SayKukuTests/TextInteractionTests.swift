@@ -182,7 +182,7 @@ struct TextWriteVerificationTests {
         let whole = ContextItem(kind: .previousOutput, symbol: "", title: "", value: "done")
         let rewrite = AgentResponse(transcript: "翻译", action: .writeText, target: .current, output: "x")
         let revision = AgentResponse(transcript: "再短一点", action: .writeText, target: .previous, output: "x")
-        let deletion = AgentResponse(transcript: "算了", action: .writeText, target: .previous, output: "")
+        let deletion = AgentResponse(transcript: "删掉刚才那段", action: .writeText, target: .previous, output: "")
         let clippedPrevious = ContextItem(kind: .previousOutput, symbol: "", title: "", value: "…", isClipped: true)
         #expect(AgentActionExecutor.replacesClippedText(rewrite, context: [clipped, whole]))
         #expect(!AgentActionExecutor.replacesClippedText(revision, context: [clipped, whole]))
