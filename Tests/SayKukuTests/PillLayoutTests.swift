@@ -56,31 +56,31 @@ struct OverlayLayoutTests {
     func belowCaret() {
         let origin = OverlayLayout.origin(
             caretFrame: CGRect(x: 700, y: 500, width: 2, height: 18),
-            windowFrame: nil, visibleFrame: visibleFrame, panelSize: pillSize
+            windowFrame: nil, visibleFrame: visibleFrame, panelSize: pillSize, contentHeight: 36
         )
 
-        #expect(origin == CGPoint(x: 511, y: 500 - 12 - 92))
+        #expect(origin == CGPoint(x: 511, y: 500 - 12 - 16 - 36))
     }
 
     @Test("moves above the caret when there's no room below")
     func aboveCaret() {
         let origin = OverlayLayout.origin(
             caretFrame: CGRect(x: 700, y: 100, width: 2, height: 18),
-            windowFrame: nil, visibleFrame: visibleFrame, panelSize: pillSize
+            windowFrame: nil, visibleFrame: visibleFrame, panelSize: pillSize, contentHeight: 36
         )
 
-        #expect(origin == CGPoint(x: 511, y: 118 + 12))
+        #expect(origin == CGPoint(x: 511, y: 118 + 12 - 16))
     }
 
     @Test("stays inside the visible frame near a screen edge")
     func clampedToScreen() {
         let right = OverlayLayout.origin(
             caretFrame: CGRect(x: 1430, y: 500, width: 2, height: 18),
-            windowFrame: nil, visibleFrame: visibleFrame, panelSize: pillSize
+            windowFrame: nil, visibleFrame: visibleFrame, panelSize: pillSize, contentHeight: 36
         )
         let left = OverlayLayout.origin(
             caretFrame: CGRect(x: 4, y: 500, width: 2, height: 18),
-            windowFrame: nil, visibleFrame: visibleFrame, panelSize: pillSize
+            windowFrame: nil, visibleFrame: visibleFrame, panelSize: pillSize, contentHeight: 36
         )
 
         #expect(right.x == 1440 - 380)
@@ -92,10 +92,10 @@ struct OverlayLayoutTests {
         let window = OverlayLayout.origin(
             caretFrame: nil,
             windowFrame: CGRect(x: 100, y: 200, width: 800, height: 600),
-            visibleFrame: visibleFrame, panelSize: pillSize
+            visibleFrame: visibleFrame, panelSize: pillSize, contentHeight: 36
         )
         let screen = OverlayLayout.origin(
-            caretFrame: nil, windowFrame: nil, visibleFrame: visibleFrame, panelSize: pillSize
+            caretFrame: nil, windowFrame: nil, visibleFrame: visibleFrame, panelSize: pillSize, contentHeight: 36
         )
 
         #expect(window == CGPoint(x: 310, y: 208))
