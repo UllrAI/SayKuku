@@ -104,28 +104,40 @@ struct TextWriteVerificationTests {
         #expect(AgentActionExecutor.webSearchURL(for: "weather", region: .singapore)?.host == "www.google.com")
     }
 
-    @Test("a shortcut runs only when its name was spoken")
-    func spokenShortcutName() {
-        #expect(AgentActionExecutor.isShortcut("Morning Routine", spokenIn: "运行 morning routine"))
-        #expect(AgentActionExecutor.isShortcut("早安 例程", spokenIn: "帮我跑一下早安例程"))
-        #expect(!AgentActionExecutor.isShortcut("Send Clipboard", spokenIn: "翻译一下"))
-        #expect(!AgentActionExecutor.isShortcut(" ", spokenIn: "运行快捷指令"))
-    }
-
-    @Test("links chosen with untrusted context wait for confirmation")
-    func openURLConfirmation() {
+    @Test("links and shortcuts chosen with untrusted context wait for confirmation")
+    func actionConfirmation() {
         let open = AgentResponse(transcript: "打开官网", action: .openURL, url: "https://example.com")
+        let shortcut = AgentResponse(transcript: "运行早安", action: .runShortcut, shortcutName: "早安")
         let search = AgentResponse(transcript: "搜一下", action: .webSearch, query: "SayKuku")
         let app = ContextItem(kind: .app, symbol: "app", title: "Notes", value: "com.apple.Notes")
-        let window = ContextItem(kind: .window, symbol: "macwindow", title: "Window title", value: "Notes")
-        #expect(!AgentActionExecutor.needsConfirmation(open, context: [app, window]))
-        for kind: ContextItem.Kind in [.selectedText, .previousOutput, .clipboard, .browser, .session] {
+        let domain = ContextItem(kind: .domain, symbol: "text.bubble", title: "Domains", value: "Swift")
+        #expect(!AgentActionExecutor.needsConfirmation(open, context: [app, domain]))
+        #expect(!AgentActionExecutor.needsConfirmation(shortcut, context: [app, domain]))
+        for kind: ContextItem.Kind in [.selectedText, .previousOutput, .window, .clipboard, .browser, .session] {
             let untrusted = ContextItem(kind: kind, symbol: "", title: "", value: "text")
             #expect(AgentActionExecutor.needsConfirmation(open, context: [app, untrusted]))
+            #expect(AgentActionExecutor.needsConfirmation(shortcut, context: [app, untrusted]))
             #expect(!AgentActionExecutor.needsConfirmation(search, context: [untrusted]))
         }
-        #expect(AgentActionExecutor.webURL("file:///etc/passwd") == nil)
+    }
+
+    @Test("only plain web links open")
+    func webLinks() {
         #expect(AgentActionExecutor.webURL("https://example.com")?.host == "example.com")
+        #expect(AgentActionExecutor.webURL("file:///etc/passwd") == nil)
+        #expect(AgentActionExecutor.webURL("https://google.com@evil.example/") == nil)
+        #expect(AgentActionExecutor.webURL("https://user:pass@example.com/") == nil)
+    }
+
+    @Test("rewriting clipped text is not written back")
+    func clippedWriteBack() {
+        let clipped = ContextItem(kind: .selectedText, symbol: "", title: "", value: "…", isClipped: true)
+        let whole = ContextItem(kind: .previousOutput, symbol: "", title: "", value: "done")
+        let rewrite = AgentResponse(transcript: "翻译", action: .writeText, target: .current, output: "x")
+        let revision = AgentResponse(transcript: "再短一点", action: .writeText, target: .previous, output: "x")
+        #expect(AgentActionExecutor.replacesClippedText(rewrite, context: [clipped, whole]))
+        #expect(!AgentActionExecutor.replacesClippedText(revision, context: [clipped, whole]))
+        #expect(!AgentActionExecutor.replacesClippedText(rewrite, context: [whole]))
     }
 
     @Test("long context is clipped and labeled")
