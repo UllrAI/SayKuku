@@ -237,7 +237,8 @@ enum KukuState {
 
 // MARK: - Typography
 
-/// Eight sizes, no half points. Rounded only for titles; weights stay within regular, medium and semibold.
+/// Eight roles on the system text styles, so text follows the Text Size setting in Accessibility.
+/// Rounded only for titles; weights stay within regular, medium and semibold.
 enum KukuTextStyle: Sendable {
     /// Page title in `ScreenHeader`.
     case largeTitle
@@ -256,15 +257,16 @@ enum KukuTextStyle: Sendable {
     /// Eyebrows, badges, key caps, timestamps.
     case caption
 
-    var size: CGFloat {
+    /// Default sizes: 22, 17, 15, 13, 12, 11 and 10 pt.
+    var textStyle: Font.TextStyle {
         switch self {
-        case .largeTitle: 22
-        case .title: 18
-        case .title3: 15
-        case .headline, .body: 13
-        case .callout: 12
-        case .subheadline: 11
-        case .caption: 10
+        case .largeTitle: .title
+        case .title: .title2
+        case .title3: .title3
+        case .headline, .body: .body
+        case .callout: .callout
+        case .subheadline: .subheadline
+        case .caption: .footnote
         }
     }
 
@@ -307,7 +309,7 @@ enum KukuIconSize: CGFloat, Sendable {
 
 extension Font {
     static func kuku(_ style: KukuTextStyle, weight: Font.Weight? = nil) -> Font {
-        .system(size: style.size, weight: weight ?? style.weight, design: style.design)
+        .system(style.textStyle, design: style.design, weight: weight ?? style.weight)
     }
 
     static func kukuIcon(_ size: KukuIconSize, weight: Font.Weight = .medium) -> Font {
@@ -414,6 +416,7 @@ private struct KukuGlassPillModifier: ViewModifier {
 }
 
 enum KukuPillLayout {
+    /// `fixedContentWidth` is everything besides the text at the default Text Size: padding, gaps, glyphs and buttons.
     static func width(
         for text: String,
         minimum: CGFloat,
@@ -422,7 +425,9 @@ enum KukuPillLayout {
         fontWeight: NSFont.Weight = .semibold
     ) -> CGFloat {
         // Pill text is always callout; only the weight differs between states and errors.
-        let font = NSFont.systemFont(ofSize: KukuTextStyle.callout.size, weight: fontWeight)
+        // Read the size on each call so the width follows the current Text Size setting.
+        let size = NSFont.preferredFont(forTextStyle: .callout).pointSize
+        let font = NSFont.systemFont(ofSize: size, weight: fontWeight)
         let textWidth = (text as NSString).size(withAttributes: [.font: font]).width
         return min(max(ceil(textWidth + fixedContentWidth), minimum), maximum)
     }

@@ -147,7 +147,8 @@ struct AgentPill: View {
         .animation(Motion.snappy, value: appState.agentPhase)
         .animation(Motion.snappy, value: appState.liveTranscript.isEmpty)
         .padding(.horizontal, KukuSpacing.sm)
-        .frame(width: width, height: KukuLayout.pillHeight)
+        .frame(width: width)
+        .frame(minHeight: KukuLayout.pillHeight)
         .kukuGlassPill()
         .animation(Motion.pill, value: width)
     }
@@ -370,7 +371,8 @@ struct DictationPill: View {
         .font(.kuku(.callout, weight: .semibold))
         .foregroundStyle(appState.dictationPhase == .success ? KukuColor.textSecondary : KukuColor.textPrimary)
         .padding(.horizontal, KukuSpacing.sm)
-        .frame(width: width, height: KukuLayout.pillHeight)
+        .frame(width: width)
+        .frame(minHeight: KukuLayout.pillHeight)
         .kukuGlassPill()
         .animation(Motion.pill, value: width)
     }
