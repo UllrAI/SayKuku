@@ -310,7 +310,7 @@ Scripts/release.sh
    gh release create "v${VERSION}" "Dist/SayKuku-${VERSION}.dmg"
    ```
 
-2. 需要时在 `Dist/ver.json` 的 `notes` 里写几行更新说明（弹窗只显示前几行），再把它上传到 `https://saykuku.ullrai.com/ver.json`。
+2. 需要时在 `Dist/ver.json` 的 `notes` 里写几行更新说明（弹窗只显示前几行），用 `python3 -m json.tool Dist/ver.json` 确认仍是合法 JSON（多一个逗号或句号都会让所有客户端读取失败），再把它上传到 `https://saykuku.ullrai.com/ver.json`。
 
 一定要等 Release 可以下载后再上传 `ver.json`：已安装的 App 读到更新的版本号就会弹窗，“前往下载”打开的正是 `url` 指向的 Release 页面。`ver.json` 的格式：
 
@@ -324,7 +324,7 @@ Scripts/release.sh
 
 `version` 与 `url` 必填，`url` 必须是 `https` 地址；`notes` 可选，其他字段忽略。缺少必填字段，或 `version` 不是以 `.` 分隔的纯数字时，App 视为读取失败：自动检查不提示，手动检查提示“无法检查更新”。检查地址写在 `Scripts/Resources/Info.plist` 的 `SayKukuUpdateURL`，换托管地址时只改这个值，并确保旧版本能访问的地址继续可用。
 
-上传后，已安装的正式版会在下一次自动检查（启动 10 秒后，之后每 24 小时）时提示新版本，用户也可从菜单或设置 › 通用的“检查更新…”立即检查。
+上传后，已安装的正式版会在下一次自动检查（启动 10 秒后，之后每 24 小时）时提示新版本，用户也可从 App 菜单或设置 › 通用的“检查更新…”立即检查。
 
 ### DMG 安装窗口
 
