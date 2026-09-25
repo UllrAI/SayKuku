@@ -796,7 +796,7 @@ final class AppState {
     }
     func showToast(_ text: String, symbol: String) {
         let message = ToastMessage(text: text, symbol: symbol)
-        toast = message
+        withAnimation(Motion.snappy) { toast = message }
         Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(2.4))
             guard self?.toast?.id == message.id else { return }
