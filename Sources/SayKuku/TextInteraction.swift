@@ -174,46 +174,61 @@ final class TextInteraction {
     @discardableResult
     func write(_ text: String, to snapshot: TextTargetSnapshot) async throws -> TextWriteOutcome {
         try Task.checkCancellation()
-        let element = try validate(snapshot)
-        let expectedValue = Self.expectedValue(afterWriting: text, to: snapshot)
-        var settable = DarwinBoolean(false)
-
-        if let element, let expectedValue,
-           AXUIElementIsAttributeSettable(
-               element,
-               kAXSelectedTextAttribute as CFString,
-               &settable
-           ) == .success,
-           settable.boolValue {
-            try Task.checkCancellation()
-            let setStatus = AXUIElementSetAttributeValue(
-                element,
-                kAXSelectedTextAttribute as CFString,
-                text as CFTypeRef
-            )
-            if setStatus == .success {
-                // The text is already in, so a cancel must not cut verification short (see `paste`).
-                let verified = try await Task {
-                    try await waitForExpectedValue(expectedValue, in: element, snapshot: snapshot)
-                }.value
-                if verified {
-                    Self.logger.info("Text delivered with verified Accessibility insertion")
-                    return .verified
-                }
-                guard let current = currentValue(in: snapshot) else {
-                    Self.logger.info("Accessibility insertion made the target unreadable; avoiding a duplicate paste")
-                    return .deliveredUnverified
-                }
-                if current != snapshot.valueBefore {
-                    Self.logger.info("Accessibility insertion changed text but could not be verified exactly")
-                    return .deliveredUnverified
-                }
-                Self.logger.info("Accessibility insertion made no observable change; falling back to paste")
-            }
+        if let element = try validate(snapshot),
+           let outcome = try await insertWithAccessibility(text, into: element, snapshot: snapshot) {
+            logWrite(to: snapshot, route: "accessibility", result: String(describing: outcome))
+            return outcome
         }
 
         try Task.checkCancellation()
-        return try await paste(text, to: snapshot)
+        do {
+            let outcome = try await paste(text, to: snapshot)
+            logWrite(to: snapshot, route: "paste", result: String(describing: outcome))
+            return outcome
+        } catch {
+            logWrite(to: snapshot, route: "paste", result: String(describing: error))
+            throw error
+        }
+    }
+
+    /// Returns nil when the field can't take an Accessibility write or visibly ignored it, so the caller pastes.
+    private func insertWithAccessibility(
+        _ text: String, into element: AXUIElement, snapshot: TextTargetSnapshot
+    ) async throws -> TextWriteOutcome? {
+        var settable = DarwinBoolean(false)
+        guard let expectedValue = Self.expectedValue(afterWriting: text, to: snapshot),
+              AXUIElementIsAttributeSettable(element, kAXSelectedTextAttribute as CFString, &settable) == .success,
+              settable.boolValue else { return nil }
+        try Task.checkCancellation()
+        guard AXUIElementSetAttributeValue(element, kAXSelectedTextAttribute as CFString, text as CFTypeRef) == .success else {
+            return nil
+        }
+
+        // The text may already be in, so a cancel must not cut verification short (see `paste`).
+        return try await Task<TextWriteOutcome?, Error> {
+            if try await waitForExpectedValue(expectedValue, in: element, snapshot: snapshot) { return .verified }
+            let ignored = Self.insertionWasIgnored(
+                caret: selectedRange(of: element),
+                value: currentValue(in: snapshot),
+                snapshot: snapshot
+            )
+            return ignored ? nil : .deliveredUnverified
+        }.value
+    }
+
+    /// Some apps update AXValue well after the verification window while the caret has already moved
+    /// past the inserted text. Only an untouched caret and value show the write was ignored; pasting
+    /// after anything else risks inserting the text twice.
+    nonisolated static func insertionWasIgnored(
+        caret: CFRange?, value: String?, snapshot: TextTargetSnapshot
+    ) -> Bool {
+        caret == snapshot.selectedRange && value == snapshot.valueBefore
+    }
+
+    private func logWrite(to snapshot: TextTargetSnapshot, route: String, result: String) {
+        Self.logger.info(
+            "Text write bundle=\(snapshot.bundleID, privacy: .public) route=\(route, privacy: .public) result=\(result, privacy: .public)"
+        )
     }
 
     func currentValue(of snapshot: TextTargetSnapshot) -> String? {
@@ -287,7 +302,6 @@ final class TextInteraction {
                try await waitForExpectedValue(expectedValue, in: element, snapshot: snapshot) {
                 try? await Task.sleep(for: .milliseconds(180))
                 restore(previous, ifOwnedBy: sessionID, on: pasteboard)
-                Self.logger.info("Text delivered with verified synthetic paste")
                 return .verified
             }
 
@@ -306,7 +320,6 @@ final class TextInteraction {
             }
             try? await Task.sleep(for: .milliseconds(350))
             restore(previous, ifOwnedBy: sessionID, on: pasteboard)
-            Self.logger.info("Text delivered with synthetic paste; target does not expose verifiable text")
             return .deliveredUnverified
         }.value
     }
