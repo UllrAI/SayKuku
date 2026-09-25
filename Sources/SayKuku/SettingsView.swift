@@ -112,7 +112,7 @@ private struct VoiceInputSettings: View {
                 KukuDivider()
                 KukuRow(appState.text("识别词表", "Vocabulary"), caption: vocabularySummary) {
                     Button(appState.text("打开知识", "Open Knowledge")) {
-                        appState.destination = .knowledge
+                        appState.showMainWindow(destination: .knowledge)
                     }
                     .buttonStyle(.kukuSecondary)
                 }
