@@ -103,6 +103,32 @@ if [[ "$CONFIGURATION" != "release" ]]; then
     /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName SayKuku Dev" "$APP_DIR/Contents/Info.plist"
 fi
 cp "$ROOT_DIR/Scripts/Resources/AppIcon.icns" "$APP_DIR/Contents/Resources/AppIcon.icns"
+# macOS 26 draws the layered Icon Composer icon from Assets.car via
+# CFBundleIconName; older systems keep AppIcon.icns via CFBundleIconFile.
+# A missing or failing actool only costs the layered icon, never the package.
+ICON_SOURCE="$ROOT_DIR/Scripts/Resources/AppIcon.icon"
+if [[ -d "$ICON_SOURCE" ]]; then
+    ICON_WORK_DIR="$ROOT_DIR/Build/AppIcon.actool"
+    ICON_PARTIAL_PLIST="$ICON_WORK_DIR/assetcatalog_generated_info.plist"
+    rm -rf "$ICON_WORK_DIR"
+    mkdir -p "$ICON_WORK_DIR"
+    # The .icon basename must match --app-icon. Target macOS 26 so actool
+    # does not bake legacy renditions that would replace AppIcon.icns on 15.
+    if xcrun actool "$ICON_SOURCE" --compile "$ICON_WORK_DIR" \
+            --output-format human-readable-text --notices --warnings --errors \
+            --output-partial-info-plist "$ICON_PARTIAL_PLIST" \
+            --app-icon AppIcon --include-all-app-icons \
+            --enable-on-demand-resources NO --development-region en \
+            --target-device mac --platform macosx --minimum-deployment-target 26.0 \
+            >"$ICON_WORK_DIR/actool.log" 2>&1 \
+        && [[ -f "$ICON_WORK_DIR/Assets.car" ]] \
+        && [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconName' "$ICON_PARTIAL_PLIST" 2>/dev/null)" == "AppIcon" ]]; then
+        cp "$ICON_WORK_DIR/Assets.car" "$APP_DIR/Contents/Resources/Assets.car"
+        /usr/libexec/PlistBuddy -c "Add :CFBundleIconName string AppIcon" "$APP_DIR/Contents/Info.plist"
+    else
+        print -u2 "warning: actool could not compile AppIcon.icon (see $ICON_WORK_DIR/actool.log); shipping AppIcon.icns only"
+    fi
+fi
 cp -R "$ROOT_DIR/Scripts/Resources/en.lproj" "$APP_DIR/Contents/Resources/en.lproj"
 cp -R "$ROOT_DIR/Scripts/Resources/zh-Hans.lproj" "$APP_DIR/Contents/Resources/zh-Hans.lproj"
 # Redistributing Sparkle's binaries requires shipping its license notices.
