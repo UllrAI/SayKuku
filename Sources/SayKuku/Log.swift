@@ -11,6 +11,7 @@ enum Log {
     static let shortcut = Logger(subsystem: subsystem, category: "Shortcut")
     static let permissions = Logger(subsystem: subsystem, category: "Permissions")
     static let text = Logger(subsystem: subsystem, category: "TextInteraction")
+    static let update = Logger(subsystem: subsystem, category: "Update")
     static let workflow = Logger(subsystem: subsystem, category: "Workflow")
 
     /// An error's type and case, or its domain and code, never its message:
