@@ -17,8 +17,8 @@ struct VoiceWorkflowTests {
         #expect(state.dictationPhase == .processing)
         #expect(await eventually { state.dictationPhase == .success })
         #expect(text.writes == ["Hello world."])
-        #expect(state.historyEntries.first?.status == .completed)
-        #expect(state.historyEntries.first?.output == "Hello world.")
+        #expect(state.data.historyEntries.first?.status == .completed)
+        #expect(state.data.historyEntries.first?.output == "Hello world.")
         #expect(state.canUndoLastWrite)
     }
 
@@ -35,7 +35,7 @@ struct VoiceWorkflowTests {
         #expect(await eventually { state.dictationPhase == .copyReady })
         #expect(state.pendingCopyText == "Hello world.")
         #expect(NSPasteboard.general.string(forType: .string) == "Hello world.")
-        #expect(state.historyEntries.first?.status == .completed)
+        #expect(state.data.historyEntries.first?.status == .completed)
         #expect(!state.canUndoLastWrite)
     }
 
@@ -52,7 +52,7 @@ struct VoiceWorkflowTests {
         try #require(await eventually { reasoning.transcribeCount == 1 })
         state.cancelDictation()
         #expect(state.dictationPhase == .idle)
-        #expect(await eventually { state.historyEntries.first?.status == .cancelled })
+        #expect(await eventually { state.data.historyEntries.first?.status == .cancelled })
         #expect(text.writes.isEmpty)
     }
 
@@ -67,14 +67,14 @@ struct VoiceWorkflowTests {
         try await startListening(state)
         state.finishDictation()
         try #require(await eventually { reasoning.transcribeCount == 1 })
-        let first = try #require(state.historyEntries.first?.id)
+        let first = try #require(state.data.historyEntries.first?.id)
 
         try await startListening(state)
-        #expect(await eventually { state.historyEntries.first(where: { $0.id == first })?.status == .cancelled })
+        #expect(await eventually { state.data.historyEntries.first(where: { $0.id == first })?.status == .cancelled })
         state.finishDictation()
         #expect(await eventually { state.dictationPhase == .success })
         #expect(text.writes == ["Second take."])
-        #expect(state.historyEntries.count == 2)
+        #expect(state.data.historyEntries.count == 2)
     }
 
     @Test("a realtime timeout falls back to batch once; a rejected key fails without it")
@@ -87,13 +87,13 @@ struct VoiceWorkflowTests {
             #expect(await run.realtime.appendCount == 1)
             #expect(await run.realtime.commitCount == 1)
             #expect(run.reasoning.transcribeCount == 1)
-            #expect(run.state.historyEntries.first?.status == .completed)
+            #expect(run.state.data.historyEntries.first?.status == .completed)
         }
         do {
             let environment = AppStateTestEnvironment()
             defer { environment.clean() }
             let run = try await dictateOverRealtime(failingWith: .server(status: 401, message: "Unauthorized"), in: environment)
-            #expect(await eventually { run.state.historyEntries.first?.status == .failed })
+            #expect(await eventually { run.state.data.historyEntries.first?.status == .failed })
             #expect(await run.realtime.commitCount == 1)
             #expect(run.reasoning.transcribeCount == 0)
             #expect(run.state.dictationPhase == .idle)
@@ -146,7 +146,7 @@ struct VoiceWorkflowTests {
 
         try await startListening(state)
         state.finishDictation()
-        #expect(await eventually { state.historyEntries.first?.status == .failed })
+        #expect(await eventually { state.data.historyEntries.first?.status == .failed })
         #expect(state.overlayError == QwenError.noSpeech.localizedDescription)
         #expect(state.dictationPhase == .idle)
         #expect(reasoning.transcribeCount == 0)
@@ -209,7 +209,7 @@ struct VoiceWorkflowTests {
         #expect(await eventually { state.agentPhase == .result })
         #expect(text.writes == ["Hello world.", ""])
         #expect(state.resultCanUndo)
-        #expect(state.historyEntries.map(\.output) == ["Hello world."])
+        #expect(state.data.historyEntries.map(\.output) == ["Hello world."])
 
         // The next turn sees the deletion in the Session, but not the emptied range as text to revise.
         text.snapshot = .fake(valueBefore: "", selectedRange: CFRange(location: 0, length: 0))

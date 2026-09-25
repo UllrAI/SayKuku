@@ -94,7 +94,7 @@ private struct Sidebar: View {
                         title: destination.title,
                         symbol: destination.symbol,
                         isSelected: selection == destination,
-                        badgeCount: destination == .knowledge ? appState.pendingCorrections.count : 0
+                        badgeCount: destination == .knowledge ? appState.data.pendingCorrections.count : 0
                     ) {
                         selection = destination
                     }

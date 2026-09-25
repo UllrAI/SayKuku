@@ -121,13 +121,13 @@ struct CorrectionMemoryTests {
     @Test("knowledge added without detail keeps it empty")
     func manualKnowledgeDetail() {
         withState { state in
-            #expect(state.addKnowledge(name: "AniKuku", type: .project, detail: "  ") == nil)
-            #expect(state.knowledgeEntities.first?.detail == "")
-            #expect(state.addKnowledge(name: "WorkBuddy", type: .project) == nil)
-            #expect(state.knowledgeEntities.first?.detail == "")
-            #expect(state.addKnowledge(name: " ani kuku ", type: .term) == .duplicate(existingName: "AniKuku"))
-            #expect(state.addKnowledge(name: "  ", type: .term) == .emptyName)
-            #expect(state.knowledgeEntities.count == 2)
+            #expect(state.data.addKnowledge(name: "AniKuku", type: .project, detail: "  ") == nil)
+            #expect(state.data.knowledgeEntities.first?.detail == "")
+            #expect(state.data.addKnowledge(name: "WorkBuddy", type: .project) == nil)
+            #expect(state.data.knowledgeEntities.first?.detail == "")
+            #expect(state.data.addKnowledge(name: " ani kuku ", type: .term) == .duplicate(existingName: "AniKuku"))
+            #expect(state.data.addKnowledge(name: "  ", type: .term) == .emptyName)
+            #expect(state.data.knowledgeEntities.count == 2)
         }
     }
 
@@ -135,13 +135,13 @@ struct CorrectionMemoryTests {
     func acceptedCorrection() {
         withState { state in
             let record = CorrectionRecord(raw: "王小明", corrected: "王晓明", lastApp: "TextEdit")
-            state.corrections = [record]
-            state.acceptCorrection(record.id)
-            let entity = state.knowledgeEntities.first { $0.name == "王晓明" }
+            state.data.corrections = [record]
+            state.data.acceptCorrection(record.id)
+            let entity = state.data.knowledgeEntities.first { $0.name == "王晓明" }
             #expect(entity?.detail == "TextEdit")
             #expect(entity?.aliases == ["王小明"])
             #expect(entity?.source == .correction)
-            #expect(state.corrections.first?.status == .accepted)
+            #expect(state.data.corrections.first?.status == .accepted)
         }
     }
 
@@ -150,9 +150,9 @@ struct CorrectionMemoryTests {
         withState { state in
             let pending = CorrectionRecord(raw: "张月", corrected: "张越", lastApp: "Notes")
             let ignored = CorrectionRecord(raw: "work body", corrected: "WorkBuddy", lastApp: "Notes")
-            state.corrections = [pending, ignored]
-            state.ignoreCorrection(ignored.id)
-            #expect(state.pendingCorrections.map(\.id) == [pending.id])
+            state.data.corrections = [pending, ignored]
+            state.data.ignoreCorrection(ignored.id)
+            #expect(state.data.pendingCorrections.map(\.id) == [pending.id])
         }
     }
 
@@ -173,11 +173,11 @@ struct CorrectionMemoryTests {
 
             state.noteCorrection(change, app: "Notes", windowTitle: "")
             #expect(state.overlayError == nil)
-            #expect(state.corrections.count == 1)
-            #expect(state.corrections.first?.count == 3)
-            #expect(state.corrections.first?.promptCount == CorrectionRecord.promptLimit)
-            #expect(state.pendingCorrections.count == 1)
-            #expect(state.knowledgeEntities.isEmpty)
+            #expect(state.data.corrections.count == 1)
+            #expect(state.data.corrections.first?.count == 3)
+            #expect(state.data.corrections.first?.promptCount == CorrectionRecord.promptLimit)
+            #expect(state.data.pendingCorrections.count == 1)
+            #expect(state.data.knowledgeEntities.isEmpty)
         }
     }
 
@@ -187,12 +187,12 @@ struct CorrectionMemoryTests {
             let change = CorrectionCandidate(before: "work body", after: "WorkBuddy")
             state.noteCorrection(change, app: "Notes", windowTitle: "")
             state.pressOverlayButton(at: 1)
-            #expect(state.knowledgeEntities.map(\.name) == ["WorkBuddy"])
-            #expect(state.knowledgeEntities.first?.aliases == ["work body"])
-            #expect(state.corrections.first?.status == .accepted)
+            #expect(state.data.knowledgeEntities.map(\.name) == ["WorkBuddy"])
+            #expect(state.data.knowledgeEntities.first?.aliases == ["work body"])
+            #expect(state.data.corrections.first?.status == .accepted)
             #expect(state.overlayError == localized("Remembered"))
             #expect(state.overlayButtons.isEmpty)
-            #expect(state.pendingCorrections.isEmpty)
+            #expect(state.data.pendingCorrections.isEmpty)
 
             state.noteCorrection(change, app: "Notes", windowTitle: "")
             #expect(state.overlayButtons.isEmpty)
@@ -204,12 +204,12 @@ struct CorrectionMemoryTests {
         withState { state in
             state.noteCorrection(CorrectionCandidate(before: "张月", after: "张越"), app: "Notes", windowTitle: "Weekly sync")
             state.pressOverlayButton(at: 1)
-            #expect(state.knowledgeEntities.first?.detail == "Notes · Weekly sync")
+            #expect(state.data.knowledgeEntities.first?.detail == "Notes · Weekly sync")
 
             state.settings.windowTitleAllowed = false
             state.noteCorrection(CorrectionCandidate(before: "work body", after: "WorkBuddy"), app: "Slack", windowTitle: "#product")
             state.pressOverlayButton(at: 1)
-            #expect(state.knowledgeEntities.last?.detail == "Slack")
+            #expect(state.data.knowledgeEntities.last?.detail == "Slack")
         }
     }
 
@@ -219,8 +219,8 @@ struct CorrectionMemoryTests {
             state.dictationPhase = .listening
             state.noteCorrection(CorrectionCandidate(before: "张月", after: "张越"), app: "Notes", windowTitle: "")
             #expect(state.overlayError == nil)
-            #expect(state.corrections.first?.promptCount == 0)
-            #expect(state.pendingCorrections.count == 1)
+            #expect(state.data.corrections.first?.promptCount == 0)
+            #expect(state.data.pendingCorrections.count == 1)
         }
     }
 

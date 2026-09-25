@@ -96,11 +96,11 @@ struct AppStateTests {
             mode: .dictation, app: "Notes", createdAt: .now.addingTimeInterval(-400 * 86_400),
             durationSeconds: 1, input: "hello", output: "hello"
         )
-        state.historyEntries = [old]
+        state.data.historyEntries = [old]
         state.settings.historyRetention = .off
         #expect(HistoryRetention.off.days == nil)
         #expect(HistoryRetention.allCases.first == .off)
-        #expect(state.historyEntries == [old])
+        #expect(state.data.historyEntries == [old])
         #expect(environment.makeState().settings.historyRetention == .off)
     }
 
@@ -172,15 +172,15 @@ struct AppStateTests {
         environment.defaults.set(["Vibe Coding", "saykuku", "MCP"], forKey: legacyKey)
 
         let state = environment.makeState(persistenceDelay: .seconds(60))
-        await state.loadStoredData()
+        await state.data.loadStoredData()
 
-        #expect(Set(state.knowledgeEntities.map(\.name)) == ["SayKuku", "Vibe Coding", "MCP"])
-        #expect(state.knowledgeEntities.first { $0.id == saved.id }?.type == .project)
-        #expect(state.knowledgeEntities.filter { $0.id != saved.id }.allSatisfy { $0.type == .term && $0.source == .manual })
+        #expect(Set(state.data.knowledgeEntities.map(\.name)) == ["SayKuku", "Vibe Coding", "MCP"])
+        #expect(state.data.knowledgeEntities.first { $0.id == saved.id }?.type == .project)
+        #expect(state.data.knowledgeEntities.filter { $0.id != saved.id }.allSatisfy { $0.type == .term && $0.source == .manual })
         #expect(environment.defaults.object(forKey: legacyKey) == nil)
         #expect(state.toast == nil)
 
-        await state.flushPersistence()
+        await state.data.flushPersistence()
         let reloaded = try await LocalStore(root: environment.root).load()
         #expect(reloaded.entities.count == 3)
     }

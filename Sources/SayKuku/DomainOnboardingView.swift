@@ -161,7 +161,7 @@ struct DomainOnboardingView: View {
                    : appState.setupContinueTitle) {
                 addTerm()
                 // Terms were checked against Knowledge as they were added.
-                for term in terms { _ = appState.addKnowledge(name: term, type: .term) }
+                for term in terms { _ = appState.data.addKnowledge(name: term, type: .term) }
                 appState.completeDomainOnboarding(domains: selectedDomains)
             }
             .buttonStyle(.kukuPrimary)
@@ -179,7 +179,7 @@ struct DomainOnboardingView: View {
     /// Why the typed term can't go into Knowledge, checked as it's typed.
     private var termError: KnowledgeSaveError? {
         guard !pendingTerm.isEmpty else { return nil }
-        return appState.validateKnowledge(KnowledgeEntity(name: pendingTerm, type: .term))
+        return appState.data.validateKnowledge(KnowledgeEntity(name: pendingTerm, type: .term))
     }
 
     private var canAddTerm: Bool {
