@@ -37,6 +37,7 @@ open Build/SayKuku.app
 - [产品与实现说明](SayKuku.md)：功能范围、交互、数据模型和当前实现状态。
 - [本地打包与发布](docs/LOCAL_PACKAGING.md)：Release 构建、Developer ID 签名、发布脚本、公证、装订、最终 ZIP 和 dSYM。
 - [写入兼容性实测](docs/COMPATIBILITY.md)：各应用的插入路径、校验、撤销、纠错检测结果和 Fn 到 Pill 延迟，以及真机测试步骤。
+- [中英混说评测](docs/MIXED_LANGUAGE_EVAL.md)：听写 Prompt 的固定评测集、评测脚本和结果解读；改动 Prompt 后必须重跑。
 - [Agent 协作约定](AGENTS.md)：代码修改、测试、Keychain、权限和发布约束。
 
 ## 隐私与权限
