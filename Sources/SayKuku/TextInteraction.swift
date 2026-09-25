@@ -740,6 +740,15 @@ enum ContextCollector {
         )
     }
 
+    /// What SayKuku last wrote, titled with its start so people see which text the Agent would edit.
+    static func previousOutputItem(_ text: String) -> ContextItem {
+        let start = clipped(text, to: 20).split(whereSeparator: \.isNewline).joined(separator: " ")
+        return ContextItem(
+            kind: .previousOutput, symbol: "arrow.uturn.backward", title: localized("Just wrote: \(start)"),
+            value: clipped(text, to: textLimit), isClipped: text.count > textLimit
+        )
+    }
+
     @MainActor
     static func collect(
         snapshot: TextTargetSnapshot,
@@ -817,11 +826,13 @@ enum ContextCollector {
 }
 
 enum AgentActionError: LocalizedError {
+    case deleteNeedsInsert
     case shortcutFailed
     case shortcutTimedOut
 
     var errorDescription: String? {
         switch self {
+        case .deleteNeedsInsert: localized("Turn on Insert automatically to delete text by voice.")
         case .shortcutFailed: localized("Couldn’t run the shortcut. Check it in the Shortcuts app.")
         case .shortcutTimedOut: localized("The shortcut took over a minute, so it was stopped.")
         }
@@ -873,9 +884,11 @@ enum AgentActionExecutor {
     }
 
     /// Whether a writeText reply replaces text the model saw only the start of, which would drop the rest.
+    /// A deletion drops all of it by design, so it never needs the full text.
     static func replacesClippedText(_ response: AgentResponse, context: [ContextItem]) -> Bool {
+        guard response.action == .writeText, !response.deletesPrevious else { return false }
         let source: ContextItem.Kind = response.target == .previous ? .previousOutput : .selectedText
-        return response.action == .writeText && context.contains { $0.kind == source && $0.isClipped }
+        return context.contains { $0.kind == source && $0.isClipped }
     }
 
     /// Only plain web links; credentials such as `https://google.com@evil.com` would disguise the real host.

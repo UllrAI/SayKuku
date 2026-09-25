@@ -984,13 +984,7 @@ final class AppState {
            let expected = lastVerifiedWrite.expectedValue,
            snapshot.valueBefore == expected,
            textInteraction.currentValue(of: lastVerifiedWrite.target) == expected {
-            contextItems.append(ContextCollector.textItem(
-                kind: .previousOutput,
-                symbol: "arrow.uturn.backward",
-                title: localized("Last insertion"),
-                value: lastVerifiedWrite.text,
-                limit: ContextCollector.textLimit
-            ))
+            contextItems.append(ContextCollector.previousOutputItem(lastVerifiedWrite.text))
         }
         agentCommand = localized("Listening…")
     }
@@ -1296,7 +1290,9 @@ final class AppState {
             var actionToConfirm: AgentResponse?
             if response.action == .writeText {
                 // Generated text is final prose, not a speech trace; cleaning it could alter names or code.
-                guard let text = response.output, !text.isEmpty else { throw QwenError.invalidResponse }
+                guard let text = response.output, !text.isEmpty || response.deletesPrevious else {
+                    throw QwenError.invalidResponse
+                }
                 if automaticAgentWriteBack, !AgentActionExecutor.replacesClippedText(response, context: context) {
                     do {
                         let writeTarget: TextTargetSnapshot
@@ -1311,12 +1307,17 @@ final class AppState {
                         updateHistory(historyID, input: command, output: text, status: .completed)
                         try Task.checkCancellation()
                         guard generation == workflowGeneration else { throw CancellationError() }
-                        lastVerifiedWrite = outcome == .verified ? VerifiedWrite(target: writeTarget, text: text) : nil
-                        resultCanUndo = outcome == .verified
-                    } catch is TextInteractionError {
+                        // A deletion leaves nothing to revise or undo.
+                        lastVerifiedWrite = outcome == .verified && !text.isEmpty
+                            ? VerifiedWrite(target: writeTarget, text: text) : nil
+                        resultCanUndo = lastVerifiedWrite != nil
+                    } catch let error as TextInteractionError {
+                        // A deletion has no text to copy instead.
+                        guard !text.isEmpty else { throw error }
                         needsCopyFallback = true
                     }
                 } else {
+                    guard !text.isEmpty else { throw AgentActionError.deleteNeedsInsert }
                     needsCopyFallback = true
                 }
                 output = text
