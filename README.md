@@ -35,7 +35,7 @@ open Build/SayKuku.app
 ## 文档
 
 - [产品与实现说明](SayKuku.md)：功能范围、交互、数据模型和当前实现状态。
-- [本地打包与发布](docs/LOCAL_PACKAGING.md)：Release 构建、Developer ID 签名、发布脚本、公证、装订、最终 ZIP 和 dSYM。
+- [本地打包与发布](docs/LOCAL_PACKAGING.md)：Release 构建、Developer ID 签名、发布脚本、公证、装订、DMG 和 dSYM。
 - [写入兼容性实测](docs/COMPATIBILITY.md)：各应用的插入路径、校验、撤销、纠错检测结果和 Fn 到 Pill 延迟，以及真机测试步骤。
 - [中英混说评测](docs/MIXED_LANGUAGE_EVAL.md)：听写 Prompt 的固定评测集、评测脚本和结果解读；改动 Prompt 后必须重跑。
 - [Agent 协作约定](AGENTS.md)：代码修改、测试、Keychain、权限和发布约束。
@@ -50,7 +50,7 @@ Qwen API Key 保存在这台 Mac 的钥匙串中；输入历史、记忆、纠�
 
 ## 发布
 
-正式包固定使用 Bundle ID `com.saykuku.app`，必须由稳定的 Developer ID Application 身份签名并完成 Apple 公证。不要分发 ad-hoc 签名或仅签名但未公证的构建。正式发布运行 `Scripts/release.sh`，它依次完成测试、构建签名、公证、装订、最终 ZIP 和 dSYM；前置条件和排查步骤见 [本地打包与发布](docs/LOCAL_PACKAGING.md)。
+正式包固定使用 Bundle ID `com.saykuku.app`，必须由稳定的 Developer ID Application 身份签名并完成 Apple 公证。不要分发 ad-hoc 签名或仅签名但未公证的构建。正式发布运行 `Scripts/release.sh`，它依次完成测试、构建签名、公证、装订、拖拽安装的 DMG 和 dSYM；前置条件和排查步骤见 [本地打包与发布](docs/LOCAL_PACKAGING.md)。
 
 App 不在内部下载或安装更新：正式版读取 `https://saykuku.ullrai.com/ver.json`，发现更新的版本号时弹窗，引导用户到 GitHub Release 下载。发布脚本最后会生成 `Dist/ver.json`，发布 GitHub Release 后把它上传到该地址。
 
