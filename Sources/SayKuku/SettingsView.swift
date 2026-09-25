@@ -2,29 +2,22 @@ import SwiftUI
 
 struct SettingsView: View {
     @Environment(AppState.self) private var appState
-    @Binding var selection: SettingsSection
 
     var body: some View {
-        VStack(spacing: 0) {
-            ScreenHeader(
-                eyebrow: appState.text("设置", "Settings"),
-                title: appState.text("按你的习惯使用 SayKuku", "Make SayKuku work your way"),
-                subtitle: appState.text(
-                    "调整语音输入、语音 Agent、隐私和 Qwen 连接。",
-                    "Adjust Voice Input, Voice Agent, privacy, and your connection to Qwen."
-                )
-            )
+        @Bindable var appState = appState
 
+        VStack(spacing: 0) {
             KukuPageTabs(
                 items: SettingsSection.allCases,
-                selection: $selection,
+                selection: $appState.settingsSection,
                 title: { $0.title(appState) }
             )
+            .padding(.top, KukuLayout.pageTop)
 
             KukuDivider(inset: 0)
 
             KukuPageScroll {
-                switch selection {
+                switch appState.settingsSection {
                 case .general: GeneralSettings()
                 case .voiceInput: VoiceInputSettings()
                 case .voiceAgent: VoiceAgentSettings()
@@ -34,7 +27,7 @@ struct SettingsView: View {
                 }
             }
             // Each tab opens at the top instead of at the last tab's scroll offset.
-            .id(selection)
+            .id(appState.settingsSection)
         }
     }
 }
@@ -109,6 +102,8 @@ private struct VoiceInputSettings: View {
                 KukuRow(appState.text("常用领域与词汇", "Domains & Vocabulary"), caption: domainSummary) {
                     Button(appState.text("编辑…", "Edit…")) {
                         appState.showDomainOnboarding()
+                        // Setup sheets are presented by the main window.
+                        appState.showMainWindow()
                     }
                     .buttonStyle(.kukuSecondary)
                 }
@@ -479,6 +474,7 @@ private struct GeneralSettings: View {
                 ) {
                     Button(appState.text("打开引导", "Open Guide")) {
                         appState.showPermissionGuide()
+                        appState.showMainWindow()
                     }
                     .buttonStyle(.kukuSecondary)
                 }

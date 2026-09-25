@@ -54,7 +54,7 @@ App 图标不放文字，使用珊瑚红圆角底板与暖白 Lucide Bird 线稿
 | History | ✅ 已完成 | 停止录音即创建历史；原始语音优先落盘；识别或 Agent 失败仍保留输入及失败状态；支持回放、搜索、筛选、星标、删除、清空和按期限清理；本地数据损坏时先备份再恢复 | — |
 | Knowledge | ✅ 已完成 | 手动添加、模型抽取、PII 预过滤、分段、归一化、去重、实体 Review、本地存储，以及作为模型 Prompt 的结构化知识块 | — |
 | Memory | 🟡 部分完成 | Agent Session 在 30 分钟 TTL 内进入同一 App 的后续 Agent Prompt；纠错建议经用户确认后进入长期 Knowledge Prompt | [#1](https://github.com/UllrAI/SayKuku/issues/1)：实现可审阅的自动记忆提炼链路 |
-| Settings 与中英文 | ✅ 已完成 | 统一水平 Tab、语言、输入模式、隐私开关、菜单栏、登录项、关闭窗口后的 Dock 行为、快捷键状态和持久化 | — |
+| Settings 与中英文 | ✅ 已完成 | 独立设置窗口（⌘,，不拉起主窗口，隐藏 Dock 图标时也不恢复）、统一水平 Tab、语言、输入模式、隐私开关、菜单栏、登录项、关闭窗口后的 Dock 行为、快捷键状态和持久化 | — |
 | Qwen Realtime / Omni | ✅ 已完成 | Realtime WebSocket、Omni 请求式 API、批处理音频 fallback、错误与超时 | — |
 | 麦克风与系统写回 | ✅ 已完成 | 16kHz PCM 录音、可选 Semantic VAD、目标快照、写回前校验和 Accessibility 写回 | — |
 | 本地存储 | ✅ 已完成 | API Key 使用 Keychain；History / Memory / Knowledge 使用 Application Support JSON，录音使用 WAV 文件，并按保留期限清理 | — |
@@ -69,6 +69,7 @@ App 图标不放文字，使用珊瑚红圆角底板与暖白 Lucide Bird 线稿
 ```text
 默认窗口             1000 × 660 pt
 最小窗口              860 × 580 pt
+设置窗口              固定宽 640 pt
 侧栏宽度              176 pt
 右侧内容最大宽度      760 pt
 页面水平边距           24 pt
@@ -1153,6 +1154,8 @@ Knowledge Prompt 只作为模型的参考数据；模型必须在语音明确指
 ## 17. Settings 信息架构
 
 > 实现状态：`✅ 已完成`。界面结构、设置持久化、Keychain API Key 和真实 Qwen 连接测试均已接入。
+
+设置是独立窗口（⌘,），不在主窗口侧栏；侧栏底部的“设置”、菜单栏“设置…”、History 的“打开设置”和 Qwen 配置错误都只打开这个窗口，不拉起主窗口，也不恢复已隐藏的 Dock 图标。需要弹出领域或权限引导时，才会带出主窗口。
 
 Settings 不再使用第二套左侧导航。所有设置统一使用页面顶部水平 Tab：
 

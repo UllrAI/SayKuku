@@ -106,8 +106,7 @@ struct HistoryView: View {
                 )
             ) {
                 Button(appState.text("打开设置", "Open Settings")) {
-                    appState.settingsSection = .history
-                    appState.showMainWindow(destination: .settings)
+                    appState.showSettings(section: .history)
                 }
                 .buttonStyle(.kukuSecondary)
             }
