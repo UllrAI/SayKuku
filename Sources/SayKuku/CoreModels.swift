@@ -553,6 +553,14 @@ struct KnowledgeEntity: Identifiable, Codable, Equatable {
         self.source = source
         self.createdAt = createdAt
     }
+
+    /// A copy with `more` aliases appended; repeats and aliases matching the name are dropped.
+    func adding(aliases more: [String]) -> KnowledgeEntity {
+        KnowledgeEntity(
+            id: id, name: name, detail: detail, type: type,
+            aliases: aliases + more, source: source, createdAt: createdAt
+        )
+    }
 }
 
 enum KnowledgeSaveError: Error, Equatable {
@@ -565,7 +573,7 @@ enum KnowledgeSaveError: Error, Equatable {
         case .emptyName:
             localized("A name needs at least one letter or number")
         case .duplicate(let name):
-            localized("“\(name)” is already in Knowledge")
+            localized("“\(name)” is already in Memory")
         }
     }
 }
@@ -607,11 +615,33 @@ struct CorrectionRecord: Identifiable, Codable, Equatable {
     var lastApp: String
     var lastSeenAt: Date = .now
     var status: Status = .pending
+    /// How many times the overlay has asked about this correction.
+    var promptCount = 0
 
     enum Status: String, Codable { case pending, accepted, ignored }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, raw, corrected, count, lastApp, lastSeenAt, status, promptCount
+    }
 }
 
-struct AgentSession: Identifiable, Codable, Equatable {
+extension CorrectionRecord {
+    /// Records saved before `promptCount` existed were never asked about.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        raw = try container.decode(String.self, forKey: .raw)
+        corrected = try container.decode(String.self, forKey: .corrected)
+        count = try container.decode(Int.self, forKey: .count)
+        lastApp = try container.decode(String.self, forKey: .lastApp)
+        lastSeenAt = try container.decode(Date.self, forKey: .lastSeenAt)
+        status = try container.decode(Status.self, forKey: .status)
+        promptCount = try container.decodeIfPresent(Int.self, forKey: .promptCount) ?? 0
+    }
+}
+
+/// One Voice Agent turn, kept in memory for continuous conversation.
+struct AgentSession: Identifiable, Equatable {
     var id: UUID = UUID()
     var app: String
     var contextSummary: String

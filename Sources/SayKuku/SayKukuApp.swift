@@ -379,7 +379,6 @@ private struct PageMenuItems: View {
         pageItem(.home, key: "1")
         pageItem(.history, key: "2")
         pageItem(.knowledge, key: "3")
-        pageItem(.memory, key: "4")
         Divider()
     }
 

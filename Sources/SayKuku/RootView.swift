@@ -8,7 +8,6 @@ struct RootView: View {
     @State private var historySearch = ""
     @State private var knowledgeSearch = ""
     @State private var knowledgeFilter: EntityType?
-    @State private var memoryScope: MemoryScope = .corrections
 
     var body: some View {
         @Bindable var appState = appState
@@ -32,8 +31,6 @@ struct RootView: View {
                         HistoryView(filter: $historyFilter, search: $historySearch)
                     case .knowledge:
                         KnowledgeView(search: $knowledgeSearch, filter: $knowledgeFilter)
-                    case .memory:
-                        MemoryView(selectedScope: $memoryScope)
                     }
                 }
                 .id(appState.destination)
@@ -96,7 +93,8 @@ private struct Sidebar: View {
                     SidebarButton(
                         title: destination.title,
                         symbol: destination.symbol,
-                        isSelected: selection == destination
+                        isSelected: selection == destination,
+                        badgeCount: destination == .knowledge ? appState.pendingCorrections.count : 0
                     ) {
                         selection = destination
                     }
@@ -126,6 +124,8 @@ private struct SidebarButton: View {
     let title: String
     let symbol: String
     let isSelected: Bool
+    /// Items waiting on this page, such as correction suggestions; hidden at zero.
+    var badgeCount = 0
     let action: () -> Void
     @State private var isHovered = false
 
@@ -140,6 +140,10 @@ private struct SidebarButton: View {
                 Text(title)
                     .font(.kuku(.body, weight: isSelected ? .semibold : .medium))
                 Spacer()
+                if badgeCount > 0 {
+                    KukuBadge(text: "\(badgeCount)")
+                        .monospacedDigit()
+                }
             }
             .foregroundStyle(isSelected || isHovered ? KukuColor.textPrimary : KukuColor.textSecondary)
             .padding(.horizontal, KukuSpacing.md)
@@ -152,6 +156,7 @@ private struct SidebarButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(title)
+        .accessibilityValue(badgeCount > 0 ? localized("\(badgeCount) suggestions") : "")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .onHover { isHovered = $0 }
         .animation(Motion.snappy, value: isHovered)

@@ -139,41 +139,6 @@
         }
       }
     },
-    "%lld items in Knowledge" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld item in Knowledge"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld items in Knowledge"
-                }
-              }
-            }
-          }
-        },
-        "zh-Hans" : {
-          "variations" : {
-            "plural" : {
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "知识中有 %lld 条"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "%lld saved items couldn’t be read and were skipped" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -220,7 +185,7 @@
         }
       }
     },
-    "%lld suggestions need your review before they’re saved." : {
+    "%lld suggestions" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
@@ -229,13 +194,13 @@
               "one" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "%lld suggestion needs your review before it’s saved."
+                  "value" : "%lld suggestion"
                 }
               },
               "other" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "%lld suggestions need your review before they’re saved."
+                  "value" : "%lld suggestions"
                 }
               }
             }
@@ -247,7 +212,7 @@
               "other" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "有 %lld 条建议待确认，确认后才会保存。"
+                  "value" : "%lld 条建议"
                 }
               }
             }
@@ -321,13 +286,13 @@
         }
       }
     },
-    "Add to Knowledge" : {
+    "Add to Memory" : {
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "加入知识"
+            "value" : "加入记忆"
           }
         }
       }
@@ -339,28 +304,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "请先添加 Qwen API Key"
-          }
-        }
-      }
-    },
-    "Added manually" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "手动添加"
-          }
-        }
-      }
-    },
-    "Added to Knowledge" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已加入知识"
           }
         }
       }
@@ -486,13 +429,13 @@
         }
       }
     },
-    "Also used to organize Knowledge and retry recordings" : {
+    "Also used for Memory imports and retrying recordings" : {
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "也用于整理知识和重新识别录音"
+            "value" : "也用于导入记忆和重新识别录音"
           }
         }
       }
@@ -849,28 +792,6 @@
         }
       }
     },
-    "Clear All" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "全部清除"
-          }
-        }
-      }
-    },
-    "Clear All…" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "全部清除…"
-          }
-        }
-      }
-    },
     "Clear Filter" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -911,17 +832,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "清空全部历史？"
-          }
-        }
-      }
-    },
-    "Clear all recent conversations?" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "清除全部最近对话？"
           }
         }
       }
@@ -1010,6 +920,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "关闭"
+          }
+        }
+      }
+    },
+    "Clue" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "线索"
           }
         }
       }
@@ -1135,17 +1056,6 @@
         }
       }
     },
-    "Continuous conversation is off" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已关闭“连续对话”"
-          }
-        }
-      }
-    },
     "Copied" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1232,39 +1142,6 @@
                 }
               }
             }
-          }
-        }
-      }
-    },
-    "Correction suggestions" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "纠正建议"
-          }
-        }
-      }
-    },
-    "Corrections" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "纠正"
-          }
-        }
-      }
-    },
-    "Corrections go into Knowledge only after you approve them. Recent conversations clear after 30 minutes." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "纠正建议经你确认才会进入知识；最近对话 30 分钟后自动清除。"
           }
         }
       }
@@ -1838,17 +1715,6 @@
         }
       }
     },
-    "Expires in %lld min" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "还剩 %lld 分钟"
-          }
-        }
-      }
-    },
     "Filtered sensitive info" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1970,17 +1836,6 @@
         }
       }
     },
-    "From a correction" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "来自纠正建议"
-          }
-        }
-      }
-    },
     "General" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2047,6 +1902,17 @@
         }
       }
     },
+    "History and Memory data saved by an earlier encrypted version can’t be opened here. SayKuku won’t migrate or delete these files. They’re still on this Mac for you to keep or remove." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "早期版本加密保存的历史和记忆数据无法在当前版本打开。SayKuku 不会自动迁移或删除它们，文件仍在这台 Mac 上，保留还是删除由你决定。"
+          }
+        }
+      }
+    },
     "History and recordings stay on this Mac and are deleted on schedule." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2109,17 +1975,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已选择不保存历史"
-          }
-        }
-      }
-    },
-    "History, Knowledge, and Memory saved by an earlier encrypted version can’t be opened here. SayKuku won’t migrate or delete these files. They’re still on this Mac for you to keep or remove." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "早期版本加密保存的历史、知识和记忆无法在当前版本打开。SayKuku 不会自动迁移或删除它们，文件仍在这台 Mac 上，保留还是删除由你决定。"
           }
         }
       }
@@ -2269,7 +2124,7 @@
         }
       }
     },
-    "Imported %lld items to Knowledge" : {
+    "Imported %lld items to Memory" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
@@ -2278,13 +2133,13 @@
               "one" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "Imported %lld item to Knowledge"
+                  "value" : "Imported %lld item to Memory"
                 }
               },
               "other" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "Imported %lld items to Knowledge"
+                  "value" : "Imported %lld items to Memory"
                 }
               }
             }
@@ -2296,7 +2151,7 @@
               "other" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "已导入 %lld 条到知识"
+                  "value" : "已导入 %lld 条到记忆"
                 }
               }
             }
@@ -2310,7 +2165,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "从文本导入"
+            "value" : "从粘贴的文本导入"
           }
         }
       }
@@ -2480,28 +2335,6 @@
         }
       }
     },
-    "Knowledge" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "知识"
-          }
-        }
-      }
-    },
-    "Knowledge updated" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已更新知识"
-          }
-        }
-      }
-    },
     "Language" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2564,6 +2397,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "从纠正中学习"
+          }
+        }
+      }
+    },
+    "Learned from a correction" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "从纠正学到"
           }
         }
       }
@@ -2744,6 +2588,17 @@
         }
       }
     },
+    "Memory updated" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已更新记忆"
+          }
+        }
+      }
+    },
     "Microphone" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2865,13 +2720,13 @@
         }
       }
     },
-    "Names, projects, and terms you use often. SayKuku spells them the way you saved them." : {
+    "Names, projects and terms SayKuku remembers. Delete one and it forgets." : {
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "保存常用的人名、项目和术语，识别时按这里的写法输出。"
+            "value" : "SayKuku 记住的人名、项目和用词。删掉就会忘记。"
           }
         }
       }
@@ -2905,17 +2760,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "不再记录新内容，已有记录会保留到你手动清空"
-          }
-        }
-      }
-    },
-    "No correction suggestions yet" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "还没有纠正建议"
           }
         }
       }
@@ -2997,17 +2841,6 @@
         }
       }
     },
-    "No recent conversations yet" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "还没有最近对话"
-          }
-        }
-      }
-    },
     "No recording" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3052,24 +2885,13 @@
         }
       }
     },
-    "Notes" : {
+    "Nothing remembered yet" : {
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "备注"
-          }
-        }
-      }
-    },
-    "Nothing in Knowledge yet" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "知识里还没有内容"
+            "value" : "还没有记住任何内容"
           }
         }
       }
@@ -3162,13 +2984,13 @@
         }
       }
     },
-    "Open Knowledge" : {
+    "Open Memory" : {
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "打开知识"
+            "value" : "打开记忆"
           }
         }
       }
@@ -3767,17 +3589,6 @@
         }
       }
     },
-    "Recent conversations cleared" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已清除最近对话"
-          }
-        }
-      }
-    },
     "Recheck status, enable access, and test the microphone" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3844,13 +3655,35 @@
         }
       }
     },
-    "Remembers recent conversations in the same app for 30 minutes. See Memory › Short-Term." : {
+    "Remember" : {
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "记住同一个 App 中最近的对话，30 分钟后自动清除，可在“记忆 › 短期”中查看"
+            "value" : "记住"
+          }
+        }
+      }
+    },
+    "Remembered" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已记住"
+          }
+        }
+      }
+    },
+    "Remembers recent conversations in the same app for 30 minutes. Quitting SayKuku clears them." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "记住同一个 App 中最近的对话，保留 30 分钟，退出 SayKuku 时清除"
           }
         }
       }
@@ -3987,13 +3820,13 @@
         }
       }
     },
-    "Review the suggestions and choose what to save to Knowledge." : {
+    "Review the suggestions and choose what SayKuku should remember." : {
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "检查建议，选择要保存到知识的内容。"
+            "value" : "检查建议，选择要让 SayKuku 记住的内容。"
           }
         }
       }
@@ -4108,17 +3941,6 @@
         }
       }
     },
-    "Saved knowledge" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已保存的知识"
-          }
-        }
-      }
-    },
     "Saving recording…" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4185,6 +4007,17 @@
         }
       }
     },
+    "SayKuku remembers these words. You can add aliases later in Memory." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SayKuku 会记住这些词，以后可以在“记忆”里补别名。"
+          }
+        }
+      }
+    },
     "SayKuku uses Qwen on Alibaba Cloud Model Studio to transcribe your voice and handle commands. Follow the steps below to get an API Key." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4240,13 +4073,13 @@
         }
       }
     },
-    "Search names, aliases, or notes" : {
+    "Search names, aliases, or clues" : {
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "搜索名称、别名或备注"
+            "value" : "搜索名称、别名或线索"
           }
         }
       }
@@ -4313,17 +4146,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "设置…"
-          }
-        }
-      }
-    },
-    "Short-Term" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "短期"
           }
         }
       }
@@ -4757,6 +4579,17 @@
         }
       }
     },
+    "Suggestions" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "建议"
+          }
+        }
+      }
+    },
     "Switch categories, or clear the filter to see everything." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4999,17 +4832,6 @@
         }
       }
     },
-    "These words are saved to Knowledge, where you can add aliases later." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "这些词会保存到“知识”，以后可以在那里补别名。"
-          }
-        }
-      }
-    },
     "This app didn’t accept the text. Try again." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5175,24 +4997,13 @@
         }
       }
     },
-    "Turn it on so Voice Agent remembers recent conversations in the same app." : {
+    "Turn it on to get new suggestions from words you fix." : {
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "开启后，语音 Agent 会记住同一个 App 中最近的对话。"
-          }
-        }
-      }
-    },
-    "Turn it on to see suggestions from words you fix." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "开启后，你改正的识别结果会作为建议出现在这里。"
+            "value" : "开启后，改正识别错的词时会给出新的建议"
           }
         }
       }
@@ -5351,17 +5162,6 @@
         }
       }
     },
-    "Vocabulary" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "识别词表"
-          }
-        }
-      }
-    },
     "Voice" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5380,28 +5180,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "语音 Agent"
-          }
-        }
-      }
-    },
-    "Voice Agent uses these in the same app. They’re cleared after 30 minutes." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在同一个 App 中再次使用语音 Agent 时，会参考这些对话，30 分钟后自动清除。"
-          }
-        }
-      }
-    },
-    "Voice Agent will stop using them. This can’t be undone." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "清除后语音 Agent 不会再参考这些对话，且无法恢复。"
           }
         }
       }
@@ -5450,13 +5228,13 @@
         }
       }
     },
-    "When you fix a word SayKuku got wrong, a suggestion shows up here. Nothing is saved until you approve it." : {
+    "When names sound alike, SayKuku uses the clue to pick the right one" : {
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "改正识别错的词后，SayKuku 会在这里给出建议，确认后才会保存。"
+            "value" : "读音相近时，SayKuku 靠线索选对写法"
           }
         }
       }
@@ -5505,13 +5283,13 @@
         }
       }
     },
-    "Words you fix show up as suggestions in Memory › Corrections. Nothing is saved until you approve it." : {
+    "Words you fix show up as suggestions in Memory. Nothing is saved until you approve it." : {
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "改正识别错的词后，建议会出现在“记忆 › 纠正”中，确认后才会保存"
+            "value" : "改正识别错的词后，建议会出现在“记忆”中，确认后才会保存"
           }
         }
       }
@@ -5545,6 +5323,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "昨天"
+          }
+        }
+      }
+    },
+    "You added it" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你添加的"
           }
         }
       }
@@ -5593,17 +5382,6 @@
         }
       }
     },
-    "Your recent Voice Agent conversations stay here for 30 minutes." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "使用语音 Agent 后，最近的对话会在这里保留 30 分钟。"
-          }
-        }
-      }
-    },
     "Your selected domains and terms are sent to Qwen with voice requests." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5615,13 +5393,13 @@
         }
       }
     },
-    "e.g. Team lead, main project" : {
+    "e.g. Yue Zhang, product manager on AniKuku" : {
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "例如：团队负责人、常用项目名"
+            "value" : "例如：张越，AniKuku 的产品经理"
           }
         }
       }
@@ -5681,7 +5459,7 @@
         }
       }
     },
-    "“%@” is already in Knowledge" : {
+    "“%@” is already in Memory" : {
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {

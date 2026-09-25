@@ -145,18 +145,54 @@ struct CorrectionMemoryTests {
         }
     }
 
-    @Test("short-term sessions can be cleared")
-    func clearSessions() {
+    @Test("only pending corrections count as suggestions")
+    func pendingSuggestions() {
         withState { state in
-            state.sessions = [AgentSession(
-                app: "com.apple.TextEdit",
-                contextSummary: "",
-                userCommand: "Summarize",
-                response: "Done",
-                expiresAt: .now.addingTimeInterval(60)
-            )]
-            state.clearSessions()
-            #expect(state.sessions.isEmpty)
+            let pending = CorrectionRecord(raw: "张月", corrected: "张越", lastApp: "Notes")
+            let ignored = CorrectionRecord(raw: "work body", corrected: "WorkBuddy", lastApp: "Notes")
+            state.corrections = [pending, ignored]
+            state.ignoreCorrection(ignored.id)
+            #expect(state.pendingCorrections.map(\.id) == [pending.id])
         }
+    }
+
+    @Test("a correction to an automatically learned name renames it instead of adding another")
+    func selfHealingCorrection() {
+        let learned = KnowledgeEntity(name: "张月", type: .person, aliases: ["张悦"], source: .correction)
+        let entities = KnowledgePipeline.learn("张月", as: "张越", into: [learned])
+        #expect(entities.count == 1)
+        #expect(entities.first?.id == learned.id)
+        #expect(entities.first?.name == "张越")
+        #expect(entities.first?.aliases == ["张悦", "张月"])
+        #expect(entities.first?.type == .person)
+        #expect(entities.first?.source == .correction)
+    }
+
+    @Test("a correction never renames an item the user saved")
+    func correctionKeepsSavedItems() {
+        let saved = KnowledgeEntity(name: "张月", type: .person)
+        let entities = KnowledgePipeline.learn("张月", as: "张越", into: [saved])
+        #expect(entities.map(\.name) == ["张月", "张越"])
+        #expect(entities.first == saved)
+        #expect(entities.last?.aliases == ["张月"])
+    }
+
+    @Test("a mistaken learned item folds into the item it should have been")
+    func correctionFoldsIntoExistingItem() {
+        let saved = KnowledgeEntity(name: "张越", type: .person, aliases: ["Visoar"])
+        let learned = KnowledgeEntity(name: "张月", type: .term, aliases: ["张悦"], source: .correction)
+        let entities = KnowledgePipeline.learn("张月", as: "张越", into: [saved, learned])
+        #expect(entities.count == 1)
+        #expect(entities.first?.id == saved.id)
+        #expect(entities.first?.aliases == ["Visoar", "张悦", "张月"])
+        #expect(entities.first?.source == .manual)
+    }
+
+    @Test("learning the same correction twice adds the alias once")
+    func repeatedCorrection() {
+        let once = KnowledgePipeline.learn("work body", as: "WorkBuddy", into: [])
+        let twice = KnowledgePipeline.learn("work body", as: "WorkBuddy", into: once)
+        #expect(twice == once)
+        #expect(twice.first?.aliases == ["work body"])
     }
 }

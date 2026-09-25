@@ -244,11 +244,4 @@ struct AgentPromptTests {
         #expect(AgentSession.conversation(in: updated, app: "notes", now: now).map(\.userCommand) == ["notes 2.0", "notes 1.0", "notes 0.0"])
         #expect(updated.filter { $0.app == "mail" }.map(\.userCommand) == ["mail 1.0"])
     }
-
-    @Test("stored agent sessions from earlier versions still decode")
-    func legacyAgentSessionDecoding() throws {
-        let json = #"{"id":"5A1B0C7E-2F43-4B8B-9E61-7A1F2B3C4D5E","app":"com.apple.Notes","contextSummary":"Notes · 选中文字 · 12 字","userCommand":"改短","response":"短文","createdAt":0,"expiresAt":1000}"#
-        let session = try JSONDecoder().decode(AgentSession.self, from: Data(json.utf8))
-        #expect(session.userCommand == "改短")
-    }
 }
