@@ -362,9 +362,8 @@ enum HistoryRetention: String, Codable, CaseIterable, Identifiable {
         case .forever: "Forever"
         }
     }
-    /// Option label for the "Delete history after" picker, where keeping history forever reads as "Never".
     @MainActor func title(_ appState: AppState) -> String {
-        self == .forever ? appState.text("永不", "Never") : appState.text(chineseTitle, englishTitle)
+        appState.text(chineseTitle, englishTitle)
     }
 }
 
