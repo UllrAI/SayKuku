@@ -40,7 +40,7 @@ enum SearchEngine: String, Codable, CaseIterable, Identifiable {
         charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~"
     )
 
-    /// Picked once on first launch: Google is blocked in mainland China, where Beijing-region users usually are.
+    /// Used until the user picks one: Google is blocked in mainland China, where Beijing-region users usually are.
     static func defaultEngine(for region: QwenRegion) -> SearchEngine {
         region == .beijing ? .bing : .google
     }
