@@ -109,6 +109,7 @@ final class AppState {
     var dictationCleanup: DictationCleanup = .light {
         didSet { defaults.set(dictationCleanup.rawValue, forKey: Keys.dictationCleanup) }
     }
+    var matchAppTone = true { didSet { defaults.set(matchAppTone, forKey: Keys.matchAppTone) } }
     var selectedDomains: Set<DomainPreset> = [] {
         didSet { defaults.set(selectedDomains.map(\.rawValue).sorted(), forKey: Keys.selectedDomains) }
     }
@@ -689,6 +690,8 @@ final class AppState {
                 recognitionLanguage: recognitionLanguage,
                 numberFormat: dictationNumberFormat,
                 cleanup: dictationCleanup,
+                // A retry lands in History, not in an app, so there is no tone to match.
+                targetApp: nil,
                 knowledgePrompt: renderKnowledgePrompt(.transcription)
             )
             let cleaned = try SpeechDisfluencyCleaner.dictation(result, mode: dictationCleanup)
@@ -1017,11 +1020,12 @@ final class AppState {
         let selectedRecognitionLanguage = recognitionLanguage
         let selectedNumberFormat = dictationNumberFormat
         let selectedCleanup = dictationCleanup
+        let targetApp = toneTargetApp(for: targetSnapshot)
         let knowledgePrompt = renderKnowledgePrompt(.transcription)
         let realtimeSession = UUID()
         realtimeSessionID = realtimeSession
         let connectInterval = signposter.beginInterval("realtime connect", id: signposter.makeSignpostID())
-        uploadTask = Task { [weak self, realtimeClient, apiKey, configuration, selectedRecognitionLanguage, selectedNumberFormat, selectedCleanup, knowledgePrompt] in
+        uploadTask = Task { [weak self, realtimeClient, apiKey, configuration, selectedRecognitionLanguage, selectedNumberFormat, selectedCleanup, targetApp, knowledgePrompt] in
             try await realtimeClient.connect(
                 session: realtimeSession,
                 apiKey: apiKey,
@@ -1042,6 +1046,7 @@ final class AppState {
                 recognitionLanguage: selectedRecognitionLanguage,
                 numberFormat: selectedNumberFormat,
                 cleanup: selectedCleanup,
+                targetApp: targetApp,
                 knowledgePrompt: knowledgePrompt
             )
             self?.signposter.endInterval("realtime connect", connectInterval)
@@ -1133,7 +1138,8 @@ final class AppState {
         await persistHistoryAudio(recording, historyID: historyID)
         do {
             let transcript = try await transcribe(
-                recording, upload: upload, realtimeSession: realtimeSession, generation: generation
+                recording, upload: upload, realtimeSession: realtimeSession,
+                targetApp: toneTargetApp(for: snapshot), generation: generation
             )
             try Task.checkCancellation()
             guard generation == workflowGeneration else { throw CancellationError() }
@@ -1198,6 +1204,7 @@ final class AppState {
                 context: context,
                 sessions: context.contains(where: { $0.kind == .session }) ? conversation : [],
                 textField: snapshot?.agentTextField ?? .absent,
+                matchAppTone: matchAppTone,
                 knowledgePrompt: knowledgePrompt
             )
             try Task.checkCancellation()
@@ -1226,7 +1233,7 @@ final class AppState {
     /// `upload` is nil when dictation skipped realtime, so the recording goes straight to batch recognition.
     private func transcribe(
         _ recording: AudioCapture.Recording, upload: Task<Void, Error>?,
-        realtimeSession: UUID, generation: Int
+        realtimeSession: UUID, targetApp: String?, generation: Int
     ) async throws -> String {
         guard recording.hasSpeech else {
             throw QwenError.noSpeech
@@ -1260,9 +1267,17 @@ final class AppState {
             recognitionLanguage: recognitionLanguage,
             numberFormat: dictationNumberFormat,
             cleanup: dictationCleanup,
+            targetApp: targetApp,
             knowledgePrompt: renderKnowledgePrompt(.transcription)
         )
         return try SpeechDisfluencyCleaner.dictation(result, mode: dictationCleanup)
+    }
+
+    /// The app dictation asks the model to match in tone. Nil keeps the tone rule out of the prompt:
+    /// the setting is off, cleanup is verbatim, or the target is sensitive.
+    private func toneTargetApp(for snapshot: TextTargetSnapshot?) -> String? {
+        guard matchAppTone, dictationCleanup == .light, let snapshot, !snapshot.isSensitive else { return nil }
+        return snapshot.promptAppName
     }
 
     /// Saved knowledge and domain presets for a prompt; the Agent leaves out whichever the user removed from its context.
@@ -1710,6 +1725,7 @@ final class AppState {
         reasoningModel = QwenModelCatalog.reasoningModel(stored: defaults.string(forKey: Keys.reasoningModel))
         storedSearchEngine = defaults.string(forKey: Keys.searchEngine).flatMap(SearchEngine.init(rawValue:))
         autoStop = storedBool(Keys.autoStop, default: false)
+        matchAppTone = storedBool(Keys.matchAppTone, default: true)
         continuousConversation = storedBool(Keys.continuousConversation, default: true)
         automaticAgentWriteBack = storedBool(Keys.automaticAgentWriteBack, default: true)
         learnFromCorrections = storedBool(Keys.learnCorrections, default: true)
@@ -1741,6 +1757,7 @@ final class AppState {
         static let overlayPlacement = "overlay.placement"
         static let recognitionLanguage = "dictation.recognitionLanguage", dictationNumberFormat = "dictation.numberFormat"
         static let dictationCleanup = "dictation.cleanup", soundCues = "voice.soundCues"
+        static let matchAppTone = "dictation.matchAppTone"
         static let selectedDomains = "dictation.selectedDomains", legacyCustomTerms = "dictation.customDomainTerms"
         static let didCompleteOnboarding = "onboarding.completed"
         static let continuousConversation = "continuousConversation", learnCorrections = "learnFromCorrections"

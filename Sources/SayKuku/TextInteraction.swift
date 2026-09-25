@@ -45,6 +45,9 @@ struct TextTargetSnapshot: @unchecked Sendable {
 }
 
 extension TextTargetSnapshot {
+    /// The display name tells the model what a niche app is; the bundle ID keeps it unambiguous.
+    var promptAppName: String { "\(appName) (\(bundleID))" }
+
     var agentTextField: AgentTextField {
         if textElement != nil { return .focused }
         return windowElement != nil ? .unknown : .absent
@@ -752,10 +755,7 @@ enum ContextCollector {
         guard !snapshot.isSensitive else { return [] }
         var items: [ContextItem] = []
         if currentAppAllowed {
-            // The display name tells the model what a niche app is; the bundle ID keeps it unambiguous.
-            items.append(ContextItem(
-                kind: .app, symbol: "app", title: snapshot.appName, value: "\(snapshot.appName) (\(snapshot.bundleID))"
-            ))
+            items.append(ContextItem(kind: .app, symbol: "app", title: snapshot.appName, value: snapshot.promptAppName))
         }
         if selectedTextAllowed, !snapshot.selectedText.isEmpty {
             items.append(textItem(

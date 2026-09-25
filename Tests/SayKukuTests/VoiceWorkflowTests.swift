@@ -100,6 +100,40 @@ struct VoiceWorkflowTests {
         }
     }
 
+    @Test("dictation names the target app for tone only with the setting on and light cleanup")
+    func dictationToneTarget() async throws {
+        let cases: [(Bool, DictationCleanup, String?)] = [
+            (true, .light, "Editor (com.example.editor)"),
+            (false, .light, nil),
+            (true, .verbatim, nil)
+        ]
+        for (matchAppTone, cleanup, expected) in cases {
+            let environment = AppStateTestEnvironment()
+            defer { environment.clean() }
+            let reasoning = FakeReasoning()
+            let state = try makeState(environment, .fake(reasoning: reasoning))
+            state.matchAppTone = matchAppTone
+            state.dictationCleanup = cleanup
+
+            try await startListening(state)
+            state.finishDictation()
+            #expect(await eventually { state.dictationPhase == .success })
+            #expect(reasoning.targetApps == [expected])
+        }
+        do {
+            let environment = AppStateTestEnvironment()
+            defer { environment.clean() }
+            let realtime = FakeRealtime(transcript: "Hello world.")
+            let state = try makeState(environment, .fake(realtime: realtime))
+            state.qwenWorkspaceID = "llm-test"
+
+            try await startListening(state)
+            state.finishDictation()
+            #expect(await eventually { state.dictationPhase == .success })
+            #expect(await realtime.targetApps == ["Editor (com.example.editor)"])
+        }
+    }
+
     @Test("a recording without speech fails with the Didn’t catch that message")
     func dictationNoSpeech() async throws {
         let environment = AppStateTestEnvironment()
