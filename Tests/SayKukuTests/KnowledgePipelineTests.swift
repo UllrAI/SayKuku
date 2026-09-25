@@ -57,13 +57,13 @@ struct KnowledgePipelineTests {
 
     @Test("exact aliases merge while similar names require confirmation")
     func deduplication() {
-        let existing = [KnowledgeEntity(name: "WorkBuddy", type: .product, aliases: ["work body"])]
+        let existing = [KnowledgeEntity(name: "WorkBuddy", type: .project, aliases: ["work body"])]
         let proposals = [
-            ProposedEntity(name: "work body", type: .product, detail: "", aliases: [], evidence: "work body"),
-            ProposedEntity(name: "WorkBudy", type: .product, detail: "", aliases: [], evidence: "WorkBudy"),
+            ProposedEntity(name: "work body", type: .project, detail: "", aliases: [], evidence: "work body"),
+            ProposedEntity(name: "WorkBudy", type: .project, detail: "", aliases: [], evidence: "WorkBudy"),
             ProposedEntity(name: "AniKuku", type: .project, detail: "", aliases: [], evidence: "AniKuku")
         ]
-        let result = KnowledgePipeline.analyze(proposals: proposals, relationships: [], existing: existing, ignored: [])
+        let result = KnowledgePipeline.analyze(proposals: proposals, existing: existing, ignored: [])
         let statuses = Dictionary(uniqueKeysWithValues: result.candidates.map { ($0.entity.name, $0.status) })
         #expect(statuses["work body"] == .merge)
         #expect(statuses["WorkBudy"] == .conflict)
@@ -77,13 +77,13 @@ struct KnowledgePipelineTests {
         #expect(KnowledgeNormalizer.pinyinKey("WorkBuddy") == nil)
 
         let zhangYue = KnowledgeEntity(name: "张越", type: .person)
-        let existing = [zhangYue, KnowledgeEntity(name: "王明", type: .person), KnowledgeEntity(name: "WorkBuddy", type: .product)]
+        let existing = [zhangYue, KnowledgeEntity(name: "王明", type: .person), KnowledgeEntity(name: "WorkBuddy", type: .project)]
         let proposals = [
             ProposedEntity(name: "张月", type: .person, detail: "", aliases: [], evidence: "张月"),
-            ProposedEntity(name: "WorkBudy", type: .product, detail: "", aliases: [], evidence: "WorkBudy"),
+            ProposedEntity(name: "WorkBudy", type: .project, detail: "", aliases: [], evidence: "WorkBudy"),
             ProposedEntity(name: "李明", type: .person, detail: "", aliases: [], evidence: "李明")
         ]
-        let result = KnowledgePipeline.analyze(proposals: proposals, relationships: [], existing: existing, ignored: [])
+        let result = KnowledgePipeline.analyze(proposals: proposals, existing: existing, ignored: [])
         let candidates = Dictionary(uniqueKeysWithValues: result.candidates.map { ($0.entity.name, $0) })
         #expect(candidates["张月"]?.status == .conflict)
         #expect(candidates["张月"]?.matchedEntityID == zhangYue.id)
@@ -91,21 +91,16 @@ struct KnowledgePipelineTests {
         #expect(candidates["李明"]?.status == .new)
     }
 
-    @Test("only selected candidates and evidenced relationships are committed")
-    func commit() {
+    @Test("only selected candidates are committed")
+    func commit() throws {
         let proposals = [
             ProposedEntity(name: "张越", type: .person, detail: "Founder", aliases: ["Visoar"], evidence: "负责人张越"),
             ProposedEntity(name: "AniKuku", type: .project, detail: "Project", aliases: [], evidence: "项目 AniKuku")
         ]
-        let relationships = [ProposedRelationship(from: "张越", type: .owns, to: "AniKuku", evidence: "负责人张越")]
-        let analysis = KnowledgePipeline.analyze(proposals: proposals, relationships: relationships, existing: [], ignored: [])
-        let result = KnowledgePipeline.commit(
-            analysis: analysis,
-            selectedIDs: Set(analysis.candidates.map(\.id) + analysis.relationships.map(\.id)),
-            existing: []
-        )
-        #expect(result.entities.count == 2)
-        #expect(result.relationships.count == 1)
+        let analysis = KnowledgePipeline.analyze(proposals: proposals, existing: [], ignored: [])
+        let selected = try #require(analysis.candidates.first { $0.entity.name == "AniKuku" })
+        let result = KnowledgePipeline.commit(analysis: analysis, selectedIDs: [selected.id], existing: [])
+        #expect(result.map(\.name) == ["AniKuku"])
     }
 
     @Test("long imports are split without losing text")
@@ -125,28 +120,15 @@ struct KnowledgePipelineTests {
           {"name":"Kuku","type":"company","detail":"团队","aliases":["库库"],"evidence":"Kuku 团队"},
           {"type":"person","evidence":"no name"},
           "not an object"
-        ],
-        "relationships":[
-          {"from":"Kuku","type":"owns","to":"WorkBuddy","evidence":"Kuku 负责 WorkBuddy"},
-          {"from":"Kuku","type":"manages","to":"WorkBuddy","evidence":"Kuku 管理 WorkBuddy"}
         ]}
         ```
         """
         let result = try #require(QwenReasoningClient.decodeKnowledgeExtraction(content))
-        #expect(result.entities == [
-            ProposedEntity(name: "WorkBuddy", type: .product, detail: "", aliases: [], evidence: "WorkBuddy 上线"),
-            ProposedEntity(name: "Kuku", type: .unknown, detail: "团队", aliases: ["库库"], evidence: "Kuku 团队")
+        #expect(result == [
+            ProposedEntity(name: "WorkBuddy", type: .project, detail: "", aliases: [], evidence: "WorkBuddy 上线"),
+            ProposedEntity(name: "Kuku", type: .term, detail: "团队", aliases: ["库库"], evidence: "Kuku 团队")
         ])
-        #expect(result.relationships == [
-            ProposedRelationship(from: "Kuku", type: .owns, to: "WorkBuddy", evidence: "Kuku 负责 WorkBuddy")
-        ])
-
-        let entitiesOnly = try #require(QwenReasoningClient.decodeKnowledgeExtraction(
-            #"{"entities":[{"name":"SayKuku","type":"product","evidence":"SayKuku"}]}"#
-        ))
-        #expect(entitiesOnly.entities.count == 1)
-        #expect(entitiesOnly.relationships.isEmpty)
-        #expect(QwenReasoningClient.decodeKnowledgeExtraction("not json")?.entities == nil)
+        #expect(QwenReasoningClient.decodeKnowledgeExtraction("not json") == nil)
     }
 
     @Test("knowledge edits preserve identity and normalize aliases")
@@ -164,12 +146,12 @@ struct KnowledgePipelineTests {
             createdAt: originalDate
         )
         let state = environment.makeState()
-        state.knowledgeEntities = [original, KnowledgeEntity(name: "WorkBuddy", type: .product)]
+        state.knowledgeEntities = [original, KnowledgeEntity(name: "WorkBuddy", type: .project)]
 
         #expect(state.updateKnowledge(
             id: original.id,
             name: " AniKuku Pro ",
-            type: .product,
+            type: .project,
             detail: " Updated project ",
             aliases: ["Ani Kuku", " ani kuku ", "AniKuku Pro", ""]
         ) == nil)
@@ -183,14 +165,14 @@ struct KnowledgePipelineTests {
         #expect(state.updateKnowledge(
             id: original.id,
             name: "workbuddy",
-            type: .product,
+            type: .project,
             detail: "",
             aliases: []
         ) == .duplicate(existingName: "WorkBuddy"))
         #expect(state.updateKnowledge(
             id: original.id,
             name: " !! ",
-            type: .product,
+            type: .project,
             detail: "",
             aliases: []
         ) == .emptyName)

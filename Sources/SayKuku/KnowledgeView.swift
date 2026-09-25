@@ -3,18 +3,22 @@ import SwiftUI
 struct KnowledgeView: View {
     @Environment(AppState.self) private var appState
     @Binding var search: String
-    @Binding var filter: KnowledgeFilter
+    /// `nil` shows every type.
+    @Binding var filter: EntityType?
     @State private var showingImport = false
     @State private var showingAdd = false
     @State private var editingEntity: KnowledgeEntity?
     @State private var pendingDeletion: KnowledgeEntity?
+
+    /// "All" first, then one tab per type.
+    private static let tabs: [EntityType?] = [nil] + EntityType.allCases.map(Optional.some)
 
     private var query: String { search.trimmingCharacters(in: .whitespacesAndNewlines) }
 
     private var filteredEntities: [KnowledgeEntity] {
         let text = query
         return appState.knowledgeEntities.filter { entity in
-            (filter == .all || entity.type.filter == filter) && (text.isEmpty || Self.entity(entity, matches: text))
+            (filter == nil || entity.type == filter) && (text.isEmpty || Self.entity(entity, matches: text))
         }
     }
 
@@ -28,9 +32,9 @@ struct KnowledgeView: View {
         VStack(spacing: 0) {
             header
             KukuPageTabs(
-                items: KnowledgeFilter.allCases,
+                items: Self.tabs,
                 selection: $filter,
-                title: { $0.title(appState) }
+                title: { $0?.title(appState, plural: true) ?? appState.text("全部", "All") }
             )
             KukuDivider(inset: 0)
 
@@ -58,8 +62,8 @@ struct KnowledgeView: View {
         ) { entity in
             Button(appState.text("删除", "Delete"), role: .destructive) { delete(entity) }
             Button(appState.text("取消", "Cancel"), role: .cancel) { }
-        } message: { entity in
-            Text(deletionMessage(for: entity))
+        } message: { _ in
+            Text(appState.text("删除后无法恢复。", "This can’t be undone."))
         }
     }
 
@@ -141,7 +145,7 @@ struct KnowledgeView: View {
         } else {
             KukuEmptyState(
                 title: appState.text("这个分类还没有条目", "No items in this category"),
-                symbol: filter.symbol,
+                symbol: filter?.symbol ?? "books.vertical",
                 message: appState.text("切换到“全部”查看其他条目。", "Choose All to see your other items.")
             )
         }
@@ -160,10 +164,10 @@ struct KnowledgeView: View {
                 .monospacedDigit()
                 .foregroundStyle(KukuColor.textSecondary)
                 .fixedSize()
-            if filter != .all || !search.isEmpty {
+            if filter != nil || !search.isEmpty {
                 Button(appState.text("清除筛选", "Clear Filters")) {
                     withAnimation(Motion.snappy) {
-                        filter = .all
+                        filter = nil
                         search = ""
                     }
                 }
@@ -174,25 +178,7 @@ struct KnowledgeView: View {
         .padding(.bottom, KukuSpacing.sm)
     }
 
-    private func relationshipCount(for entity: KnowledgeEntity) -> Int {
-        appState.knowledgeRelationships.filter { $0.fromEntityID == entity.id || $0.toEntityID == entity.id }.count
-    }
-
-    private func deletionMessage(for entity: KnowledgeEntity) -> String {
-        let count = relationshipCount(for: entity)
-        guard count > 0 else {
-            return appState.text("删除后无法恢复。", "This can’t be undone.")
-        }
-        return appState.text(
-            "相关的 \(count) 条关系也会一并删除，且无法恢复。",
-            count == 1
-                ? "This also removes 1 related relationship. This can’t be undone."
-                : "This also removes \(count) related relationships. This can’t be undone."
-        )
-    }
-
     private func delete(_ entity: KnowledgeEntity) {
-        appState.knowledgeRelationships.removeAll { $0.fromEntityID == entity.id || $0.toEntityID == entity.id }
         appState.knowledgeEntities.removeAll { $0.id == entity.id }
     }
 }
@@ -277,7 +263,6 @@ private struct KnowledgeFormSheet: View {
     @State private var type: EntityType
     @State private var detail: String
     @State private var aliases: String
-    @State private var classifying = false
     @State private var note: KukuSheetNote?
 
     init(entity: KnowledgeEntity? = nil) {
@@ -312,29 +297,13 @@ private struct KnowledgeFormSheet: View {
                     }
 
                     VStack(alignment: .leading, spacing: KukuSpacing.sm) {
-                        HStack(alignment: .firstTextBaseline) {
-                            KukuFieldLabel(text: appState.text("类别", "Category"), isRequired: true)
-                            Spacer()
-                            Button {
-                                classify()
-                            } label: {
-                                Label(
-                                    classifying ? appState.text("正在识别…", "Suggesting…") : appState.text("自动识别类别", "Suggest Category"),
-                                    systemImage: classifying ? "hourglass" : "sparkles"
-                                )
-                            }
-                            .buttonStyle(.kuku(.secondary, size: .small))
-                            .disabled(!canSave || classifying)
-                        }
-
-                        LazyVGrid(
-                            columns: [GridItem(.adaptive(minimum: 148, maximum: 220), spacing: KukuSpacing.sm)],
-                            spacing: KukuSpacing.sm
-                        ) {
-                            ForEach(EntityType.allCases) { option in
-                                categoryOption(option)
-                            }
-                        }
+                        KukuFieldLabel(text: appState.text("类别", "Category"), isRequired: true)
+                        KukuPicker(
+                            appState.text("类别", "Category"),
+                            options: EntityType.allCases,
+                            selection: $type,
+                            label: { $0.title(appState) }
+                        )
                     }
 
                     VStack(alignment: .leading, spacing: KukuSpacing.sm) {
@@ -371,7 +340,7 @@ private struct KnowledgeFormSheet: View {
                 Button(entity == nil ? appState.text("添加", "Add") : appState.text("保存", "Save")) { save() }
                     .buttonStyle(.kukuPrimary)
                     .keyboardShortcut(.defaultAction)
-                    .disabled(!canSave || classifying)
+                    .disabled(!canSave)
             }
         }
         .frame(width: KukuLayout.sheetWidth, height: KukuLayout.sheetHeight)
@@ -392,32 +361,8 @@ private struct KnowledgeFormSheet: View {
             : appState.text("填写名称后即可保存", "Enter a name to save"))
     }
 
-    private func categoryOption(_ option: EntityType) -> some View {
-        let isSelected = type == option
-        return Button {
-            type = option
-        } label: {
-            HStack(spacing: KukuSpacing.sm) {
-                KukuSelectionIndicator(style: .radio, isSelected: isSelected)
-                Image(systemName: option.symbol)
-                    .font(.kukuIcon(.regular))
-                    .foregroundStyle(KukuColor.textSecondary)
-                Text(option.title(appState))
-                    .font(.kuku(.callout, weight: isSelected ? .semibold : .medium))
-                    .foregroundStyle(isSelected ? KukuColor.textPrimary : KukuColor.textSecondary)
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, KukuSpacing.md)
-            // Taller than a control so the grid reads as a set of choices.
-            .frame(height: 40)
-            .kukuInteractiveSurface(isSelected: isSelected, radius: KukuLayout.radiusSmall)
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
-    }
-
     private func save() {
-        guard canSave, !classifying else { return }
+        guard canSave else { return }
         let editedAliases = aliases
             .split(whereSeparator: { $0 == "," || $0 == "，" || $0 == "、" })
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -434,23 +379,6 @@ private struct KnowledgeFormSheet: View {
             return
         }
         dismiss()
-    }
-
-    private func classify() {
-        classifying = true
-        note = nil
-        Task {
-            do {
-                let suggested = try await appState.suggestEntityType(for: name)
-                type = suggested
-                if suggested == .unknown {
-                    note = KukuSheetNote(text: appState.text("没能判断类别，请手动选择", "Couldn’t suggest a category. Pick one below."))
-                }
-            } catch {
-                note = KukuSheetNote(text: appState.localizedError(error), isError: true)
-            }
-            classifying = false
-        }
     }
 }
 
@@ -471,7 +399,7 @@ private struct KnowledgeImportSheet: View {
     /// Whether the analysis produced anything the user can import.
     private var hasResults: Bool {
         guard let analysis else { return false }
-        return analysis.candidates.contains { $0.status != .ignored } || !analysis.relationships.isEmpty
+        return analysis.candidates.contains { $0.status != .ignored }
     }
 
     var body: some View {
@@ -575,24 +503,6 @@ private struct KnowledgeImportSheet: View {
                         toggle(candidate.id)
                     }
                 }
-                if let relationships = analysis?.relationships, !relationships.isEmpty {
-                    SectionEyebrow(text: appState.text("关系", "Relationships"))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.top, KukuSpacing.sm)
-                    ForEach(relationships) { candidate in
-                        let relationship = candidate.relationship
-                        ImportRow(
-                            title: "\(relationship.from) \(relationship.type.title(appState)) \(relationship.to)",
-                            badge: candidate.status.title(appState),
-                            badgeTone: candidate.status.tone,
-                            badgeSymbol: candidate.status.symbol,
-                            detail: KnowledgePipeline.displayEvidence(relationship.evidence),
-                            isSelected: selected.contains(candidate.id)
-                        ) {
-                            toggle(candidate.id)
-                        }
-                    }
-                }
             }
             .padding(.horizontal, KukuLayout.sheetPadding)
             .padding(.vertical, KukuSpacing.xl)
@@ -680,8 +590,7 @@ private struct KnowledgeImportSheet: View {
             do {
                 let value = try await appState.analyzeKnowledge(source)
                 analysis = value
-                selected = Set(value.candidates.filter { $0.status == .new || $0.status == .merge }.map(\.id)
-                    + value.relationships.filter { $0.status == .new || $0.status == .merge }.map(\.id))
+                selected = Set(value.candidates.filter { $0.status == .new || $0.status == .merge }.map(\.id))
                 withAnimation(Motion.panel) { reviewing = true }
             } catch {
                 errorMessage = appState.localizedError(error)
@@ -702,16 +611,16 @@ private struct KnowledgeImportSheet: View {
     }
 }
 
-/// Selectable row shared by entity and relationship suggestions in the import review.
+/// Selectable suggestion row in the import review.
 private struct ImportRow: View {
     let title: String
     let badge: String
     let badgeTone: KukuStatusTone
     let badgeSymbol: String
     let detail: String
-    var trailing: String? = nil
+    let trailing: String?
     let isSelected: Bool
-    var isIgnored = false
+    let isIgnored: Bool
     let action: () -> Void
 
     var body: some View {
@@ -751,29 +660,6 @@ private struct ImportRow: View {
         .buttonStyle(.plain)
         .disabled(isIgnored)
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
-    }
-}
-
-enum KnowledgeFilter: String, CaseIterable, Identifiable {
-    case all, people, organizations, projects, terms
-    var id: String { rawValue }
-    @MainActor func title(_ appState: AppState) -> String {
-        switch self {
-        case .all: appState.text("全部", "All")
-        case .people: appState.text("人物", "People")
-        case .organizations: appState.text("组织", "Organizations")
-        case .projects: appState.text("项目", "Projects")
-        case .terms: appState.text("术语", "Terms")
-        }
-    }
-    var symbol: String {
-        switch self {
-        case .all: "square.grid.2x2"
-        case .people: "person.2"
-        case .organizations: "building.2"
-        case .projects: "folder"
-        case .terms: "textformat.abc"
-        }
     }
 }
 

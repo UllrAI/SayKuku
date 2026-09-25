@@ -564,19 +564,18 @@ struct KukuChoiceRow: View {
 
 extension View {
     /// Surface for a card that responds to hover or selection: a neutral selected fill and a stronger outline, never a tint.
-    func kukuInteractiveSurface(isSelected: Bool = false, radius: CGFloat = KukuLayout.radiusMedium) -> some View {
-        modifier(KukuInteractiveSurfaceModifier(isSelected: isSelected, radius: radius))
+    func kukuInteractiveSurface(isSelected: Bool = false) -> some View {
+        modifier(KukuInteractiveSurfaceModifier(isSelected: isSelected))
     }
 }
 
 private struct KukuInteractiveSurfaceModifier: ViewModifier {
     let isSelected: Bool
-    let radius: CGFloat
     @Environment(\.isEnabled) private var isEnabled
     @State private var hovering = false
 
     func body(content: Content) -> some View {
-        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: KukuLayout.radiusMedium, style: .continuous)
         content
             .background {
                 ZStack {
