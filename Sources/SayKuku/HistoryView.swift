@@ -96,7 +96,22 @@ struct HistoryView: View {
 
     @ViewBuilder
     private var emptyState: some View {
-        if appState.historyEntries.isEmpty {
+        if appState.historyEntries.isEmpty, appState.historyRetention == .off {
+            KukuEmptyState(
+                title: appState.text("已停止记录历史", "History is off"),
+                symbol: "pause.circle",
+                message: appState.text(
+                    "在“设置 › 历史”里选择保留期限即可重新记录。",
+                    "Choose a retention period in Settings › History to start keeping history again."
+                )
+            ) {
+                Button(appState.text("打开设置", "Open Settings")) {
+                    appState.settingsSection = .history
+                    appState.showMainWindow(destination: .settings)
+                }
+                .buttonStyle(.kukuSecondary)
+            }
+        } else if appState.historyEntries.isEmpty {
             KukuEmptyState(
                 title: appState.text("还没有历史记录", "No history yet"),
                 symbol: "waveform",

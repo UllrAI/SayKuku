@@ -629,13 +629,13 @@ private struct HistorySettings: View {
         ) {
             KukuGroup(appState.text("存储", "Storage")) {
                 KukuRow(
-                    appState.text("自动删除", "Delete history after"),
+                    appState.text("保留历史", "Keep history"),
                     caption: appState.historyRetention == .off
                         ? appState.text("不再记录新内容，已有记录会保留到你手动清空", "New items aren’t saved. Existing ones stay until you clear them.")
                         : appState.text("星标记录不受此期限影响", "Starred items are never deleted automatically")
                 ) {
                     KukuPicker(
-                        appState.text("自动删除", "Delete history after"),
+                        appState.text("保留历史", "Keep history"),
                         options: HistoryRetention.allCases,
                         selection: $appState.historyRetention,
                         label: { $0.title(appState) }
@@ -646,12 +646,15 @@ private struct HistorySettings: View {
 
                 KukuToggleRow(
                     title: appState.text("保存录音", "Save recordings"),
-                    caption: appState.text(
-                        "保留录音，方便回放和重新识别，并随对应的历史记录一起删除",
-                        "Keep recordings so you can replay or retry them. They’re deleted with their history items."
-                    ),
+                    caption: appState.historyRetention == .off
+                        ? appState.text("已选择不保存历史", "History isn’t being kept")
+                        : appState.text(
+                            "保留录音，方便回放和重新识别，并随对应的历史记录一起删除",
+                            "Keep recordings so you can replay or retry them. They’re deleted with their history items."
+                        ),
                     isOn: $appState.storeVoiceAudio
                 )
+                .disabled(appState.historyRetention == .off)
             }
 
             KukuGroup(appState.text("管理", "Manage")) {
