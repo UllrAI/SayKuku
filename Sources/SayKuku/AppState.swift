@@ -135,6 +135,8 @@ final class AppState {
     /// Whether `pendingCopyText` is on the pasteboard, so the copy fallback can say so.
     private(set) var hasCopiedPendingText = false
     var pendingAnswerText = ""
+    /// Measured from `pendingAnswerText` before the answer card shows.
+    private(set) var answerCardHeight = OverlayLayout.answerCardHeights.lowerBound
     var pendingAnswerStatus: String?
     /// A link or shortcut the answer card asks about first, because the model chose it while reading untrusted context.
     var pendingAction: AgentResponse?
@@ -853,6 +855,7 @@ final class AppState {
         }
         do {
             let snapshot = try textInteraction.captureTarget(requiringWindow: mode == .dictation)
+            overlayController?.anchor(to: snapshot)
             guard !snapshot.isSensitive else { throw TextInteractionError.sensitiveTarget }
             targetSnapshot = snapshot
             liveTranscript = ""
@@ -1241,6 +1244,7 @@ final class AppState {
             }
             if response.action == .answer || actionToConfirm != nil {
                 pendingAnswerText = output
+                answerCardHeight = OverlayLayout.answerCardHeight(for: output)
                 pendingAnswerTarget = snapshot
                 pendingAction = actionToConfirm
                 withAnimation(Motion.panel) { agentPhase = .answerReady }
