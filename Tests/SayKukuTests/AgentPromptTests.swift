@@ -94,7 +94,57 @@ struct AgentPromptTests {
         #expect(QwenReasoningClient.agentInstructions.contains("If selected text is present, it is the object of implicit commands"))
         #expect(QwenReasoningClient.agentInstructions.contains("transform it, not the spoken command"))
         #expect(input.contains("<selected_text id=\"t1\">\n明天下午见\n</selected_text id=\"t1\">"))
-        #expect(input.contains("Notes:\ncom.apple.Notes"))
+        #expect(input.contains("Current app:\ncom.apple.Notes"))
+        #expect(!input.contains("Notes:"))
+    }
+
+    @Test("supplemental context labels do not depend on the UI language")
+    @MainActor
+    func contextLabelsIgnoreUILanguage() {
+        let snapshot = TextTargetSnapshot(
+            appPID: 0,
+            bundleID: "com.apple.Notes",
+            appName: "备忘录",
+            windowTitle: "周报",
+            windowElement: nil,
+            textElement: nil,
+            selectedRange: nil,
+            selectedText: "明天下午见",
+            valueBefore: nil,
+            isSensitive: false
+        )
+        func input(isChineseUI: Bool) -> String {
+            var context = ContextCollector.collect(
+                snapshot: snapshot,
+                selectedTextAllowed: true,
+                currentAppAllowed: true,
+                windowTitleAllowed: true,
+                clipboardAllowed: false,
+                browserPageAllowed: false,
+                session: nil,
+                domains: [],
+                customDomainTerms: [],
+                knowledge: [],
+                isChineseUI: isChineseUI
+            )
+            context.append(ContextCollector.textItem(
+                kind: .clipboard, symbol: "clipboard", title: isChineseUI ? "剪贴板" : "Clipboard",
+                value: String(repeating: "字", count: 12), limit: 10, isChineseUI: isChineseUI
+            ))
+            context.append(ContextItem(
+                kind: .browser, symbol: "globe", title: isChineseUI ? "浏览器页面" : "Browser page",
+                value: "https://example.com"
+            ))
+            return QwenReasoningClient.agentInput(context: context, sessions: [], textField: .focused, sectionID: "t3")
+        }
+
+        let chinese = input(isChineseUI: true)
+        #expect(chinese == input(isChineseUI: false))
+        #expect(chinese.contains("Current app:\ncom.apple.Notes\n\nWindow title:\n周报\n\nClipboard (truncated):\n"))
+        #expect(chinese.contains("Browser page:\nhttps://example.com\n</context id=\"t3\">"))
+        for uiText in ["备忘录", "剪贴板", "前 10 字", "characters"] {
+            #expect(!chinese.contains(uiText))
+        }
     }
 
     @Test("untrusted sections close only at the tag carrying the request id")
