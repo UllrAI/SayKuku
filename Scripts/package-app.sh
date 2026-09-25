@@ -85,6 +85,8 @@ fi
 cp "$ROOT_DIR/Scripts/Resources/AppIcon.icns" "$APP_DIR/Contents/Resources/AppIcon.icns"
 cp -R "$ROOT_DIR/Scripts/Resources/en.lproj" "$APP_DIR/Contents/Resources/en.lproj"
 cp -R "$ROOT_DIR/Scripts/Resources/zh-Hans.lproj" "$APP_DIR/Contents/Resources/zh-Hans.lproj"
+# Redistributing Sparkle's binaries requires shipping its license notices.
+cp -R "$ROOT_DIR/Scripts/Resources/Licenses" "$APP_DIR/Contents/Resources/Licenses"
 
 # Keychain ACLs and TCC permissions survive updates only when the app keeps a
 # stable, anchored signing identity. Release builds must use Developer ID;
