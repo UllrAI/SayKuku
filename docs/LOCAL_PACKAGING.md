@@ -280,7 +280,7 @@ gh release create "v${VERSION}" \
   "Dist/SayKuku-${VERSION}.zip" Dist/appcast/appcast.xml
 ```
 
-不要把它标成 draft 或 prerelease：`SUFeedURL` 使用 `releases/latest/download/`，只认最新的正式 Release。发布后已安装的 App 会在下一次自动检查时提示更新，用户也可从菜单“检查更新…”立即检查。
+不要把它标成 draft 或 prerelease：`SUFeedURL` 使用 `releases/latest/download/`，只认最新的正式 Release。发布后已安装的 App 会在下一次自动检查时提示更新，用户也可从菜单或设置 › 通用的“检查更新…”立即检查。
 
 ### 脚本出错时的手动排查步骤
 

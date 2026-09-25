@@ -69,7 +69,7 @@ App 图标不放文字，使用珊瑚红圆角底板与暖白 Lucide Bird 线稿
 ```text
 默认窗口             1000 × 660 pt
 最小窗口              860 × 580 pt
-设置窗口              固定宽 640 pt
+设置窗口              固定宽 720 pt
 侧栏宽度              176 pt
 右侧内容最大宽度      760 pt
 页面水平边距           24 pt
@@ -1187,6 +1187,11 @@ Knowledge 与 Memory 保持为一级侧栏目的地，不在 Settings 中重复�
 
 快捷键
 快捷键状态 · Voice Input · Voice Agent
+
+软件更新
+版本号（构建号）· 检查更新…
+自动检查更新
+（开发版只显示版本号）
 ```
 
 首次启动先展示轻量领域 Onboarding，再进入系统权限引导（权限齐全时跳过），最后引导连接 Qwen：按三步说明（打开对应地域的百炼控制台、创建并粘贴 API Key、可选复制以 `llm-` 开头的业务空间 ID）完成填写；“测试连接”是可选的次按钮，连接成功后隐藏；主按钮响应 Return，未填 API Key 时显示为“跳过”；填好的内容在关闭弹窗时即生效，不会丢失；已保存 API Key 时跳过这一步。三个步骤的弹窗尺寸、页头和底栏一致：进行中的步骤主按钮为“继续”，最后一步为“完成”，未完成时可“跳过”；权限在从系统设置返回时自动刷新，全部开启前“继续”不可用。用户可以多选 AI / Vibe Coding、软件开发、产品设计、市场增长等常用领域，选择会持久化为识别上下文，并以“仅用于词汇消歧、不得补写未说内容”的参考数据加入 Voice Input 与 Voice Agent Prompt；以后可在 Voice Input 设置中重新编辑。同一页也可以手动添加产品名、项目名或技术词，点“继续”或“保存”时逐个作为术语存进 Knowledge（已有同名条目时就地提示），以后在“知识”页补别名。旧版本存在 UserDefaults `dictation.customDomainTerms` 中的自定义词，会在本地数据加载后一次性迁入 Knowledge（重复的跳过），随后删除该键。
@@ -1603,7 +1608,7 @@ Updater
 对应单元测试
 ```
 
-其中 Updater 已改为直接接入 [Sparkle 2](https://github.com/sparkle-project/Sparkle)（MIT）：正式版启动后按默认周期自动检查，App 菜单和菜单栏菜单都有“检查更新…”；不做 delta 包和多通道。签名、appcast 与密钥说明见 [本地打包与发布](docs/LOCAL_PACKAGING.md)。
+其中 Updater 已改为直接接入 [Sparkle 2](https://github.com/sparkle-project/Sparkle)（MIT）：正式版启动后按默认周期自动检查，App 菜单、菜单栏菜单和设置 › 通用都有“检查更新…”，自动检查可在设置 › 通用关闭；不做 delta 包和多通道。签名、appcast 与密钥说明见 [本地打包与发布](docs/LOCAL_PACKAGING.md)。
 
 Pindrop 是 MIT License，而且目前工程结构已经把 Services、Transcription、Models、UI 等模块拆得比较清楚，所以适合当工程参考。
 
