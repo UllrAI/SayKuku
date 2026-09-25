@@ -953,7 +953,7 @@ final class VoiceWorkflow {
         showOverlayFeedback(
             localized("Remember “\(record.raw)” as “\(record.corrected)”?"),
             symbol: "brain",
-            duration: .seconds(6),
+            duration: .seconds(8),
             buttons: [
                 OverlayButton(title: localized("Not Now")),
                 OverlayButton(title: localized("Remember")) { [weak self] in

@@ -158,6 +158,8 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        // Relaunch flushed the store before opening the new instance.
+        if appState.savedForRelaunch { return .terminateNow }
         Task {
             let saved = await appState.data.flushPersistence()
             NSApplication.shared.reply(toApplicationShouldTerminate: saved || confirmQuitWithoutSaving())
