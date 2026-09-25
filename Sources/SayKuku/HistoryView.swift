@@ -168,8 +168,8 @@ struct HistoryView: View {
             return (
                 title: appState.text("本机数据暂时无法读取", "Local data can’t be read right now"),
                 message: appState.text(
-                    "为避免覆盖原文件，新的更改暂不保存。请检查文件权限后重新打开 SayKuku。",
-                    "To avoid overwriting the file, new changes won’t be saved. Check the file’s permissions, then reopen SayKuku."
+                    "为避免覆盖原文件，新的更改暂不保存。请检查文件权限或更新 SayKuku，然后重新打开。",
+                    "To avoid overwriting the file, new changes won’t be saved. Check the file’s permissions or update SayKuku, then reopen it."
                 )
             )
         }
