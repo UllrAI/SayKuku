@@ -1,6 +1,6 @@
 import Foundation
 
-enum KnowledgePrompt {
+enum MemoryPrompt {
     enum Purpose: Equatable {
         case transcription
         case agent
@@ -14,7 +14,7 @@ enum KnowledgePrompt {
         }
     }
 
-    /// Upper bounds for the rendered knowledge lines; character limits include line breaks.
+    /// Upper bounds for the rendered memory lines; character limits include line breaks.
     struct Budget: Equatable {
         let entityCount: Int
         let entityCharacters: Int
@@ -26,7 +26,7 @@ enum KnowledgePrompt {
     static let maxDetailLength = 160
 
     static func render(
-        entities: [KnowledgeEntity],
+        entities: [MemoryEntity],
         domains: Set<DomainPreset> = [],
         purpose: Purpose
     ) -> String {
@@ -46,7 +46,7 @@ enum KnowledgePrompt {
             "Soft context about the user's usual work, not necessarily the current task. Use it to read ambiguous wording and pick terminology. Never let it override the spoken command, selected text, app context, or explicit constraints, and do not mention it unless relevant."
         }
 
-        let knowledgeGuidance = switch purpose {
+        let memoryGuidance = switch purpose {
         case .transcription:
             "Confirmed spellings: when the audio clearly says a name or one of its aliases, write the preferred spelling. Never substitute on mere similarity. When entries sound the same or alike, choose by their clues."
         case .agent:
@@ -56,7 +56,7 @@ enum KnowledgePrompt {
         // Empty sections are left out: an empty scaffold only suggests there is something to apply.
         let sections = [
             section("domain_profile", guidance: domainGuidance, lines: domainLines),
-            section("confirmed_knowledge", guidance: knowledgeGuidance, lines: entityLines)
+            section("confirmed_knowledge", guidance: memoryGuidance, lines: entityLines)
         ].compactMap { $0 }
         guard !sections.isEmpty else { return "" }
         return """
@@ -73,7 +73,7 @@ enum KnowledgePrompt {
     }
 
     /// Manually added and correction-confirmed entries first, then the most recent imports.
-    private static func prioritized(_ entities: [KnowledgeEntity]) -> [KnowledgeEntity] {
+    private static func prioritized(_ entities: [MemoryEntity]) -> [MemoryEntity] {
         entities.enumerated().sorted { lhs, rhs in
             let lhsCurated = lhs.element.source != .importText
             let rhsCurated = rhs.element.source != .importText
@@ -83,7 +83,7 @@ enum KnowledgePrompt {
         }.map { $0.element }
     }
 
-    private static func entityLine(_ entity: KnowledgeEntity, purpose: Purpose) -> String {
+    private static func entityLine(_ entity: MemoryEntity, purpose: Purpose) -> String {
         let name = quoted(clipped(entity.name, to: maxNameLength))
         let aliases = "[" + entity.aliases.prefix(maxAliasCount)
             .map { quoted(clipped($0, to: maxNameLength)) }

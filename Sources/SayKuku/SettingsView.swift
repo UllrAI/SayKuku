@@ -121,7 +121,7 @@ private struct VoiceInputSettings: View {
                 KukuDivider()
                 KukuRow(localized("Memory"), caption: memorySummary) {
                     Button(localized("Open Memory")) {
-                        appState.showMainWindow(destination: .knowledge)
+                        appState.showMainWindow(destination: .memory)
                     }
                     .buttonStyle(.kukuSecondary)
                 }
@@ -154,7 +154,7 @@ private struct VoiceInputSettings: View {
     }
 
     private var memorySummary: String {
-        let count = appState.data.knowledgeEntities.count
+        let count = appState.data.memoryEntities.count
         return localized("\(count) items")
     }
 }

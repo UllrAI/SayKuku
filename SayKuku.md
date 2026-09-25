@@ -662,7 +662,7 @@ AgentSession
 - 页头副标题：「SayKuku 记住的人名、项目和用词。删掉就会忘记。」
 - 「添加」仍在页头，但只是次要入口，主路径是纠正学习。
 
-代码里的 `Knowledge*` 标识符暂不改名。
+代码标识符统一用 `Memory*`（如 `MemoryView`、`MemoryEntity`、`MemoryPipeline`）；`store.json` 的字段名和发给模型的 Prompt 措辞不随之改变。
 
 「记忆」是一张识别词表，也是用户让 SayKuku 认识一个词的唯一入口。用户几乎不会主动打开这个页面，所以条目主要不靠手动填：
 
@@ -1423,7 +1423,7 @@ QwenRealtimeClient
 QwenReasoningClient
 ├── respondToAudio
 ├── transcribeAudio
-├── extractKnowledge
+├── extractMemory
 └── testConnection
 ```
 
@@ -1446,7 +1446,7 @@ SayKukuApp / AppState             // 导航、首次运行向导、Toast、窗�
 │   ├── TextTargetSnapshot
 │   └── AgentActionExecutor
 │
-├── KnowledgePipeline
+├── MemoryPipeline
 │   ├── 分段、PII 预过滤、归一化、去重
 │   └── 实体 Review
 │
@@ -1456,7 +1456,7 @@ SayKukuApp / AppState             // 导航、首次运行向导、Toast、窗�
 │
 └── UI
     ├── HomeView / FloatingOverlayController / DictationPill / AgentPill
-    ├── HistoryView / KnowledgeView（记忆）
+    ├── HistoryView / MemoryView（记忆）
     └── SettingsView / PermissionGuideView / DomainOnboardingView / QwenSetupView
 ```
 

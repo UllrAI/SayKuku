@@ -6,8 +6,8 @@ import Testing
 struct AppStateTests {
     @Test("main navigation titles come from the string catalog")
     func navigationLocalization() {
-        #expect(AppState.Destination.knowledge.title == localized("Memory"))
-        #expect(AppState.Destination.allCases == [.home, .history, .knowledge])
+        #expect(AppState.Destination.memory.title == localized("Memory"))
+        #expect(AppState.Destination.allCases == [.home, .history, .memory])
         #expect(GlobalShortcutAction.voiceInput.title == localized("Voice Input"))
         #expect(HistoryMode.agent.title == localized("Voice Agent"))
     }
@@ -161,22 +161,22 @@ struct AppStateTests {
         }
     }
 
-    @Test("custom words from earlier builds move into Knowledge once it loads")
+    @Test("custom words from earlier builds move into Memory once it loads")
     @MainActor
     func legacyCustomTermsMigration() async throws {
         let environment = AppStateTestEnvironment()
         defer { environment.clean() }
         let legacyKey = "dictation.customDomainTerms"
-        let saved = KnowledgeEntity(name: "SayKuku", type: .project)
+        let saved = MemoryEntity(name: "SayKuku", type: .project)
         try await LocalStore(root: environment.root).replace(.init(entities: [saved]))
         environment.defaults.set(["Vibe Coding", "saykuku", "MCP"], forKey: legacyKey)
 
         let state = environment.makeState(persistenceDelay: .seconds(60))
         await state.data.loadStoredData()
 
-        #expect(Set(state.data.knowledgeEntities.map(\.name)) == ["SayKuku", "Vibe Coding", "MCP"])
-        #expect(state.data.knowledgeEntities.first { $0.id == saved.id }?.type == .project)
-        #expect(state.data.knowledgeEntities.filter { $0.id != saved.id }.allSatisfy { $0.type == .term && $0.source == .manual })
+        #expect(Set(state.data.memoryEntities.map(\.name)) == ["SayKuku", "Vibe Coding", "MCP"])
+        #expect(state.data.memoryEntities.first { $0.id == saved.id }?.type == .project)
+        #expect(state.data.memoryEntities.filter { $0.id != saved.id }.allSatisfy { $0.type == .term && $0.source == .manual })
         #expect(environment.defaults.object(forKey: legacyKey) == nil)
         #expect(state.toast == nil)
 
