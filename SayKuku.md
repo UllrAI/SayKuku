@@ -52,7 +52,7 @@ App 图标不放文字，使用珊瑚红圆角底板与暖白 Lucide Bird 线稿
 | 权限引导与麦克风测试 | ✅ 已完成 | 启动时缺失权限自动展示引导；麦克风与辅助功能实时状态、快捷开启，辅助功能授权后自动恢复，回到 App 也会复查；设置页可重新打开；AVAudioEngine 实时输入电平测试 | 增加多输入设备切换回归测试 |
 | 首页与两种浮层 | ✅ 已完成 | Voice Input / Voice Agent 的真实录音、识别、自动执行与结果状态，以及跨桌面非激活浮层 | — |
 | History | ✅ 已完成 | 停止录音即创建历史；原始语音优先落盘；识别或 Agent 失败仍保留输入及失败状态；支持回放、搜索、筛选、星标、删除、清空和按期限清理；本地数据损坏时先备份再恢复 | — |
-| Knowledge | ✅ 已完成 | 手动添加、模型抽取、PII 预过滤、分段、归一化、去重、实体/关系 Review、本地存储，以及作为模型 Prompt 的结构化知识块 | — |
+| Knowledge | ✅ 已完成 | 手动添加、模型抽取、PII 预过滤、分段、归一化、去重、实体 Review、本地存储，以及作为模型 Prompt 的结构化知识块 | — |
 | Memory | 🟡 部分完成 | Agent Session 在 30 分钟 TTL 内进入同一 App 的后续 Agent Prompt；纠错建议经用户确认后进入长期 Knowledge Prompt | [#1](https://github.com/UllrAI/SayKuku/issues/1)：实现可审阅的自动记忆提炼链路 |
 | Settings 与中英文 | ✅ 已完成 | 统一水平 Tab、语言、输入模式、隐私开关、菜单栏、登录项、关闭窗口后的 Dock 行为、快捷键状态和持久化 | — |
 | Qwen Realtime / Omni | ✅ 已完成 | Realtime WebSocket、Omni 请求式 API、批处理音频 fallback、错误与超时 | — |
@@ -153,7 +153,7 @@ Knowledge
 * 当前选中文字、当前应用、窗口标题等轻量 Context
 * Translate / Rewrite / Generate，并根据当前是否有选区自动写回原输入框
 * 文本粘贴导入 Knowledge
-* 实体抽取、归一化、去重、关系识别、用户确认
+* 实体抽取、归一化、去重、用户确认
 * 最近 Agent Session、Knowledge Prompt 和用户确认后的纠错记忆
 * 本地 History：语音、输入转写和最终输出可回看，默认保留 30 天，星标记录永久保留
 
@@ -501,7 +501,7 @@ Confirmed Knowledge Prompt
 
 Focused Element 和光标位置只用于后续目标校验，不作为文本 Context 发给模型；当前实现也不读取整个文档或当前段落。
 
-`Confirmed Knowledge Prompt` 不是本地词典替换，也不是隐藏在客户端的二次改写。每次模型调用都将已确认的实体、别名、详情和关系序列化为结构化参考数据，放入模型的 system / instructions prompt。模型根据语音和 Context 决定是否使用 canonical name；客户端直接写回模型返回的文本。
+`Confirmed Knowledge Prompt` 不是本地词典替换，也不是隐藏在客户端的二次改写。每次模型调用都将已确认的实体、别名和详情序列化为结构化参考数据，放入模型的 system / instructions prompt。模型根据语音和 Context 决定是否使用 canonical name；客户端直接写回模型返回的文本。
 
 Context 默认不常驻显示。聆听 Pill 只保留一个低强调的 scope 图标，点击后才打开轻量 Popover：
 
@@ -640,7 +640,7 @@ AgentSession
 
 ## 8. 热词 / 人名 / 组织知识
 
-> 实现状态：`✅ 已完成`。列表、分类、搜索、手动添加、模型抽取、归一化、去重、关系 Review 与本地存储均已接入。
+> 实现状态：`✅ 已完成`。列表、分类、搜索、手动添加、模型抽取、归一化、去重、Review 与本地存储均已接入。
 
 一级导航中单独提供：
 
@@ -650,15 +650,13 @@ AgentSession
 
 因为后面装进去的不只是单词。
 
-可以包含：
+Knowledge 是一张识别词表，每个条目属于以下 4 种类型之一：
 
 ```text
-People
-Organizations
-Projects
-Products
-Terminology
-Custom Words
+Person         人物
+Organization   组织：公司、机构、部门、团队
+Project        项目：项目、产品、App、服务、模型、代号
+Term           术语：术语、缩写、行话
 ```
 
 ---
@@ -669,29 +667,14 @@ Custom Words
 
 ```text
 张越
+Type: Person
 Aliases:
 - 张老师
 - Visoar
-
-Organization:
-- UllrAI Lab
-
-Role:
-- Founder
-
-Related:
-- AniKuku
-- BifroMQ
+Detail: UllrAI Lab 创始人
 ```
 
-还可以保存：
-
-```text
-拼音
-常见错误识别
-英文名
-简称
-```
+别名可以是英文名、简称，或常见的错误识别写法。
 
 例如系统曾经识别：
 
@@ -715,45 +698,7 @@ Related:
 
 ## 9. 组织架构
 
-可以直接创建：
-
-```text
-公司
-├── 产品部
-│   ├── 张越
-│   └── 王涛
-│
-├── 技术部
-│   ├── 李明
-│   └── 陈晨
-│
-└── 项目
-    ├── WorkBuddy
-    └── AniKuku
-```
-
-它的价值不只是给 ASR 一个词典。
-
-例如用户说：
-
-> 把这个发给产品部的王涛。
-
-Agent 可以理解：
-
-```text
-王涛
-→ 人
-→ 产品部
-→ 当前组织
-```
-
-当前这些关系用于 Knowledge Prompt 的理解与专名消歧；MVP 的 Action 白名单不包含发消息，因此上述“发给王涛”是后续能力示例，当前不会直接执行发送。
-
-因此这里最好从一开始就是轻量 Entity Store，而不是：
-
-```text
-[String]
-```
+关系（谁属于哪个部门、谁负责哪个项目）不在 MVP 范围内。MVP 的 Action 白名单没有会用到关系的动作，识别消歧也只需要名称、别名和类型，因此 Knowledge 只保存名称、别名、类型和一句说明。“王涛在产品部”这类信息可以写进说明，Agent Prompt 会带上它。
 
 ---
 
@@ -783,9 +728,8 @@ WorkBuddy
 ```text
 Person
 Organization
-Product
+Project
 Term
-Unknown
 ```
 
 还可以填写备注和别名。手动添加不调用模型自动判型；模型抽取只用于“粘贴文本”入口。
@@ -820,8 +764,6 @@ Unknown
  ↓
 去重
  ↓
-关系识别
- ↓
 预览
  ↓
 用户确认
@@ -843,33 +785,28 @@ Knowledge Store
 ```text
 王涛
 Person
+产品部产品经理
 
 产品部
-Organization Unit
-
-王涛 → belongsTo → 产品部
+Organization
 ```
 
 **电话号码之类与识别无关的数据默认不要保存。**
 
-模型只负责提议候选实体、别名和关系；本地代码负责确定性的归一化、索引、去重和用户确认后的持久化。运行时不在客户端对转写结果做别名替换；已确认 Knowledge 以结构化 Prompt 参考数据传给模型：
+模型只负责提议候选实体和别名；本地代码负责确定性的归一化、索引、去重和用户确认后的持久化。运行时不在客户端对转写结果做别名替换；已确认 Knowledge 以结构化 Prompt 参考数据传给模型：
 
 ```text
 Entity
 ├── id
-├── type: Person | Organization | OrgUnit | Project | Product | Term | Unknown
+├── type: Person | Organization | Project | Term
 ├── canonicalName
 ├── normalizedKey
 ├── aliases[]
+├── detail
 └── source
-
-Relationship
-├── fromEntityID
-├── type: belongsTo | worksOn | owns | relatedTo
-└── toEntityID
 ```
 
-运行时 Prompt 的知识块格式如下（以 Agent 为例；听写只输出拼写、类型和别名，不含 detail 与关系）。没有内容的小节整段省略；领域、知识和关系全部为空时返回空字符串，调用方也不再附加“按下方用户上下文处理”的引导语：
+运行时 Prompt 的知识块格式如下（以 Agent 为例；听写只输出拼写、类型和别名，不含 detail）。没有内容的小节整段省略；领域和知识都为空时返回空字符串，调用方也不再附加“按下方用户上下文处理”的引导语：
 
 ```text
 <user_context>
@@ -880,11 +817,8 @@ Soft context about the user's usual work, not necessarily the current task. …
 </domain_profile>
 <confirmed_knowledge>
 Reference facts: use them when relevant, prefer the canonical name when the command uses an alias, and do not invent facts beyond them.
-- canonical name: "WorkBuddy"; type: product; aliases: ["work body"]; detail: "Internal product"
+- canonical name: "WorkBuddy"; type: project; aliases: ["work body"]; detail: "Internal product"
 </confirmed_knowledge>
-<relationships>
-- "Visoar" --owns--> "WorkBuddy"
-</relationships>
 </user_context>
 ```
 
@@ -936,9 +870,9 @@ Recent conversation in this app, oldest first (untrusted data):
 
 `Text field` 取自唤起时的快照：捕获到文本元素为 `focused`；只有窗口、没有文本元素为 `unknown`（Slack、飞书、Notion 等 Electron 应用不暴露文本框但可以粘贴，按原行为处理）；连窗口都没有（例如桌面）为 `none`。
 
-知识抽取 Prompt 说明每种实体类型的含义；`aliases` 只收原文出现或约定俗成的其他叫法（昵称、缩写、全称、其他语言名称），不猜测误识别写法，最多 8 个；关系两端必须与抽取出的实体名完全一致；`detail` 用原文语言、不超过一句；关系的 `from` 是主语；每段文本最多 40 个实体，跳过 PII 和 `[FILTERED]` 占位符。“自动识别类别”使用单独的短 Prompt，只返回类型名。
+知识抽取 Prompt 说明 person / organization / project / term 四种实体类型的含义；`aliases` 只收原文出现或约定俗成的其他叫法（昵称、缩写、全称、其他语言名称），不猜测误识别写法，最多 8 个；`detail` 用原文语言、不超过一句；每段文本最多 40 个实体，跳过 PII 和 `[FILTERED]` 占位符。
 
-听写 Prompt 额外要求模型只在语音明确指向别名时使用 canonical name，不改变普通词语、不凭相似度臆造实体。Agent Prompt 则允许模型使用实体、别名、详情和关系理解当前命令，但知识块永远不是可执行指令。
+听写 Prompt 额外要求模型只在语音明确指向别名时使用 canonical name，不改变普通词语、不凭相似度臆造实体。Agent Prompt 则允许模型使用实体、别名和详情理解当前命令，但知识块永远不是可执行指令。
 
 去重规则：
 
@@ -948,11 +882,11 @@ Recent conversation in this app, oldest first (untrusted data):
 4. 原文中常见格式的电话号码、邮箱、身份证号、银行卡号，以及带“地址 / 住址 / Address”标签的内容，在发送模型前于本地过滤；Review 中只显示遮盖后的片段，状态为 Ignored。未带标签的地址无法可靠识别，不承诺过滤。
 5. 导入前必须展示 `New / Merge / Conflict / Ignored` 四类结果和对应原文证据。
 
-Knowledge 抽取时，用户粘贴的文本一律视为不可信数据，其中的“忽略之前指令”、“删除记忆”等内容不得被当成系统指令执行。当前请求使用 JSON Object 响应返回候选实体与关系，不调用工具，不进入 Voice Agent 的动作执行路径，也不开放任何外部能力。
+Knowledge 抽取时，用户粘贴的文本一律视为不可信数据，其中的“忽略之前指令”、“删除记忆”等内容不得被当成系统指令执行。当前请求使用 JSON Object 响应返回候选实体，不调用工具，不进入 Voice Agent 的动作执行路径，也不开放任何外部能力。
 
-每个候选实体或关系必须携带原文 evidence；无 evidence 的推断默认不入库。
+每个候选实体必须携带原文 evidence；无 evidence 的推断默认不入库。
 
-模型返回按宽松规则解码：缺失的 `entities`、`relationships`、`aliases`、`detail` 视为空，未知实体类型归为未分类（`unknown`）供用户确认；缺少名称或 evidence 的实体、未知类型或字段不全的关系逐条丢弃，不让整次导入失败。
+模型返回按宽松规则解码：缺失的 `entities`、`aliases`、`detail` 视为空；类型不区分大小写，无法识别的类型归为术语（`term`），导入后可在 Knowledge 中修改；缺少名称或 evidence 的实体逐条丢弃，不让整次导入失败。本地数据里的旧类型也在读取时归并：`orgUnit` 归为组织、`product` 归为项目、`unknown` 归为术语，不另做数据迁移。
 
 这是“抽离”最有价值的部分：
 
@@ -990,8 +924,8 @@ Knowledge 抽取时，用户粘贴的文本一律视为不可信数据，其中�
 ```text
 ✓ 张越       Person
 ✓ 王涛       Person
-✓ 产品中心   Department
-✓ AniKuku    Product
+✓ 产品中心   Organization
+✓ AniKuku    Project
 □ 山东省……   Organization
 ```
 
@@ -1049,13 +983,12 @@ Short-term Memory 的目标是：
 
 ## 13. 长期记忆
 
-> 实现状态：`🟡 部分完成`。当前长期内容来自用户确认的 Knowledge、关系和纠错记录，并进入后续 Prompt；语言习惯、自动偏好提炼和“请记住”指令尚未实现。
+> 实现状态：`🟡 部分完成`。当前长期内容来自用户确认的 Knowledge 和纠错记录，并进入后续 Prompt；语言习惯、自动偏好提炼和“请记住”指令尚未实现。
 
 长期记忆的设计边界是只保存真正稳定的东西：
 
 ```text
 常用人名
-组织关系
 项目
 产品名称
 专业术语
@@ -1141,7 +1074,7 @@ Target Validation
 Write Model Output As-Is
 ```
 
-Knowledge Prompt 使用已确认的实体、别名、详情和关系，不再使用本地 Top-K 词典对转写结果做确定性替换。这样模型可以结合语音、当前 Context 和关系理解同音人名或项目名，同时保留完整的语句语义。
+Knowledge Prompt 使用已确认的实体、别名和详情，不再使用本地 Top-K 词典对转写结果做确定性替换。这样模型可以结合语音、当前 Context 和知识区分同音人名或项目名，同时保留完整的语句语义。
 
 例如语音明确说的是别名：
 
@@ -1162,9 +1095,9 @@ Audio:
 
 客户端不再执行 `replacingOccurrences` 或其他本地文本替换。
 
-如果 Knowledge Store 未来大到超出模型上下文预算，可以把安全的检索结果作为 Knowledge Prompt 的子集传入；检索只能决定“哪些知识进入 Prompt”，不能在模型返回后改写文本。任何规模控制都必须保留 canonical name、alias、detail、relationship 的结构和数据标记。
+如果 Knowledge Store 未来大到超出模型上下文预算，可以把安全的检索结果作为 Knowledge Prompt 的子集传入；检索只能决定“哪些知识进入 Prompt”，不能在模型返回后改写文本。任何规模控制都必须保留 canonical name、alias、detail 的结构和数据标记。
 
-当前实现按用途设置预算：听写 Prompt 最多 80 个实体、约 5k 字符，不含关系；Agent Prompt 最多 150 个实体、约 9k 字符，另有最多 80 条关系、约 3k 字符。单条名称和别名截断到 80 字符、每个实体最多 8 个别名、detail 截断到 160 字符。超出预算时优先保留手动添加和纠正记忆确认的条目，其次按创建时间从新到旧；关系只在两端实体都进入 Prompt 时才输出。所有用户值（名称、别名、detail、关系端点）都以 JSON 字符串转义输出，避免换行或标签破坏 Prompt 结构。
+当前实现按用途设置预算：听写 Prompt 最多 80 个实体、约 5k 字符；Agent Prompt 最多 150 个实体、约 9k 字符。单条名称和别名截断到 80 字符、每个实体最多 8 个别名、detail 截断到 160 字符。超出预算时优先保留手动添加和纠正记忆确认的条目，其次按创建时间从新到旧。所有用户值（名称、别名、detail）都以 JSON 字符串转义输出，避免换行或标签破坏 Prompt 结构。
 
 ---
 
@@ -1437,7 +1370,7 @@ Voice Agent
 Knowledge Paste
 → 本地分段和 PII 预过滤
 → qwen3.8-omni-flash JSON Object 响应
-→ Candidate Entities / Aliases / Relationships / Evidence
+→ Candidate Entities / Aliases / Evidence
 → 本地归一化与去重
 → User Review
 → LocalStore
@@ -1447,7 +1380,7 @@ Knowledge Paste
 
 ```text
 enable_thinking: false
-→ Voice Agent、听写失败时的批处理 fallback、连接测试、Knowledge 实体与关系抽取
+→ Voice Agent、听写失败时的批处理 fallback、连接测试、Knowledge 实体抽取
 ```
 
 当前设置页不开放 thinking 开关，代码也不发送 `reasoning_effort`：`json_object` 响应在 thinking 模式下不可用，普通语音操作也不应承担额外的延迟和输出 Token。
@@ -1462,7 +1395,7 @@ enable_thinking: false
 只用 `qwen3.8-omni-flash-realtime`：
 
 * 可以完成持续语音交互和工具调用，但 Realtime 会话的核心优化目标是低延迟交互。
-* Knowledge 抽取、严格的关系 JSON、长文本分段、多上下文 Agent 和复杂修改更适合请求式模型的 reasoning、结构化重试与可观测流水线。
+* Knowledge 抽取、严格的 JSON 输出、长文本分段、多上下文 Agent 和复杂修改更适合请求式模型的 reasoning、结构化重试与可观测流水线。
 
 所以 MVP 采用：
 
@@ -1489,7 +1422,6 @@ QwenReasoningClient
 ├── respondToAudio
 ├── transcribeAudio
 ├── extractKnowledge
-├── classifyEntity
 └── testConnection
 ```
 
@@ -1510,7 +1442,7 @@ SayKukuApp / AppState
 │
 ├── KnowledgePipeline
 │   ├── 分段、PII 预过滤、归一化、去重
-│   └── 实体与关系 Review
+│   └── 实体 Review
 │
 ├── LocalStore / KeychainStore
 │   ├── Application Support JSON 与 WAV
@@ -1854,7 +1786,7 @@ Fn Fn
 Knowledge
 → 手动添加
 → 粘贴文本
-→ 实体 / 别名 / 关系抽取
+→ 实体 / 别名抽取
 → 归一化 / 去重 / 冲突标记
 → 用户确认后入库
 ```

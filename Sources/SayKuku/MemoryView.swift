@@ -311,16 +311,9 @@ private struct LongTermMemoryView: View {
     }
 
     private var groups: [MemoryGroup] {
-        let entities = appState.knowledgeEntities
-        let names = entities.prefix(8).map(\.name).joined(separator: appState.text("、", ", "))
-        let relationships = appState.knowledgeRelationships.prefix(8).compactMap { relationship -> String? in
-            guard let from = entities.first(where: { $0.id == relationship.fromEntityID }),
-                  let to = entities.first(where: { $0.id == relationship.toEntityID }) else { return nil }
-            return "\(from.name) \(relationship.type.title(appState)) \(to.name)"
-        }
+        let names = appState.knowledgeEntities.prefix(8).map(\.name).joined(separator: appState.text("、", ", "))
         return [
-            MemoryGroup(title: appState.text("已保存的名称", "Saved names"), symbol: "character.cursor.ibeam", lines: names.isEmpty ? [] : [names]),
-            MemoryGroup(title: appState.text("常用关系", "Relationships"), symbol: "point.3.connected.trianglepath.dotted", lines: relationships)
+            MemoryGroup(title: appState.text("已保存的名称", "Saved names"), symbol: "character.cursor.ibeam", lines: names.isEmpty ? [] : [names])
         ].filter { !$0.lines.isEmpty }
     }
 

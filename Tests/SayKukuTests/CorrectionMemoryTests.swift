@@ -123,7 +123,7 @@ struct CorrectionMemoryTests {
         withState { state in
             #expect(state.addKnowledge(name: "AniKuku", type: .project, detail: "  ") == nil)
             #expect(state.knowledgeEntities.first?.detail == "")
-            #expect(state.addKnowledge(name: "WorkBuddy", type: .product) == nil)
+            #expect(state.addKnowledge(name: "WorkBuddy", type: .project) == nil)
             #expect(state.knowledgeEntities.first?.detail == "")
             #expect(state.addKnowledge(name: " ani kuku ", type: .term) == .duplicate(existingName: "AniKuku"))
             #expect(state.addKnowledge(name: "  ", type: .term) == .emptyName)
