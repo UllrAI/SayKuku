@@ -162,6 +162,7 @@ private struct CorrectionRow: View {
 
 private struct SessionMemoryView: View {
     @Environment(AppState.self) private var appState
+    @State private var confirmingClear = false
 
     var body: some View {
         // Refresh each minute so remaining times count down and expired turns drop out.
@@ -188,11 +189,8 @@ private struct SessionMemoryView: View {
                         .foregroundStyle(KukuColor.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: KukuSpacing.md)
-                    Button(appState.text("全部清除", "Clear All")) {
-                        withAnimation(Motion.snappy) { appState.clearSessions() }
-                        appState.showToast(appState.text("已清除最近对话", "Recent conversations cleared"), symbol: "trash")
-                    }
-                    .buttonStyle(.kukuSecondary)
+                    Button(appState.text("全部清除…", "Clear All…")) { confirmingClear = true }
+                        .buttonStyle(.kukuSecondary)
                 }
 
                 VStack(alignment: .leading, spacing: 0) {
@@ -201,6 +199,22 @@ private struct SessionMemoryView: View {
                     }
                 }
                 .kukuCard()
+            }
+            .confirmationDialog(
+                appState.text("清除全部最近对话？", "Clear all recent conversations?"),
+                isPresented: $confirmingClear,
+                titleVisibility: .visible
+            ) {
+                Button(appState.text("全部清除", "Clear All"), role: .destructive) {
+                    withAnimation(Motion.snappy) { appState.clearSessions() }
+                    appState.showToast(appState.text("已清除最近对话", "Recent conversations cleared"), symbol: "trash")
+                }
+                Button(appState.text("取消", "Cancel"), role: .cancel) {}
+            } message: {
+                Text(appState.text(
+                    "清除后语音 Agent 不会再参考这些对话，且无法恢复。",
+                    "Voice Agent will stop using them. This can’t be undone."
+                ))
             }
         }
     }

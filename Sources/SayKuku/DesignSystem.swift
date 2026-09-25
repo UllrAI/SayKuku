@@ -190,11 +190,13 @@ struct BrandMark: View {
 }
 
 /// Live or idle waveform. Coral only while recording; neutral for playback.
+/// The idle wave holds still when Reduce Motion is on.
 struct Waveform: View {
     var color: Color = KukuColor.coral
     var level: Double? = nil
     var barCount = 18
     var height: CGFloat = 26
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Group {
@@ -207,17 +209,21 @@ struct Waveform: View {
                     return 3 + (height - 3) * audibleLevel * envelope
                 }
                 .animation(Motion.meter, value: level)
+            } else if reduceMotion {
+                bars { idleBarHeight($0, at: 0) }
             } else {
                 TimelineView(.animation(minimumInterval: 1 / 24)) { timeline in
                     let t = timeline.date.timeIntervalSinceReferenceDate
-                    bars { index in
-                        let phase = Double(index) * 0.68
-                        let wave = (sin(t * 6.2 + phase) + sin(t * 3.3 - phase * 0.5)) * 0.22 + 0.52
-                        return max(3, height * wave)
-                    }
+                    bars { idleBarHeight($0, at: t) }
                 }
             }
         }
+    }
+
+    private func idleBarHeight(_ index: Int, at t: TimeInterval) -> CGFloat {
+        let phase = Double(index) * 0.68
+        let wave = (sin(t * 6.2 + phase) + sin(t * 3.3 - phase * 0.5)) * 0.22 + 0.52
+        return max(3, height * wave)
     }
 
     private func bars(barHeight: @escaping (Int) -> CGFloat) -> some View {
