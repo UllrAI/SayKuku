@@ -727,15 +727,10 @@ enum ContextCollector {
 
     /// A text item titled with its length; text past `limit` is not sent, and the title says so.
     static func textItem(
-        kind: ContextItem.Kind, symbol: String, title: String, value: String, limit: Int, isChineseUI: Bool
+        kind: ContextItem.Kind, symbol: String, title: String, value: String, limit: Int
     ) -> ContextItem {
         let isClipped = value.count > limit
-        let length = switch (isClipped, isChineseUI) {
-        case (true, true): "前 \(limit) 字"
-        case (true, false): "first \(limit) characters"
-        case (false, true): "\(value.count) 字"
-        case (false, false): value.count == 1 ? "1 character" : "\(value.count) characters"
-        }
+        let length = isClipped ? localized("first \(limit) characters") : localized("\(value.count) characters")
         return ContextItem(
             kind: kind, symbol: symbol, title: "\(title) · \(length)",
             value: clipped(value, to: limit), isClipped: isClipped
@@ -752,11 +747,9 @@ enum ContextCollector {
         browserPage: String?,
         session: AgentSession?,
         domains: Set<DomainPreset>,
-        knowledge: [KnowledgeEntity],
-        isChineseUI: Bool
+        knowledge: [KnowledgeEntity]
     ) -> [ContextItem] {
         guard !snapshot.isSensitive else { return [] }
-        func title(_ chinese: String, _ english: String) -> String { isChineseUI ? chinese : english }
         var items: [ContextItem] = []
         if currentAppAllowed {
             // The display name tells the model what a niche app is; the bundle ID keeps it unambiguous.
@@ -768,37 +761,35 @@ enum ContextCollector {
             items.append(textItem(
                 kind: .selectedText,
                 symbol: "text.quote",
-                title: title("选中文字", "Selected text"),
+                title: localized("Selected text"),
                 value: snapshot.selectedText,
-                limit: textLimit,
-                isChineseUI: isChineseUI
+                limit: textLimit
             ))
         }
         if windowTitleAllowed, !snapshot.windowTitle.isEmpty {
-            items.append(ContextItem(kind: .window, symbol: "macwindow", title: title("窗口标题", "Window title"), value: snapshot.windowTitle))
+            items.append(ContextItem(kind: .window, symbol: "macwindow", title: localized("Window title"), value: snapshot.windowTitle))
         }
         if clipboardAllowed, !PasteboardPolicy.isPrivate(NSPasteboard.general.types ?? []),
            let clipboard = NSPasteboard.general.string(forType: .string), !clipboard.isEmpty {
             items.append(textItem(
                 kind: .clipboard,
                 symbol: "clipboard",
-                title: title("剪贴板", "Clipboard"),
+                title: localized("Clipboard"),
                 value: clipboard,
-                limit: clipboardLimit,
-                isChineseUI: isChineseUI
+                limit: clipboardLimit
             ))
         }
         if let browserPage, !browserPage.isEmpty {
-            items.append(ContextItem(kind: .browser, symbol: "globe", title: title("浏览器页面", "Browser page"), value: browserPage))
+            items.append(ContextItem(kind: .browser, symbol: "globe", title: localized("Browser page"), value: browserPage))
         }
         if let session, session.expiresAt > .now {
-            items.append(ContextItem(kind: .session, symbol: "bubble.left.and.bubble.right", title: title("最近对话", "Recent conversation"), value: session.contextSummary))
+            items.append(ContextItem(kind: .session, symbol: "bubble.left.and.bubble.right", title: localized("Recent conversation"), value: session.contextSummary))
         }
         if !domains.isEmpty {
             items.append(ContextItem(
                 kind: .domain,
                 symbol: "text.bubble",
-                title: title("常用领域", "Domains"),
+                title: localized("Domains"),
                 value: DomainPreset.allCases.filter(domains.contains).map(\.promptName).joined(separator: ", ")
             ))
         }
@@ -807,7 +798,7 @@ enum ContextCollector {
             items.append(ContextItem(
                 kind: .knowledge,
                 symbol: "books.vertical",
-                title: title("已保存的知识", "Saved knowledge"),
+                title: localized("Saved knowledge"),
                 value: "\(knowledge.count)"
             ))
         }

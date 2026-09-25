@@ -57,7 +57,7 @@ final class FloatingOverlayController {
     func refresh() {
         guard let appState else { return }
         // Set here so the label follows the current UI language.
-        panel.setAccessibilityLabel(appState.text("SayKuku 语音浮层", "SayKuku voice overlay"))
+        panel.setAccessibilityLabel(localized("SayKuku voice overlay"))
         let shouldShow = appState.overlayError != nil
             || appState.dictationPhase != .idle
             || appState.agentPhase != .hidden
@@ -215,29 +215,26 @@ private struct AgentAnswerCard: View {
     private var labels: (title: String, symbol: String, hint: String, primary: String) {
         switch appState.pendingAction?.action {
         case .openURL:
-            (appState.text("打开这个网址？", "Open this link?"), "link",
-             appState.text("先核对网址，再决定是否打开", "Check the address before you open it"),
-             appState.text("打开", "Open"))
+            (localized("Open this link?"), "link",
+             localized("Check the address before you open it"),
+             localized("Open"))
         case .webSearch:
-            (appState.text("搜索这段内容？", "Search for this?"), "magnifyingglass",
-             appState.text(
-                 "先核对搜索词，再决定是否发给 \(searchEngineTitle)",
-                 "Check the search terms before they go to \(searchEngineTitle)"
-             ),
-             appState.text("搜索", "Search"))
+            (localized("Search for this?"), "magnifyingglass",
+             localized("Check the search terms before they go to \(searchEngineTitle)"),
+             localized("Search"))
         case .runShortcut:
-            (appState.text("运行这个快捷指令？", "Run this shortcut?"), "square.stack.3d.up",
-             appState.text("确认这是你要运行的快捷指令", "Make sure this is the shortcut you meant"),
-             appState.text("运行", "Run"))
+            (localized("Run this shortcut?"), "square.stack.3d.up",
+             localized("Make sure this is the shortcut you meant"),
+             localized("Run"))
         default:
-            (appState.text("回答", "Answer"), "sparkles",
-             appState.text("可复制，或写入刚才的输入位置", "Copy it, or insert it where you were typing"),
-             appState.text("写入", "Insert"))
+            (localized("Answer"), "sparkles",
+             localized("Copy it, or insert it where you were typing"),
+             localized("Insert"))
         }
     }
 
     private var searchEngineTitle: String {
-        appState.searchEngine.title(isChineseUI: appState.usesChineseUI)
+        appState.searchEngine.title
     }
 
     var body: some View {
@@ -252,7 +249,7 @@ private struct AgentAnswerCard: View {
                 }
                 .font(.kuku(.headline))
                 Spacer()
-                KukuIconButton(symbol: "xmark", label: appState.text("关闭", "Close"), action: appState.dismissAnswer)
+                KukuIconButton(symbol: "xmark", label: localized("Close"), action: appState.dismissAnswer)
             }
             ScrollView {
                 Text(appState.pendingAnswerText)
@@ -269,7 +266,7 @@ private struct AgentAnswerCard: View {
                     .foregroundStyle(KukuColor.textSecondary)
                     .lineLimit(2)
                 Spacer()
-                Button(appState.text("复制", "Copy"), action: appState.copyAnswer)
+                Button(localized("Copy"), action: appState.copyAnswer)
                     .buttonStyle(.kukuSecondary)
                 Button(labels.primary) {
                     if appState.pendingAction == nil {

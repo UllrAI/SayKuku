@@ -114,36 +114,29 @@ struct AgentPromptTests {
             isSensitive: false,
             caretFrame: nil
         )
-        func input(isChineseUI: Bool) -> String {
-            var context = ContextCollector.collect(
-                snapshot: snapshot,
-                selectedTextAllowed: true,
-                currentAppAllowed: true,
-                windowTitleAllowed: true,
-                clipboardAllowed: false,
-                browserPage: nil,
-                session: nil,
-                domains: [],
-                knowledge: [],
-                isChineseUI: isChineseUI
-            )
-            context.append(ContextCollector.textItem(
-                kind: .clipboard, symbol: "clipboard", title: isChineseUI ? "剪贴板" : "Clipboard",
-                value: String(repeating: "字", count: 12), limit: 10, isChineseUI: isChineseUI
-            ))
-            context.append(ContextItem(
-                kind: .browser, symbol: "globe", title: isChineseUI ? "浏览器页面" : "Browser page",
-                value: "https://example.com"
-            ))
-            return QwenReasoningClient.agentInput(context: context, sessions: [], textField: .focused, sectionID: "t3")
-        }
+        var context = ContextCollector.collect(
+            snapshot: snapshot,
+            selectedTextAllowed: true,
+            currentAppAllowed: true,
+            windowTitleAllowed: true,
+            clipboardAllowed: false,
+            browserPage: nil,
+            session: nil,
+            domains: [],
+            knowledge: []
+        )
+        // Chinese titles, whatever the test's interface language, so a leaked title would show.
+        context.append(ContextCollector.textItem(
+            kind: .clipboard, symbol: "clipboard", title: "剪贴板",
+            value: String(repeating: "字", count: 12), limit: 10
+        ))
+        context.append(ContextItem(kind: .browser, symbol: "globe", title: "浏览器页面", value: "https://example.com"))
+        let input = QwenReasoningClient.agentInput(context: context, sessions: [], textField: .focused, sectionID: "t3")
 
-        let chinese = input(isChineseUI: true)
-        #expect(chinese == input(isChineseUI: false))
-        #expect(chinese.contains("Current app:\n备忘录 (com.apple.Notes)\n\nWindow title:\n周报\n\nClipboard (truncated):\n"))
-        #expect(chinese.contains("Browser page:\nhttps://example.com\n</context id=\"t3\">"))
-        for uiText in ["剪贴板", "窗口标题", "前 10 字", "characters"] {
-            #expect(!chinese.contains(uiText))
+        #expect(input.contains("Current app:\n备忘录 (com.apple.Notes)\n\nWindow title:\n周报\n\nClipboard (truncated):\n"))
+        #expect(input.contains("Browser page:\nhttps://example.com\n</context id=\"t3\">"))
+        for uiText in ["剪贴板", "浏览器页面", "characters", localized("first \(10) characters")] {
+            #expect(!input.contains(uiText))
         }
     }
 
@@ -176,7 +169,7 @@ struct AgentPromptTests {
         let response = QwenReasoningClient.decodeAgentResponse(json)
         #expect(response?.action == .webSearch)
         #expect(response?.intent == nil)
-        #expect(AgentResponse.Action.webSearch.title(isChineseUI: true) == "网页搜索")
+        #expect(AgentResponse.Action.webSearch.title == localized("Search the web"))
     }
 
     @Test("previous output is available only when supplied as agent context")

@@ -17,17 +17,17 @@ enum GlobalShortcutAction: UInt32, CaseIterable, Sendable {
 
     /// The Fn gesture that keeps working whether or not the shortcut is set,
     /// phrased to open a sentence.
-    @MainActor func fnGesture(_ appState: AppState) -> String {
+    var fnGesture: String {
         switch self {
         case .voiceInput: "Fn"
-        case .voiceAgent: appState.text("连按两次 Fn", "Pressing Fn twice")
+        case .voiceAgent: localized("Pressing Fn twice")
         }
     }
 
-    @MainActor func title(_ appState: AppState) -> String {
+    var title: String {
         switch self {
-        case .voiceInput: appState.voiceInputTitle
-        case .voiceAgent: appState.voiceAgentTitle
+        case .voiceInput: localized("Voice Input")
+        case .voiceAgent: localized("Voice Agent")
         }
     }
 }

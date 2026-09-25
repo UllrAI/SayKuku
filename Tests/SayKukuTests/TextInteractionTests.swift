@@ -128,9 +128,9 @@ struct TextWriteVerificationTests {
     func searchEngineDefaults() {
         #expect(SearchEngine.defaultEngine(for: .beijing) == .bing)
         #expect(SearchEngine.defaultEngine(for: .singapore) == .google)
-        #expect(SearchEngine.baidu.title(isChineseUI: true) == "百度")
-        #expect(SearchEngine.baidu.title(isChineseUI: false) == "Baidu")
-        #expect(SearchEngine.duckduckgo.title(isChineseUI: true) == "DuckDuckGo")
+        #expect(SearchEngine.baidu.title == localized("Baidu"))
+        #expect(SearchEngine.google.title == "Google")
+        #expect(SearchEngine.duckduckgo.title == "DuckDuckGo")
     }
 
     @Test("links, searches and shortcuts chosen with untrusted context wait for confirmation")
@@ -184,18 +184,18 @@ struct TextWriteVerificationTests {
     @Test("long context is clipped and labeled")
     func clippedContextItem() {
         let long = ContextCollector.textItem(
-            kind: .selectedText, symbol: "text.quote", title: "选中文字", value: String(repeating: "字", count: 12),
-            limit: 10, isChineseUI: true
+            kind: .selectedText, symbol: "text.quote", title: "Selected text", value: String(repeating: "字", count: 12),
+            limit: 10
         )
         #expect(long.isClipped)
-        #expect(long.title == "选中文字 · 前 10 字")
+        #expect(long.title == "Selected text · " + localized("first \(10) characters"))
         #expect(long.value == String(repeating: "字", count: 10) + "…")
 
         let short = ContextCollector.textItem(
-            kind: .clipboard, symbol: "clipboard", title: "Clipboard", value: "a", limit: 10, isChineseUI: false
+            kind: .clipboard, symbol: "clipboard", title: "Clipboard", value: "a", limit: 10
         )
         #expect(!short.isClipped)
-        #expect(short.title == "Clipboard · 1 character")
+        #expect(short.title == "Clipboard · " + localized("\(1) characters"))
         #expect(short.value == "a")
     }
 
@@ -221,8 +221,7 @@ struct TextWriteVerificationTests {
             knowledge: [
                 KnowledgeEntity(name: "WorkBuddy", type: .project),
                 KnowledgeEntity(name: "SayKuku", type: .project)
-            ],
-            isChineseUI: false
+            ]
         )
         #expect(items.count == 1)
         #expect(items.first?.kind == .knowledge)

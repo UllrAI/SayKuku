@@ -39,12 +39,12 @@ struct SayKukuApp: App {
             CommandGroup(before: .sidebar) {
                 PageMenuItems(appState: appState)
             }
-            CommandMenu(appState.text("语音", "Voice")) {
+            CommandMenu(localized("Voice")) {
                 VoiceMenuItems(appState: appState)
             }
             // There is no help book, so the Help menu points to the issue tracker instead.
             CommandGroup(replacing: .help) {
-                Button(appState.text("反馈问题…", "Report a Problem…")) {
+                Button(localized("Report a Problem…")) {
                     if let url = URL(string: "https://github.com/UllrAI/SayKuku/issues") {
                         NSWorkspace.shared.open(url)
                     }
@@ -168,9 +168,9 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
     private func confirmQuitWithoutSaving() -> Bool {
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.messageText = appState.text("没能保存最近的更改", "Couldn’t save your latest changes")
-        alert.addButton(withTitle: appState.text("仍然退出", "Quit Anyway"))
-        alert.addButton(withTitle: appState.text("取消", "Cancel"))
+        alert.messageText = localized("Couldn’t save your latest changes")
+        alert.addButton(withTitle: localized("Quit Anyway"))
+        alert.addButton(withTitle: localized("Cancel"))
         return alert.runModal() == .alertFirstButtonReturn
     }
 
@@ -291,11 +291,11 @@ private struct MenuBarContent: View {
 
         Divider()
 
-        Button(appState.text("打开 SayKuku", "Open SayKuku")) {
+        Button(localized("Open SayKuku")) {
             showWindow(destination: .home)
         }
 
-        Button(appState.text("设置…", "Settings…")) {
+        Button(localized("Settings…")) {
             showSettings()
         }
         .keyboardShortcut(",", modifiers: .command)
@@ -308,7 +308,7 @@ private struct MenuBarContent: View {
 
         Divider()
 
-        Button(appState.text("退出 SayKuku", "Quit SayKuku")) {
+        Button(localized("Quit SayKuku")) {
             NSApplication.shared.terminate(nil)
         }
         .keyboardShortcut("q", modifiers: .command)
@@ -348,7 +348,7 @@ private struct CheckForUpdatesItem: View {
 
     var body: some View {
         if let updater = appState.updater {
-            Button(appState.text("检查更新…", "Check for Updates…")) {
+            Button(localized("Check for Updates…")) {
                 updater.checkForUpdates(nil)
             }
         }
@@ -362,7 +362,7 @@ private struct FindCommands: Commands {
 
     var body: some Commands {
         CommandGroup(after: .textEditing) {
-            Button(appState.text("查找…", "Find…")) {
+            Button(localized("Find…")) {
                 if let searchFieldFocus { searchFieldFocus.wrappedValue = true }
             }
             .keyboardShortcut("f", modifiers: .command)
@@ -384,7 +384,7 @@ private struct PageMenuItems: View {
     }
 
     private func pageItem(_ destination: AppState.Destination, key: KeyEquivalent) -> some View {
-        Button(destination.title(appState)) {
+        Button(destination.title) {
             appState.showMainWindow(destination: destination)
         }
         .keyboardShortcut(key, modifiers: .command)
@@ -403,15 +403,15 @@ private struct VoiceMenuItems: View {
 
     var body: some View {
         Button(appState.dictationPhase == .listening
-               ? appState.text("结束语音输入", "Stop Voice Input")
-               : appState.text("开始语音输入", "Start Voice Input")) {
+               ? localized("Stop Voice Input")
+               : localized("Start Voice Input")) {
             appState.toggleDictation()
         }
         .keyboardShortcut(keyboardShortcut(for: .voiceInput))
 
         Button(appState.agentPhase == .listening
-               ? appState.text("结束语音 Agent", "Stop Voice Agent")
-               : appState.text("开始语音 Agent", "Start Voice Agent")) {
+               ? localized("Stop Voice Agent")
+               : localized("Start Voice Agent")) {
             appState.startAgent()
         }
         .keyboardShortcut(keyboardShortcut(for: .voiceAgent))

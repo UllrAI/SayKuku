@@ -8,10 +8,9 @@ struct QwenSetupView: View {
     var body: some View {
         VStack(spacing: 0) {
             KukuSheetHeader(
-                eyebrow: appState.setupProgress?.title(appState),
-                title: appState.text("连接 Qwen", "Connect to Qwen"),
-                description: appState.text(
-                    "SayKuku 用阿里云百炼的 Qwen 识别语音、处理指令。按下面的步骤拿到 API Key，就能开始用了。",
+                eyebrow: appState.setupProgress?.title,
+                title: localized("Connect to Qwen"),
+                description: localized(
                     "SayKuku uses Qwen on Alibaba Cloud Model Studio to transcribe your voice and handle commands. Follow the steps below to get an API Key."
                 )
             ) {
@@ -21,11 +20,11 @@ struct QwenSetupView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: KukuLayout.sectionSpacing) {
-                    KukuGroup(appState.text("获取方式", "Where to find them")) {
+                    KukuGroup(localized("Where to find them")) {
                         steps
                     }
                     VStack(alignment: .leading, spacing: KukuSpacing.md) {
-                        KukuGroup(appState.text("连接信息", "Connection details")) {
+                        KukuGroup(localized("Connection details")) {
                             QwenConnectionForm(draft: $draft)
                         }
                         QwenConnectionStatus(draft: draft)
@@ -46,21 +45,16 @@ struct QwenSetupView: View {
 
     private var steps: some View {
         VStack(alignment: .leading, spacing: KukuSpacing.md) {
-            QwenSetupStep(number: 1, text: appState.text(
-                "登录阿里云百炼控制台，地域与下方所选一致。",
+            QwenSetupStep(number: 1, text: localized(
                 "Sign in to the Alibaba Cloud Model Studio console in the region you pick below."
             )) {
                 KukuExternalLink(
-                    title: appState.text("打开百炼控制台", "Open Model Studio Console"),
+                    title: localized("Open Model Studio Console"),
                     destination: appState.qwenRegion.consoleURL
                 )
             }
-            QwenSetupStep(number: 2, text: appState.text(
-                "在“API Key”页面创建一个 Key，复制后粘贴到下方。",
-                "On the API Key page, create a key, then paste it below."
-            ))
-            QwenSetupStep(number: 3, text: appState.text(
-                "可选：点击控制台右上角的头像，复制业务空间 ID（以 llm- 开头）填到下方，语音输入就能边说边识别。",
+            QwenSetupStep(number: 2, text: localized("On the API Key page, create a key, then paste it below."))
+            QwenSetupStep(number: 3, text: localized(
                 "Optional: click your avatar in the top-right corner of the console and copy your Workspace ID (it starts with llm-). With it, Voice Input transcribes as you speak."
             ))
         }
@@ -69,7 +63,7 @@ struct QwenSetupView: View {
 
     private var footer: some View {
         KukuSheetFooter(
-            note: KukuSheetNote(text: appState.text("以后可在“设置 › Qwen 连接”中修改。", "You can change this later in Settings › Qwen Connection."))
+            note: KukuSheetNote(text: localized("You can change this later in Settings › Qwen Connection."))
         ) {
             if !isConnected {
                 QwenConnectionButton(draft: draft, kind: .secondary)
