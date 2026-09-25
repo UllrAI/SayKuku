@@ -77,6 +77,24 @@ struct AppStateTests {
         #expect(!environment.makeState().soundCuesEnabled)
     }
 
+    @Test("the search engine starts from the region, then stays put when the region changes")
+    @MainActor
+    func searchEngineSetting() {
+        let firstChoices: [(QwenRegion, SearchEngine)] = [(.beijing, .bing), (.singapore, .google)]
+        for (region, engine) in firstChoices {
+            let environment = AppStateTestEnvironment()
+            defer { environment.clean() }
+            environment.defaults.set(region.rawValue, forKey: "qwen.region")
+            let state = environment.makeState()
+            #expect(state.searchEngine == engine)
+            #expect(environment.defaults.string(forKey: "agent.searchEngine") == engine.rawValue)
+            state.qwenRegion = region == .beijing ? .singapore : .beijing
+            #expect(environment.makeState().searchEngine == engine)
+            state.searchEngine = .duckduckgo
+            #expect(environment.makeState().searchEngine == .duckduckgo)
+        }
+    }
+
     @Test("only the listening phase counts as recording, so cancels elsewhere stay silent")
     @MainActor
     func recordingPhases() {
