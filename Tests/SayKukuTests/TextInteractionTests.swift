@@ -89,12 +89,68 @@ struct TextWriteVerificationTests {
 
     @Test("web search encodes every reserved query character")
     func webSearchURL() {
-        #expect(AgentActionExecutor.webSearchURL(for: "C++ & Rust")?.absoluteString
+        #expect(AgentActionExecutor.webSearchURL(for: "C++ & Rust", region: .singapore)?.absoluteString
             == "https://www.google.com/search?q=C%2B%2B%20%26%20Rust")
-        #expect(AgentActionExecutor.webSearchURL(for: "a=b#c?d/e")?.absoluteString
+        #expect(AgentActionExecutor.webSearchURL(for: "a=b#c?d/e", region: .singapore)?.absoluteString
             == "https://www.google.com/search?q=a%3Db%23c%3Fd%2Fe")
-        #expect(AgentActionExecutor.webSearchURL(for: "你好 swift-6_x.y~")?.absoluteString
+        #expect(AgentActionExecutor.webSearchURL(for: "你好 swift-6_x.y~", region: .singapore)?.absoluteString
             == "https://www.google.com/search?q=%E4%BD%A0%E5%A5%BD%20swift-6_x.y~")
+    }
+
+    @Test("web search uses Bing for the Beijing region")
+    func webSearchEngine() {
+        #expect(AgentActionExecutor.webSearchURL(for: "天气", region: .beijing)?.absoluteString
+            == "https://www.bing.com/search?q=%E5%A4%A9%E6%B0%94")
+        #expect(AgentActionExecutor.webSearchURL(for: "weather", region: .singapore)?.host == "www.google.com")
+    }
+
+    @Test("a shortcut runs only when its name was spoken")
+    func spokenShortcutName() {
+        #expect(AgentActionExecutor.isShortcut("Morning Routine", spokenIn: "运行 morning routine"))
+        #expect(AgentActionExecutor.isShortcut("早安 例程", spokenIn: "帮我跑一下早安例程"))
+        #expect(!AgentActionExecutor.isShortcut("Send Clipboard", spokenIn: "翻译一下"))
+        #expect(!AgentActionExecutor.isShortcut(" ", spokenIn: "运行快捷指令"))
+    }
+
+    @Test("links chosen with untrusted context wait for confirmation")
+    func openURLConfirmation() {
+        let open = AgentResponse(transcript: "打开官网", action: .openURL, url: "https://example.com")
+        let search = AgentResponse(transcript: "搜一下", action: .webSearch, query: "SayKuku")
+        let app = ContextItem(kind: .app, symbol: "app", title: "Notes", value: "com.apple.Notes")
+        let window = ContextItem(kind: .window, symbol: "macwindow", title: "Window title", value: "Notes")
+        #expect(!AgentActionExecutor.needsConfirmation(open, context: [app, window]))
+        for kind: ContextItem.Kind in [.selectedText, .previousOutput, .clipboard, .browser, .session] {
+            let untrusted = ContextItem(kind: kind, symbol: "", title: "", value: "text")
+            #expect(AgentActionExecutor.needsConfirmation(open, context: [app, untrusted]))
+            #expect(!AgentActionExecutor.needsConfirmation(search, context: [untrusted]))
+        }
+        #expect(AgentActionExecutor.webURL("file:///etc/passwd") == nil)
+        #expect(AgentActionExecutor.webURL("https://example.com")?.host == "example.com")
+    }
+
+    @Test("long context is clipped and labeled")
+    func clippedContextItem() {
+        let long = ContextCollector.textItem(
+            kind: .selectedText, symbol: "text.quote", title: "选中文字", value: String(repeating: "字", count: 12),
+            limit: 10, isChineseUI: true
+        )
+        #expect(long.isClipped)
+        #expect(long.title == "选中文字 · 前 10 字")
+        #expect(long.value == String(repeating: "字", count: 10) + "…")
+
+        let short = ContextCollector.textItem(
+            kind: .clipboard, symbol: "clipboard", title: "Clipboard", value: "a", limit: 10, isChineseUI: false
+        )
+        #expect(!short.isClipped)
+        #expect(short.title == "Clipboard · 1 character")
+        #expect(short.value == "a")
+    }
+
+    @Test("browser context keeps only the page address")
+    func browserPageAddress() {
+        #expect(ContextCollector.pageAddress("https://user:secret@example.com:8443/reset/a%20b?token=abc#code=1")
+            == "https://example.com:8443/reset/a%20b")
+        #expect(ContextCollector.pageAddress("https://example.com") == "https://example.com")
     }
 
     @Test("knowledge context only records that saved knowledge is used")

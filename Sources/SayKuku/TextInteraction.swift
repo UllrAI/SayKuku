@@ -616,10 +616,25 @@ enum KeyboardLayout {
 }
 
 enum ContextCollector {
-    /// Length label for context items, e.g. "12 字" or "1 character".
-    static func characterCount(_ count: Int, isChineseUI: Bool) -> String {
-        if isChineseUI { return "\(count) 字" }
-        return count == 1 ? "1 character" : "\(count) characters"
+    /// Longest selected text or previous output sent to Qwen.
+    static let textLimit = 10_000
+    static let clipboardLimit = 4_000
+
+    /// A text item titled with its length; text past `limit` is not sent, and the title says so.
+    static func textItem(
+        kind: ContextItem.Kind, symbol: String, title: String, value: String, limit: Int, isChineseUI: Bool
+    ) -> ContextItem {
+        let isClipped = value.count > limit
+        let length = switch (isClipped, isChineseUI) {
+        case (true, true): "前 \(limit) 字"
+        case (true, false): "first \(limit) characters"
+        case (false, true): "\(value.count) 字"
+        case (false, false): value.count == 1 ? "1 character" : "\(value.count) characters"
+        }
+        return ContextItem(
+            kind: kind, symbol: symbol, title: "\(title) · \(length)",
+            value: clipped(value, to: limit), isClipped: isClipped
+        )
     }
 
     @MainActor
@@ -643,11 +658,13 @@ enum ContextCollector {
             items.append(ContextItem(kind: .app, symbol: "app", title: snapshot.appName, value: snapshot.bundleID))
         }
         if selectedTextAllowed, !snapshot.selectedText.isEmpty {
-            items.append(ContextItem(
+            items.append(textItem(
                 kind: .selectedText,
                 symbol: "text.quote",
-                title: title("选中文字", "Selected text") + " · " + characterCount(snapshot.selectedText.count, isChineseUI: isChineseUI),
-                value: snapshot.selectedText
+                title: title("选中文字", "Selected text"),
+                value: snapshot.selectedText,
+                limit: textLimit,
+                isChineseUI: isChineseUI
             ))
         }
         if windowTitleAllowed, !snapshot.windowTitle.isEmpty {
@@ -655,11 +672,13 @@ enum ContextCollector {
         }
         if clipboardAllowed, !PasteboardPolicy.isPrivate(NSPasteboard.general.types ?? []),
            let clipboard = NSPasteboard.general.string(forType: .string), !clipboard.isEmpty {
-            items.append(ContextItem(
+            items.append(textItem(
                 kind: .clipboard,
                 symbol: "clipboard",
-                title: title("剪贴板", "Clipboard") + " · " + characterCount(clipboard.count, isChineseUI: isChineseUI),
-                value: clipboard
+                title: title("剪贴板", "Clipboard"),
+                value: clipboard,
+                limit: clipboardLimit,
+                isChineseUI: isChineseUI
             ))
         }
         if browserPageAllowed, let url = browserURL(bundleID: snapshot.bundleID), !url.isEmpty {
@@ -689,25 +708,39 @@ enum ContextCollector {
         return items
     }
 
+    /// Query and fragment can carry OAuth codes or reset tokens, so only the page address is sent.
+    static func pageAddress(_ url: String) -> String? {
+        guard var components = URLComponents(string: url) else { return nil }
+        components.user = nil
+        components.password = nil
+        components.query = nil
+        components.fragment = nil
+        return components.string
+    }
+
     @MainActor
     private static func browserURL(bundleID: String) -> String? {
-        let source: String
+        let command: String
         switch bundleID {
         case "com.apple.Safari":
-            source = "tell application \"Safari\" to return URL of current tab of front window"
+            command = "tell application \"Safari\" to return URL of current tab of front window"
         case "com.google.Chrome":
-            source = "tell application \"Google Chrome\" to return URL of active tab of front window"
+            command = "tell application \"Google Chrome\" to return URL of active tab of front window"
         default:
             return nil
         }
+        // Runs on the main thread, so a busy browser must not hold it for the default two-minute Apple event timeout.
+        let source = "with timeout of 2 seconds\n\(command)\nend timeout"
         var error: NSDictionary?
         let result = NSAppleScript(source: source)?.executeAndReturnError(&error)
-        return error == nil ? result?.stringValue : nil
+        guard error == nil, let url = result?.stringValue else { return nil }
+        return pageAddress(url)
     }
 }
 
 enum AgentActionError: Error {
     case shortcutFailed
+    case shortcutNotSpoken
 }
 
 enum AgentActionExecutor {
@@ -715,44 +748,79 @@ enum AgentActionExecutor {
     private static let queryValueAllowed = CharacterSet(
         charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~"
     )
+    /// Context that someone other than the user may have written, such as a web page hiding instructions.
+    private static let untrustedContextKinds: [ContextItem.Kind] = [.selectedText, .previousOutput, .clipboard, .browser, .session]
 
     @MainActor
-    static func execute(_ response: AgentResponse) async throws {
+    static func execute(_ response: AgentResponse, region: QwenRegion) async throws {
         switch response.action {
         case .writeText, .answer:
             return
         case .openURL:
-            guard let value = response.url, let url = URL(string: value), ["http", "https"].contains(url.scheme?.lowercased()) else {
+            guard let url = webURL(response.url) else { throw QwenError.invalidResponse }
+            NSWorkspace.shared.open(url)
+        case .webSearch:
+            guard let query = response.query, let url = webSearchURL(for: query, region: region) else {
                 throw QwenError.invalidResponse
             }
             NSWorkspace.shared.open(url)
-        case .webSearch:
-            guard let query = response.query, let url = webSearchURL(for: query) else { throw QwenError.invalidResponse }
-            NSWorkspace.shared.open(url)
         case .runShortcut:
             guard let name = response.shortcutName, !name.isEmpty else { throw QwenError.invalidResponse }
+            guard isShortcut(name, spokenIn: response.transcript ?? "") else { throw AgentActionError.shortcutNotSpoken }
             try await runShortcut(named: name)
         }
     }
 
-    static func webSearchURL(for query: String) -> URL? {
+    /// A link chosen while reading untrusted context may come from injected instructions, so the user opens it.
+    static func needsConfirmation(_ response: AgentResponse, context: [ContextItem]) -> Bool {
+        response.action == .openURL && context.contains { untrustedContextKinds.contains($0.kind) }
+    }
+
+    static func webURL(_ value: String?) -> URL? {
+        guard let value, let url = URL(string: value), ["http", "https"].contains(url.scheme?.lowercased()) else { return nil }
+        return url
+    }
+
+    /// Only a shortcut the user named out loud runs, so context text cannot pick one.
+    static func isShortcut(_ name: String, spokenIn transcript: String) -> Bool {
+        func normalized(_ value: String) -> String { value.lowercased().filter { !$0.isWhitespace } }
+        let name = normalized(name)
+        return !name.isEmpty && normalized(transcript).contains(name)
+    }
+
+    /// Google is blocked in mainland China, where Beijing-region users usually are.
+    static func webSearchURL(for query: String, region: QwenRegion) -> URL? {
         guard let encoded = query.addingPercentEncoding(withAllowedCharacters: queryValueAllowed) else { return nil }
-        return URL(string: "https://www.google.com/search?q=\(encoded)")
+        let engine = region == .beijing ? "https://www.bing.com/search?q=" : "https://www.google.com/search?q="
+        return URL(string: engine + encoded)
     }
 
     /// Waits for `shortcuts run` off the main thread so a failing shortcut is reported instead of shown as done.
+    /// A stuck shortcut is stopped after a minute, and cancelling the workflow stops it right away.
     private static func runShortcut(named name: String) async throws {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/shortcuts")
         process.arguments = ["run", name]
-        let status: Int32 = try await withCheckedThrowingContinuation { continuation in
-            process.terminationHandler = { continuation.resume(returning: $0.terminationStatus) }
-            do {
-                try process.run()
-            } catch {
-                continuation.resume(throwing: error)
-            }
+        let timeout = Task {
+            try await Task.sleep(for: .seconds(60))
+            if process.isRunning { process.terminate() }
         }
+        defer { timeout.cancel() }
+        let status: Int32 = try await withTaskCancellationHandler {
+            try Task.checkCancellation()
+            return try await withCheckedThrowingContinuation { continuation in
+                process.terminationHandler = { continuation.resume(returning: $0.terminationStatus) }
+                do {
+                    try process.run()
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        } onCancel: {
+            // Terminating a process that never launched raises an exception.
+            if process.isRunning { process.terminate() }
+        }
+        try Task.checkCancellation()
         guard status == 0 else { throw AgentActionError.shortcutFailed }
     }
 }
