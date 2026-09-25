@@ -616,7 +616,7 @@ struct KukuBadge: View {
         .font(.kuku(.caption, weight: .semibold))
         .foregroundStyle(KukuColor.textSecondary)
         .padding(.horizontal, KukuSpacing.sm)
-        .frame(height: KukuLayout.badgeHeight)
+        .frame(minHeight: KukuLayout.badgeHeight)
         .background(KukuColor.fill, in: Capsule())
     }
 }
@@ -739,7 +739,8 @@ struct KukuSearchField: View {
             }
         }
         .padding(.horizontal, KukuSpacing.md)
-        .frame(width: width, height: KukuLayout.controlHeight)
+        .frame(width: width)
+        .frame(minHeight: KukuLayout.controlHeight)
         .kukuFieldChrome(isFocused: isFocused)
     }
 }
@@ -833,7 +834,8 @@ struct KukuPicker<Option: Hashable, Extra: View>: View {
             }
             .font(.kuku(.body))
             .padding(.horizontal, KukuSpacing.md)
-            .frame(width: KukuLayout.pickerWidth, height: KukuLayout.controlHeight)
+            .frame(width: KukuLayout.pickerWidth)
+            .frame(minHeight: KukuLayout.controlHeight)
             .kukuFieldChrome(isFocused: false)
             .contentShape(Rectangle())
         }

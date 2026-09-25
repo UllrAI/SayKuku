@@ -337,7 +337,7 @@ private struct HistoryRow: View {
                     }
                     .foregroundStyle(KukuColor.textSecondary)
                     .padding(.horizontal, KukuSpacing.sm)
-                    .frame(height: KukuLayout.controlHeightSmall)
+                    .frame(minHeight: KukuLayout.controlHeightSmall)
                     .background(KukuColor.fill, in: Capsule())
                 }
                 .buttonStyle(PressScaleStyle())
