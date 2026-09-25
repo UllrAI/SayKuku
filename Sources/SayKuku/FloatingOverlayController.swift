@@ -269,6 +269,7 @@ private struct AgentAnswerCard: View {
         .padding(KukuLayout.cardPadding)
         // Leaves room inside the answer panel (see `panelSize`) for the card shadow.
         .frame(width: OverlayLayout.answerCardWidth, height: appState.answerCardHeight)
-        .kukuSurface(radius: KukuLayout.radiusLarge, elevated: true, fill: KukuColor.overlaySurface)
+        .kukuGlass(in: RoundedRectangle(cornerRadius: KukuLayout.radiusLarge, style: .continuous))
+        .kukuShadow(.card)
     }
 }
