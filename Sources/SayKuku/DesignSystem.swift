@@ -590,6 +590,33 @@ private struct KukuInteractiveSurfaceModifier: ViewModifier {
     }
 }
 
+// MARK: - Lists
+
+extension View {
+    /// A plain `List` on the page canvas: no system background, rows only as tall as their content.
+    func kukuList() -> some View {
+        listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .environment(\.defaultMinListRowHeight, 0)
+    }
+
+    /// A row of a `kukuList()`. The row draws its own background and dividers; `insets` sets the spacing.
+    func kukuListRow(_ insets: EdgeInsets = EdgeInsets()) -> some View {
+        listRowInsets(insets)
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
+    }
+}
+
+extension Array where Element: Identifiable {
+    /// The item to select once `id` is removed: the next one, or the previous one at the end.
+    func selectionAfterRemoving(_ id: Element.ID) -> Element.ID? {
+        guard let index = firstIndex(where: { $0.id == id }) else { return nil }
+        let neighbor = index + 1 < count ? index + 1 : index - 1
+        return indices.contains(neighbor) ? self[neighbor].id : nil
+    }
+}
+
 // MARK: - Labels and indicators
 
 /// Neutral capsule for categories and states. A tone only colors the optional icon.
@@ -702,15 +729,30 @@ struct KukuSearchField: View {
     let clearLabel: String
     @Binding var text: String
     let width: CGFloat?
-    @FocusState private var isFocused: Bool
+    /// Lets the page move focus here, e.g. from Find (⌘F). Without it the field keeps its own focus state.
+    let focus: FocusState<Bool>.Binding?
+    /// Runs after Esc clears the field, so the page can hand focus back to its content.
+    let onExit: (@MainActor () -> Void)?
+    @FocusState private var ownFocus: Bool
 
     /// `width: nil` fills the available width.
-    init(prompt: String, clearLabel: String, text: Binding<String>, width: CGFloat? = KukuLayout.searchFieldWidth) {
+    init(
+        prompt: String,
+        clearLabel: String,
+        text: Binding<String>,
+        width: CGFloat? = KukuLayout.searchFieldWidth,
+        focus: FocusState<Bool>.Binding? = nil,
+        onExit: (@MainActor () -> Void)? = nil
+    ) {
         self.prompt = prompt
         self.clearLabel = clearLabel
         _text = text
         self.width = width
+        self.focus = focus
+        self.onExit = onExit
     }
+
+    private var isFocused: FocusState<Bool>.Binding { focus ?? $ownFocus }
 
     var body: some View {
         HStack(spacing: KukuSpacing.iconText) {
@@ -721,7 +763,8 @@ struct KukuSearchField: View {
             TextField(prompt, text: $text)
                 .textFieldStyle(.plain)
                 .font(.kuku(.callout))
-                .focused($isFocused)
+                .focused(isFocused)
+                .onExitCommand { clearAndLeave() }
             if !text.isEmpty {
                 Button { text = "" } label: {
                     Image(systemName: "xmark.circle.fill")
@@ -736,7 +779,26 @@ struct KukuSearchField: View {
         .padding(.horizontal, KukuSpacing.md)
         .frame(width: width)
         .frame(minHeight: KukuLayout.controlHeight)
-        .kukuFieldChrome(isFocused: isFocused)
+        .kukuFieldChrome(isFocused: isFocused.wrappedValue)
+    }
+
+    /// Esc clears the search and leaves the field, like the system search fields.
+    private func clearAndLeave() {
+        text = ""
+        isFocused.wrappedValue = false
+        onExit?()
+    }
+}
+
+private struct SearchFieldFocusKey: FocusedValueKey {
+    typealias Value = FocusState<Bool>.Binding
+}
+
+extension FocusedValues {
+    /// Focus of the current page's search field, published for Find (⌘F).
+    var searchFieldFocus: FocusState<Bool>.Binding? {
+        get { self[SearchFieldFocusKey.self] }
+        set { self[SearchFieldFocusKey.self] = newValue }
     }
 }
 

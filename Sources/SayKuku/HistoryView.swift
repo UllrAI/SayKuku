@@ -5,6 +5,10 @@ struct HistoryView: View {
     @Environment(AppState.self) private var appState
     @Binding var filter: HistoryFilter
     @Binding var search: String
+    @State private var selection: HistoryEntry.ID?
+    @State private var pendingDeletion: HistoryEntry?
+    @FocusState private var searchFocused: Bool
+    @FocusState private var listFocused: Bool
 
     private var query: String { search.trimmingCharacters(in: .whitespacesAndNewlines) }
 
@@ -33,8 +37,11 @@ struct HistoryView: View {
                     KukuSearchField(
                         prompt: appState.text("搜索内容或 App", "Search text or apps"),
                         clearLabel: appState.text("清除搜索", "Clear search"),
-                        text: $search
+                        text: $search,
+                        focus: $searchFocused,
+                        onExit: { listFocused = true }
                     )
+                    .focusedSceneValue(\.searchFieldFocus, $searchFocused)
                 }
             }
 
@@ -46,36 +53,56 @@ struct HistoryView: View {
 
             KukuDivider(inset: 0)
 
-            KukuPageScroll {
-                VStack(alignment: .leading, spacing: 0) {
-                    if let issue = appState.localDataIssue {
-                        let copy = issueCopy(issue)
-                        HistoryNotice(
-                            symbol: "exclamationmark.triangle",
-                            title: copy.title,
-                            message: copy.message,
-                            fileURL: issue.fileURL
-                        ) { appState.dismissLocalDataIssue() }
-                    }
-                    if let legacyURL = appState.legacyDataURL {
-                        HistoryNotice(
-                            symbol: "archivebox",
-                            title: appState.text("旧版本的加密记录没有迁移过来", "Encrypted history from an earlier version wasn’t carried over"),
-                            message: appState.text(
-                                "早期版本加密保存的历史、知识和记忆无法在当前版本打开。SayKuku 不会自动迁移或删除它们，文件仍在这台 Mac 上，保留还是删除由你决定。",
-                                "History, Knowledge, and Memory saved by an earlier encrypted version can’t be opened here. SayKuku won’t migrate or delete these files. They’re still on this Mac for you to keep or remove."
-                            ),
-                            fileURL: legacyURL
-                        ) { appState.dismissLegacyDataNotice() }
-                    }
-
-                    if entries.isEmpty {
+            if entries.isEmpty {
+                KukuPageScroll {
+                    VStack(alignment: .leading, spacing: 0) {
+                        notices
                         emptyState
-                    } else {
-                        entryList(entries)
                     }
                 }
+            } else {
+                entryList(entries)
             }
+        }
+        .confirmationDialog(
+            appState.text("删除这条星标记录？", "Delete this starred item?"),
+            isPresented: Binding(
+                get: { pendingDeletion != nil },
+                set: { if !$0 { pendingDeletion = nil } }
+            ),
+            titleVisibility: .visible,
+            presenting: pendingDeletion
+        ) { entry in
+            Button(appState.text("删除", "Delete"), role: .destructive) { delete(entry) }
+            Button(appState.text("取消", "Cancel"), role: .cancel) { }
+        } message: { entry in
+            Text(entry.hasAudio
+                 ? appState.text("录音也会一起删除，且无法恢复。", "Its recording will be deleted too. This can’t be undone.")
+                 : appState.text("删除后无法恢复。", "This can’t be undone."))
+        }
+    }
+
+    @ViewBuilder
+    private var notices: some View {
+        if let issue = appState.localDataIssue {
+            let copy = issueCopy(issue)
+            HistoryNotice(
+                symbol: "exclamationmark.triangle",
+                title: copy.title,
+                message: copy.message,
+                fileURL: issue.fileURL
+            ) { appState.dismissLocalDataIssue() }
+        }
+        if let legacyURL = appState.legacyDataURL {
+            HistoryNotice(
+                symbol: "archivebox",
+                title: appState.text("旧版本的加密记录没有迁移过来", "Encrypted history from an earlier version wasn’t carried over"),
+                message: appState.text(
+                    "早期版本加密保存的历史、知识和记忆无法在当前版本打开。SayKuku 不会自动迁移或删除它们，文件仍在这台 Mac 上，保留还是删除由你决定。",
+                    "History, Knowledge, and Memory saved by an earlier encrypted version can’t be opened here. SayKuku won’t migrate or delete these files. They’re still on this Mac for you to keep or remove."
+                ),
+                fileURL: legacyURL
+            ) { appState.dismissLegacyDataNotice() }
         }
     }
 
@@ -134,23 +161,77 @@ struct HistoryView: View {
     }
 
     private func entryList(_ entries: [HistoryEntry]) -> some View {
-        LazyVStack(spacing: 0) {
-            ForEach(Array(entries.enumerated()), id: \.element.id) { offset, entry in
-                let day = dayLabel(for: entry)
-                if offset == 0 || day != dayLabel(for: entries[offset - 1]) {
-                    Text(day)
+        let days = daySections(entries)
+        return KukuPageContent {
+            List(selection: $selection) {
+                Group { notices }.kukuListRow()
+
+                ForEach(days) { day in
+                    // The day's String id doesn't match the UUID selection, so headers can't be selected.
+                    Text(day.label)
                         .font(.kuku(.caption, weight: .semibold))
                         .foregroundStyle(KukuColor.textSecondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.top, offset == 0 ? 0 : KukuSpacing.xxl)
+                        .padding(.top, day.id == days.first?.id ? 0 : KukuSpacing.xxl)
                         .padding(.bottom, KukuSpacing.sm)
-                }
+                        .kukuListRow()
 
-                HistoryRow(entry: entry)
-                // Starts at the text column: row padding, icon tile, then the tile's spacing.
-                KukuDivider(inset: KukuLayout.iconTile + KukuSpacing.md * 2)
+                    ForEach(day.entries) { entry in
+                        VStack(spacing: 0) {
+                            HistoryRow(entry: entry, isSelected: selection == entry.id) {
+                                requestDelete(entry)
+                            }
+                            // Starts at the text column: row padding, icon tile, then the tile's spacing.
+                            KukuDivider(inset: KukuLayout.iconTile + KukuSpacing.md * 2)
+                        }
+                        .tag(entry.id)
+                        .kukuListRow()
+                    }
+                }
+            }
+            .kukuList()
+            .contentMargins(.top, KukuLayout.contentTop, for: .scrollContent)
+            .contentMargins(.bottom, KukuLayout.contentBottom, for: .scrollContent)
+            .focused($listFocused)
+            .onDeleteCommand {
+                if let entry = selectedEntry(in: entries) { requestDelete(entry) }
+            }
+            .onCopyCommand {
+                guard let entry = selectedEntry(in: entries) else { return [] }
+                // The result, or what was said when there is no result.
+                let text = entry.hasCopyableOutput ? entry.output : entry.input
+                return text.isEmpty ? [] : [NSItemProvider(object: text as NSString)]
             }
         }
+    }
+
+    private func selectedEntry(in entries: [HistoryEntry]) -> HistoryEntry? {
+        entries.first { $0.id == selection }
+    }
+
+    /// Consecutive entries grouped under one day label, in list order.
+    private func daySections(_ entries: [HistoryEntry]) -> [HistoryDay] {
+        var days: [HistoryDay] = []
+        for entry in entries {
+            let label = dayLabel(for: entry)
+            if days.last?.label == label {
+                days[days.count - 1].entries.append(entry)
+            } else {
+                days.append(HistoryDay(label: label, entries: [entry]))
+            }
+        }
+        return days
+    }
+
+    /// Starred items are meant to be kept, so deleting one asks first.
+    private func requestDelete(_ entry: HistoryEntry) {
+        if entry.isStarred { pendingDeletion = entry } else { delete(entry) }
+    }
+
+    private func delete(_ entry: HistoryEntry) {
+        if selection == entry.id { selection = filteredEntries.selectionAfterRemoving(entry.id) }
+        withAnimation(Motion.snappy) { appState.deleteHistoryEntry(entry.id) }
+        appState.showToast(appState.text("已删除", "Deleted"), symbol: "trash")
     }
 
     private func dayLabel(for entry: HistoryEntry) -> String {
@@ -191,6 +272,12 @@ struct HistoryView: View {
             )
         }
     }
+}
+
+private struct HistoryDay: Identifiable {
+    let label: String
+    var entries: [HistoryEntry]
+    var id: String { label }
 }
 
 private struct HistoryNotice: View {
@@ -235,10 +322,12 @@ private struct HistoryNotice: View {
 private struct HistoryRow: View {
     @Environment(AppState.self) private var appState
     let entry: HistoryEntry
+    let isSelected: Bool
+    /// The page owns deletion so Delete in the list and the row's buttons share one path.
+    let onDelete: @MainActor () -> Void
     @State private var isPlaying = false
     @State private var isOutputExpanded = false
     @State private var hovering = false
-    @State private var confirmingDelete = false
     @State private var player: AVAudioPlayer?
 
     private var locale: Locale { historyLocale(chinese: appState.usesChineseUI) }
@@ -272,7 +361,7 @@ private struct HistoryRow: View {
                     KukuIconButton(
                         symbol: "trash",
                         label: appState.text("删除这条记录", "Delete this item"),
-                        action: requestDelete
+                        action: onDelete
                     )
                 }
 
@@ -286,12 +375,17 @@ private struct HistoryRow: View {
             }
         }
         .padding(KukuSpacing.md)
+        // Rows grow with expanded output instead of taking a height from the list.
+        .fixedSize(horizontal: false, vertical: true)
         .contentShape(Rectangle())
-        .background(hovering ? KukuColor.rowHover : .clear, in: RoundedRectangle(cornerRadius: KukuLayout.radiusMedium, style: .continuous))
+        .background(rowFill, in: RoundedRectangle(cornerRadius: KukuLayout.radiusMedium, style: .continuous))
         .onHover { hovering = $0 }
         .animation(Motion.snappy, value: hovering)
+        .animation(Motion.snappy, value: isSelected)
+        // Deleting the entry or leaving the page removes the row, so its recording stops with it.
+        .onDisappear(perform: stopPlayback)
         .contextMenu {
-            if hasCopyableOutput {
+            if entry.hasCopyableOutput {
                 Button(appState.text("复制结果", "Copy Result")) { appState.copyHistoryOutput(entry.output) }
             }
             if entry.hasAudio {
@@ -303,21 +397,16 @@ private struct HistoryRow: View {
             Divider()
             Button(
                 entry.isStarred ? appState.text("删除…", "Delete…") : appState.text("删除", "Delete"),
-                role: .destructive
-            ) { requestDelete() }
+                role: .destructive,
+                action: onDelete
+            )
         }
-        .confirmationDialog(
-            appState.text("删除这条星标记录？", "Delete this starred item?"),
-            isPresented: $confirmingDelete,
-            titleVisibility: .visible
-        ) {
-            Button(appState.text("删除", "Delete"), role: .destructive) { delete() }
-            Button(appState.text("取消", "Cancel"), role: .cancel) {}
-        } message: {
-            Text(entry.hasAudio
-                 ? appState.text("录音也会一起删除，且无法恢复。", "Its recording will be deleted too. This can’t be undone.")
-                 : appState.text("删除后无法恢复。", "This can’t be undone."))
-        }
+    }
+
+    /// Same fills as `kukuInteractiveSurface`: selection wins over hover.
+    private var rowFill: Color {
+        if isSelected { return KukuColor.selectedFill }
+        return hovering ? KukuColor.rowHover : .clear
     }
 
     /// Stars are neutral: a star marks an item to keep, not a status.
@@ -325,8 +414,6 @@ private struct HistoryRow: View {
         if entry.isStarred { return KukuColor.textPrimary }
         return hovering ? KukuColor.textSecondary : KukuColor.textTertiary
     }
-
-    private var hasCopyableOutput: Bool { entry.status == .completed && !entry.output.isEmpty }
 
     private func playbackTitle(titleCase: Bool) -> String {
         isPlaying
@@ -416,7 +503,7 @@ private struct HistoryRow: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .textSelection(.enabled)
 
-                if hasCopyableOutput {
+                if entry.hasCopyableOutput {
                     Button {
                         appState.copyHistoryOutput(entry.output)
                     } label: {
@@ -478,18 +565,6 @@ private struct HistoryRow: View {
         withAnimation(Motion.spring) { appState.toggleHistoryStar(entry.id) }
     }
 
-    /// Starred items are meant to be kept, so deleting one asks first.
-    private func requestDelete() {
-        if entry.isStarred { confirmingDelete = true } else { delete() }
-    }
-
-    private func delete() {
-        player?.stop()
-        player = nil
-        withAnimation(Motion.snappy) { appState.deleteHistoryEntry(entry.id) }
-        appState.showToast(appState.text("已删除", "Deleted"), symbol: "trash")
-    }
-
     /// Formats a recording length as m:ss, e.g. 0:04 or 1:25.
     private static func durationLabel(_ seconds: Double) -> String {
         guard seconds > 0 else { return "—" }
@@ -497,11 +572,15 @@ private struct HistoryRow: View {
         return String(format: "%d:%02d", total / 60, total % 60)
     }
 
+    private func stopPlayback() {
+        player?.stop()
+        player = nil
+        withAnimation(Motion.snappy) { isPlaying = false }
+    }
+
     private func togglePlayback() {
         if isPlaying {
-            player?.stop()
-            player = nil
-            withAnimation(Motion.snappy) { isPlaying = false }
+            stopPlayback()
             return
         }
         Task {
@@ -524,6 +603,10 @@ private struct HistoryRow: View {
             }
         }
     }
+}
+
+private extension HistoryEntry {
+    var hasCopyableOutput: Bool { status == .completed && !output.isEmpty }
 }
 
 /// Uses the app's UI language for dates, keeping the user's regional formats when the languages match.
