@@ -92,6 +92,7 @@ protocol TextWriting: AnyObject {
     func write(_ text: String, to snapshot: TextTargetSnapshot) async throws -> TextWriteOutcome
     func currentValue(of snapshot: TextTargetSnapshot) -> String?
     func browserPageAddress(in snapshot: TextTargetSnapshot) -> String?
+    func visibleText(in snapshot: TextTargetSnapshot) -> String
     func replacementSnapshot(for write: VerifiedWrite) throws -> TextTargetSnapshot
 }
 
@@ -110,6 +111,8 @@ final class TextInteraction: TextWriting {
     private static let elementSearchLimit = 40
     /// Delays between reads while verifying a write; roughly the same 0.5 s window with fewer AX round trips.
     private static let verificationDelays = [50, 75, 100, 125, 150]
+    /// Processes already asked to expose their Electron accessibility tree.
+    private var manualAccessibilityPIDs: Set<pid_t> = []
 
     /// Dictation needs a window to write into; the Agent can also answer, open links or run shortcuts
     /// from the desktop, so `requiringWindow: false` returns a snapshot without a window or text field.
@@ -290,6 +293,72 @@ final class TextInteraction: TextWriting {
             }
         }
         return nil
+    }
+
+    /// Text visible in the captured window, for Voice Agent commands such as "reply to this". Walks the
+    /// window breadth-first within `ScreenText`'s budgets and skips the focused field, whose text is
+    /// already the selection or last insertion. Sensitive targets and windows exposing no text give "".
+    func visibleText(in snapshot: TextTargetSnapshot) -> String {
+        guard !snapshot.isSensitive, let window = snapshot.windowElement else { return "" }
+        enableElectronAccessibility(for: snapshot.appPID)
+        let deadline = ContinuousClock.now + ScreenText.timeBudget
+        var queue: [(element: AXUIElement, path: [Int])] = [(window, [])]
+        var next = 0
+        let nodes = AnyIterator<ScreenText.Node> {
+            guard next < queue.count else { return nil }
+            let (element, path) = queue[next]
+            next += 1
+            let node = self.screenTextNode(element, path: path, focused: snapshot.textElement)
+            if node.descends { self.enqueueChildren(of: element, path: path, into: &queue) }
+            return node.node
+        }
+        let text = ScreenText.collect(IteratorSequence(nodes), deadline: deadline)
+        Log.text.info(
+            "Read visible text bundle=\(snapshot.bundleID, privacy: .public) nodes=\(next, privacy: .public) characters=\(text.count, privacy: .public)"
+        )
+        return text
+    }
+
+    /// Reads a node's text only for text roles. Its children are skipped once it has text, so a cell and
+    /// the static text inside it aren't both read, and always for the focused field and password fields.
+    private func screenTextNode(
+        _ element: AXUIElement, path: [Int], focused: AXUIElement?
+    ) -> (node: ScreenText.Node, descends: Bool) {
+        if let focused, CFEqual(element, focused) { return (ScreenText.Node(path: path, role: "", text: nil), false) }
+        let elementRole = role(of: element)
+        if elementRole == "AXSecureTextField"
+            || (["AXTextField", "AXTextArea"].contains(elementRole) && hasSecureSubrole(element)) {
+            return (ScreenText.Node(path: path, role: "AXSecureTextField", text: nil), false)
+        }
+        guard ScreenText.textRoles.contains(elementRole) else {
+            return (ScreenText.Node(path: path, role: elementRole, text: nil), true)
+        }
+        let value: String? = copyAttribute(element, kAXValueAttribute)
+        let text: String? = value?.isEmpty == false ? value : copyAttribute(element, kAXTitleAttribute)
+        return (ScreenText.Node(path: path, role: elementRole, text: text), text?.isEmpty != false)
+    }
+
+    /// `childElements` merges several attributes that can list the same child. The queue never grows past
+    /// the node limit, since nodes beyond it would not be visited.
+    private func enqueueChildren(
+        of element: AXUIElement, path: [Int], into queue: inout [(element: AXUIElement, path: [Int])]
+    ) {
+        var siblings: [AXUIElement] = []
+        for child in childElements(of: element) where queue.count < ScreenText.nodeLimit {
+            guard !siblings.contains(where: { CFEqual($0, child) }) else { continue }
+            queue.append((child, path + [siblings.count]))
+            siblings.append(child)
+        }
+    }
+
+    /// Electron apps build their accessibility tree only for assistive apps they recognize, or once
+    /// `AXManualAccessibility` is set on the app. Tried once per process; a failure leaves the text empty.
+    private func enableElectronAccessibility(for pid: pid_t) {
+        guard manualAccessibilityPIDs.insert(pid).inserted,
+              let bundleURL = NSRunningApplication(processIdentifier: pid)?.bundleURL else { return }
+        let framework = bundleURL.appendingPathComponent("Contents/Frameworks/Electron Framework.framework")
+        guard FileManager.default.fileExists(atPath: framework.path) else { return }
+        AXUIElementSetAttributeValue(applicationElement(for: pid), "AXManualAccessibility" as CFString, kCFBooleanTrue)
     }
 
     func replacementSnapshot(for write: VerifiedWrite) throws -> TextTargetSnapshot {
@@ -585,11 +654,15 @@ final class TextInteraction: TextWriting {
     }
 
     private func isSensitive(element: AXUIElement?, bundleID: String) -> Bool {
-        let elementRole = element.map(role(of:)) ?? ""
-        let subrole: String = element.flatMap { copyAttribute($0, kAXSubroleAttribute) } ?? ""
-        return Self.isSensitiveWithoutAccessibility(bundleID: bundleID)
-            || elementRole == "AXSecureTextField"
-            || subrole.lowercased().contains("secure")
+        guard !Self.isSensitiveWithoutAccessibility(bundleID: bundleID) else { return true }
+        guard let element else { return false }
+        return role(of: element) == "AXSecureTextField" || hasSecureSubrole(element)
+    }
+
+    /// Web password inputs keep the text field role and mark themselves with a secure subrole.
+    private func hasSecureSubrole(_ element: AXUIElement) -> Bool {
+        let subrole: String = copyAttribute(element, kAXSubroleAttribute) ?? ""
+        return subrole.lowercased().contains("secure")
     }
 
     /// The checks that need no Accessibility round trip, so a voice workflow can refuse a password field
@@ -723,6 +796,48 @@ enum KeyboardLayout {
     }
 }
 
+/// Budgets and rules for the focused window's visible text. The budgets keep a large window, such as a
+/// mail list or an IDE, from stalling the main thread; the text is a sample, not the whole window.
+enum ScreenText {
+    static let nodeLimit = 300
+    static let timeBudget = Duration.milliseconds(150)
+    static let characterLimit = 2_000
+    /// Roles whose `AXValue` or `AXTitle` is read.
+    static let textRoles: Set<String> = ["AXStaticText", "AXTextArea", "AXTextField", "AXCell", "AXLink", "AXHeading"]
+
+    struct Node {
+        /// Child indices from the window down, so text found breadth-first can be put back in reading order.
+        let path: [Int]
+        let role: String
+        let text: String?
+    }
+
+    /// Visits `nodes` until the node, time or character budget runs out, then joins their text in tree
+    /// order, one line per node, dropping a line that repeats the one before it. Nodes are pulled lazily,
+    /// so none is read past a budget.
+    static func collect(_ nodes: some Sequence<Node>, deadline: ContinuousClock.Instant) -> String {
+        var lines: [(path: [Int], text: String)] = []
+        var characters = 0
+        var visited = 0
+        var iterator = nodes.makeIterator()
+        while visited < nodeLimit, characters < characterLimit, ContinuousClock.now < deadline,
+              let node = iterator.next() {
+            visited += 1
+            guard textRoles.contains(node.role),
+                  let text = node.text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else { continue }
+            let line = String(text.prefix(characterLimit - characters))
+            lines.append((node.path, line))
+            // Counts the line break that joins it to the next line.
+            characters += line.count + 1
+        }
+        var result: [String] = []
+        for line in lines.sorted(by: { $0.path.lexicographicallyPrecedes($1.path) }) where line.text != result.last {
+            result.append(line.text)
+        }
+        return result.joined(separator: "\n")
+    }
+}
+
 enum ContextCollector {
     /// Longest selected text or previous output sent to Qwen.
     static let textLimit = 10_000
@@ -757,6 +872,7 @@ enum ContextCollector {
         windowTitleAllowed: Bool,
         clipboardAllowed: Bool,
         browserPage: String?,
+        screenText: String,
         session: AgentSession?,
         domains: Set<DomainPreset>,
         knowledge: [KnowledgeEntity]
@@ -790,6 +906,15 @@ enum ContextCollector {
         }
         if let browserPage, !browserPage.isEmpty {
             items.append(ContextItem(kind: .browser, symbol: "globe", title: localized("Browser page"), value: browserPage))
+        }
+        if !screenText.isEmpty {
+            items.append(textItem(
+                kind: .screen,
+                symbol: "text.viewfinder",
+                title: localized("Text on screen"),
+                value: screenText,
+                limit: ScreenText.characterLimit
+            ))
         }
         if let session, session.expiresAt > .now {
             items.append(ContextItem(kind: .session, symbol: "bubble.left.and.bubble.right", title: localized("Recent conversation"), value: session.contextSummary))
@@ -842,7 +967,7 @@ enum AgentActionError: LocalizedError {
 enum AgentActionExecutor {
     /// Context that someone other than the user may have written, such as a web page hiding instructions.
     private static let untrustedContextKinds: [ContextItem.Kind] = [
-        .selectedText, .previousOutput, .window, .clipboard, .browser, .session
+        .selectedText, .previousOutput, .window, .clipboard, .browser, .screen, .session
     ]
 
     @MainActor

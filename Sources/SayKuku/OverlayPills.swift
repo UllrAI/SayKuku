@@ -284,7 +284,7 @@ private struct AgentContextPopover: View {
     /// Lets people check the actual text; app, knowledge and conversation values are internal summaries.
     private static func preview(of item: ContextItem) -> String? {
         switch item.kind {
-        case .selectedText, .previousOutput, .window, .clipboard, .browser, .domain:
+        case .selectedText, .previousOutput, .window, .clipboard, .browser, .screen, .domain:
             return item.value.count > 200 ? "\(item.value.prefix(200))…" : item.value
         case .app, .session, .knowledge:
             return nil

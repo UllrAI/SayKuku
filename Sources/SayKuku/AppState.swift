@@ -133,6 +133,7 @@ final class AppState {
     var windowTitleAllowed = true { didSet { defaults.set(windowTitleAllowed, forKey: Keys.windowTitle) } }
     var clipboardAllowed = false { didSet { defaults.set(clipboardAllowed, forKey: Keys.clipboard) } }
     var browserPageAllowed = false { didSet { defaults.set(browserPageAllowed, forKey: Keys.browserPage) } }
+    var screenTextAllowed = true { didSet { defaults.set(screenTextAllowed, forKey: Keys.screenText) } }
     var contextItems: [ContextItem] = []
     var agentCommand = ""
     var liveTranscript = ""
@@ -976,6 +977,7 @@ final class AppState {
             windowTitleAllowed: windowTitleAllowed,
             clipboardAllowed: clipboardAllowed,
             browserPage: browserPageAllowed ? textInteraction.browserPageAddress(in: snapshot) : nil,
+            screenText: screenTextAllowed ? textInteraction.visibleText(in: snapshot) : "",
             session: conversation.last,
             domains: selectedDomains,
             knowledge: knowledgeEntities
@@ -1776,6 +1778,7 @@ final class AppState {
         windowTitleAllowed = storedBool(Keys.windowTitle, default: true)
         clipboardAllowed = defaults.bool(forKey: Keys.clipboard)
         browserPageAllowed = defaults.bool(forKey: Keys.browserPage)
+        screenTextAllowed = storedBool(Keys.screenText, default: true)
         storeVoiceAudio = storedBool(Keys.storeVoiceAudio, default: true)
         showInMenuBar = storedBool(Keys.showInMenuBar, default: true)
         hideDockIconAfterMainWindowCloses = storedBool(Keys.hideDockIconAfterMainWindowCloses, default: false)
@@ -1804,7 +1807,7 @@ final class AppState {
         static let continuousConversation = "continuousConversation", learnCorrections = "learnFromCorrections"
         static let automaticAgentWriteBack = "agent.automaticWriteBack", searchEngine = "agent.searchEngine"
         static let selectedText = "privacy.selectedText", currentApp = "privacy.currentApp", windowTitle = "privacy.windowTitle"
-        static let clipboard = "privacy.clipboard", browserPage = "privacy.browserPage"
+        static let clipboard = "privacy.clipboard", browserPage = "privacy.browserPage", screenText = "privacy.screenText"
         static let historyRetention = "historyRetention", storeVoiceAudio = "storeVoiceAudio", showInMenuBar = "showInMenuBar"
         static let hideDockIconAfterMainWindowCloses = "hideDockIconAfterMainWindowCloses"
         static let legacyDataNoticeDismissed = "history.legacyDataNoticeDismissed"
