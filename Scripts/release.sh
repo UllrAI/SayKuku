@@ -15,46 +15,7 @@ fail() {
     print -u2 -r -- "$*"
     exit 1
 }
-
-# notarize FILE: submit to Apple and wait; prints the log and exits unless Accepted.
-notarize() {
-    local file="$1"
-    local result="$ROOT_DIR/Build/notarization-${file:t:r}.json"
-    local submit_status=0
-    print -u2 "Submitting ${file:t} for notarization; this usually takes a few minutes"
-    xcrun notarytool submit "$file" \
-        --keychain-profile "$NOTARY_PROFILE" \
-        --wait \
-        --timeout 30m \
-        --output-format json >"$result" || submit_status=$?
-    local submission_id="$(plutil -extract id raw -o - "$result" 2>/dev/null || true)"
-    local notary_status="$(plutil -extract status raw -o - "$result" 2>/dev/null || true)"
-    if (( submit_status != 0 )) || [[ "$notary_status" != "Accepted" ]]; then
-        print -u2 "Notarization of ${file:t} failed (status: ${notary_status:-unknown}, exit code: $submit_status)"
-        cat "$result" >&2
-        if [[ -n "$submission_id" ]]; then
-            xcrun notarytool log "$submission_id" --keychain-profile "$NOTARY_PROFILE" >&2 || true
-        fi
-        exit 1
-    fi
-    print -u2 "Notarization of ${file:t} accepted: $submission_id"
-}
-
-# staple_and_assess FILE SPCTL_ARGS...: staple the ticket, then require Gatekeeper
-# to report a notarized Developer ID signature.
-staple_and_assess() {
-    local file="$1"
-    shift
-    xcrun stapler staple "$file"
-    xcrun stapler validate "$file"
-    local spctl_status=0
-    local spctl_output
-    spctl_output="$(spctl --assess "$@" --verbose=4 "$file" 2>&1)" || spctl_status=$?
-    print -u2 -r -- "$spctl_output"
-    if (( spctl_status != 0 )) || [[ "$spctl_output" != *"source=Notarized Developer ID"* ]]; then
-        fail "Gatekeeper did not accept ${file:t} as Notarized Developer ID"
-    fi
-}
+source "$ROOT_DIR/Scripts/notarization.sh"
 
 cd "$ROOT_DIR"
 
@@ -109,18 +70,13 @@ unzip -tq "$NOTARY_ARCHIVE"
 notarize "$NOTARY_ARCHIVE"
 staple_and_assess "$APP_DIR" --type execute
 
-# 4. Wrap the stapled App in a DMG, then sign, notarize and staple the DMG itself.
+# 4. Publish the DMG only after its own signature, notarization and checks pass.
 "$ROOT_DIR/Scripts/make-dmg.sh" "$APP_DIR" "$DMG" >/dev/null
-CODESIGN_ARGS=(--sign "$SAYKUKU_SIGNING_IDENTITY" --timestamp)
-if [[ -n "${SAYKUKU_KEYCHAIN:-}" ]]; then
-    CODESIGN_ARGS+=(--keychain "$SAYKUKU_KEYCHAIN")
-fi
-codesign "${CODESIGN_ARGS[@]}" "$DMG"
-codesign --verify --strict --verbose=2 "$DMG"
-notarize "$DMG"
-staple_and_assess "$DMG" --type open --context context:primary-signature
-hdiutil verify -quiet "$DMG"
 SHA256="$(shasum -a 256 "$DMG" | cut -d ' ' -f 1)"
+
+# The App upload ZIP and notarization receipt are useful only while diagnosing
+# a failed release. Keep the stapled App, DMG and matching dSYM.
+rm "$NOTARY_ARCHIVE" "$ROOT_DIR/Build/notarization-${NOTARY_ARCHIVE:t:r}.json"
 
 # 5. The version file installed apps read. Fill in notes by hand before uploading.
 cat >"$VERSION_FEED" <<JSON

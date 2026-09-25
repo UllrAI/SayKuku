@@ -1,12 +1,13 @@
 #!/bin/zsh
 set -euo pipefail
 
-# Build an unsigned drag-to-install DMG from an App bundle:
+# Internal release step: build a signed, notarized DMG from a notarized App:
 #   Scripts/make-dmg.sh <App bundle> <output .dmg>
 # Finder lays out the window, so the first run asks once to let the terminal
-# control Finder. release.sh signs, notarizes and staples the result.
+# control Finder. The output appears only after all release checks pass.
 
 ROOT_DIR="${0:A:h:h}"
+NOTARY_PROFILE="SayKuku-Notary"
 APP_PATH="${1:?usage: make-dmg.sh <App bundle> <output .dmg>}"
 OUTPUT="${2:?usage: make-dmg.sh <App bundle> <output .dmg>}"
 APP_PATH="${APP_PATH:A}"
@@ -14,9 +15,6 @@ OUTPUT="${OUTPUT:A}"
 VOLUME_NAME="SayKuku"
 APP_NAME="${APP_PATH:t}"
 BACKGROUND_DIR="$ROOT_DIR/Scripts/Resources/DMG"
-WORK_DIR="$ROOT_DIR/Build/dmg"
-STAGE_DIR="$WORK_DIR/stage"
-RW_IMAGE="$WORK_DIR/rw.dmg"
 
 # Window and icon geometry must match background.png (660x400 points).
 WINDOW_WIDTH=660
@@ -32,11 +30,37 @@ fail() {
 }
 
 [[ -d "$APP_PATH" ]] || fail "App bundle not found: $APP_PATH"
+[[ "$OUTPUT" == *.dmg ]] || fail "Output must be a .dmg file: $OUTPUT"
+[[ ! -e "$OUTPUT" ]] || fail "Output already exists: $OUTPUT"
 # Finder addresses the volume by name, so another mounted SayKuku would be ambiguous.
 [[ ! -e "/Volumes/$VOLUME_NAME" ]] || fail "/Volumes/$VOLUME_NAME is already mounted; eject it first"
 
-rm -rf "$WORK_DIR"
-mkdir -p "$STAGE_DIR/.background" "${OUTPUT:h}"
+source "$ROOT_DIR/Scripts/signing-identity.sh"
+source "$ROOT_DIR/Scripts/notarization.sh"
+SIGNING_IDENTITY="$(resolve_signing_identity release)"
+if ! xcrun notarytool history --keychain-profile "$NOTARY_PROFILE" >/dev/null; then
+    fail "notarytool profile $NOTARY_PROFILE is unavailable; see docs/LOCAL_PACKAGING.md section 1"
+fi
+codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+xcrun stapler validate "$APP_PATH"
+APP_ASSESSMENT="$(spctl --assess --type execute --verbose=4 "$APP_PATH" 2>&1)" || fail "Gatekeeper did not accept the App: $APP_ASSESSMENT"
+[[ "$APP_ASSESSMENT" == *"source=Notarized Developer ID"* ]] || fail "App is not notarized: $APP_ASSESSMENT"
+
+mkdir -p "${OUTPUT:h}"
+WORK_DIR="$(mktemp -d "${OUTPUT:h}/.saykuku-dmg.XXXXXX")"
+STAGE_DIR="$WORK_DIR/stage"
+RW_IMAGE="$WORK_DIR/rw.dmg"
+PENDING_DMG="$WORK_DIR/${OUTPUT:t}"
+DEVICE=""
+cleanup() {
+    if [[ -n "$DEVICE" ]]; then
+        hdiutil detach -quiet "$DEVICE" || hdiutil detach -quiet -force "$DEVICE" || true
+    fi
+    rm -rf "$WORK_DIR"
+}
+trap cleanup EXIT
+
+mkdir -p "$STAGE_DIR/.background"
 ditto "$APP_PATH" "$STAGE_DIR/$APP_NAME"
 ln -s /Applications "$STAGE_DIR/Applications"
 # One TIFF with both resolutions so Retina displays get the @2x image.
@@ -52,8 +76,6 @@ MOUNT_DIR="/Volumes/$VOLUME_NAME"
 detach() {
     hdiutil detach -quiet "$DEVICE" || { sleep 2; hdiutil detach -quiet -force "$DEVICE"; }
 }
-trap detach EXIT
-
 osascript <<APPLESCRIPT
 tell application "Finder"
     tell disk "$VOLUME_NAME"
@@ -86,10 +108,20 @@ done
 [[ -f "$MOUNT_DIR/.DS_Store" ]] || fail "Finder did not save the window layout into the DMG"
 rm -rf "$MOUNT_DIR/.fseventsd"
 sync
-trap - EXIT
 detach
+DEVICE=""
 
-rm -f "$OUTPUT"
-hdiutil convert -quiet "$RW_IMAGE" -format ULFO -o "$OUTPUT"
-rm -rf "$WORK_DIR"
+hdiutil convert -quiet "$RW_IMAGE" -format ULFO -o "$PENDING_DMG"
+CODESIGN_ARGS=(--sign "$SIGNING_IDENTITY" --timestamp)
+if [[ -n "${SAYKUKU_KEYCHAIN:-}" ]]; then
+    CODESIGN_ARGS+=(--keychain "$SAYKUKU_KEYCHAIN")
+fi
+codesign "${CODESIGN_ARGS[@]}" "$PENDING_DMG"
+codesign --verify --strict --verbose=2 "$PENDING_DMG"
+notarize "$PENDING_DMG" "$ROOT_DIR/Build/notarization-${OUTPUT:t:r}.json"
+staple_and_assess "$PENDING_DMG" --type open --context context:primary-signature
+hdiutil verify -quiet "$PENDING_DMG"
+[[ ! -e "$OUTPUT" ]] || fail "Output appeared during DMG creation: $OUTPUT"
+rm "$ROOT_DIR/Build/notarization-${OUTPUT:t:r}.json"
+mv "$PENDING_DMG" "$OUTPUT"
 print -r -- "$OUTPUT"

@@ -21,13 +21,13 @@
 swift run SayKuku
 ```
 
-正式发布只需一条命令（前置条件见第 1 节，流程见第 5 节）：
+打包只有两个对外入口。正式发布运行以下命令，得到已公证、装订的 App 和 DMG（前置条件见第 1 节，流程见第 5 节）：
 
 ```bash
 Scripts/release.sh
 ```
 
-需要测试权限、菜单栏和独立开发版 App 时，生成开发包：
+需要测试权限、菜单栏和独立开发版 App 时，只生成开发包：
 
 ```bash
 Scripts/package-app.sh debug
@@ -35,6 +35,8 @@ open Build/SayKuku.app
 ```
 
 开发包的文件路径仍是 `Build/SayKuku.app`，Finder 显示名称为 `SayKuku Dev`。开发版默认使用 `com.saykuku.dev`；正式版固定使用 `com.saykuku.app`，不能混用。日常开发不要覆盖 Bundle ID；给开发构建指定 `com.saykuku.app` 时脚本会直接报错退出。
+
+两条命令都会把本次 App 放在 `Build/SayKuku.app`；正式发布还会在 `Dist/` 留下 `SayKuku-<版本>.dmg`、同版本 dSYM 和 `ver.json`。成功后会清理图标编译目录、临时签名权限文件、DMG 工作目录、公证上传 ZIP 和公证结果 JSON；失败时保留公证结果供排查。`.build/` 是 SwiftPM 编译缓存，不随打包清理。
 
 ## 1. 一次性准备
 
@@ -166,15 +168,13 @@ CFBundleIdentifier = com.saykuku.dev
 CFBundleDisplayName = SayKuku Dev
 ```
 
-开发版同样启用 Hardened Runtime，`flags` 中应包含 `runtime`。这样 entitlement 缺失之类的问题在开发阶段就会暴露，不必等到正式包。脚本会为开发版额外加上 `com.apple.security.get-task-allow`（写入临时文件 `Build/SayKuku.debug.entitlements`），以便 lldb 和 Instruments 附加调试；正式版不能带这项 entitlement，否则公证会失败。开发版只构建本机架构。
+开发版同样启用 Hardened Runtime，`flags` 中应包含 `runtime`。这样 entitlement 缺失之类的问题在开发阶段就会暴露，不必等到正式包。脚本会为开发版临时加入 `com.apple.security.get-task-allow`，以便 lldb 和 Instruments 附加调试，签名成功后清理临时 entitlement；正式版不能带这项 entitlement，否则公证会失败。开发版只构建本机架构。
 
-## 4. 正式版本地构建与签名
+## 4. 正式版 App 构建与签名（发布脚本内部步骤）
 
 正式版固定使用 Bundle ID `com.saykuku.app`，不能改成开发 Bundle ID。稳定的 Bundle ID 加稳定的 Developer ID 签名身份，才能让 macOS 在更新后正确识别原有权限记录。
 
-```bash
-Scripts/package-app.sh release
-```
+`Scripts/release.sh` 会调用 `Scripts/package-app.sh release` 生成尚未公证的正式版 App；这只是内部构建步骤，不是可分发的发布产物。
 
 签名身份由 `Scripts/signing-identity.sh` 选定，并在编译前检查，证书有问题几秒内就会报错：
 
@@ -187,11 +187,10 @@ Scripts/package-app.sh release
 
 - 指定的身份不是 `Developer ID Application`，或钥匙串里找不到时，同样报错退出。
 
-如果证书位于非默认钥匙串，可额外指定完整路径（自动选择也只在这个钥匙串里找）：
+如果证书位于非默认钥匙串，可额外指定完整路径（自动选择也只在这个钥匙串里找），随后运行 `Scripts/release.sh`：
 
 ```bash
 export SAYKUKU_KEYCHAIN='/path/to/signing.keychain-db'
-Scripts/package-app.sh release
 ```
 
 脚本会：
@@ -288,12 +287,11 @@ Scripts/release.sh
 3. 若 `Dist/` 已有同版本的公证 ZIP、DMG 或 dSYM，先加时间戳后缀备份。
 4. 调用 `Scripts/package-app.sh release`，生成已签名的 App 和 UUID 已核对的 dSYM。
 5. 把 App 压成公证 ZIP 提交 Apple，然后 `stapler staple`、`stapler validate`，并要求 `spctl` 输出 `source=Notarized Developer ID`。先装订 App，用户从 DMG 拖出来的那份 App 才自带票据，离线首次打开也能通过 Gatekeeper。
-6. 调用 `Scripts/make-dmg.sh`，把装订后的 App 做成 DMG（见下文“DMG 安装窗口”）。
-7. 用同一个 Developer ID 身份给 DMG 签名并加时间戳，再提交公证、装订，`spctl --type open` 同样必须输出 `source=Notarized Developer ID`；最后 `hdiutil verify` 并输出 SHA-256。
-8. 生成 `Dist/ver.json`：`version` 为本次版本号，`url` 为 `https://github.com/UllrAI/SayKuku/releases/tag/v<版本>`，`notes` 留空供手工填写。
-9. 给构建时的提交打 `v<版本>` 标签。脚本不会推送，确认产物无误后手动执行 `git push origin v<版本>`。
+6. 内部调用 `Scripts/make-dmg.sh`：只接受已公证的 App，用同一个 Developer ID 身份制作并签名 DMG，再提交公证、装订、执行 Gatekeeper 和镜像校验。全部成功后才把 DMG 放到 `Dist/` 并输出 SHA-256（见下文“DMG 安装窗口”）。
+7. 生成 `Dist/ver.json`：`version` 为本次版本号，`url` 为 `https://github.com/UllrAI/SayKuku/releases/tag/v<版本>`，`notes` 留空供手工填写。
+8. 给构建时的提交打 `v<版本>` 标签。脚本不会推送，确认产物无误后手动执行 `git push origin v<版本>`。
 
-任一次公证状态不是 `Accepted`，脚本都会打印 `notarytool log` 后退出。结果分别保存在 `Build/notarization-SayKuku-<版本>-notarization.json`（App）和 `Build/notarization-SayKuku-<版本>.json`（DMG），里面有 submission `id`。一次发布要公证两次，通常共需几分钟到十几分钟。
+任一次公证状态不是 `Accepted`，脚本都会打印 `notarytool log` 后退出，并保留 `Build/notarization-SayKuku-<版本>-notarization.json`（App）或 `Build/notarization-SayKuku-<版本>.json`（DMG）供排查，里面有 submission `id`。成功后会清理这两个过程文件和提交 Apple 用的 ZIP；一次发布要公证两次，通常共需几分钟到十几分钟。
 
 成功后 `Dist/` 中有：
 
@@ -301,7 +299,6 @@ Scripts/release.sh
 | --- | --- |
 | `SayKuku-<版本>.dmg` | 分发给用户的安装包 |
 | `SayKuku-<版本>.dSYM` | 符号化崩溃日志，必须和对应 DMG 一起长期保存 |
-| `SayKuku-<版本>-notarization.zip` | 只用于提交 Apple，不要分发 |
 | `ver.json` | 版本号文件，GitHub Release 发布后上传到 `https://saykuku.ullrai.com/ver.json` |
 
 脚本不修改 `CFBundleShortVersionString`，也不上传任何产物。确认产物无误后按顺序手动发布：
@@ -331,15 +328,7 @@ Scripts/release.sh
 
 ### DMG 安装窗口
 
-用户打开 DMG 后看到一个 660×400 的窗口：左边是 SayKuku，右边是“应用程序”文件夹的替身，中间一个珊瑚色箭头提示拖动。`Scripts/make-dmg.sh <App> <输出.dmg>` 负责生成，也可以单独运行，用开发包预览效果：
-
-```bash
-Scripts/package-app.sh debug
-Scripts/make-dmg.sh Build/SayKuku.app Build/Preview.dmg
-open Build/Preview.dmg
-```
-
-它先把 App、指向 `/Applications` 的替身和背景图放进一个可写镜像，挂载后用 AppleScript 让 Finder 设置窗口大小、图标位置和背景，等 Finder 写出 `.DS_Store` 后卸载，再转成只读的 ULFO 压缩格式。脚本只出未签名的 DMG，签名和公证由 `release.sh` 完成。
+用户打开 DMG 后看到一个 660×400 的窗口：左边是 SayKuku，右边是“应用程序”文件夹的替身，中间一个珊瑚色箭头提示拖动。内部的 `Scripts/make-dmg.sh` 先把 App、指向 `/Applications` 的链接和背景图放进可写镜像，挂载后由 Finder 保存窗口布局，再转成只读 ULFO 格式。它在临时目录内完成签名、公证、装订和校验；任何一步失败都不会生成目标 DMG，成功后清理临时镜像与结果文件。开发版只生成 App，不制作 DMG。
 
 - 第一次运行时 macOS 会询问是否允许终端控制 Finder，需要点“允许”。拒绝过的话，到“系统设置 → 隐私与安全性 → 自动化”里重新打开。
 - Finder 按卷名找窗口，所以已经挂载了名为 SayKuku 的卷时脚本会直接退出，先推出它。
@@ -395,22 +384,14 @@ xcrun stapler validate Build/SayKuku.app
 spctl --assess --type execute --verbose=4 Build/SayKuku.app
 ```
 
-用装订后的 App 生成 DMG，签名后同样提交公证并装订：
+用装订后的 App 完成 DMG 制作与公证；正常发布请直接运行 `Scripts/release.sh`，这里仅用于从中断点排查：
 
 ```bash
 Scripts/make-dmg.sh Build/SayKuku.app "$DMG"
-codesign --sign "$SAYKUKU_SIGNING_IDENTITY" --timestamp "$DMG"
-xcrun notarytool submit "$DMG" \
-  --keychain-profile 'SayKuku-Notary' \
-  --wait \
-  --timeout 30m
-xcrun stapler staple "$DMG"
-xcrun stapler validate "$DMG"
-spctl --assess --type open --context context:primary-signature --verbose=4 "$DMG"
 shasum -a 256 "$DMG"
 ```
 
-这里需要先把 `SAYKUKU_SIGNING_IDENTITY` 设成 `security find-identity -v -p codesigning` 列出的 Developer ID Application 名称。两次 `spctl` 都应输出：
+有多个 Developer ID 身份时，先按第 4 节设置 `SAYKUKU_SIGNING_IDENTITY`。App 和 DMG 的 `spctl` 验证都应输出：
 
 ```text
 accepted
@@ -554,4 +535,4 @@ xcrun notarytool history --keychain-profile 'SayKuku-Notary'
 
 ### DMG 窗口没有背景或图标位置不对
 
-说明 Finder 的布局没有写进镜像。确认终端在“系统设置 → 隐私与安全性 → 自动化”里允许控制 Finder，再单独运行 `Scripts/make-dmg.sh` 看报错；脚本等不到 `.DS_Store` 时会报 `Finder did not save the window layout into the DMG`。
+说明 Finder 的布局没有写进镜像。确认终端在“系统设置 → 隐私与安全性 → 自动化”里允许控制 Finder，再重新运行 `Scripts/release.sh`；脚本等不到 `.DS_Store` 时会报 `Finder did not save the window layout into the DMG`，且不会留下目标 DMG。
