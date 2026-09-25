@@ -7,6 +7,9 @@ struct HistoryView: View {
     @Binding var search: String
     @State private var selection: HistoryEntry.ID?
     @State private var pendingDeletion: HistoryEntry?
+    /// One recording plays at a time. It lives here, not in the row, because the list
+    /// removes rows as they scroll out of view.
+    @State private var playback: Playback?
     @FocusState private var searchFocused: Bool
     @FocusState private var listFocused: Bool
 
@@ -64,6 +67,7 @@ struct HistoryView: View {
                 entryList(entries)
             }
         }
+        .onDisappear(perform: stopPlayback)
         .confirmationDialog(
             appState.text("删除这条星标记录？", "Delete this starred item?"),
             isPresented: Binding(
@@ -178,9 +182,13 @@ struct HistoryView: View {
 
                     ForEach(day.entries) { entry in
                         VStack(spacing: 0) {
-                            HistoryRow(entry: entry, isSelected: selection == entry.id) {
-                                requestDelete(entry)
-                            }
+                            HistoryRow(
+                                entry: entry,
+                                isSelected: selection == entry.id,
+                                isPlaying: playback?.entryID == entry.id,
+                                onTogglePlayback: { togglePlayback(entry) },
+                                onDelete: { requestDelete(entry) }
+                            )
                             // Starts at the text column: row padding, icon tile, then the tile's spacing.
                             KukuDivider(inset: KukuLayout.iconTile + KukuSpacing.md * 2)
                         }
@@ -229,9 +237,43 @@ struct HistoryView: View {
     }
 
     private func delete(_ entry: HistoryEntry) {
+        if playback?.entryID == entry.id { stopPlayback() }
         if selection == entry.id { selection = filteredEntries.selectionAfterRemoving(entry.id) }
         withAnimation(Motion.snappy) { appState.deleteHistoryEntry(entry.id) }
         appState.showToast(appState.text("已删除", "Deleted"), symbol: "trash")
+    }
+
+    private func stopPlayback() {
+        playback?.player?.stop()
+        withAnimation(Motion.snappy) { playback = nil }
+    }
+
+    /// Plays `entry`, stopping whatever was playing; tapping the playing entry again stops it.
+    private func togglePlayback(_ entry: HistoryEntry) {
+        let wasPlaying = playback?.entryID == entry.id
+        stopPlayback()
+        guard !wasPlaying else { return }
+        withAnimation(Motion.snappy) { playback = Playback(entryID: entry.id) }
+        Task {
+            do {
+                let data = try await appState.playAudio(for: entry)
+                // Stopped, switched or left the page while loading.
+                guard playback?.entryID == entry.id, playback?.player == nil else { return }
+                let player = try AVAudioPlayer(data: data)
+                player.prepareToPlay()
+                player.play()
+                playback?.player = player
+                try? await Task.sleep(for: .seconds(max(entry.durationSeconds, 0.2)))
+                guard playback?.player === player else { return }
+                withAnimation(Motion.snappy) { playback = nil }
+            } catch {
+                if playback?.entryID == entry.id { withAnimation(Motion.snappy) { playback = nil } }
+                appState.showToast(
+                    appState.text("无法播放这段录音，文件可能已被移动或删除", "Couldn’t play this recording. The file may have been moved or deleted."),
+                    symbol: "exclamationmark.triangle.fill"
+                )
+            }
+        }
     }
 
     private func dayLabel(for entry: HistoryEntry) -> String {
@@ -272,6 +314,12 @@ struct HistoryView: View {
             )
         }
     }
+}
+
+private struct Playback {
+    let entryID: HistoryEntry.ID
+    /// `nil` while the recording loads.
+    var player: AVAudioPlayer?
 }
 
 private struct HistoryDay: Identifiable {
@@ -323,12 +371,12 @@ private struct HistoryRow: View {
     @Environment(AppState.self) private var appState
     let entry: HistoryEntry
     let isSelected: Bool
+    let isPlaying: Bool
+    let onTogglePlayback: @MainActor () -> Void
     /// The page owns deletion so Delete in the list and the row's buttons share one path.
     let onDelete: @MainActor () -> Void
-    @State private var isPlaying = false
     @State private var isOutputExpanded = false
     @State private var hovering = false
-    @State private var player: AVAudioPlayer?
 
     private var locale: Locale { historyLocale(chinese: appState.usesChineseUI) }
 
@@ -382,14 +430,12 @@ private struct HistoryRow: View {
         .onHover { hovering = $0 }
         .animation(Motion.snappy, value: hovering)
         .animation(Motion.snappy, value: isSelected)
-        // Deleting the entry or leaving the page removes the row, so its recording stops with it.
-        .onDisappear(perform: stopPlayback)
         .contextMenu {
             if entry.hasCopyableOutput {
                 Button(appState.text("复制结果", "Copy Result")) { appState.copyHistoryOutput(entry.output) }
             }
             if entry.hasAudio {
-                Button(playbackTitle(titleCase: true)) { togglePlayback() }
+                Button(playbackTitle(titleCase: true), action: onTogglePlayback)
             }
             Button(entry.isStarred ? appState.text("取消星标", "Remove Star") : appState.text("加星标", "Star")) {
                 toggleStar()
@@ -425,7 +471,7 @@ private struct HistoryRow: View {
     private var inputContent: some View {
         HStack(spacing: KukuSpacing.sm) {
             if entry.hasAudio {
-                Button { togglePlayback() } label: {
+                Button(action: onTogglePlayback) {
                     HStack(spacing: KukuSpacing.iconText) {
                         if isPlaying {
                             // Compact playback waveform sized to fit the small capsule.
@@ -570,38 +616,6 @@ private struct HistoryRow: View {
         guard seconds > 0 else { return "—" }
         let total = max(1, Int(seconds.rounded()))
         return String(format: "%d:%02d", total / 60, total % 60)
-    }
-
-    private func stopPlayback() {
-        player?.stop()
-        player = nil
-        withAnimation(Motion.snappy) { isPlaying = false }
-    }
-
-    private func togglePlayback() {
-        if isPlaying {
-            stopPlayback()
-            return
-        }
-        Task {
-            do {
-                let data = try await appState.playAudio(for: entry)
-                let audioPlayer = try AVAudioPlayer(data: data)
-                audioPlayer.prepareToPlay()
-                audioPlayer.play()
-                player = audioPlayer
-                withAnimation(Motion.snappy) { isPlaying = true }
-                try? await Task.sleep(for: .seconds(max(entry.durationSeconds, 0.2)))
-                guard player === audioPlayer else { return }
-                player = nil
-                withAnimation(Motion.snappy) { isPlaying = false }
-            } catch {
-                appState.showToast(
-                    appState.text("无法播放这段录音，文件可能已被移动或删除", "Couldn’t play this recording. The file may have been moved or deleted."),
-                    symbol: "exclamationmark.triangle.fill"
-                )
-            }
-        }
     }
 }
 
