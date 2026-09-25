@@ -23,6 +23,13 @@ if [[ "$CONFIGURATION" != "release" && "$BUNDLE_IDENTIFIER" == "com.saykuku.app"
     exit 1
 fi
 
+# Keychain ACLs and TCC permissions survive updates only when the app keeps a
+# stable, anchored signing identity. Resolve it before building so a missing
+# certificate fails in seconds rather than after a universal build.
+source "$ROOT_DIR/Scripts/signing-identity.sh"
+SIGNING_IDENTITY="$(resolve_signing_identity "$CONFIGURATION")"
+SIGNING_KEYCHAIN="${SAYKUKU_KEYCHAIN:-}"
+
 # Theme.swift calls glassEffect behind #available(macOS 26.0, *), which only
 # compiles against the macOS 26 SDK. Fail here instead of deep in swift build.
 SDK_VERSION="$(xcrun --sdk macosx --show-sdk-version)"
@@ -84,6 +91,14 @@ if [[ "$CONFIGURATION" == "release" ]]; then
         print -u2 "Release binary must contain arm64 and x86_64, got:$ARCHS"
         exit 1
     fi
+    # Crash reports only symbolicate against a dSYM whose UUIDs match the binary.
+    BINARY_UUIDS="$(dwarfdump --uuid "$APP_BINARY" | awk '{ print $2, $3 }' | sort)"
+    DSYM_UUIDS="$(dwarfdump --uuid "$DSYM_DIR" | awk '{ print $2, $3 }' | sort)"
+    if [[ -z "$BINARY_UUIDS" || "$BINARY_UUIDS" != "$DSYM_UUIDS" ]]; then
+        print -u2 "dSYM UUIDs do not match the App binary:"
+        print -u2 -r -l -- "binary: $BINARY_UUIDS" "dSYM:   $DSYM_UUIDS"
+        exit 1
+    fi
 fi
 cp -R "$PRODUCT_DIR/SayKuku_SayKuku.bundle" "$APP_DIR/Contents/Resources/SayKuku_SayKuku.bundle"
 cp "$ROOT_DIR/Scripts/Resources/Info.plist" "$APP_DIR/Contents/Info.plist"
@@ -123,43 +138,6 @@ cp -R "$ROOT_DIR/Scripts/Resources/en.lproj" "$APP_DIR/Contents/Resources/en.lpr
 cp -R "$ROOT_DIR/Scripts/Resources/zh-Hans.lproj" "$APP_DIR/Contents/Resources/zh-Hans.lproj"
 # Third-party license notices ship inside the App.
 cp -R "$ROOT_DIR/Scripts/Resources/Licenses" "$APP_DIR/Contents/Resources/Licenses"
-
-# Keychain ACLs and TCC permissions survive updates only when the app keeps a
-# stable, anchored signing identity. Release builds must use Developer ID;
-# development builds prefer a local Apple Development certificate.
-SIGNING_IDENTITY="${SAYKUKU_SIGNING_IDENTITY:-}"
-SIGNING_KEYCHAIN="${SAYKUKU_KEYCHAIN:-}"
-if [[ "$CONFIGURATION" == "release" ]]; then
-    if [[ -z "$SIGNING_IDENTITY" ]]; then
-        print -u2 "Release builds require SAYKUKU_SIGNING_IDENTITY='Developer ID Application: ...'"
-        exit 1
-    fi
-    if [[ "$SIGNING_IDENTITY" != "Developer ID Application: "* ]]; then
-        print -u2 "Release builds require a Developer ID Application identity"
-        exit 1
-    fi
-elif [[ -z "$SIGNING_IDENTITY" ]]; then
-    VALID_IDENTITIES="$(security find-identity -v -p codesigning 2>/dev/null || true)"
-    USER_HINT="$(id -un)"
-    SIGNING_IDENTITY="$(print -r -- "$VALID_IDENTITIES" | sed -n 's/.*"\(Apple Development:[^"]*\)".*/\1/p' | grep -i "$USER_HINT" | head -n 1 || true)"
-    if [[ -z "$SIGNING_IDENTITY" ]]; then
-        SIGNING_IDENTITY="$(print -r -- "$VALID_IDENTITIES" | sed -n 's/.*"\(Apple Development:[^"]*\)".*/\1/p' | head -n 1)"
-    fi
-fi
-
-if [[ -z "$SIGNING_IDENTITY" ]]; then
-    print -u2 "No stable code-signing identity found; set SAYKUKU_SIGNING_IDENTITY explicitly"
-    exit 1
-fi
-
-IDENTITY_ARGS=(security find-identity -v -p codesigning)
-if [[ -n "$SIGNING_KEYCHAIN" ]]; then
-    IDENTITY_ARGS+=("$SIGNING_KEYCHAIN")
-fi
-if ! "${IDENTITY_ARGS[@]}" 2>/dev/null | grep -Fq "\"$SIGNING_IDENTITY\""; then
-    print -u2 "Code-signing identity not found: $SIGNING_IDENTITY"
-    exit 1
-fi
 
 print -u2 "Signing with $SIGNING_IDENTITY"
 # Debug builds also run hardened so missing entitlements surface before release.
