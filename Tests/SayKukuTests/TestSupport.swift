@@ -228,7 +228,8 @@ final class FakeReasoning: Reasoning {
     }
 }
 
-/// Captures `snapshot` and records every write attempt; set an error to make that step fail.
+/// Captures `snapshot`, shows `screenText` as the window's text, and records every write attempt;
+/// set an error to make that step fail.
 @MainActor
 final class FakeTextWriting: TextWriting {
     var snapshot: TextTargetSnapshot
@@ -237,7 +238,9 @@ final class FakeTextWriting: TextWriting {
     var replacementError: TextInteractionError?
     /// What `currentValue(of:)` reads back from the field.
     var fieldValue: String?
+    var screenText = ""
     private(set) var writes: [String] = []
+    private(set) var visibleTextReads = 0
 
     init(snapshot: TextTargetSnapshot = .fake()) {
         self.snapshot = snapshot
@@ -256,6 +259,11 @@ final class FakeTextWriting: TextWriting {
     func currentValue(of snapshot: TextTargetSnapshot) -> String? { fieldValue }
 
     func browserPageAddress(in snapshot: TextTargetSnapshot) -> String? { nil }
+
+    func visibleText(in snapshot: TextTargetSnapshot) -> String {
+        visibleTextReads += 1
+        return screenText
+    }
 
     func replacementSnapshot(for write: VerifiedWrite) throws -> TextTargetSnapshot {
         if let replacementError { throw replacementError }

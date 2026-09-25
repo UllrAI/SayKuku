@@ -212,6 +212,12 @@ private struct PrivacySettings: View {
                 KukuToggleRow(title: localized("Clipboard"), caption: localized("Text on your clipboard, excluding passwords"), isOn: $appState.clipboardAllowed)
                 KukuDivider()
                 KukuToggleRow(title: localized("Browser page"), caption: localized("URL of the current Safari or Chrome page"), isOn: $appState.browserPageAllowed)
+                KukuDivider()
+                KukuToggleRow(
+                    title: localized("Text on screen"),
+                    caption: localized("Text visible in the current window, for commands like “reply to this” or “summarize this page”. Never from password fields or sensitive apps."),
+                    isOn: $appState.screenTextAllowed
+                )
             }
             KukuGroup(localized("Always off-limits")) {
                 VStack(alignment: .leading, spacing: KukuSpacing.sm) {
