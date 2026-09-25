@@ -122,8 +122,8 @@ final class AppState {
     private(set) var hasCopiedPendingText = false
     var pendingAnswerText = ""
     var pendingAnswerStatus: String?
-    /// A link the answer card asks about before opening, because the model chose it while reading untrusted context.
-    var pendingURL: URL?
+    /// A link or shortcut the answer card asks about first, because the model chose it while reading untrusted context.
+    var pendingAction: AgentResponse?
     var resultCanUndo = false
     /// Set while Insert or Undo is writing, so a double click can't paste the same text twice.
     private(set) var isWriting = false
@@ -367,7 +367,7 @@ final class AppState {
         pendingAnswerText = ""
         pendingAnswerStatus = nil
         pendingAnswerTarget = nil
-        pendingURL = nil
+        pendingAction = nil
         agentPhase = .hidden
     }
 
@@ -375,13 +375,31 @@ final class AppState {
         guard !pendingAnswerText.isEmpty else { return }
         pendingCopyText = pendingAnswerText
         copyPendingText()
-        pendingAnswerStatus = pendingURL == nil ? text("已复制回答", "Answer copied") : text("已复制网址", "Link copied")
+        pendingAnswerStatus = pendingAction == nil ? text("已复制回答", "Answer copied") : text("已复制", "Copied")
     }
 
-    func openPendingURL() {
-        guard let pendingURL else { return }
-        NSWorkspace.shared.open(pendingURL)
+    func confirmPendingAction() {
+        guard let action = pendingAction else { return }
         dismissAnswer()
+        let generation = workflowGeneration
+        let region = configuration.region
+        agentCommand = action.intent ?? action.action.title(isChineseUI: usesChineseUI)
+        withAnimation(Motion.panel) { agentPhase = .processing }
+        // Stored as the workflow so the pill's cancel button stops a running shortcut.
+        workflowTask = Task { [weak self] in
+            do {
+                try await AgentActionExecutor.execute(action, region: region)
+                guard let self, generation == self.workflowGeneration else { return }
+                await self.showAgentResult(generation: generation)
+            } catch {
+                guard let self, generation == self.workflowGeneration else { return }
+                if error is CancellationError {
+                    self.agentPhase = .hidden
+                } else {
+                    self.handleWorkflowError(error, agent: true)
+                }
+            }
+        }
     }
 
     func insertAnswer() async {
@@ -1133,14 +1151,11 @@ final class AppState {
             guard generation == workflowGeneration else { throw CancellationError() }
             let output: String
             var needsCopyFallback = false
-            var urlToConfirm: URL?
+            var actionToConfirm: AgentResponse?
             if response.action == .writeText {
                 // Generated text is final prose, not a speech trace; cleaning it could alter names or code.
                 guard let text = response.output, !text.isEmpty else { throw QwenError.invalidResponse }
-                let sourceKind: ContextItem.Kind = response.target == .previous ? .previousOutput : .selectedText
-                // Replacing text the model saw only part of would drop the rest, so offer a copy instead.
-                let sourceWasClipped = context.contains { $0.kind == sourceKind && $0.isClipped }
-                if automaticAgentWriteBack, !sourceWasClipped {
+                if automaticAgentWriteBack, !AgentActionExecutor.replacesClippedText(response, context: context) {
                     do {
                         let writeTarget: TextTargetSnapshot
                         if response.target == .previous {
@@ -1167,9 +1182,12 @@ final class AppState {
                 guard let text = response.output, !text.isEmpty else { throw QwenError.invalidResponse }
                 output = text
             } else if AgentActionExecutor.needsConfirmation(response, context: context) {
-                guard let url = AgentActionExecutor.webURL(response.url) else { throw QwenError.invalidResponse }
-                urlToConfirm = url
-                output = url.absoluteString
+                // Checked now so the card never offers a link that cannot open.
+                if response.action == .openURL, AgentActionExecutor.webURL(response.url) == nil {
+                    throw QwenError.invalidResponse
+                }
+                actionToConfirm = response
+                output = response.url ?? response.shortcutName ?? ""
             } else {
                 resultCanUndo = false
                 try await AgentActionExecutor.execute(response, region: configuration.region)
@@ -1191,23 +1209,27 @@ final class AppState {
                 presentCopyFallback(output, agent: true, copyImmediately: automaticAgentWriteBack)
                 return
             }
-            if response.action == .answer || urlToConfirm != nil {
+            if response.action == .answer || actionToConfirm != nil {
                 pendingAnswerText = output
                 pendingAnswerTarget = snapshot
-                pendingURL = urlToConfirm
+                pendingAction = actionToConfirm
                 withAnimation(Motion.panel) { agentPhase = .answerReady }
                 return
             }
-            withAnimation(Motion.panel) { agentPhase = .result }
-            try? await Task.sleep(for: Self.successDisplayDuration)
-            if generation == workflowGeneration, agentPhase == .result {
-                withAnimation(Motion.snappy) { agentPhase = .hidden }
-            }
+            await showAgentResult(generation: generation)
         } catch is CancellationError {
             updateHistory(historyID, status: .cancelled)
             if generation == workflowGeneration { agentPhase = .hidden }
         } catch {
             finishFailedWorkflow(error, historyID: historyID, agent: true, generation: generation)
+        }
+    }
+
+    private func showAgentResult(generation: Int) async {
+        withAnimation(Motion.panel) { agentPhase = .result }
+        try? await Task.sleep(for: Self.successDisplayDuration)
+        if generation == workflowGeneration, agentPhase == .result {
+            withAnimation(Motion.snappy) { agentPhase = .hidden }
         }
     }
 
@@ -1299,7 +1321,7 @@ final class AppState {
         pendingAnswerText = ""
         pendingAnswerStatus = nil
         pendingAnswerTarget = nil
-        pendingURL = nil
+        pendingAction = nil
         resultCanUndo = false
         overlayError = nil
     }
@@ -1449,8 +1471,8 @@ final class AppState {
             switch actionError {
             case .shortcutFailed:
                 return text("快捷指令运行失败，请在“快捷指令”App 中检查", "Couldn’t run the shortcut. Check it in the Shortcuts app.")
-            case .shortcutNotSpoken:
-                return text("要运行快捷指令，请说出它的名字", "To run a shortcut, say its name.")
+            case .shortcutTimedOut:
+                return text("快捷指令超过 1 分钟没有完成，已停止", "The shortcut took over a minute, so it was stopped.")
             }
         }
         return text("出了点问题，请重试", "Something went wrong. Try again.")

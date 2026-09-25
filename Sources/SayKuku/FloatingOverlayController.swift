@@ -116,17 +116,35 @@ private struct FloatingSystemOverlay: View {
 private struct AgentAnswerCard: View {
     @Environment(AppState.self) private var appState
 
-    /// The card either shows an answer or asks before opening a link.
-    private var isLink: Bool { appState.pendingURL != nil }
+    /// Title, icon, hint and primary button: the card shows an answer or asks before a link or shortcut runs.
+    private var labels: (title: String, symbol: String, hint: String, primary: String) {
+        switch appState.pendingAction?.action {
+        case .openURL:
+            (appState.text("打开这个网址？", "Open this link?"), "link",
+             appState.text("先核对网址，再决定是否打开", "Check the address before you open it"),
+             appState.text("打开", "Open"))
+        case .runShortcut:
+            (appState.text("运行快捷指令「\(appState.pendingAnswerText)」？", "Run the “\(appState.pendingAnswerText)” shortcut?"),
+             "square.stack.3d.up",
+             appState.text("确认这是你要运行的快捷指令", "Make sure this is the shortcut you meant"),
+             appState.text("运行", "Run"))
+        default:
+            (appState.text("回答", "Answer"), "sparkles",
+             appState.text("可复制，或写入刚才的输入位置", "Copy it, or insert it where you were typing"),
+             appState.text("写入", "Insert"))
+        }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: KukuSpacing.md) {
             HStack {
                 Label {
-                    Text(isLink ? appState.text("打开这个网址？", "Open this link?") : appState.text("回答", "Answer"))
+                    Text(labels.title)
                         .foregroundStyle(KukuColor.textPrimary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
                 } icon: {
-                    Image(systemName: isLink ? "link" : "sparkles")
+                    Image(systemName: labels.symbol)
                         .foregroundStyle(KukuColor.textSecondary)
                 }
                 .font(.kuku(.headline))
@@ -143,25 +161,22 @@ private struct AgentAnswerCard: View {
             }
             .frame(maxHeight: .infinity)
             HStack {
-                Text(appState.pendingAnswerStatus ?? (isLink
-                    ? appState.text("先核对网址，再决定是否打开", "Check the address before you open it")
-                    : appState.text("可复制，或写入刚才的输入位置", "Copy it, or insert it where you were typing")))
+                Text(appState.pendingAnswerStatus ?? labels.hint)
                     .font(.kuku(.subheadline))
                     .foregroundStyle(KukuColor.textSecondary)
                     .lineLimit(2)
                 Spacer()
                 Button(appState.text("复制", "Copy"), action: appState.copyAnswer)
                     .buttonStyle(.kukuSecondary)
-                if isLink {
-                    Button(appState.text("打开", "Open"), action: appState.openPendingURL)
-                        .buttonStyle(.kukuPrimary)
-                } else {
-                    Button(appState.text("写入", "Insert")) {
+                Button(labels.primary) {
+                    if appState.pendingAction == nil {
                         Task { await appState.insertAnswer() }
+                    } else {
+                        appState.confirmPendingAction()
                     }
-                    .buttonStyle(.kukuPrimary)
-                    .disabled(appState.isWriting)
                 }
+                .buttonStyle(.kukuPrimary)
+                .disabled(appState.isWriting)
             }
         }
         .padding(KukuLayout.cardPadding)

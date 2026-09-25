@@ -740,7 +740,7 @@ enum ContextCollector {
 
 enum AgentActionError: Error {
     case shortcutFailed
-    case shortcutNotSpoken
+    case shortcutTimedOut
 }
 
 enum AgentActionExecutor {
@@ -749,7 +749,9 @@ enum AgentActionExecutor {
         charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~"
     )
     /// Context that someone other than the user may have written, such as a web page hiding instructions.
-    private static let untrustedContextKinds: [ContextItem.Kind] = [.selectedText, .previousOutput, .clipboard, .browser, .session]
+    private static let untrustedContextKinds: [ContextItem.Kind] = [
+        .selectedText, .previousOutput, .window, .clipboard, .browser, .session
+    ]
 
     @MainActor
     static func execute(_ response: AgentResponse, region: QwenRegion) async throws {
@@ -766,26 +768,27 @@ enum AgentActionExecutor {
             NSWorkspace.shared.open(url)
         case .runShortcut:
             guard let name = response.shortcutName, !name.isEmpty else { throw QwenError.invalidResponse }
-            guard isShortcut(name, spokenIn: response.transcript ?? "") else { throw AgentActionError.shortcutNotSpoken }
             try await runShortcut(named: name)
         }
     }
 
-    /// A link chosen while reading untrusted context may come from injected instructions, so the user opens it.
+    /// The model reads context and picks the action in one reply, so injected text could choose a link or
+    /// shortcut, and even the transcript beside it. With untrusted context attached, the user confirms these.
     static func needsConfirmation(_ response: AgentResponse, context: [ContextItem]) -> Bool {
-        response.action == .openURL && context.contains { untrustedContextKinds.contains($0.kind) }
+        [.openURL, .runShortcut].contains(response.action) && context.contains { untrustedContextKinds.contains($0.kind) }
     }
 
+    /// Whether a writeText reply replaces text the model saw only the start of, which would drop the rest.
+    static func replacesClippedText(_ response: AgentResponse, context: [ContextItem]) -> Bool {
+        let source: ContextItem.Kind = response.target == .previous ? .previousOutput : .selectedText
+        return response.action == .writeText && context.contains { $0.kind == source && $0.isClipped }
+    }
+
+    /// Only plain web links; credentials such as `https://google.com@evil.com` would disguise the real host.
     static func webURL(_ value: String?) -> URL? {
-        guard let value, let url = URL(string: value), ["http", "https"].contains(url.scheme?.lowercased()) else { return nil }
+        guard let value, let url = URL(string: value), ["http", "https"].contains(url.scheme?.lowercased()),
+              url.user == nil, url.password == nil else { return nil }
         return url
-    }
-
-    /// Only a shortcut the user named out loud runs, so context text cannot pick one.
-    static func isShortcut(_ name: String, spokenIn transcript: String) -> Bool {
-        func normalized(_ value: String) -> String { value.lowercased().filter { !$0.isWhitespace } }
-        let name = normalized(name)
-        return !name.isEmpty && normalized(transcript).contains(name)
     }
 
     /// Google is blocked in mainland China, where Beijing-region users usually are.
@@ -801,26 +804,41 @@ enum AgentActionExecutor {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/shortcuts")
         process.arguments = ["run", name]
+        // Launch and cancel share a lock, so a cancel either stops the launch or sees the running process.
+        let cancelled = OSAllocatedUnfairLock(initialState: false)
+        let timedOut = OSAllocatedUnfairLock(initialState: false)
         let timeout = Task {
             try await Task.sleep(for: .seconds(60))
-            if process.isRunning { process.terminate() }
+            timedOut.withLock { didTimeOut in
+                guard process.isRunning else { return }
+                didTimeOut = true
+                process.terminate()
+            }
         }
         defer { timeout.cancel() }
         let status: Int32 = try await withTaskCancellationHandler {
-            try Task.checkCancellation()
-            return try await withCheckedThrowingContinuation { continuation in
+            try await withCheckedThrowingContinuation { continuation in
                 process.terminationHandler = { continuation.resume(returning: $0.terminationStatus) }
-                do {
-                    try process.run()
-                } catch {
-                    continuation.resume(throwing: error)
+                let launchError: (any Error)? = cancelled.withLock { isCancelled in
+                    guard !isCancelled else { return CancellationError() }
+                    do {
+                        try process.run()
+                        return nil
+                    } catch {
+                        return error
+                    }
                 }
+                if let launchError { continuation.resume(throwing: launchError) }
             }
         } onCancel: {
-            // Terminating a process that never launched raises an exception.
-            if process.isRunning { process.terminate() }
+            cancelled.withLock { isCancelled in
+                isCancelled = true
+                // Terminating a process that never launched raises an exception.
+                if process.isRunning { process.terminate() }
+            }
         }
         try Task.checkCancellation()
+        if timedOut.withLock({ $0 }) { throw AgentActionError.shortcutTimedOut }
         guard status == 0 else { throw AgentActionError.shortcutFailed }
     }
 }
