@@ -675,7 +675,7 @@ final class AppState {
               historyEntries[index].canRetryTranscription,
               let filename = historyEntries[index].audioFilename else { return }
         guard !apiKey.isEmpty else {
-            showToast(localizedError(QwenError.missingConfiguration), symbol: "key.fill")
+            showToast(QwenError.missingConfiguration.localizedDescription, symbol: "key.fill")
             return
         }
         historyEntries[index].status = .processing
@@ -900,7 +900,7 @@ final class AppState {
             return
         }
         guard !apiKey.isEmpty else {
-            let message = localizedError(QwenError.missingConfiguration)
+            let message = QwenError.missingConfiguration.localizedDescription
             showOverlayFeedback(message, symbol: "key.fill", duration: .seconds(4))
             showSettings(section: .qwen)
             showToast(message, symbol: "key.fill")
@@ -1484,12 +1484,13 @@ final class AppState {
         if agent { agentPhase = .hidden } else { dictationPhase = .idle }
         targetSnapshot = nil
         let message = localizedError(error)
+        let symbol = (error as? QwenError)?.symbol ?? "exclamationmark"
         if (error as? QwenError) == .noSpeech {
-            showOverlayFeedback(message, symbol: "waveform.slash")
+            showOverlayFeedback(message, symbol: symbol)
             return
         }
         // The overlay is the only surface visible from other apps; the toast only helps inside SayKuku.
-        showOverlayFeedback(message, symbol: "exclamationmark", duration: .seconds(4))
+        showOverlayFeedback(message, symbol: symbol, duration: .seconds(4))
         if Self.needsSettings(error) {
             showSettings(section: .qwen)
             // The overlay already says what went wrong; the toast explains why Settings opened.
@@ -1542,71 +1543,11 @@ final class AppState {
         }
     }
 
+    /// Errors that adopt `LocalizedError` describe themselves; system errors such as `URLError`
+    /// don't, so they get a plain message rather than Foundation's, which follows the system language.
     func localizedError(_ error: Error) -> String {
-        if let textError = error as? TextInteractionError {
-            switch textError {
-            case .accessibilityRequired:
-                return localized("Allow Accessibility access for SayKuku first")
-            case .noFocusedElement:
-                return localized("Click where you want to type first")
-            case .sensitiveTarget:
-                return localized("SayKuku doesn’t work in password fields or password managers.")
-            case .targetChanged:
-                return localized("The text field changed. Click back into it and try again.")
-            case .writeFailed:
-                return localized("This app didn’t accept the text. Try again.")
-            }
-        }
-        if let qwenError = error as? QwenError {
-            switch qwenError {
-            case .missingConfiguration:
-                return localized("Add your Qwen API Key first")
-            case .invalidEndpoint:
-                return localized("Couldn’t reach Qwen. Check the Region and Workspace ID in Settings › Qwen Connection.")
-            case .invalidResponse:
-                return localized("Couldn’t get a result. Try again.")
-            case .noSpeech:
-                return localized("Didn’t catch that. Try again.")
-            case .server(let status, _):
-                if status == 401 || status == 403 {
-                    return localized("Your API Key was rejected. Check Settings › Qwen Connection.")
-                }
-                if status == 429 {
-                    return localized("Too many requests. Try again in a moment.")
-                }
-                if status == 400 {
-                    // Often content inspection or unreadable audio, so Settings is only the last resort.
-                    return localized("Qwen rejected this request. Try again, or check the model in Settings › Qwen Connection.")
-                }
-                return localized("Qwen couldn’t handle the request. Try again.")
-            case .protocolError:
-                return localized("Lost connection to Qwen. Try again.")
-            case .timeout:
-                return localized("Qwen took too long to respond. Try again.")
-            case .recordingTooLong:
-                return localized("That recording is too long. Try shorter parts.")
-            }
-        }
-        if error is AudioCaptureError {
-            return localized("Couldn’t use the microphone. Check your input device and microphone access.")
-        }
-        if error is LocalStoreError {
-            return localized("Couldn’t read local data. Restart SayKuku and try again.")
-        }
-        if error is SecureStorageError {
-            return localized("Couldn’t save the API Key. Check Keychain on this Mac.")
-        }
-        if error is URLError {
-            return localized("Couldn’t connect. Check your network and try again.")
-        }
-        if let actionError = error as? AgentActionError {
-            switch actionError {
-            case .shortcutFailed:
-                return localized("Couldn’t run the shortcut. Check it in the Shortcuts app.")
-            case .shortcutTimedOut:
-                return localized("The shortcut took over a minute, so it was stopped.")
-            }
-        }
+        if let description = (error as? LocalizedError)?.errorDescription { return description }
+        if error is URLError { return localized("Couldn’t connect. Check your network and try again.") }
         return localized("Something went wrong. Try again.")
     }
 

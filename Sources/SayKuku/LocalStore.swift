@@ -6,10 +6,7 @@ enum LocalStoreError: LocalizedError {
     case invalidAudioFilename
 
     var errorDescription: String? {
-        switch self {
-        case .unreadableSnapshot: "Local data could not be read; changes were not saved"
-        case .invalidAudioFilename: "Invalid audio filename"
-        }
+        localized("Couldn’t read local data. Restart SayKuku and try again.")
     }
 }
 

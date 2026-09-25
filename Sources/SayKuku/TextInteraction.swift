@@ -14,11 +14,11 @@ enum TextInteractionError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .accessibilityRequired: "Accessibility permission is required"
-        case .noFocusedElement: "No editable text field is focused"
-        case .sensitiveTarget: "SayKuku doesn’t work in password fields or password managers."
-        case .targetChanged: "The text field changed. Click back into it and try again."
-        case .writeFailed: "This app didn’t accept the text. Try again."
+        case .accessibilityRequired: localized("Allow Accessibility access for SayKuku first")
+        case .noFocusedElement: localized("Click where you want to type first")
+        case .sensitiveTarget: localized("SayKuku doesn’t work in password fields or password managers.")
+        case .targetChanged: localized("The text field changed. Click back into it and try again.")
+        case .writeFailed: localized("This app didn’t accept the text. Try again.")
         }
     }
 }
@@ -816,9 +816,16 @@ enum ContextCollector {
     }
 }
 
-enum AgentActionError: Error {
+enum AgentActionError: LocalizedError {
     case shortcutFailed
     case shortcutTimedOut
+
+    var errorDescription: String? {
+        switch self {
+        case .shortcutFailed: localized("Couldn’t run the shortcut. Check it in the Shortcuts app.")
+        case .shortcutTimedOut: localized("The shortcut took over a minute, so it was stopped.")
+        }
+    }
 }
 
 enum AgentActionExecutor {
