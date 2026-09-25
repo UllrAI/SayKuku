@@ -37,7 +37,7 @@ enum ContextCollector {
         screenText: String,
         session: AgentSession?,
         domains: Set<DomainPreset>,
-        knowledge: [KnowledgeEntity]
+        memory: [MemoryEntity]
     ) -> [ContextItem] {
         guard !snapshot.isSensitive else { return [] }
         var items: [ContextItem] = []
@@ -89,13 +89,13 @@ enum ContextCollector {
                 value: DomainPreset.allCases.filter(domains.contains).map(\.promptName).joined(separator: ", ")
             ))
         }
-        if !knowledge.isEmpty {
-            // Only marks knowledge as enabled for this run; the prompt is rendered from LocalData's entities.
+        if !memory.isEmpty {
+            // Only marks memory as enabled for this run; the prompt is rendered from LocalData's entities.
             items.append(ContextItem(
-                kind: .knowledge,
+                kind: .memory,
                 symbol: "books.vertical",
                 title: localized("Memory"),
-                value: "\(knowledge.count)"
+                value: "\(memory.count)"
             ))
         }
         return items

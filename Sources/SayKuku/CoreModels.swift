@@ -450,7 +450,7 @@ enum EntityType: String, Codable, CaseIterable, Identifiable {
 
 enum EntitySource: String, Codable { case manual, importText, correction }
 
-struct KnowledgeEntity: Identifiable, Codable, Equatable {
+struct MemoryEntity: Identifiable, Codable, Equatable {
     var id: UUID
     var name: String
     var detail: String
@@ -460,7 +460,7 @@ struct KnowledgeEntity: Identifiable, Codable, Equatable {
     var createdAt: Date
 
     /// Derived from `name` so it can never go stale; not encoded, and legacy stored values are ignored.
-    var normalizedKey: String { KnowledgeNormalizer.key(name) }
+    var normalizedKey: String { MemoryNormalizer.key(name) }
 
     init(
         id: UUID = UUID(), name: String, detail: String = "", type: EntityType,
@@ -468,13 +468,13 @@ struct KnowledgeEntity: Identifiable, Codable, Equatable {
     ) {
         self.id = id
         self.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        let key = KnowledgeNormalizer.key(name)
+        let key = MemoryNormalizer.key(name)
         self.detail = detail.trimmingCharacters(in: .whitespacesAndNewlines)
         self.type = type
         var aliasKeys = Set<String>()
         self.aliases = aliases.compactMap { alias in
             let value = alias.trimmingCharacters(in: .whitespacesAndNewlines)
-            let aliasKey = KnowledgeNormalizer.key(value)
+            let aliasKey = MemoryNormalizer.key(value)
             guard !aliasKey.isEmpty, aliasKey != key, aliasKeys.insert(aliasKey).inserted else { return nil }
             return value
         }
@@ -483,15 +483,15 @@ struct KnowledgeEntity: Identifiable, Codable, Equatable {
     }
 
     /// A copy with `more` aliases appended; repeats and aliases matching the name are dropped.
-    func adding(aliases more: [String]) -> KnowledgeEntity {
-        KnowledgeEntity(
+    func adding(aliases more: [String]) -> MemoryEntity {
+        MemoryEntity(
             id: id, name: name, detail: detail, type: type,
             aliases: aliases + more, source: source, createdAt: createdAt
         )
     }
 }
 
-enum KnowledgeSaveError: Error, Equatable {
+enum MemorySaveError: Error, Equatable {
     /// The name has no letters or digits left after normalization.
     case emptyName
     case duplicate(existingName: String)
@@ -521,7 +521,7 @@ enum ImportStatus: String, Codable {
 
 struct ImportCandidate: Identifiable, Equatable {
     var id: UUID = UUID()
-    var entity: KnowledgeEntity
+    var entity: MemoryEntity
     var status: ImportStatus
     var evidence: String
     var matchedEntityID: UUID?
@@ -619,7 +619,7 @@ struct AgentSession: Identifiable, Equatable {
 
 struct ContextItem: Identifiable, Equatable {
     enum Kind: Equatable {
-        case selectedText, previousOutput, app, window, clipboard, browser, screen, session, domain, knowledge
+        case selectedText, previousOutput, app, window, clipboard, browser, screen, session, domain, memory
 
         /// Fixed English name the model sees, independent of the UI language.
         var promptLabel: String {
@@ -633,7 +633,7 @@ struct ContextItem: Identifiable, Equatable {
             case .screen: "Text on screen"
             case .session: "Recent conversation"
             case .domain: "Domains"
-            case .knowledge: "Saved knowledge"
+            case .memory: "Saved knowledge"
             }
         }
     }
@@ -676,7 +676,7 @@ struct AgentResponse: Codable, Equatable {
     var deletesPrevious: Bool { action == .writeText && target == .previous && output?.isEmpty == true }
 }
 
-enum KnowledgeNormalizer {
+enum MemoryNormalizer {
     /// Fixed locale so keys stored or compared on one machine match on another (e.g. Turkish i/İ).
     static func key(_ value: String) -> String {
         value.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))

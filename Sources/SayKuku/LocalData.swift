@@ -7,7 +7,7 @@ import Observation
 @Observable
 final class LocalData {
     var historyEntries: [HistoryEntry] = [] { didSet { schedulePersistence() } }
-    var knowledgeEntities: [KnowledgeEntity] = [] { didSet { schedulePersistence() } }
+    var memoryEntities: [MemoryEntity] = [] { didSet { schedulePersistence() } }
     var corrections: [CorrectionRecord] = [] { didSet { schedulePersistence() } }
     /// Correction suggestions still waiting for an answer.
     var pendingCorrections: [CorrectionRecord] { corrections.filter { $0.status == .pending } }
@@ -31,13 +31,13 @@ final class LocalData {
         self.persistenceDelay = persistenceDelay
     }
 
-    func commitKnowledge(_ analysis: KnowledgeAnalysis, selectedIDs: Set<UUID>) {
-        knowledgeEntities = KnowledgePipeline.commit(analysis: analysis, selectedIDs: selectedIDs, existing: knowledgeEntities)
+    func commitMemory(_ analysis: MemoryAnalysis, selectedIDs: Set<UUID>) {
+        memoryEntities = MemoryPipeline.commit(analysis: analysis, selectedIDs: selectedIDs, existing: memoryEntities)
     }
 
     /// Returns why the item couldn't be saved, or `nil` once it's added.
-    func addKnowledge(name: String, type: EntityType, detail: String? = nil, aliases: [String] = []) -> KnowledgeSaveError? {
-        if let error = insertKnowledge(KnowledgeEntity(name: name, detail: detail ?? "", type: type, aliases: aliases)) {
+    func addMemory(name: String, type: EntityType, detail: String? = nil, aliases: [String] = []) -> MemorySaveError? {
+        if let error = insertMemory(MemoryEntity(name: name, detail: detail ?? "", type: type, aliases: aliases)) {
             return error
         }
         showToast(localized("Remembered"), symbol: "checkmark.circle.fill")
@@ -45,47 +45,47 @@ final class LocalData {
     }
 
     /// Adds the item without a toast; returns why it couldn't be added.
-    private func insertKnowledge(_ candidate: KnowledgeEntity) -> KnowledgeSaveError? {
-        if let error = validateKnowledge(candidate) { return error }
-        knowledgeEntities.insert(candidate, at: 0)
+    private func insertMemory(_ candidate: MemoryEntity) -> MemorySaveError? {
+        if let error = validateMemory(candidate) { return error }
+        memoryEntities.insert(candidate, at: 0)
         return nil
     }
 
     /// Returns why the edit couldn't be saved, or `nil` once it's applied.
-    func updateKnowledge(
+    func updateMemory(
         id: UUID,
         name: String,
         type: EntityType,
         detail: String,
         aliases: [String]
-    ) -> KnowledgeSaveError? {
+    ) -> MemorySaveError? {
         // The item was removed elsewhere; there is nothing left to update.
-        guard let index = knowledgeEntities.firstIndex(where: { $0.id == id }) else { return nil }
+        guard let index = memoryEntities.firstIndex(where: { $0.id == id }) else { return nil }
 
-        let candidate = KnowledgeEntity(
+        let candidate = MemoryEntity(
             id: id,
             name: name,
             detail: detail,
             type: type,
             aliases: aliases,
-            source: knowledgeEntities[index].source,
-            createdAt: knowledgeEntities[index].createdAt
+            source: memoryEntities[index].source,
+            createdAt: memoryEntities[index].createdAt
         )
-        if let error = validateKnowledge(candidate) { return error }
+        if let error = validateMemory(candidate) { return error }
 
-        knowledgeEntities[index] = candidate
+        memoryEntities[index] = candidate
         showToast(localized("Memory updated"), symbol: "checkmark.circle.fill")
         return nil
     }
 
-    func removeKnowledge(id: UUID) {
-        knowledgeEntities.removeAll { $0.id == id }
+    func removeMemory(id: UUID) {
+        memoryEntities.removeAll { $0.id == id }
         showToast(localized("Deleted"), symbol: "trash")
     }
 
-    func validateKnowledge(_ candidate: KnowledgeEntity) -> KnowledgeSaveError? {
+    func validateMemory(_ candidate: MemoryEntity) -> MemorySaveError? {
         guard !candidate.normalizedKey.isEmpty else { return .emptyName }
-        if let existing = knowledgeEntities.first(where: { $0.id != candidate.id && $0.normalizedKey == candidate.normalizedKey }) {
+        if let existing = memoryEntities.first(where: { $0.id != candidate.id && $0.normalizedKey == candidate.normalizedKey }) {
             return .duplicate(existingName: existing.name)
         }
         return nil
@@ -95,8 +95,8 @@ final class LocalData {
         guard let index = corrections.firstIndex(where: { $0.id == id }) else { return }
         corrections[index].status = .accepted
         let record = corrections[index]
-        knowledgeEntities = KnowledgePipeline.learn(
-            record.raw, as: record.corrected, clue: record.clue, into: knowledgeEntities
+        memoryEntities = MemoryPipeline.learn(
+            record.raw, as: record.corrected, clue: record.clue, into: memoryEntities
         )
     }
 
@@ -237,7 +237,7 @@ final class LocalData {
             snapshot.history,
             message: localized("SayKuku quit before this finished")
         )).sorted { $0.createdAt > $1.createdAt }
-        knowledgeEntities = Self.merging(knowledgeEntities, snapshot.entities.map { entity in
+        memoryEntities = Self.merging(memoryEntities, snapshot.entities.map { entity in
             var entity = entity
             if Self.legacyPlaceholderDetails.contains(entity.detail) { entity.detail = "" }
             return entity
@@ -256,11 +256,11 @@ final class LocalData {
         }
     }
 
-    /// Earlier builds kept custom words in defaults; they now live in Knowledge as terms.
-    /// Runs once Knowledge has loaded, so words already saved there are skipped as duplicates.
+    /// Earlier builds kept custom words in defaults; they now live in Memory as terms.
+    /// Runs once Memory has loaded, so words already saved there are skipped as duplicates.
     private func migrateLegacyCustomTerms() {
         guard let terms = settings.takeLegacyCustomTerms() else { return }
-        for term in terms { _ = insertKnowledge(KnowledgeEntity(name: term, type: .term)) }
+        for term in terms { _ = insertMemory(MemoryEntity(name: term, type: .term)) }
     }
 
     /// Keeps records added while loading; stored records fill in the rest.
@@ -335,7 +335,7 @@ final class LocalData {
         guard isLoaded else { return nil }
         persistenceGeneration += 1
         let value = LocalStore.Snapshot(
-            history: historyEntries, entities: knowledgeEntities, corrections: corrections
+            history: historyEntries, entities: memoryEntities, corrections: corrections
         )
         return (value, persistenceGeneration)
     }

@@ -6,8 +6,8 @@ struct RootView: View {
     // Pages are rebuilt on navigation, so the selections people come back to live here.
     @State private var historyFilter: HistoryFilter = .all
     @State private var historySearch = ""
-    @State private var knowledgeSearch = ""
-    @State private var knowledgeFilter: EntityType?
+    @State private var memorySearch = ""
+    @State private var memoryFilter: EntityType?
 
     var body: some View {
         @Bindable var appState = appState
@@ -29,8 +29,8 @@ struct RootView: View {
                         HomeView()
                     case .history:
                         HistoryView(filter: $historyFilter, search: $historySearch)
-                    case .knowledge:
-                        KnowledgeView(search: $knowledgeSearch, filter: $knowledgeFilter)
+                    case .memory:
+                        MemoryView(search: $memorySearch, filter: $memoryFilter)
                     }
                 }
                 .id(appState.destination)
@@ -94,7 +94,7 @@ private struct Sidebar: View {
                         title: destination.title,
                         symbol: destination.symbol,
                         isSelected: selection == destination,
-                        badgeCount: destination == .knowledge ? appState.data.pendingCorrections.count : 0
+                        badgeCount: destination == .memory ? appState.data.pendingCorrections.count : 0
                     ) {
                         selection = destination
                     }

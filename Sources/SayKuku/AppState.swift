@@ -9,20 +9,20 @@ import SwiftUI
 @Observable
 final class AppState {
     enum Destination: String, CaseIterable, Identifiable {
-        case home = "Home", history = "History", knowledge = "Knowledge"
+        case home = "Home", history = "History", memory = "Memory"
         var id: String { rawValue }
         var symbol: String {
             switch self {
             case .home: "house"
             case .history: "clock.arrow.circlepath"
-            case .knowledge: "books.vertical"
+            case .memory: "books.vertical"
             }
         }
         var title: String {
             switch self {
             case .home: localized("Home")
             case .history: localized("History")
-            case .knowledge: localized("Memory")
+            case .memory: localized("Memory")
             }
         }
     }
@@ -123,13 +123,13 @@ final class AppState {
         }
     }
 
-    func analyzeKnowledge(_ source: String) async throws -> KnowledgeAnalysis {
-        let redacted = KnowledgePipeline.redactingPII(in: source)
+    func analyzeMemory(_ source: String) async throws -> MemoryAnalysis {
+        let redacted = MemoryPipeline.redactingPII(in: source)
         var entities: [ProposedEntity] = []
-        for chunk in KnowledgePipeline.chunks(redacted.text) {
-            entities += try await reasoningClient.extractKnowledge(apiKey: settings.apiKey, configuration: settings.configuration, text: chunk)
+        for chunk in MemoryPipeline.chunks(redacted.text) {
+            entities += try await reasoningClient.extractMemory(apiKey: settings.apiKey, configuration: settings.configuration, text: chunk)
         }
-        return KnowledgePipeline.analyze(proposals: entities, existing: data.knowledgeEntities, ignored: redacted.ignored)
+        return MemoryPipeline.analyze(proposals: entities, existing: data.memoryEntities, ignored: redacted.ignored)
     }
 
     /// Commits pending edits, then tests the saved credentials.

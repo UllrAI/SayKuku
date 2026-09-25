@@ -1,10 +1,10 @@
 import Foundation
 
-struct KnowledgeAnalysis: Equatable {
+struct MemoryAnalysis: Equatable {
     var candidates: [ImportCandidate]
 }
 
-enum KnowledgePipeline {
+enum MemoryPipeline {
     static func chunks(_ text: String, limit: Int = 12_000) -> [String] {
         guard text.count > limit else { return text.isEmpty ? [] : [text] }
         var result: [String] = []
@@ -55,7 +55,7 @@ enum KnowledgePipeline {
                 let value = String(redacted[swiftRange])
                 // The row shows a localized label; keep only a masked hint of the original value.
                 ignored.append(ImportCandidate(
-                    entity: KnowledgeEntity(name: "", type: .term, source: .importText),
+                    entity: MemoryEntity(name: "", type: .term, source: .importText),
                     status: .ignored,
                     evidence: masked(value)
                 ))
@@ -82,11 +82,11 @@ enum KnowledgePipeline {
 
     static func analyze(
         proposals: [ProposedEntity],
-        existing: [KnowledgeEntity],
+        existing: [MemoryEntity],
         ignored: [ImportCandidate]
-    ) -> KnowledgeAnalysis {
+    ) -> MemoryAnalysis {
         let uniqueProposals = proposals.reduce(into: [String: ProposedEntity]()) { result, proposal in
-            let key = KnowledgeNormalizer.key(proposal.name)
+            let key = MemoryNormalizer.key(proposal.name)
             guard !key.isEmpty else { return }
             if var current = result[key] {
                 current.aliases = Array(Set(current.aliases + proposal.aliases)).sorted()
@@ -100,7 +100,7 @@ enum KnowledgePipeline {
         var candidates: [ImportCandidate] = uniqueProposals.compactMap { proposal in
             let name = proposal.name.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !name.isEmpty, !proposal.evidence.isEmpty else { return nil }
-            let entity = KnowledgeEntity(
+            let entity = MemoryEntity(
                 name: name,
                 detail: proposal.detail,
                 type: proposal.type,
@@ -111,24 +111,24 @@ enum KnowledgePipeline {
                 return ImportCandidate(entity: entity, status: .merge, evidence: proposal.evidence, matchedEntityID: match.id)
             }
             // Short Chinese names differ by one homophone, which the edit ratio cannot catch.
-            let pinyin = KnowledgeNormalizer.pinyinKey(entity.name)
+            let pinyin = MemoryNormalizer.pinyinKey(entity.name)
             if let match = existing.first(where: {
                 similarity(entity.normalizedKey, $0.normalizedKey) >= 0.82
-                    || (pinyin != nil && pinyin == KnowledgeNormalizer.pinyinKey($0.name))
+                    || (pinyin != nil && pinyin == MemoryNormalizer.pinyinKey($0.name))
             }) {
                 return ImportCandidate(entity: entity, status: .conflict, evidence: proposal.evidence, matchedEntityID: match.id)
             }
             return ImportCandidate(entity: entity, status: .new, evidence: proposal.evidence)
         }
         candidates.append(contentsOf: ignored)
-        return KnowledgeAnalysis(candidates: candidates)
+        return MemoryAnalysis(candidates: candidates)
     }
 
     static func commit(
-        analysis: KnowledgeAnalysis,
+        analysis: MemoryAnalysis,
         selectedIDs: Set<UUID>,
-        existing: [KnowledgeEntity]
-    ) -> [KnowledgeEntity] {
+        existing: [MemoryEntity]
+    ) -> [MemoryEntity] {
         var entities = existing
         let chosen = analysis.candidates.filter { selectedIDs.contains($0.id) && $0.status != .ignored }
         for candidate in chosen {
@@ -136,8 +136,8 @@ enum KnowledgePipeline {
                let index = entities.firstIndex(where: { $0.id == matchID }) {
                 let mergedAliases = entities[index].aliases + candidate.entity.aliases + [candidate.entity.name]
                 entities[index].aliases = mergedAliases.reduce(into: []) { result, alias in
-                    guard KnowledgeNormalizer.key(alias) != entities[index].normalizedKey,
-                          !result.contains(where: { KnowledgeNormalizer.key($0) == KnowledgeNormalizer.key(alias) }) else { return }
+                    guard MemoryNormalizer.key(alias) != entities[index].normalizedKey,
+                          !result.contains(where: { MemoryNormalizer.key($0) == MemoryNormalizer.key(alias) }) else { return }
                     result.append(alias)
                 }
                 if entities[index].detail.isEmpty { entities[index].detail = candidate.entity.detail }
@@ -152,11 +152,11 @@ enum KnowledgePipeline {
     /// named `raw` was learned wrong, so it is renamed to `corrected` (or folded into an existing
     /// `corrected`) instead of being left next to it. `clue` fills a clue only where there is none.
     static func learn(
-        _ raw: String, as corrected: String, clue: String, into existing: [KnowledgeEntity]
-    ) -> [KnowledgeEntity] {
+        _ raw: String, as corrected: String, clue: String, into existing: [MemoryEntity]
+    ) -> [MemoryEntity] {
         var entities = existing
-        let rawKey = KnowledgeNormalizer.key(raw)
-        let correctedKey = KnowledgeNormalizer.key(corrected)
+        let rawKey = MemoryNormalizer.key(raw)
+        let correctedKey = MemoryNormalizer.key(corrected)
         let mistaken = entities.firstIndex {
             $0.source == .correction && $0.normalizedKey == rawKey && rawKey != correctedKey
         }
@@ -166,19 +166,19 @@ enum KnowledgePipeline {
             if let mistaken { entities.remove(at: mistaken) }
         } else if let mistaken {
             let old = entities[mistaken]
-            entities[mistaken] = KnowledgeEntity(
+            entities[mistaken] = MemoryEntity(
                 id: old.id, name: corrected, detail: old.detail.isEmpty ? clue : old.detail, type: old.type,
                 aliases: old.aliases + [raw], source: .correction, createdAt: old.createdAt
             )
         } else {
-            entities.append(KnowledgeEntity(name: corrected, detail: clue, type: .term, aliases: [raw], source: .correction))
+            entities.append(MemoryEntity(name: corrected, detail: clue, type: .term, aliases: [raw], source: .correction))
         }
         return entities
     }
 
-    private static func exactMatch(_ lhs: KnowledgeEntity, _ rhs: KnowledgeEntity) -> Bool {
-        let lhsKeys = Set([lhs.normalizedKey] + lhs.aliases.map(KnowledgeNormalizer.key))
-        let rhsKeys = Set([rhs.normalizedKey] + rhs.aliases.map(KnowledgeNormalizer.key))
+    private static func exactMatch(_ lhs: MemoryEntity, _ rhs: MemoryEntity) -> Bool {
+        let lhsKeys = Set([lhs.normalizedKey] + lhs.aliases.map(MemoryNormalizer.key))
+        let rhsKeys = Set([rhs.normalizedKey] + rhs.aliases.map(MemoryNormalizer.key))
         return !lhsKeys.isDisjoint(with: rhsKeys)
     }
 

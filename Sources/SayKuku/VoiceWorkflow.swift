@@ -312,7 +312,7 @@ final class VoiceWorkflow {
                 cleanup: settings.dictationCleanup,
                 // A retry lands in History, not in an app, so there is no tone to match.
                 targetApp: nil,
-                knowledgePrompt: renderKnowledgePrompt(.transcription)
+                memoryPrompt: renderMemoryPrompt(.transcription)
             )
             let cleaned = try SpeechDisfluencyCleaner.dictation(result, mode: settings.dictationCleanup)
             data.updateHistory(id, input: cleaned, output: cleaned, status: .completed)
@@ -418,7 +418,7 @@ final class VoiceWorkflow {
             screenText: settings.screenTextAllowed ? textInteraction.visibleText(in: snapshot) : "",
             session: conversation.last,
             domains: settings.selectedDomains,
-            knowledge: data.knowledgeEntities
+            memory: data.memoryEntities
         )
         // After a deletion the last write is kept only for undo; there is nothing left to revise.
         if let lastVerifiedWrite, lastVerifiedWrite.isRecent, !lastVerifiedWrite.text.isEmpty,
@@ -449,11 +449,11 @@ final class VoiceWorkflow {
         let selectedNumberFormat = settings.dictationNumberFormat
         let selectedCleanup = settings.dictationCleanup
         let targetApp = toneTargetApp(for: targetSnapshot)
-        let knowledgePrompt = renderKnowledgePrompt(.transcription)
+        let memoryPrompt = renderMemoryPrompt(.transcription)
         let realtimeSession = UUID()
         realtimeSessionID = realtimeSession
         let connectInterval = signposter.beginInterval("realtime connect", id: signposter.makeSignpostID())
-        uploadTask = Task { [weak self, realtimeClient, apiKey = settings.apiKey, configuration = settings.configuration, selectedRecognitionLanguage, selectedNumberFormat, selectedCleanup, targetApp, knowledgePrompt] in
+        uploadTask = Task { [weak self, realtimeClient, apiKey = settings.apiKey, configuration = settings.configuration, selectedRecognitionLanguage, selectedNumberFormat, selectedCleanup, targetApp, memoryPrompt] in
             try await realtimeClient.connect(
                 session: realtimeSession,
                 apiKey: apiKey,
@@ -475,7 +475,7 @@ final class VoiceWorkflow {
                 numberFormat: selectedNumberFormat,
                 cleanup: selectedCleanup,
                 targetApp: targetApp,
-                knowledgePrompt: knowledgePrompt
+                memoryPrompt: memoryPrompt
             )
             self?.signposter.endInterval("realtime connect", connectInterval)
             for await chunk in chunks { try await realtimeClient.append(chunk, session: realtimeSession) }
@@ -620,9 +620,9 @@ final class VoiceWorkflow {
             try Task.checkCancellation()
             guard generation == workflowGeneration else { throw CancellationError() }
             guard recording.hasSpeech else { throw QwenError.noSpeech }
-            let knowledgePrompt = renderKnowledgePrompt(
+            let memoryPrompt = renderMemoryPrompt(
                 .agent,
-                includesKnowledge: context.contains { $0.kind == .knowledge },
+                includesMemory: context.contains { $0.kind == .memory },
                 includesDomains: context.contains { $0.kind == .domain }
             )
             let response = try await reasoningClient.respondToAudio(
@@ -633,7 +633,7 @@ final class VoiceWorkflow {
                 sessions: context.contains(where: { $0.kind == .session }) ? conversation : [],
                 textField: snapshot?.agentTextField ?? .absent,
                 matchAppTone: settings.matchAppTone,
-                knowledgePrompt: knowledgePrompt
+                memoryPrompt: memoryPrompt
             )
             try Task.checkCancellation()
             guard generation == workflowGeneration else { throw CancellationError() }
@@ -698,7 +698,7 @@ final class VoiceWorkflow {
             numberFormat: settings.dictationNumberFormat,
             cleanup: settings.dictationCleanup,
             targetApp: targetApp,
-            knowledgePrompt: renderKnowledgePrompt(.transcription)
+            memoryPrompt: renderMemoryPrompt(.transcription)
         )
         return try SpeechDisfluencyCleaner.dictation(result, mode: settings.dictationCleanup)
     }
@@ -710,12 +710,12 @@ final class VoiceWorkflow {
         return snapshot.promptAppName
     }
 
-    /// Saved knowledge and domain presets for a prompt; the Agent leaves out whichever the user removed from its context.
-    private func renderKnowledgePrompt(
-        _ purpose: KnowledgePrompt.Purpose, includesKnowledge: Bool = true, includesDomains: Bool = true
+    /// Saved memory and domain presets for a prompt; the Agent leaves out whichever the user removed from its context.
+    private func renderMemoryPrompt(
+        _ purpose: MemoryPrompt.Purpose, includesMemory: Bool = true, includesDomains: Bool = true
     ) -> String {
-        KnowledgePrompt.render(
-            entities: includesKnowledge ? data.knowledgeEntities : [],
+        MemoryPrompt.render(
+            entities: includesMemory ? data.memoryEntities : [],
             domains: includesDomains ? settings.selectedDomains : [],
             purpose: purpose
         )

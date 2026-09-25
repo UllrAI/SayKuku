@@ -15,8 +15,8 @@ enum PromptRules {
     /// Low for every request: transcripts must not drift from the audio, and JSON replies must stay parseable.
     static let temperature = 0.1
 
-    /// Introduces a non-empty `KnowledgePrompt.render` block; an empty block adds nothing.
-    static func appending(_ knowledgePrompt: String, to instructions: String, lead: String) -> String {
-        knowledgePrompt.isEmpty ? instructions : "\(instructions)\n\n\(lead)\n\n\(knowledgePrompt)"
+    /// Introduces a non-empty `MemoryPrompt.render` block; an empty block adds nothing.
+    static func appending(_ memoryPrompt: String, to instructions: String, lead: String) -> String {
+        memoryPrompt.isEmpty ? instructions : "\(instructions)\n\n\(lead)\n\n\(memoryPrompt)"
     }
 }

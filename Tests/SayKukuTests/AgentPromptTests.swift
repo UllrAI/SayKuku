@@ -37,9 +37,9 @@ struct AgentPromptTests {
         #expect(prompt.contains(#""output":string|null"#))
         #expect(!prompt.contains(#"|null""#))
         #expect(!prompt.contains("hidden reasoning"))
-        #expect(QwenReasoningClient.makeAgentInstructions(knowledgePrompt: "") == prompt)
+        #expect(QwenReasoningClient.makeAgentInstructions(memoryPrompt: "") == prompt)
         #expect(!prompt.contains(QwenReasoningClient.agentToneInstruction))
-        #expect(QwenReasoningClient.makeAgentInstructions(knowledgePrompt: "", matchAppTone: true)
+        #expect(QwenReasoningClient.makeAgentInstructions(memoryPrompt: "", matchAppTone: true)
             == "\(prompt)\n\n\(QwenReasoningClient.agentToneInstruction)")
     }
 
@@ -134,7 +134,7 @@ struct AgentPromptTests {
             screenText: "",
             session: nil,
             domains: [],
-            knowledge: []
+            memory: []
         )
         // Chinese titles, whatever the test's interface language, so a leaked title would show.
         context.append(ContextCollector.textItem(
