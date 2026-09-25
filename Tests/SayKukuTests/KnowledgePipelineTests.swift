@@ -155,36 +155,36 @@ struct KnowledgePipelineTests {
             createdAt: originalDate
         )
         let state = environment.makeState()
-        state.knowledgeEntities = [original, KnowledgeEntity(name: "WorkBuddy", type: .project)]
+        state.data.knowledgeEntities = [original, KnowledgeEntity(name: "WorkBuddy", type: .project)]
 
-        #expect(state.updateKnowledge(
+        #expect(state.data.updateKnowledge(
             id: original.id,
             name: " AniKuku Pro ",
             type: .project,
             detail: " Updated project ",
             aliases: ["Ani Kuku", " ani kuku ", "AniKuku Pro", ""]
         ) == nil)
-        let edited = state.knowledgeEntities[0]
+        let edited = state.data.knowledgeEntities[0]
         #expect(edited.id == original.id)
         #expect(edited.name == "AniKuku Pro")
         #expect(edited.detail == "Updated project")
         #expect(edited.aliases == ["Ani Kuku"])
         #expect(edited.source == .importText)
         #expect(edited.createdAt == originalDate)
-        #expect(state.updateKnowledge(
+        #expect(state.data.updateKnowledge(
             id: original.id,
             name: "workbuddy",
             type: .project,
             detail: "",
             aliases: []
         ) == .duplicate(existingName: "WorkBuddy"))
-        #expect(state.updateKnowledge(
+        #expect(state.data.updateKnowledge(
             id: original.id,
             name: " !! ",
             type: .project,
             detail: "",
             aliases: []
         ) == .emptyName)
-        #expect(state.knowledgeEntities[0].name == "AniKuku Pro")
+        #expect(state.data.knowledgeEntities[0].name == "AniKuku Pro")
     }
 }

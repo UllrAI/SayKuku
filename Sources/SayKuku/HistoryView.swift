@@ -17,7 +17,7 @@ struct HistoryView: View {
 
     private var filteredEntries: [HistoryEntry] {
         let text = query
-        return appState.historyEntries.filter { entry in
+        return appState.data.historyEntries.filter { entry in
             (filter == .all || entry.mode.filter == filter) && (text.isEmpty || Self.entry(entry, matches: text))
         }
     }
@@ -36,7 +36,7 @@ struct HistoryView: View {
                 title: localized("History"),
                 subtitle: retentionSubtitle
             ) {
-                if !appState.historyEntries.isEmpty {
+                if !appState.data.historyEntries.isEmpty {
                     KukuSearchField(
                         prompt: localized("Search text or apps"),
                         clearLabel: localized("Clear search"),
@@ -88,16 +88,16 @@ struct HistoryView: View {
 
     @ViewBuilder
     private var notices: some View {
-        if let issue = appState.localDataIssue {
+        if let issue = appState.data.localDataIssue {
             let copy = issueCopy(issue)
             HistoryNotice(
                 symbol: "exclamationmark.triangle",
                 title: copy.title,
                 message: copy.message,
                 fileURL: issue.fileURL
-            ) { appState.dismissLocalDataIssue() }
+            ) { appState.data.dismissLocalDataIssue() }
         }
-        if let legacyURL = appState.legacyDataURL {
+        if let legacyURL = appState.data.legacyDataURL {
             HistoryNotice(
                 symbol: "archivebox",
                 title: localized("Encrypted history from an earlier version wasn’t carried over"),
@@ -105,7 +105,7 @@ struct HistoryView: View {
                     "History and Memory data saved by an earlier encrypted version can’t be opened here. SayKuku won’t migrate or delete these files. They’re still on this Mac for you to keep or remove."
                 ),
                 fileURL: legacyURL
-            ) { appState.dismissLegacyDataNotice() }
+            ) { appState.data.dismissLegacyDataNotice() }
         }
     }
 
@@ -122,7 +122,7 @@ struct HistoryView: View {
 
     @ViewBuilder
     private var emptyState: some View {
-        if appState.historyEntries.isEmpty, appState.settings.historyRetention == .off {
+        if appState.data.historyEntries.isEmpty, appState.settings.historyRetention == .off {
             KukuEmptyState(
                 title: localized("History is off"),
                 symbol: "pause.circle",
@@ -133,7 +133,7 @@ struct HistoryView: View {
                 }
                 .buttonStyle(.kukuSecondary)
             }
-        } else if appState.historyEntries.isEmpty {
+        } else if appState.data.historyEntries.isEmpty {
             KukuEmptyState(
                 title: localized("No history yet"),
                 symbol: "waveform",
@@ -232,7 +232,7 @@ struct HistoryView: View {
     private func delete(_ entry: HistoryEntry) {
         if playback?.entryID == entry.id { stopPlayback() }
         if selection == entry.id { selection = filteredEntries.selectionAfterRemoving(entry.id) }
-        withAnimation(Motion.snappy) { appState.deleteHistoryEntry(entry.id) }
+        withAnimation(Motion.snappy) { appState.data.deleteHistoryEntry(entry.id) }
         appState.showToast(localized("Deleted"), symbol: "trash")
     }
 
@@ -249,7 +249,7 @@ struct HistoryView: View {
         withAnimation(Motion.snappy) { playback = Playback(entryID: entry.id) }
         Task {
             do {
-                let data = try await appState.playAudio(for: entry)
+                let data = try await appState.data.audio(for: entry)
                 // Stopped, switched or left the page while loading.
                 guard playback?.entryID == entry.id, playback?.player == nil else { return }
                 let player = try AVAudioPlayer(data: data)
@@ -587,7 +587,7 @@ private struct HistoryRow: View {
     }
 
     private func toggleStar() {
-        withAnimation(Motion.spring) { appState.toggleHistoryStar(entry.id) }
+        withAnimation(Motion.spring) { appState.data.toggleHistoryStar(entry.id) }
     }
 
     /// Formats a recording length as m:ss, e.g. 0:04 or 1:25.

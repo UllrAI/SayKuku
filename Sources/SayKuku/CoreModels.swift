@@ -671,6 +671,8 @@ struct AgentSession: Identifiable, Equatable {
 
     /// Turns kept per app for continuous conversation.
     static let turnLimit = 3
+    /// How long a turn stays in the conversation.
+    static let ttl: TimeInterval = 30 * 60
 
     /// Unexpired turns for `app`, oldest first.
     static func conversation(in sessions: [AgentSession], app: String, now: Date = .now) -> [AgentSession] {
