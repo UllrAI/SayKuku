@@ -6,7 +6,8 @@ import Testing
 struct AppStateTests {
     @Test("main navigation titles come from the string catalog")
     func navigationLocalization() {
-        #expect(AppState.Destination.knowledge.title == localized("Knowledge"))
+        #expect(AppState.Destination.knowledge.title == localized("Memory"))
+        #expect(AppState.Destination.allCases == [.home, .history, .knowledge])
         #expect(GlobalShortcutAction.voiceInput.title == localized("Voice Input"))
         #expect(HistoryMode.agent.title == localized("Voice Agent"))
     }

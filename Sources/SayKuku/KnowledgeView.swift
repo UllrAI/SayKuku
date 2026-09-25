@@ -18,11 +18,16 @@ struct KnowledgeView: View {
 
     private var query: String { search.trimmingCharacters(in: .whitespacesAndNewlines) }
 
+    /// Suggestions sit above the full list only; a search or category narrows the page to saved items.
+    private var showsSuggestions: Bool {
+        filter == nil && query.isEmpty && !appState.pendingCorrections.isEmpty
+    }
+
     private var filteredEntities: [KnowledgeEntity] {
         let text = query
         return appState.knowledgeEntities.filter { entity in
             (filter == nil || entity.type == filter) && (text.isEmpty || Self.entity(entity, matches: text))
-        }
+        }.sorted { $0.createdAt > $1.createdAt }
     }
 
     private static func entity(_ entity: KnowledgeEntity, matches text: String) -> Bool {
@@ -72,8 +77,8 @@ struct KnowledgeView: View {
 
     private var header: some View {
         ScreenHeader(
-            title: localized("Knowledge"),
-            subtitle: localized("Names, projects, and terms you use often. SayKuku spells them the way you saved them.")
+            title: localized("Memory"),
+            subtitle: localized("Names, projects and terms SayKuku remembers. Delete one and it forgets.")
         ) {
             HStack(spacing: KukuSpacing.sm) {
                 Button {
@@ -101,6 +106,16 @@ struct KnowledgeView: View {
             }
 
             List(selection: $selection) {
+                if showsSuggestions {
+                    // Untagged, so the list's selection and keyboard commands skip it.
+                    CorrectionSuggestions()
+                        .kukuListRow(EdgeInsets(
+                            top: appState.knowledgeEntities.isEmpty ? KukuLayout.contentTop : 0,
+                            leading: 0,
+                            bottom: KukuLayout.sectionSpacing,
+                            trailing: 0
+                        ))
+                }
                 ForEach(entities) { entity in
                     EntityRow(entity: entity, isSelected: selection == entity.id) {
                         pendingDeletion = entity
@@ -129,7 +144,7 @@ struct KnowledgeView: View {
                 return .handled
             }
             .overlay {
-                if entities.isEmpty {
+                if entities.isEmpty && !showsSuggestions {
                     emptyState
                 }
             }
@@ -144,7 +159,7 @@ struct KnowledgeView: View {
     private var emptyState: some View {
         if appState.knowledgeEntities.isEmpty {
             KukuEmptyState(
-                title: localized("Nothing in Knowledge yet"),
+                title: localized("Nothing remembered yet"),
                 symbol: "books.vertical",
                 message: localized("Add names, projects, and terms for more accurate transcription.")
             ) {
@@ -169,7 +184,7 @@ struct KnowledgeView: View {
     private func searchBar(count: Int) -> some View {
         HStack(spacing: KukuSpacing.sm) {
             KukuSearchField(
-                prompt: localized("Search names, aliases, or notes"),
+                prompt: localized("Search names, aliases, or clues"),
                 clearLabel: localized("Clear search"),
                 text: $search,
                 width: nil,
@@ -202,6 +217,70 @@ struct KnowledgeView: View {
     }
 }
 
+/// Corrections SayKuku noticed that haven't been added or dismissed yet.
+private struct CorrectionSuggestions: View {
+    @Environment(AppState.self) private var appState
+
+    var body: some View {
+        let pending = appState.pendingCorrections
+        KukuGroup(localized("Suggestions")) {
+            ForEach(pending) { item in
+                if item.id != pending.first?.id { KukuDivider() }
+                CorrectionRow(item: item)
+            }
+            if !appState.learnFromCorrections {
+                KukuDivider()
+                KukuRow(
+                    localized("Learning from corrections is off"),
+                    caption: localized("Turn it on to get new suggestions from words you fix.")
+                ) {
+                    Button(localized("Turn On")) { appState.learnFromCorrections = true }
+                        .buttonStyle(.kukuSecondary)
+                }
+            }
+        }
+    }
+}
+
+private struct CorrectionRow: View {
+    @Environment(AppState.self) private var appState
+    let item: CorrectionRecord
+
+    var body: some View {
+        HStack(spacing: KukuSpacing.md) {
+            VStack(alignment: .leading, spacing: KukuSpacing.xxs) {
+                HStack(spacing: KukuSpacing.sm) {
+                    Text(item.raw)
+                        .strikethrough()
+                        .foregroundStyle(KukuColor.textSecondary)
+                    Image(systemName: "arrow.right")
+                        .font(.kukuIcon(.small, weight: .semibold))
+                        .foregroundStyle(KukuColor.textTertiary)
+                    Text(item.corrected)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(KukuColor.textPrimary)
+                }
+                .font(.kuku(.body))
+                Text(localized("Corrected \(item.count) times") + " · " + localized("Last in \(item.lastApp)"))
+                    .font(.kuku(.subheadline))
+                    .foregroundStyle(KukuColor.textSecondary)
+            }
+            Spacer(minLength: KukuSpacing.md)
+            Button(localized("Ignore")) {
+                withAnimation(Motion.snappy) { appState.ignoreCorrection(item.id) }
+                appState.showToast(localized("Suggestion ignored"), symbol: "xmark.circle")
+            }
+            .buttonStyle(.kukuSecondary)
+            Button(localized("Remember")) {
+                withAnimation(Motion.spring) { appState.acceptCorrection(item.id) }
+                appState.showToast(localized("Remembered"), symbol: "checkmark.circle.fill")
+            }
+            .buttonStyle(.kukuSecondary)
+        }
+        .kukuRowFrame()
+    }
+}
+
 private struct EntityRow: View {
     let entity: KnowledgeEntity
     let isSelected: Bool
@@ -223,13 +302,15 @@ private struct EntityRow: View {
                         Text(entity.detail)
                     } else if !entity.aliases.isEmpty {
                         Text(localized("Aliases: \(entity.aliases.joined(separator: localized(", ")))"))
-                    } else {
-                        Text(entity.source.title)
                     }
                 }
                 .font(.kuku(.subheadline))
                 .foregroundStyle(KukuColor.textSecondary)
                 .lineLimit(1)
+                Text(entity.source.title + " · " + entity.createdAt.dayLabel)
+                    .font(.kuku(.caption))
+                    .foregroundStyle(KukuColor.textSecondary)
+                    .lineLimit(1)
             }
             Spacer(minLength: KukuSpacing.md)
             HStack(spacing: KukuSpacing.xs) {
@@ -292,7 +373,7 @@ private struct KnowledgeFormSheet: View {
     var body: some View {
         VStack(spacing: 0) {
             KukuSheetHeader(
-                title: entity == nil ? localized("Add to Knowledge") : localized("Edit Item"),
+                title: entity == nil ? localized("Add to Memory") : localized("Edit Item"),
                 description: localized("Teach SayKuku this name.")
             ) {
                 KukuSheetIcon(symbol: entity == nil ? "plus" : "pencil")
@@ -323,12 +404,15 @@ private struct KnowledgeFormSheet: View {
                     }
 
                     VStack(alignment: .leading, spacing: KukuSpacing.sm) {
-                        KukuFieldLabel(text: localized("Notes"))
+                        KukuFieldLabel(text: localized("Clue"))
                         KukuTextField(
-                            prompt: localized("e.g. Team lead, main project"),
+                            prompt: localized("e.g. Yue Zhang, product manager on AniKuku"),
                             text: $detail,
                             multiline: true
                         )
+                        Text(localized("When names sound alike, SayKuku uses the clue to pick the right one"))
+                            .font(.kuku(.subheadline))
+                            .foregroundStyle(KukuColor.textSecondary)
                     }
 
                     VStack(alignment: .leading, spacing: KukuSpacing.sm) {
@@ -353,7 +437,7 @@ private struct KnowledgeFormSheet: View {
                 Button(localized("Cancel")) { dismiss() }
                     .buttonStyle(.kukuSecondary)
                     .keyboardShortcut(.cancelAction)
-                Button(entity == nil ? localized("Add") : localized("Save")) { save() }
+                Button(entity == nil ? localized("Remember") : localized("Save")) { save() }
                     .buttonStyle(.kukuPrimary)
                     .keyboardShortcut(.defaultAction)
                     .disabled(!canSave)
@@ -425,7 +509,7 @@ private struct KnowledgeImportSheet: View {
                     ? localized("Choose What to Import")
                     : localized("Import from Text"),
                 description: reviewing
-                    ? localized("Review the suggestions and choose what to save to Knowledge.")
+                    ? localized("Review the suggestions and choose what SayKuku should remember.")
                     : localized("Paste some text and SayKuku will pick out names, projects, and terms.")
             ) {
                 KukuSheetIcon(symbol: "doc.on.clipboard")
@@ -616,7 +700,7 @@ private struct KnowledgeImportSheet: View {
         let count = selected.count
         appState.commitKnowledge(analysis, selectedIDs: selected)
         appState.showToast(
-            localized("Imported \(count) items to Knowledge"),
+            localized("Imported \(count) items to Memory"),
             symbol: "checkmark.seal.fill"
         )
         dismiss()
@@ -678,9 +762,9 @@ private struct ImportRow: View {
 private extension EntitySource {
     var title: String {
         switch self {
-        case .manual: localized("Added manually")
+        case .manual: localized("You added it")
         case .importText: localized("Imported from text")
-        case .correction: localized("From a correction")
+        case .correction: localized("Learned from a correction")
         }
     }
 }

@@ -90,7 +90,7 @@ struct DomainOnboardingView: View {
 
                 KukuSheetNote(
                     text: termError?.message ?? localized(
-                        "These words are saved to Knowledge, where you can add aliases later."
+                        "SayKuku remembers these words. You can add aliases later in Memory."
                     ),
                     isError: termError != nil
                 )
