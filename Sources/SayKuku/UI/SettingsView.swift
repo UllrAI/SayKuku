@@ -1,5 +1,4 @@
 import AppKit
-import Sparkle
 import SwiftUI
 
 struct SettingsView: View {
@@ -551,7 +550,7 @@ private struct GeneralSettings: View {
                 GlobalShortcutSettings()
             }
 
-            SoftwareUpdateSettings(updater: appState.updater)
+            SoftwareUpdateSettings()
         }
     }
 
@@ -570,35 +569,30 @@ private struct GeneralSettings: View {
     }
 }
 
-/// Version and Sparkle controls. Dev builds have no updater, so only the version shows.
+/// Version and update checks. Dev builds have no checker, so only the version shows.
 private struct SoftwareUpdateSettings: View {
-    let updater: SPUStandardUpdaterController?
-    /// Mirrors Sparkle's setting, which SwiftUI can't observe; Sparkle persists it in its own defaults.
-    @State private var automaticallyChecks: Bool
-
-    init(updater: SPUStandardUpdaterController?) {
-        self.updater = updater
-        _automaticallyChecks = State(initialValue: updater?.updater.automaticallyChecksForUpdates ?? false)
-    }
+    @Environment(AppState.self) private var appState
 
     var body: some View {
+        @Bindable var settings = appState.settings
+
         KukuGroup(localized("Software Update")) {
             KukuRow(localized("Version"), caption: versionCaption) {
-                if let updater {
+                if let checker = appState.updateChecker {
                     Button(localized("Check for Updates…")) {
-                        updater.checkForUpdates(nil)
+                        Task { await checker.checkManually() }
                     }
                     .buttonStyle(.kukuSecondary)
+                    .disabled(checker.isChecking)
                 }
             }
-            if let updater {
+            if appState.updateChecker != nil {
                 KukuDivider()
                 KukuToggleRow(
                     title: localized("Check for updates automatically"),
-                    caption: localized("Checks in the background on Sparkle’s default schedule"),
-                    isOn: $automaticallyChecks
+                    caption: localized("Checks at launch, then once a day"),
+                    isOn: $settings.automaticUpdateChecks
                 )
-                .onChange(of: automaticallyChecks) { updater.updater.automaticallyChecksForUpdates = $1 }
             }
         }
     }
@@ -611,7 +605,7 @@ private struct SoftwareUpdateSettings: View {
             return localized("Development build")
         }
         let caption = "\(version) (\(build))"
-        guard updater == nil else { return caption }
+        guard appState.updateChecker == nil else { return caption }
         return caption + localized(" · Dev builds don’t check for updates")
     }
 }
