@@ -471,7 +471,7 @@ private struct GeneralSettings: View {
     var body: some View {
         @Bindable var appState = appState
 
-        SettingsStack(title: appState.text("通用", "General"), subtitle: appState.text("语言、权限、启动方式和快捷键。", "Language, permissions, startup, and shortcuts.")) {
+        SettingsStack(title: appState.text("通用", "General"), subtitle: appState.text("语言、权限、启动方式、浮层和快捷键。", "Language, permissions, startup, overlay, and shortcuts.")) {
             KukuGroup(appState.text("语言", "Language")) {
                 KukuRow(
                     appState.text("界面语言", "Interface language"),
@@ -533,6 +533,23 @@ private struct GeneralSettings: View {
                     ),
                     isOn: $appState.hideDockIconAfterMainWindowCloses
                 )
+            }
+
+            KukuGroup(appState.text("浮层", "Overlay")) {
+                KukuRow(
+                    appState.text("位置", "Position"),
+                    caption: appState.text(
+                        "语音输入和语音 Agent 的浮层显示在哪里",
+                        "Where the Voice Input and Voice Agent overlay appears"
+                    )
+                ) {
+                    KukuPicker(
+                        appState.text("浮层位置", "Overlay position"),
+                        options: OverlayPlacement.allCases,
+                        selection: $appState.overlayPlacement,
+                        label: { $0.title(isChineseUI: appState.usesChineseUI) }
+                    )
+                }
             }
 
             KukuGroup(appState.text("快捷键", "Shortcuts")) {

@@ -39,10 +39,9 @@ struct TextTargetSnapshot: @unchecked Sendable {
     let selectedText: String
     let valueBefore: String?
     let isSensitive: Bool
-    /// Screen rectangles in AppKit coordinates, for placing the overlay. The window frame is
-    /// only read when the caret's isn't available.
+    /// The caret's screen rectangle in AppKit coordinates, for placing the overlay. Only read
+    /// when the overlay follows the cursor.
     let caretFrame: CGRect?
-    let windowFrame: CGRect?
 }
 
 extension TextTargetSnapshot {
@@ -105,7 +104,8 @@ final class TextInteraction {
 
     /// Dictation needs a window to write into; the Agent can also answer, open links or run shortcuts
     /// from the desktop, so `requiringWindow: false` returns a snapshot without a window or text field.
-    func captureTarget(requiringWindow: Bool = true) throws -> TextTargetSnapshot {
+    /// `includingCaretFrame` reads the caret rectangle, which only the cursor-following overlay needs.
+    func captureTarget(requiringWindow: Bool = true, includingCaretFrame: Bool = false) throws -> TextTargetSnapshot {
         guard AXIsProcessTrusted() else { throw TextInteractionError.accessibilityRequired }
         guard let app = NSWorkspace.shared.frontmostApplication else { throw TextInteractionError.noFocusedElement }
         let application = applicationElement(for: app.processIdentifier)
@@ -121,8 +121,9 @@ final class TextInteraction {
         let value = element.flatMap { normalizedValue(of: $0, selectedRange: range) }
         let selection = element.map { self.selectedText(of: $0, value: value, range: range) } ?? ""
         let sensitive = isSensitive(element: element, bundleID: bundleID)
-        let caret = element.flatMap { element in range.flatMap { caretFrame(of: element, at: $0) } }
-        let windowFrame = caret == nil ? window.flatMap(frame(of:)) : nil
+        let caret = includingCaretFrame
+            ? element.flatMap { element in range.flatMap { caretFrame(of: element, at: $0) } }
+            : nil
 
         Self.logger.info(
             "Captured target bundle=\(bundleID, privacy: .public) role=\(element.map(self.role(of:)) ?? "unavailable", privacy: .public) readable=\(value != nil, privacy: .public)"
@@ -138,8 +139,7 @@ final class TextInteraction {
             selectedText: selection,
             valueBefore: value,
             isSensitive: sensitive,
-            caretFrame: caret,
-            windowFrame: windowFrame
+            caretFrame: caret
         )
     }
 
@@ -452,18 +452,6 @@ final class TextInteraction {
         // Some apps answer with an empty rectangle at the screen origin instead of failing.
         guard AXValueGetValue(value, .cgRect, &rect), rect.height > 0 else { return nil }
         return appKitFrame(fromAX: rect)
-    }
-
-    private func frame(of window: AXUIElement) -> CGRect? {
-        guard let positionValue: AXValue = copyAttribute(window, kAXPositionAttribute),
-              let sizeValue: AXValue = copyAttribute(window, kAXSizeAttribute),
-              AXValueGetType(positionValue) == .cgPoint,
-              AXValueGetType(sizeValue) == .cgSize else { return nil }
-        var position = CGPoint.zero
-        var size = CGSize.zero
-        guard AXValueGetValue(positionValue, .cgPoint, &position),
-              AXValueGetValue(sizeValue, .cgSize, &size) else { return nil }
-        return appKitFrame(fromAX: CGRect(origin: position, size: size))
     }
 
     /// Accessibility measures down from the top of the primary screen; AppKit measures up from its bottom.

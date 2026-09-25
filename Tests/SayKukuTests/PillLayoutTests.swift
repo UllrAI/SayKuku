@@ -52,11 +52,49 @@ struct OverlayLayoutTests {
     private let visibleFrame = CGRect(x: 0, y: 70, width: 1440, height: 805)
     private let pillSize = CGSize(width: 380, height: 92)
 
+    @Test("defaults to the bottom center of the visible frame")
+    func bottomCenter() {
+        let origin = OverlayLayout.origin(
+            placement: .bottom, caretFrame: nil, visibleFrame: visibleFrame, panelSize: pillSize, contentHeight: 36
+        )
+
+        #expect(origin == CGPoint(x: 530, y: 78))
+    }
+
+    @Test("top placement puts the content just below the menu bar")
+    func topCenter() {
+        let pill = OverlayLayout.origin(
+            placement: .top, caretFrame: nil, visibleFrame: visibleFrame, panelSize: pillSize, contentHeight: 36
+        )
+        let card = OverlayLayout.origin(
+            placement: .top, caretFrame: nil, visibleFrame: visibleFrame,
+            panelSize: CGSize(width: 460, height: 190), contentHeight: 160
+        )
+
+        #expect(pill == CGPoint(x: 530, y: 875 - 8 - 16 - 36))
+        #expect(pill.y + 16 + 36 == visibleFrame.maxY - 8)
+        #expect(card == CGPoint(x: 490, y: 875 - 8 - 16 - 160))
+    }
+
+    @Test("bottom and top placements ignore the caret")
+    func placementIgnoresCaret() {
+        let caret = CGRect(x: 700, y: 500, width: 2, height: 18)
+        let bottom = OverlayLayout.origin(
+            placement: .bottom, caretFrame: caret, visibleFrame: visibleFrame, panelSize: pillSize, contentHeight: 36
+        )
+        let top = OverlayLayout.origin(
+            placement: .top, caretFrame: caret, visibleFrame: visibleFrame, panelSize: pillSize, contentHeight: 36
+        )
+
+        #expect(bottom == CGPoint(x: 530, y: 78))
+        #expect(top == CGPoint(x: 530, y: 815))
+    }
+
     @Test("sits below the caret, centered on it")
     func belowCaret() {
         let origin = OverlayLayout.origin(
-            caretFrame: CGRect(x: 700, y: 500, width: 2, height: 18),
-            windowFrame: nil, visibleFrame: visibleFrame, panelSize: pillSize, contentHeight: 36
+            placement: .caret, caretFrame: CGRect(x: 700, y: 500, width: 2, height: 18),
+            visibleFrame: visibleFrame, panelSize: pillSize, contentHeight: 36
         )
 
         #expect(origin == CGPoint(x: 511, y: 500 - 12 - 16 - 36))
@@ -65,8 +103,8 @@ struct OverlayLayoutTests {
     @Test("moves above the caret when there's no room below")
     func aboveCaret() {
         let origin = OverlayLayout.origin(
-            caretFrame: CGRect(x: 700, y: 100, width: 2, height: 18),
-            windowFrame: nil, visibleFrame: visibleFrame, panelSize: pillSize, contentHeight: 36
+            placement: .caret, caretFrame: CGRect(x: 700, y: 100, width: 2, height: 18),
+            visibleFrame: visibleFrame, panelSize: pillSize, contentHeight: 36
         )
 
         #expect(origin == CGPoint(x: 511, y: 118 + 12 - 16))
@@ -75,31 +113,25 @@ struct OverlayLayoutTests {
     @Test("stays inside the visible frame near a screen edge")
     func clampedToScreen() {
         let right = OverlayLayout.origin(
-            caretFrame: CGRect(x: 1430, y: 500, width: 2, height: 18),
-            windowFrame: nil, visibleFrame: visibleFrame, panelSize: pillSize, contentHeight: 36
+            placement: .caret, caretFrame: CGRect(x: 1430, y: 500, width: 2, height: 18),
+            visibleFrame: visibleFrame, panelSize: pillSize, contentHeight: 36
         )
         let left = OverlayLayout.origin(
-            caretFrame: CGRect(x: 4, y: 500, width: 2, height: 18),
-            windowFrame: nil, visibleFrame: visibleFrame, panelSize: pillSize, contentHeight: 36
+            placement: .caret, caretFrame: CGRect(x: 4, y: 500, width: 2, height: 18),
+            visibleFrame: visibleFrame, panelSize: pillSize, contentHeight: 36
         )
 
         #expect(right.x == 1440 - 380)
         #expect(left.x == 0)
     }
 
-    @Test("without a caret, uses the window's bottom center, then the screen's")
-    func windowFallback() {
-        let window = OverlayLayout.origin(
-            caretFrame: nil,
-            windowFrame: CGRect(x: 100, y: 200, width: 800, height: 600),
-            visibleFrame: visibleFrame, panelSize: pillSize, contentHeight: 36
-        )
-        let screen = OverlayLayout.origin(
-            caretFrame: nil, windowFrame: nil, visibleFrame: visibleFrame, panelSize: pillSize, contentHeight: 36
+    @Test("following the cursor falls back to the bottom center without a caret")
+    func caretFallback() {
+        let origin = OverlayLayout.origin(
+            placement: .caret, caretFrame: nil, visibleFrame: visibleFrame, panelSize: pillSize, contentHeight: 36
         )
 
-        #expect(window == CGPoint(x: 310, y: 208))
-        #expect(screen == CGPoint(x: 530, y: 78))
+        #expect(origin == CGPoint(x: 530, y: 78))
     }
 
     @Test("answer card grows with its text within its height bounds")
