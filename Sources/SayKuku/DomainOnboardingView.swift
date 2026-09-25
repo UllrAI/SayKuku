@@ -4,7 +4,8 @@ struct DomainOnboardingView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.dismiss) private var dismiss
     @State private var selectedDomains: Set<DomainPreset> = []
-    @State private var customTerms: [String] = []
+    /// Terms typed in this sheet; they go into Knowledge when it's saved.
+    @State private var terms: [String] = []
     @State private var newTerm = ""
     @State private var didLoad = false
 
@@ -33,7 +34,7 @@ struct DomainOnboardingView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: KukuLayout.sectionSpacing) {
                     domainSection
-                    customTermsSection
+                    termsSection
                     privacyNote
                 }
                 .padding(.horizontal, KukuLayout.sheetPadding)
@@ -69,17 +70,9 @@ struct DomainOnboardingView: View {
         }
     }
 
-    private var customTermsSection: some View {
+    private var termsSection: some View {
         VStack(alignment: .leading, spacing: KukuSpacing.md) {
-            HStack(alignment: .firstTextBaseline) {
-                KukuFieldLabel(text: appState.text("自定义词汇", "Custom vocabulary"))
-                Spacer()
-                if !customTerms.isEmpty {
-                    Text("\(customTerms.count)/\(AppState.maxDomainTerms)")
-                        .font(.kuku(.caption).monospacedDigit())
-                        .foregroundStyle(KukuColor.textSecondary)
-                }
-            }
+            KukuFieldLabel(text: appState.text("自定义词汇", "Custom vocabulary"))
 
             VStack(alignment: .leading, spacing: KukuSpacing.sm) {
                 HStack(spacing: KukuSpacing.sm) {
@@ -96,20 +89,24 @@ struct DomainOnboardingView: View {
                     .disabled(!canAddTerm)
                 }
 
-                if let termHint {
-                    KukuSheetNote(text: termHint, isError: hasBlockedTerm)
-                        .padding(.leading, KukuSpacing.xs)
-                }
+                KukuSheetNote(
+                    text: termError?.message(appState) ?? appState.text(
+                        "这些词会保存到“知识”，以后可以在那里补别名。",
+                        "These words are saved to Knowledge, where you can add aliases later."
+                    ),
+                    isError: termError != nil
+                )
+                .padding(.leading, KukuSpacing.xs)
             }
 
-            if !customTerms.isEmpty {
+            if !terms.isEmpty {
                 // 120 is the narrowest chip that still fits a short term and its remove button.
                 LazyVGrid(
                     columns: [GridItem(.adaptive(minimum: 120), spacing: KukuSpacing.sm)],
                     alignment: .leading,
                     spacing: KukuSpacing.sm
                 ) {
-                    ForEach(customTerms, id: \.self) { term in
+                    ForEach(terms, id: \.self) { term in
                         HStack(spacing: KukuSpacing.xs) {
                             Text(term)
                                 .font(.kuku(.subheadline, weight: .medium))
@@ -121,7 +118,7 @@ struct DomainOnboardingView: View {
                                 label: appState.text("移除 \(term)", "Remove \(term)"),
                                 size: .small
                             ) {
-                                customTerms.removeAll { $0 == term }
+                                terms.removeAll { $0 == term }
                             }
                         }
                         .padding(.leading, KukuSpacing.md)
@@ -156,7 +153,7 @@ struct DomainOnboardingView: View {
                     .keyboardShortcut(.cancelAction)
             } else {
                 Button(appState.setupSkipTitle) {
-                    appState.completeDomainOnboarding(domains: [], customTerms: [])
+                    appState.completeDomainOnboarding(domains: [])
                 }
                 .buttonStyle(.kukuSecondary)
                 .keyboardShortcut(.cancelAction)
@@ -165,12 +162,15 @@ struct DomainOnboardingView: View {
                    ? appState.text("保存", "Save")
                    : appState.setupContinueTitle) {
                 addTerm()
-                appState.completeDomainOnboarding(domains: selectedDomains, customTerms: customTerms)
+                // Terms were checked against Knowledge as they were added.
+                for term in terms { _ = appState.addKnowledge(name: term, type: .term) }
+                appState.completeDomainOnboarding(domains: selectedDomains)
             }
             .buttonStyle(.kukuPrimary)
             // While a term is being typed, Return adds it instead of closing the sheet.
             .keyboardShortcut(pendingTerm.isEmpty ? KeyboardShortcut.defaultAction : nil)
-            .disabled(hasBlockedTerm)
+            // A typed term that can't be added would be lost on save, so saving waits until it's fixed.
+            .disabled(termError != nil)
         }
     }
 
@@ -178,50 +178,28 @@ struct DomainOnboardingView: View {
         newTerm.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private var isTermTooLong: Bool {
-        pendingTerm.count > AppState.maxDomainTermLength
-    }
-
-    private var isAtTermLimit: Bool {
-        customTerms.count >= AppState.maxDomainTerms
+    /// Why the typed term can't go into Knowledge, checked as it's typed.
+    private var termError: KnowledgeSaveError? {
+        guard !pendingTerm.isEmpty else { return nil }
+        return appState.validateKnowledge(KnowledgeEntity(name: pendingTerm, type: .term))
     }
 
     private var canAddTerm: Bool {
-        !pendingTerm.isEmpty && !isTermTooLong && !isAtTermLimit
-    }
-
-    /// A typed term that can't be added would be lost on save, so saving waits until it's fixed.
-    private var hasBlockedTerm: Bool {
-        !pendingTerm.isEmpty && !canAddTerm
-    }
-
-    private var termHint: String? {
-        if isTermTooLong {
-            return appState.text(
-                "每个词最多 \(AppState.maxDomainTermLength) 个字符",
-                "Keep each term to \(AppState.maxDomainTermLength) characters or fewer"
-            )
-        }
-        if isAtTermLimit {
-            return appState.text(
-                "最多添加 \(AppState.maxDomainTerms) 个，移除一个后才能继续添加",
-                "You can add up to \(AppState.maxDomainTerms) terms. Remove one to add another."
-            )
-        }
-        return nil
+        !pendingTerm.isEmpty && termError == nil
     }
 
     private func loadCurrentProfile() {
         guard !didLoad else { return }
         didLoad = true
         selectedDomains = appState.selectedDomains
-        customTerms = appState.customDomainTerms
     }
 
     /// Keeps the typed text when it can't be added, so the hint below the field still applies to it.
     private func addTerm() {
         guard canAddTerm else { return }
-        customTerms = AppState.normalizedDomainTerms(customTerms + [pendingTerm])
+        let key = KnowledgeNormalizer.key(pendingTerm)
+        // A term already in the list is visible there, so typing it again just clears the field.
+        if !terms.contains(where: { KnowledgeNormalizer.key($0) == key }) { terms.append(pendingTerm) }
         newTerm = ""
     }
 }

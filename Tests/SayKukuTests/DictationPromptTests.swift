@@ -45,7 +45,7 @@ struct DictationPromptTests {
         #expect(!prompt.contains("user context"))
         #expect(!prompt.hasSuffix("\n"))
 
-        let knowledge = KnowledgePrompt.render(entities: [], customTerms: ["SayKuku"], purpose: .transcription)
+        let knowledge = KnowledgePrompt.render(entities: [], domains: [.aiVibeCoding], purpose: .transcription)
         let withContext = QwenRealtimeClient.makeDictationInstructions(knowledgePrompt: knowledge)
         #expect(withContext.contains("Use the user context below"))
         #expect(withContext.hasSuffix(knowledge))

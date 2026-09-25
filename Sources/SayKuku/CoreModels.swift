@@ -648,7 +648,7 @@ struct ContextItem: Identifiable, Equatable {
             case .clipboard: "Clipboard"
             case .browser: "Browser page"
             case .session: "Recent conversation"
-            case .domain: "Domains & vocabulary"
+            case .domain: "Domains"
             case .knowledge: "Saved knowledge"
             }
         }

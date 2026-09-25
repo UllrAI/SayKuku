@@ -713,7 +713,6 @@ enum ContextCollector {
         browserPageAllowed: Bool,
         session: AgentSession?,
         domains: Set<DomainPreset>,
-        customDomainTerms: [String],
         knowledge: [KnowledgeEntity],
         isChineseUI: Bool
     ) -> [ContextItem] {
@@ -756,13 +755,12 @@ enum ContextCollector {
         if let session, session.expiresAt > .now {
             items.append(ContextItem(kind: .session, symbol: "bubble.left.and.bubble.right", title: title("最近对话", "Recent conversation"), value: session.contextSummary))
         }
-        if !domains.isEmpty || !customDomainTerms.isEmpty {
-            let domainNames = DomainPreset.allCases.filter(domains.contains).map(\.promptName)
+        if !domains.isEmpty {
             items.append(ContextItem(
                 kind: .domain,
                 symbol: "text.bubble",
-                title: title("常用领域与词汇", "Domains & vocabulary"),
-                value: (domainNames + customDomainTerms).joined(separator: ", ")
+                title: title("常用领域", "Domains"),
+                value: DomainPreset.allCases.filter(domains.contains).map(\.promptName).joined(separator: ", ")
             ))
         }
         if !knowledge.isEmpty {
