@@ -129,7 +129,7 @@ private struct VoiceInputSettings: View {
                 KukuToggleRow(
                     title: localized("Learn from corrections"),
                     caption: localized(
-                        "Words you fix show up as suggestions in Memory. Nothing is saved until you approve it."
+                        "After you fix a misheard word, SayKuku asks whether to remember it. Nothing is saved until you say yes."
                     ),
                     isOn: $appState.learnFromCorrections
                 )
