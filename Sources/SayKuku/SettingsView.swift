@@ -589,6 +589,10 @@ private struct ShortcutStatusRow: View {
                         "若连按两次 Fn 会打开系统听写，请更改听写的快捷键。",
                         "If pressing Fn twice starts Dictation, change the Dictation shortcut."
                     ))
+                    Text(appState.text(
+                        "录音或处理时按 Esc 可取消，这个按键也会传给当前 App。",
+                        "Press Esc to cancel while recording or processing. The key still goes to the app you’re using."
+                    ))
                 }
                 .font(.kuku(.subheadline))
                 .foregroundStyle(KukuColor.textSecondary)

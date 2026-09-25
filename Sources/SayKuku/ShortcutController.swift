@@ -134,8 +134,8 @@ final class ShortcutController: @unchecked Sendable {
         if sample.kind == .keyDown,
            Self.shouldCancelForEscape(
                keyCode: sample.keyCode,
-               dictationIsActive: appState.dictationPhase != .idle,
-               agentIsActive: appState.agentPhase != .hidden
+               dictationIsCancellable: appState.dictationPhase.isCancellable,
+               agentIsCancellable: appState.agentPhase.isCancellable
            ) {
             holdTask?.cancel()
             singleTapTask?.cancel()
@@ -222,12 +222,14 @@ final class ShortcutController: @unchecked Sendable {
         )
     }
 
+    /// The monitor only observes Esc, so the key still reaches the frontmost app. Reacting only
+    /// while recording or processing keeps an Esc meant for that app from closing a finished card.
     static func shouldCancelForEscape(
         keyCode: UInt16,
-        dictationIsActive: Bool,
-        agentIsActive: Bool
+        dictationIsCancellable: Bool,
+        agentIsCancellable: Bool
     ) -> Bool {
-        keyCode == UInt16(kVK_Escape) && (dictationIsActive || agentIsActive)
+        keyCode == UInt16(kVK_Escape) && (dictationIsCancellable || agentIsCancellable)
     }
 
     static func releaseAction(

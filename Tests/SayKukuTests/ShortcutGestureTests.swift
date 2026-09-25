@@ -45,27 +45,42 @@ struct FnGestureRoutingTests {
         #expect(ShortcutController.shouldArmHold(inputMode: .hold, agentIsListening: false, dictationIsListening: false))
     }
 
-    @Test("escape cancels only while a voice workflow is active")
+    @Test("escape cancels only while recording or processing")
     func escapeRouting() {
-        #expect(ShortcutController.shouldCancelForEscape(
-            keyCode: UInt16(kVK_Escape),
-            dictationIsActive: true,
-            agentIsActive: false
-        ))
-        #expect(ShortcutController.shouldCancelForEscape(
-            keyCode: UInt16(kVK_Escape),
-            dictationIsActive: false,
-            agentIsActive: true
-        ))
-        #expect(!ShortcutController.shouldCancelForEscape(
-            keyCode: UInt16(kVK_Escape),
-            dictationIsActive: false,
-            agentIsActive: false
-        ))
+        let escape = UInt16(kVK_Escape)
+        for phase in [AppState.DictationPhase.listening, .processing] {
+            #expect(ShortcutController.shouldCancelForEscape(
+                keyCode: escape,
+                dictationIsCancellable: phase.isCancellable,
+                agentIsCancellable: AppState.AgentPhase.hidden.isCancellable
+            ))
+        }
+        for phase in [AppState.AgentPhase.listening, .transcribing, .processing] {
+            #expect(ShortcutController.shouldCancelForEscape(
+                keyCode: escape,
+                dictationIsCancellable: AppState.DictationPhase.idle.isCancellable,
+                agentIsCancellable: phase.isCancellable
+            ))
+        }
+        // Finished states close on their own or from their card; Esc there belongs to the frontmost app.
+        for phase in [AppState.DictationPhase.idle, .success, .copyReady] {
+            #expect(!ShortcutController.shouldCancelForEscape(
+                keyCode: escape,
+                dictationIsCancellable: phase.isCancellable,
+                agentIsCancellable: AppState.AgentPhase.hidden.isCancellable
+            ))
+        }
+        for phase in [AppState.AgentPhase.hidden, .result, .copyReady, .answerReady] {
+            #expect(!ShortcutController.shouldCancelForEscape(
+                keyCode: escape,
+                dictationIsCancellable: AppState.DictationPhase.idle.isCancellable,
+                agentIsCancellable: phase.isCancellable
+            ))
+        }
         #expect(!ShortcutController.shouldCancelForEscape(
             keyCode: UInt16(kVK_Return),
-            dictationIsActive: true,
-            agentIsActive: false
+            dictationIsCancellable: true,
+            agentIsCancellable: false
         ))
     }
 }
