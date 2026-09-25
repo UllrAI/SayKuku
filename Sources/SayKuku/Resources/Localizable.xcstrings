@@ -690,7 +690,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "切换输入法"
+            "value" : "更改输入法"
           }
         }
       }
@@ -1543,7 +1543,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "无操作"
+            "value" : "不执行任何操作"
           }
         }
       }
@@ -4429,7 +4429,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "开始听写"
+            "value" : "开始听写（连按两下🌐︎键）"
           }
         }
       }
