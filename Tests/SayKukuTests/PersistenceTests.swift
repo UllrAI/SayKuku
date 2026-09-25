@@ -266,6 +266,7 @@ struct PersistenceTests {
         #expect(record.count == 2)
         #expect(record.status == .pending)
         #expect(record.promptCount == 0)
+        #expect(record.lastWindowTitle == "")
     }
 
     @Test("data written by a newer version stays read-only")

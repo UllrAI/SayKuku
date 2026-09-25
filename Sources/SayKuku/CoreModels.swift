@@ -613,6 +613,8 @@ struct CorrectionRecord: Identifiable, Codable, Equatable {
     var corrected: String
     var count: Int = 1
     var lastApp: String
+    /// Empty when the window had no title or window titles aren't shared.
+    var lastWindowTitle = ""
     var lastSeenAt: Date = .now
     var status: Status = .pending
     /// How many times the overlay has asked about this correction.
@@ -620,13 +622,23 @@ struct CorrectionRecord: Identifiable, Codable, Equatable {
 
     enum Status: String, Codable { case pending, accepted, ignored }
 
+    /// The overlay asks about a correction at most this often; after that it only waits in Suggestions.
+    static let promptLimit = 2
+
+    var shouldPrompt: Bool { status == .pending && promptCount < Self.promptLimit }
+
+    /// Where the correction was made, such as "Notes · Weekly sync", as the learned item's clue.
+    var clue: String {
+        [lastApp, lastWindowTitle].filter { !$0.isEmpty }.joined(separator: " · ")
+    }
+
     private enum CodingKeys: String, CodingKey {
-        case id, raw, corrected, count, lastApp, lastSeenAt, status, promptCount
+        case id, raw, corrected, count, lastApp, lastWindowTitle, lastSeenAt, status, promptCount
     }
 }
 
 extension CorrectionRecord {
-    /// Records saved before `promptCount` existed were never asked about.
+    /// Records saved before `lastWindowTitle` and `promptCount` existed have no title and were never asked about.
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(UUID.self, forKey: .id)
@@ -634,10 +646,17 @@ extension CorrectionRecord {
         corrected = try container.decode(String.self, forKey: .corrected)
         count = try container.decode(Int.self, forKey: .count)
         lastApp = try container.decode(String.self, forKey: .lastApp)
+        lastWindowTitle = try container.decodeIfPresent(String.self, forKey: .lastWindowTitle) ?? ""
         lastSeenAt = try container.decode(Date.self, forKey: .lastSeenAt)
         status = try container.decode(Status.self, forKey: .status)
         promptCount = try container.decodeIfPresent(Int.self, forKey: .promptCount) ?? 0
     }
+}
+
+/// A text button on overlay feedback. The default action only closes the message.
+struct OverlayButton {
+    let title: String
+    var action: @MainActor () -> Void = {}
 }
 
 /// One Voice Agent turn, kept in memory for continuous conversation.
