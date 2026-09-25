@@ -34,7 +34,7 @@ Logo 组合可使用鸟形图标与带视觉句点的字标。图标固定使用
 [Bird Icon] SayKuku.
 ```
 
-App 图标不放文字，使用珊瑚红圆角底板与暖白 Lucide Bird 线稿；图形保持足够安全边距。菜单栏使用同一鸟形的无底、无边框单色 template 版本，由 macOS 自动适配明暗、选中和按下状态。App 图标位于 `Scripts/Resources/AppIcon.icns`，菜单栏矢量资源位于 `Sources/SayKuku/Resources/MenuBarIcon.svg`。
+App 图标不放文字，使用珊瑚红圆角底板与暖白 Lucide Bird 线稿；图形保持足够安全边距。菜单栏使用同一鸟形的无底、无边框单色 template 版本，由 macOS 自动适配明暗、选中和按下状态。App 图标有两份：macOS 26 使用 Icon Composer 分层图标 `Scripts/Resources/AppIcon.icon`（珊瑚红自动渐变底色加鸟形图层），macOS 15 使用 `Scripts/Resources/AppIcon.icns`，打包方式见 `docs/LOCAL_PACKAGING.md`。菜单栏矢量资源位于 `Sources/SayKuku/Resources/MenuBarIcon.svg`。
 
 ---
 
@@ -45,7 +45,7 @@ App 图标不放文字，使用珊瑚红圆角底板与暖白 Lucide Bird 线稿
 | 模块 | 状态 | 当前已经完成 | 下一步 |
 | --- | --- | --- | --- |
 | 原生 App 外壳与统一设计系统 | 🟡 部分完成 | SwiftUI 原生窗口、固定侧栏、统一页面宽度；设计 token（颜色、间距、字号、图标、阴影、描边、动效）与共享组件已落在 `Theme.swift` / `DesignSystem.swift` | 逐页替换为新 token 与组件，清零弃用别名 |
-| App 图标与打包 | ✅ 已完成 | Lucide Bird 品牌母形、ICNS、菜单栏 template 资源、固定 Bundle ID、开发/正式身份隔离，强制 Developer ID 的 Release 签名脚本，以及 Sparkle 2 自动更新（正式版自动检查、菜单“检查更新…”、发布脚本生成 appcast） | 每次正式分发按发布文档完成公证、装订、最终 ZIP 和 appcast |
+| App 图标与打包 | ✅ 已完成 | Lucide Bird 品牌母形、ICNS 与 macOS 26 分层图标（actool 不可用时回落 ICNS，待 Mac 验收）、菜单栏 template 资源、固定 Bundle ID、开发/正式身份隔离，强制 Developer ID 的 Release 签名脚本，以及 Sparkle 2 自动更新（正式版自动检查、菜单“检查更新…”、发布脚本生成 appcast） | 每次正式分发按发布文档完成公证、装订、最终 ZIP 和 appcast |
 | 菜单栏常驻入口 | ✅ 已完成 | 18 × 18 pt template 画布内放置约 15 × 13.5 pt Lucide Bird，使用原生 template 渲染自动适配明暗与按下态；包含 Voice Input、Voice Agent、显示主窗口、设置、状态与退出菜单；可选在关闭主窗口后隐藏 Dock 图标，从菜单栏重开时恢复 | 后续增加连接延迟与录音态图标 |
 | 全局快捷键 | ✅ 已完成 | 默认 `⌃⌥⌘V` Voice Input、`⌃⌥⌘A` Voice Agent，可在设置中录制或关闭，拒绝所有只含 ⌘ 或 ⇧⌘ 的组合（留给各个 App 的菜单快捷键），以及 ⌥⌘D、⌃⌘Q、⌃Space 等 macOS 系统组合；通过 Carbon 注册且不需要任何隐私权限，注册失败时提示冲突 | — |
 | Fn Gesture Router | 🟡 部分完成 | Hold Fn、Tap Fn、Double Fn、录音或处理中 Esc 取消、组合键取消、录音时长上限、录音开始与结束提示音、睡眠唤醒后重建监听、系统 Fn 行为引导与全局快捷键 fallback；复用写回所需的辅助功能权限，不申请输入监控 | 不检测 Fn 与其他 App 或系统功能的冲突；增加真实设备与外接键盘回归测试 |
