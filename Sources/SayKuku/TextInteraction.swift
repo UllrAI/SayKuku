@@ -288,6 +288,7 @@ final class TextInteraction {
                let current = currentValue(in: snapshot),
                current == snapshot.valueBefore {
                 Self.logger.error("Synthetic paste posted but readable target text did not change")
+                restore(previous, ifOwnedBy: sessionID, on: pasteboard)
                 throw TextInteractionError.writeFailed
             }
 
@@ -303,19 +304,25 @@ final class TextInteraction {
         }.value
     }
 
-    /// Posts only the V key with the Command flag set; a separate ⌘ key-down could be left
-    /// without its key-up and keep Command held system-wide.
+    /// Posts ⌘ down, V down, V up, ⌘ up back to back with no suspension point in between, so a
+    /// cancel can't leave Command held. The ⌘ key events stay for remote desktop and VM clients
+    /// that only sync modifiers from flagsChanged.
     private func postPasteCommand() throws {
+        let command = CGKeyCode(kVK_Command)
         let key = KeyboardLayout.currentPasteKeyCode
         guard let source = CGEventSource(stateID: .privateState),
-              let keyDown = CGEvent(keyboardEventSource: source, virtualKey: key, keyDown: true),
-              let keyUp = CGEvent(keyboardEventSource: source, virtualKey: key, keyDown: false) else {
+              let commandDown = CGEvent(keyboardEventSource: source, virtualKey: command, keyDown: true),
+              let pasteDown = CGEvent(keyboardEventSource: source, virtualKey: key, keyDown: true),
+              let pasteUp = CGEvent(keyboardEventSource: source, virtualKey: key, keyDown: false),
+              let commandUp = CGEvent(keyboardEventSource: source, virtualKey: command, keyDown: false) else {
             throw TextInteractionError.writeFailed
         }
-        keyDown.flags = .maskCommand
-        keyUp.flags = .maskCommand
-        keyDown.post(tap: .cghidEventTap)
-        keyUp.post(tap: .cghidEventTap)
+        commandDown.flags = .maskCommand
+        pasteDown.flags = .maskCommand
+        pasteUp.flags = .maskCommand
+        for event in [commandDown, pasteDown, pasteUp, commandUp] {
+            event.post(tap: .cghidEventTap)
+        }
     }
 
     private func waitForExpectedValue(

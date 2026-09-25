@@ -124,7 +124,7 @@ final class AppState {
     var pendingAnswerStatus: String?
     var resultCanUndo = false
     /// Set while Insert or Undo is writing, so a double click can't paste the same text twice.
-    var isWriting = false
+    private(set) var isWriting = false
     var overlayErrorSymbol = "exclamationmark"
     var overlayError: String? { didSet { overlayController?.refresh() } }
     var toast: ToastMessage?
@@ -194,7 +194,7 @@ final class AppState {
     @ObservationIgnored private var targetSnapshot: TextTargetSnapshot?
     @ObservationIgnored private var activeAgentSessions: [AgentSession] = []
     @ObservationIgnored private var lastVerifiedWrite: VerifiedWrite?
-    @ObservationIgnored var pendingAnswerTarget: TextTargetSnapshot?
+    @ObservationIgnored private var pendingAnswerTarget: TextTargetSnapshot?
     @ObservationIgnored private var workflowGeneration = 0
     @ObservationIgnored private var realtimeSessionID = UUID()
     @ObservationIgnored private var recordingLimitTask: Task<Void, Never>?
@@ -987,6 +987,10 @@ final class AppState {
                     observeCorrection(writtenText: raw, snapshot: snapshot, writeID: verifiedWrite.id)
                 }
             } catch is TextInteractionError {
+                // A write can still fail after a cancel; the copy fallback must not replace the user's
+                // clipboard or cover a newer recording.
+                try Task.checkCancellation()
+                guard generation == workflowGeneration else { throw CancellationError() }
                 updateHistory(historyID, status: .completed)
                 presentCopyFallback(raw, agent: false)
                 await realtimeClient.cancel(session: realtimeSession)
