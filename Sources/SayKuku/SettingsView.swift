@@ -108,6 +108,15 @@ private struct VoiceInputSettings: View {
                 }
                 // Long custom vocabularies would otherwise stretch the row.
                 .lineLimit(2)
+                KukuDivider()
+                KukuToggleRow(
+                    title: appState.text("从纠正中学习", "Learn from corrections"),
+                    caption: appState.text(
+                        "改正识别错的词后，建议会出现在“记忆 › 纠正”中，确认后才会保存",
+                        "Words you fix show up as suggestions in Memory › Corrections. Nothing is saved until you approve it."
+                    ),
+                    isOn: $appState.learnFromCorrections
+                )
             }
         }
     }
