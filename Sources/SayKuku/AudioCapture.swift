@@ -116,7 +116,9 @@ final class AudioCapture: @unchecked Sendable {
         let ratio = targetFormat.sampleRate / sourceFormat.sampleRate
         let capacity = AVAudioFrameCount(ceil(Double(input.frameLength) * ratio)) + 16
         guard let output = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: capacity) else { return }
-        var supplied = false
+        // `convert` calls the input block synchronously on this thread, so nothing is shared concurrently.
+        nonisolated(unsafe) var supplied = false
+        nonisolated(unsafe) let source = input
         var conversionError: NSError?
         let status = converter.convert(to: output, error: &conversionError) { _, status in
             if supplied {
@@ -125,7 +127,7 @@ final class AudioCapture: @unchecked Sendable {
             }
             supplied = true
             status.pointee = .haveData
-            return input
+            return source
         }
         guard conversionError == nil, status != .error,
               output.frameLength > 0, let samples = output.int16ChannelData?[0] else { return }

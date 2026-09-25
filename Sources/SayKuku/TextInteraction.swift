@@ -106,7 +106,7 @@ final class TextInteraction {
         let bundleID = app.bundleIdentifier ?? ""
         let range = element.flatMap(selectedRange(of:))
         let value = element.flatMap { normalizedValue(of: $0, selectedRange: range) }
-        let selectedText = element.map { selectedText(of: $0, value: value, range: range) } ?? ""
+        let selection = element.map { self.selectedText(of: $0, value: value, range: range) } ?? ""
         let sensitive = isSensitive(element: element, bundleID: bundleID)
 
         Self.logger.info(
@@ -120,7 +120,7 @@ final class TextInteraction {
             windowElement: window,
             textElement: element,
             selectedRange: range,
-            selectedText: selectedText,
+            selectedText: selection,
             valueBefore: value,
             isSensitive: sensitive
         )
