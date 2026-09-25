@@ -385,13 +385,14 @@ struct QwenConnectionStatus: View {
 struct QwenConnectionButton: View {
     @Environment(AppState.self) private var appState
     let draft: QwenCredentialsDraft
+    var kind: KukuButtonStyle.Kind = .primary
 
     var body: some View {
         let isTesting = appState.connectionState == .testing
         Button(isTesting ? appState.text("正在测试…", "Testing…") : appState.text("测试连接", "Test Connection")) {
             Task { await appState.testQwenConnection(draft) }
         }
-        .buttonStyle(.kukuPrimary)
+        .buttonStyle(.kuku(kind))
         .disabled(isTesting || !draft.hasKey)
     }
 }
