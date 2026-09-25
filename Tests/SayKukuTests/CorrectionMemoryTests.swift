@@ -141,6 +141,7 @@ struct CorrectionMemoryTests {
             #expect(entity?.detail == "TextEdit")
             #expect(entity?.aliases == ["王小明"])
             #expect(entity?.source == .correction)
+            #expect(entity?.type == .other)
             #expect(state.data.corrections.first?.status == .accepted)
         }
     }
@@ -188,6 +189,7 @@ struct CorrectionMemoryTests {
             state.workflow.noteCorrection(change, app: "Notes", windowTitle: "")
             state.workflow.pressOverlayButton(at: 1)
             #expect(state.data.memoryEntities.map(\.name) == ["WorkBuddy"])
+            #expect(state.data.memoryEntities.first?.type == .other)
             #expect(state.data.memoryEntities.first?.aliases == ["work body"])
             #expect(state.data.corrections.first?.status == .accepted)
             #expect(state.workflow.overlayError == localized("Remembered"))
@@ -244,6 +246,7 @@ struct CorrectionMemoryTests {
         #expect(entities.map(\.name) == ["张月", "张越"])
         #expect(entities.first == saved)
         #expect(entities.last?.aliases == ["张月"])
+        #expect(entities.last?.type == .other)
     }
 
     @Test("a mistaken learned item folds into the item it should have been")

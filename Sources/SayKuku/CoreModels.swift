@@ -408,16 +408,18 @@ struct HistoryEntry: Identifiable, Codable, Equatable {
 }
 
 enum EntityType: String, Codable, CaseIterable, Identifiable {
-    case person, organization, project, term
+    case person, organization, project, term, other
     var id: String { rawValue }
 
     /// Maps retired types and unrecognized values, so older stores and loose model output still load.
     init(from decoder: Decoder) throws {
-        switch try decoder.singleValueContainer().decode(String.self).lowercased() {
+        switch try decoder.singleValueContainer().decode(String.self)
+            .trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
         case "person": self = .person
-        case "organization", "orgunit": self = .organization
-        case "project", "product": self = .project
-        default: self = .term
+        case "organization", "orgunit", "company", "institution", "department", "team": self = .organization
+        case "project", "product", "app", "service", "model", "codename": self = .project
+        case "term": self = .term
+        default: self = .other
         }
     }
 
@@ -427,6 +429,7 @@ enum EntityType: String, Codable, CaseIterable, Identifiable {
         case .organization: localized("Organization")
         case .project: localized("Project")
         case .term: localized("Term")
+        case .other: localized("Other")
         }
     }
     /// Names a filter tab rather than a single item.
@@ -436,6 +439,7 @@ enum EntityType: String, Codable, CaseIterable, Identifiable {
         case .organization: localized("Organizations")
         case .project: localized("Projects")
         case .term: localized("Terms")
+        case .other: localized("Other")
         }
     }
     var symbol: String {
@@ -444,6 +448,7 @@ enum EntityType: String, Codable, CaseIterable, Identifiable {
         case .organization: "building.2.fill"
         case .project: "folder.fill"
         case .term: "character.book.closed.fill"
+        case .other: "square.grid.2x2.fill"
         }
     }
 }

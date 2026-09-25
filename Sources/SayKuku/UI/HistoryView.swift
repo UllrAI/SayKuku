@@ -5,13 +5,11 @@ struct HistoryView: View {
     @Environment(AppState.self) private var appState
     @Binding var filter: HistoryFilter
     @Binding var search: String
-    @State private var selection: HistoryEntry.ID?
     @State private var pendingDeletion: HistoryEntry?
     /// One recording plays at a time. It lives here, not in the row, because the list
     /// removes rows as they scroll out of view.
     @State private var playback: Playback?
     @FocusState private var searchFocused: Bool
-    @FocusState private var listFocused: Bool
 
     private var query: String { search.trimmingCharacters(in: .whitespacesAndNewlines) }
 
@@ -42,7 +40,7 @@ struct HistoryView: View {
                         clearLabel: localized("Clear search"),
                         text: $search,
                         focus: $searchFocused,
-                        onExit: { listFocused = true }
+                        onExit: { searchFocused = false }
                     )
                     .focusedSceneValue(\.searchFieldFocus, $searchFocused)
                 }
@@ -160,54 +158,35 @@ struct HistoryView: View {
     private func entryList(_ entries: [HistoryEntry]) -> some View {
         let days = daySections(entries)
         return KukuPageContent {
-            List(selection: $selection) {
-                Group { notices }.kukuListRow()
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    notices
 
-                ForEach(days) { day in
-                    // The day's String id doesn't match the UUID selection, so headers can't be selected.
-                    Text(day.label)
-                        .font(.kuku(.caption, weight: .semibold))
-                        .foregroundStyle(KukuColor.textSecondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.top, day.id == days.first?.id ? 0 : KukuSpacing.xxl)
-                        .padding(.bottom, KukuSpacing.sm)
-                        .kukuListRow()
+                    ForEach(days) { day in
+                        Text(day.label)
+                            .font(.kuku(.caption, weight: .semibold))
+                            .foregroundStyle(KukuColor.textSecondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.top, day.id == days.first?.id ? 0 : KukuSpacing.xxl)
+                            .padding(.bottom, KukuSpacing.sm)
 
-                    ForEach(day.entries) { entry in
-                        VStack(spacing: 0) {
+                        ForEach(day.entries) { entry in
                             HistoryRow(
                                 entry: entry,
-                                isSelected: selection == entry.id,
                                 isPlaying: playback?.entryID == entry.id,
                                 onTogglePlayback: { togglePlayback(entry) },
                                 onDelete: { requestDelete(entry) }
                             )
-                            // Starts at the text column: row padding, icon tile, then the tile's spacing.
-                            KukuDivider(inset: KukuLayout.iconTile + KukuSpacing.md * 2)
+                            if entry.id != day.entries.last?.id {
+                                KukuDivider(inset: KukuLayout.iconTile + KukuSpacing.md)
+                            }
                         }
-                        .tag(entry.id)
-                        .kukuListRow()
                     }
                 }
-            }
-            .kukuList()
-            .contentMargins(.top, KukuLayout.contentTop, for: .scrollContent)
-            .contentMargins(.bottom, KukuLayout.contentBottom, for: .scrollContent)
-            .focused($listFocused)
-            .onDeleteCommand {
-                if let entry = selectedEntry(in: entries) { requestDelete(entry) }
-            }
-            .onCopyCommand {
-                guard let entry = selectedEntry(in: entries) else { return [] }
-                // The result, or what was said when there is no result.
-                let text = entry.hasCopyableOutput ? entry.output : entry.input
-                return text.isEmpty ? [] : [NSItemProvider(object: text as NSString)]
+                .padding(.top, KukuLayout.contentTop)
+                .padding(.bottom, KukuLayout.contentBottom)
             }
         }
-    }
-
-    private func selectedEntry(in entries: [HistoryEntry]) -> HistoryEntry? {
-        entries.first { $0.id == selection }
     }
 
     /// Consecutive entries grouped under one day label, in list order.
@@ -231,7 +210,6 @@ struct HistoryView: View {
 
     private func delete(_ entry: HistoryEntry) {
         if playback?.entryID == entry.id { stopPlayback() }
-        if selection == entry.id { selection = filteredEntries.selectionAfterRemoving(entry.id) }
         withAnimation(Motion.snappy) { appState.data.deleteHistoryEntry(entry.id) }
         appState.showToast(localized("Deleted"), symbol: "trash")
     }
@@ -349,10 +327,9 @@ private struct HistoryNotice: View {
 private struct HistoryRow: View {
     @Environment(AppState.self) private var appState
     let entry: HistoryEntry
-    let isSelected: Bool
     let isPlaying: Bool
     let onTogglePlayback: @MainActor () -> Void
-    /// The page owns deletion so Delete in the list and the row's buttons share one path.
+    /// The page owns deletion so the row's button and context menu share one path.
     let onDelete: @MainActor () -> Void
     @State private var isOutputExpanded = false
     @State private var hovering = false
@@ -384,13 +361,14 @@ private struct HistoryRow: View {
             Spacer(minLength: KukuSpacing.lg)
 
             HStack(spacing: 0) {
-                if hovering {
-                    KukuIconButton(
-                        symbol: "trash",
-                        label: localized("Delete this item"),
-                        action: onDelete
-                    )
-                }
+                KukuIconButton(
+                    symbol: "trash",
+                    label: localized("Delete this item"),
+                    action: onDelete
+                )
+                .opacity(hovering ? 1 : 0)
+                .allowsHitTesting(hovering)
+                .accessibilityHidden(!hovering)
 
                 KukuIconButton(
                     symbol: entry.isStarred ? "star.fill" : "star",
@@ -401,17 +379,15 @@ private struct HistoryRow: View {
                 )
             }
         }
-        .padding(KukuSpacing.md)
-        // Rows grow with expanded output instead of taking a height from the list.
+        .padding(.vertical, KukuSpacing.md)
+        // Rows grow with expanded output.
         .fixedSize(horizontal: false, vertical: true)
         .contentShape(Rectangle())
-        .background(rowFill, in: RoundedRectangle(cornerRadius: KukuLayout.radiusMedium, style: .continuous))
         .onHover { hovering = $0 }
         .animation(Motion.snappy, value: hovering)
-        .animation(Motion.snappy, value: isSelected)
         .contextMenu {
             if entry.hasCopyableOutput {
-                Button(localized("Copy Result")) { appState.copyHistoryOutput(entry.output) }
+                Button(localized("Copy Result")) { appState.copyText(entry.output) }
             }
             if entry.hasAudio {
                 Button(playbackTitle(titleCase: true), action: onTogglePlayback)
@@ -426,12 +402,6 @@ private struct HistoryRow: View {
                 action: onDelete
             )
         }
-    }
-
-    /// Same fills as `kukuInteractiveSurface`: selection wins over hover.
-    private var rowFill: Color {
-        if isSelected { return KukuColor.selectedFill }
-        return hovering ? KukuColor.rowHover : .clear
     }
 
     /// Stars are neutral: a star marks an item to keep, not a status.
@@ -530,7 +500,7 @@ private struct HistoryRow: View {
 
                 if entry.hasCopyableOutput {
                     Button {
-                        appState.copyHistoryOutput(entry.output)
+                        appState.copyText(entry.output)
                     } label: {
                         Label(localized("Copy Result"), systemImage: "doc.on.doc")
                     }

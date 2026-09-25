@@ -131,8 +131,8 @@ struct OverlayLayoutTests {
             visibleFrame: visibleFrame, panelSize: pillSize, contentHeight: 36
         )
 
-        #expect(right.x == 1440 - 380)
-        #expect(left.x == 0)
+        #expect(right.x == CGFloat(1060))
+        #expect(left.x == CGFloat(0))
     }
 
     @Test("following the cursor falls back to the bottom center without a caret")

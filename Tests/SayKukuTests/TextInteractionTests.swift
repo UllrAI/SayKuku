@@ -340,10 +340,10 @@ struct ScreenTextTests {
     @Test("text stops at the character limit, line breaks included")
     func characterLimit() {
         let paragraph = String(repeating: "字", count: 500)
-        let nodes = (0..<10).map { node([$0], "AXStaticText", paragraph) }
+        let nodes = (0..<10).map { node([$0], "AXStaticText", paragraph + "\($0)") }
         let text = ScreenText.collect(nodes, deadline: later)
         #expect(text.count == ScreenText.characterLimit)
-        #expect(text.hasPrefix(paragraph + "\n" + paragraph))
+        #expect(text.hasPrefix(paragraph + "0\n" + paragraph + "1"))
     }
 
     @Test("nothing is read once the time budget has run out")

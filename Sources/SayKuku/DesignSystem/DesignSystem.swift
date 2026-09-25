@@ -590,33 +590,6 @@ private struct KukuInteractiveSurfaceModifier: ViewModifier {
     }
 }
 
-// MARK: - Lists
-
-extension View {
-    /// A plain `List` on the page canvas: no system background, rows only as tall as their content.
-    func kukuList() -> some View {
-        listStyle(.plain)
-            .scrollContentBackground(.hidden)
-            .environment(\.defaultMinListRowHeight, 0)
-    }
-
-    /// A row of a `kukuList()`. The row draws its own background and dividers; `insets` sets the spacing.
-    func kukuListRow(_ insets: EdgeInsets = EdgeInsets()) -> some View {
-        listRowInsets(insets)
-            .listRowSeparator(.hidden)
-            .listRowBackground(Color.clear)
-    }
-}
-
-extension Array where Element: Identifiable {
-    /// The item to select once `id` is removed: the next one, or the previous one at the end.
-    func selectionAfterRemoving(_ id: Element.ID) -> Element.ID? {
-        guard let index = firstIndex(where: { $0.id == id }) else { return nil }
-        let neighbor = index + 1 < count ? index + 1 : index - 1
-        return indices.contains(neighbor) ? self[neighbor].id : nil
-    }
-}
-
 // MARK: - Labels and indicators
 
 /// Neutral capsule for categories and states. A tone only colors the optional icon.

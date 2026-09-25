@@ -127,6 +127,7 @@ struct MemoryPipelineTests {
         {"entities":[
           {"name":"WorkBuddy","type":"Product","evidence":"WorkBuddy 上线"},
           {"name":"Kuku","type":"company","detail":"团队","aliases":["库库"],"evidence":"Kuku 团队"},
+          {"name":"Unclear","type":"misc","evidence":"Unclear name"},
           {"type":"person","evidence":"no name"},
           "not an object"
         ]}
@@ -135,7 +136,8 @@ struct MemoryPipelineTests {
         let result = try #require(QwenReasoningClient.decodeMemoryExtraction(content))
         #expect(result == [
             ProposedEntity(name: "WorkBuddy", type: .project, detail: "", aliases: [], evidence: "WorkBuddy 上线"),
-            ProposedEntity(name: "Kuku", type: .term, detail: "团队", aliases: ["库库"], evidence: "Kuku 团队")
+            ProposedEntity(name: "Kuku", type: .organization, detail: "团队", aliases: ["库库"], evidence: "Kuku 团队"),
+            ProposedEntity(name: "Unclear", type: .other, detail: "", aliases: [], evidence: "Unclear name")
         ])
         #expect(QwenReasoningClient.decodeMemoryExtraction("not json") == nil)
     }

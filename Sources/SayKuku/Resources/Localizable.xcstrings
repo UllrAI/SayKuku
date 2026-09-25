@@ -221,6 +221,7 @@
       }
     },
     ", " : {
+      "generatesSymbol" : false,
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
@@ -309,6 +310,7 @@
       }
     },
     "Add…" : {
+      "generatesSymbol" : false,
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
@@ -837,6 +839,7 @@
       }
     },
     "Clear all history?" : {
+      "generatesSymbol" : false,
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
@@ -1468,6 +1471,7 @@
       }
     },
     "Delete…" : {
+      "generatesSymbol" : false,
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
@@ -2125,6 +2129,7 @@
       }
     },
     "Import from Text…" : {
+      "generatesSymbol" : false,
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
@@ -2490,6 +2495,7 @@
       }
     },
     "Listening…" : {
+      "generatesSymbol" : false,
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
@@ -3149,6 +3155,17 @@
         }
       }
     },
+    "Other" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其他"
+          }
+        }
+      }
+    },
     "Overlay" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3282,6 +3299,7 @@
       }
     },
     "Play recording" : {
+      "generatesSymbol" : false,
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
@@ -3744,6 +3762,7 @@
       }
     },
     "Remove star" : {
+      "generatesSymbol" : false,
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
@@ -4162,6 +4181,7 @@
       }
     },
     "Settings…" : {
+      "generatesSymbol" : false,
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
@@ -4536,6 +4556,7 @@
       }
     },
     "Stop playback" : {
+      "generatesSymbol" : false,
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
@@ -5471,6 +5492,7 @@
       }
     },
     "off" : {
+      "generatesSymbol" : false,
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {

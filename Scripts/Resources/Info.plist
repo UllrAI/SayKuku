@@ -39,7 +39,7 @@
     <key>SUFeedURL</key>
     <string>https://github.com/UllrAI/SayKuku/releases/latest/download/appcast.xml</string>
     <key>SUPublicEDKey</key>
-    <string></string>
+    <string>hGCxOUxTrsAh8K1ThHgNkc8ZhVXJlXqUcjOixYWBYnQ=</string>
     <key>SUEnableAutomaticChecks</key>
     <true/>
 </dict>
