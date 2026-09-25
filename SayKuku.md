@@ -48,7 +48,7 @@ App 图标不放文字，使用珊瑚红圆角底板与暖白 Lucide Bird 线稿
 | App 图标与打包 | ✅ 已完成 | Lucide Bird 品牌母形、ICNS 与 macOS 26 分层图标（actool 不可用时回落 ICNS，待 Mac 验收）、菜单栏 template 资源、固定 Bundle ID、开发/正式身份隔离，强制 Developer ID 的 Release 签名脚本，以及 Sparkle 2 自动更新（正式版自动检查、菜单“检查更新…”、发布脚本生成 appcast） | 每次正式分发按发布文档完成公证、装订、最终 ZIP 和 appcast |
 | 菜单栏常驻入口 | ✅ 已完成 | 18 × 18 pt template 画布内放置约 15 × 13.5 pt Lucide Bird，使用原生 template 渲染自动适配明暗与按下态；包含 Voice Input、Voice Agent、显示主窗口、设置、状态与退出菜单；可选在关闭主窗口后隐藏 Dock 图标，从菜单栏重开时恢复 | 后续增加连接延迟与录音态图标 |
 | 全局快捷键 | ✅ 已完成 | 默认 `⌃⌥⌘V` Voice Input、`⌃⌥⌘A` Voice Agent，可在设置中录制或关闭，拒绝所有只含 ⌘ 或 ⇧⌘ 的组合（留给各个 App 的菜单快捷键），以及 ⌥⌘D、⌃⌘Q、⌃Space 等 macOS 系统组合；通过 Carbon 注册且不需要任何隐私权限，注册失败时提示冲突 | — |
-| Fn Gesture Router | 🟡 部分完成 | Hold Fn、Tap Fn、Double Fn、录音或处理中 Esc 取消、组合键取消、录音时长上限、录音开始与结束提示音、睡眠唤醒后重建监听、系统 Fn 行为引导与全局快捷键 fallback；复用写回所需的辅助功能权限，不申请输入监控 | 不检测 Fn 与其他 App 或系统功能的冲突；增加真实设备与外接键盘回归测试 |
+| Fn Gesture Router | 🟡 部分完成 | Hold Fn、Tap Fn、Double Fn、录音或处理中 Esc 取消、组合键取消、录音时长上限、录音开始与结束提示音、睡眠唤醒后重建监听、检测系统“按下 fn 键时”设置并按需提示、全局快捷键 fallback；复用写回所需的辅助功能权限，不申请输入监控 | 不检测 Fn 与其他 App 的冲突；增加真实设备与外接键盘回归测试 |
 | 权限引导与麦克风测试 | ✅ 已完成 | 启动时缺失权限自动展示引导；麦克风与辅助功能实时状态、快捷开启，辅助功能授权后自动恢复，回到 App 也会复查；设置页可重新打开；AVAudioEngine 实时输入电平测试 | 增加多输入设备切换回归测试 |
 | 首页与两种浮层 | ✅ 已完成 | Voice Input / Voice Agent 的真实录音、识别、自动执行与结果状态，以及跨桌面非激活浮层 | — |
 | History | ✅ 已完成 | 停止录音即创建历史；原始语音优先落盘；识别或 Agent 失败仍保留输入及失败状态；支持回放、搜索、筛选、星标、删除、清空和按期限清理；列表支持键盘选择、Delete 删除、⌘C 复制结果、⌘F 搜索；本地数据损坏时先备份再恢复 | — |
@@ -170,7 +170,7 @@ MVP 暂不提供：
 
 ## 2. Fn 交互设计
 
-> 实现状态：`🟡 部分完成`。当前 App 已包含统一 Fn Gesture Router，Fn 与系统功能的冲突检测尚未实现。普通组合键通过 Carbon 注册，不需要隐私权限；Fn 是纯修饰键，无法作为普通 HotKey 注册，因此在 Accessibility 已授权后使用 AppKit `NSEvent` 全局/本地 monitor。实现不创建 CGEvent tap，不调用 Input Monitoring API，也不声明相关权限。`NSEvent` 全局 monitor 只能观察事件，不能阻止系统同时执行 Fn / Globe 动作；设置页提供入口，引导将 macOS“按 Fn 键时”设为“无操作”，并在连按两次 Fn 会触发系统听写时更改听写快捷键。可配置的全局快捷键（默认 `⌃⌥⌘V` 与 `⌃⌥⌘A`）作为无权限 fallback，可在设置中关闭。
+> 实现状态：`🟡 部分完成`。当前 App 已包含统一 Fn Gesture Router，并检测系统“按下 fn 键时”设置；Fn 与其他 App 的冲突检测尚未实现。普通组合键通过 Carbon 注册，不需要隐私权限；Fn 是纯修饰键，无法作为普通 HotKey 注册，因此在 Accessibility 已授权后使用 AppKit `NSEvent` 全局/本地 monitor。实现不创建 CGEvent tap，不调用 Input Monitoring API，也不声明相关权限。`NSEvent` 全局 monitor 只能观察事件，不能阻止系统同时执行 Fn / Globe 动作。App 读取 `com.apple.HIToolbox` 域的 `AppleFnUsageType`（0 无操作、1 切换输入法、2 显示表情与符号、3 开始听写），每次 App 激活时刷新；值为 1–3 时，设置 › 通用 › 快捷键状态下方显示一行警告，引导在键盘设置中改为“无操作”，其中“开始听写”即连按两次 Fn 打开系统听写的情况。值为 0、键不存在或值未知时不提示；已授权辅助功能时，状态行右侧的“键盘设置”按钮照常显示。App 不修改系统设置。可配置的全局快捷键（默认 `⌃⌥⌘V` 与 `⌃⌥⌘A`）作为无权限 fallback，可在设置中关闭。
 
 ### 2.1 用户可选择两种输入习惯
 
@@ -302,6 +302,7 @@ Voice workflow
 必须满足：
 
 * 用户按下 `Fn + ←/→`、`Fn + F1…F12` 或其他组合键时，立即取消语音手势；如果已经开始 Dictation，则停止并丢弃本次录音。
+* 录音或处理中按 Esc 取消本次 Voice Input 或 Voice Agent。monitor 只观察按键，Esc 仍会传给当前 App；其他时候不响应 Esc，避免用户在当前 App 里按 Esc 时误关已完成的结果卡片。
 * 快速单击未形成双击时，才按所选模式开始 Dictation。
 * Hold 模式中第二次 Fn 进入 Agent 后，不得同时触发 Dictation。
 * Tap Dictation 已在录音时，单击 Fn 优先结束当前录音，不再进入双击判断。
@@ -1144,7 +1145,8 @@ General | Voice Input | Voice Agent | History | Privacy | Qwen Connection
 位置：底部居中（默认） / 顶部 / 跟随光标
 
 快捷键
-快捷键状态 · Voice Input · Voice Agent
+快捷键状态（一行状态；系统 Fn 未设为“无操作”时多一行警告）
+Voice Input · Voice Agent
 
 软件更新
 版本号（构建号）· 检查更新…
@@ -1160,8 +1162,8 @@ General | Voice Input | Voice Agent | History | Privacy | Qwen Connection
 
 ```text
 输入方式
-○ Hold Fn
-○ Tap Fn
+○ Hold Fn：按住片刻开始，松开即输入。按 Esc 取消。
+○ Tap Fn：单击开始说话，再单击即输入。按 Esc 取消。
 开始和结束时播放提示音（默认开启）
 
 自动停止

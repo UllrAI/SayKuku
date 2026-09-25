@@ -21,11 +21,36 @@ enum SystemPermissionStatus: Equatable {
     var isAuthorized: Bool { self == .authorized }
 }
 
+/// The macOS "Press fn key to" setting. SayKuku's monitor can't stop the system action,
+/// so anything other than Do Nothing competes with the Fn gestures.
+enum FnKeyUsage: Int {
+    case doNothing = 0
+    case changeInputSource = 1
+    case showEmoji = 2
+    case startDictation = 3
+
+    /// Stored as `AppleFnUsageType` in `com.apple.HIToolbox`; nil when unset or unknown.
+    static func read(from defaults: UserDefaults?) -> FnKeyUsage? {
+        (defaults?.object(forKey: "AppleFnUsageType") as? Int).flatMap(FnKeyUsage.init(rawValue:))
+    }
+
+    /// Matches the option names in Keyboard Settings.
+    var title: String {
+        switch self {
+        case .doNothing: localized("Do Nothing")
+        case .changeInputSource: localized("Change Input Source")
+        case .showEmoji: localized("Show Emoji & Symbols")
+        case .startDictation: localized("Start Dictation")
+        }
+    }
+}
+
 @MainActor
 @Observable
 final class SystemPermissionController {
     private(set) var microphoneStatus: SystemPermissionStatus = .notDetermined
     private(set) var accessibilityStatus: SystemPermissionStatus = .notDetermined
+    private(set) var fnKeyUsage: FnKeyUsage?
     private(set) var requesting: SystemPermissionKind?
     /// macOS shows the Accessibility prompt only once per app, so later requests open System Settings.
     private(set) var hasPromptedForAccessibility = false
@@ -78,6 +103,8 @@ final class SystemPermissionController {
         } else {
             accessibilityStatus = .denied
         }
+        // SayKuku isn't sandboxed, so it can read the system keyboard domain directly.
+        fnKeyUsage = FnKeyUsage.read(from: UserDefaults(suiteName: "com.apple.HIToolbox"))
         Self.logChange(.microphone, from: previousMicrophone, to: microphoneStatus)
         Self.logChange(.accessibility, from: previousAccessibility, to: accessibilityStatus)
     }

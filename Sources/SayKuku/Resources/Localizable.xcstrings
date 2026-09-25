@@ -684,6 +684,17 @@
         }
       }
     },
+    "Change Input Source" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "切换输入法"
+          }
+        }
+      }
+    },
     "Changes take effect when SayKuku reopens" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1526,6 +1537,17 @@
         }
       }
     },
+    "Do Nothing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无操作"
+          }
+        }
+      }
+    },
     "Domains" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1785,6 +1807,28 @@
         }
       }
     },
+    "Fn is set to “%@”. Pressing Fn twice opens system Dictation; set it to “%@” in Keyboard Settings." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fn 当前设为「%1$@」，按两次 Fn 会打开系统听写，请在键盘设置改为「%2$@」。"
+          }
+        }
+      }
+    },
+    "Fn is set to “%@”. Set “Press fn key to” to “%@” in Keyboard Settings." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fn 当前设为「%1$@」，请在键盘设置改为「%2$@」。"
+          }
+        }
+      }
+    },
     "Fn needs Accessibility · Global shortcuts off" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2005,13 +2049,13 @@
         }
       }
     },
-    "Hold briefly to start, release to insert" : {
+    "Hold briefly to start, release to insert. Esc cancels." : {
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "按住片刻开始录音，松开即输入"
+            "value" : "按住片刻开始，松开即输入。按 Esc 取消。"
           }
         }
       }
@@ -2034,28 +2078,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "首页"
-          }
-        }
-      }
-    },
-    "If Fn switches input sources, set “Press fn key to” to “Do Nothing” in Keyboard Settings." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "若按 Fn 会切换输入法，请在键盘设置中将“按下 fn 键时”设为“不执行任何操作”。"
-          }
-        }
-      }
-    },
-    "If pressing Fn twice starts Dictation, change the Dictation shortcut." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "若连按两次 Fn 会打开系统听写，请更改听写的快捷键。"
           }
         }
       }
@@ -3343,17 +3365,6 @@
         }
       }
     },
-    "Press Esc to cancel while recording or processing. The key still goes to the app you’re using." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "录音或处理时按 Esc 可取消，这个按键也会传给当前 App。"
-          }
-        }
-      }
-    },
     "Press Fn and start talking. Your history shows up here." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4236,6 +4247,17 @@
         }
       }
     },
+    "Show Emoji & Symbols" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "显示表情与符号"
+          }
+        }
+      }
+    },
     "Show Less" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4397,6 +4419,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "星标记录不受此期限影响"
+          }
+        }
+      }
+    },
+    "Start Dictation" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开始听写"
           }
         }
       }
@@ -4684,6 +4717,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "单击开始说话，再单击即输入"
+          }
+        }
+      }
+    },
+    "Tap to start, tap again to insert. Esc cancels." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "单击开始说话，再单击即输入。按 Esc 取消。"
           }
         }
       }
