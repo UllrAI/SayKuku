@@ -95,15 +95,21 @@ fi
 
 print -u2 "Signing with $SIGNING_IDENTITY"
 # Debug builds also run hardened so missing entitlements surface before release.
-CODESIGN_ARGS=(
-    --force --options runtime
-    --entitlements "$ROOT_DIR/Scripts/Resources/SayKuku.entitlements"
-)
+# They add get-task-allow so debuggers can still attach; notarization rejects it.
+ENTITLEMENTS="$ROOT_DIR/Scripts/Resources/SayKuku.entitlements"
 if [[ "$CONFIGURATION" == "release" ]]; then
-    CODESIGN_ARGS+=(--timestamp)
+    TIMESTAMP_ARG=--timestamp
 else
-    CODESIGN_ARGS+=(--timestamp=none)
+    TIMESTAMP_ARG=--timestamp=none
+    DEBUG_ENTITLEMENTS="$ROOT_DIR/Build/SayKuku.debug.entitlements"
+    cp "$ENTITLEMENTS" "$DEBUG_ENTITLEMENTS"
+    /usr/libexec/PlistBuddy -c "Add :com.apple.security.get-task-allow bool true" "$DEBUG_ENTITLEMENTS"
+    ENTITLEMENTS="$DEBUG_ENTITLEMENTS"
 fi
+CODESIGN_ARGS=(
+    --force --options runtime "$TIMESTAMP_ARG"
+    --entitlements "$ENTITLEMENTS"
+)
 if [[ -n "$SIGNING_KEYCHAIN" ]]; then
     CODESIGN_ARGS+=(--keychain "$SIGNING_KEYCHAIN")
 fi

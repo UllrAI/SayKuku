@@ -167,15 +167,6 @@ struct KukuIconButton: View {
 
 // MARK: - Brand and live input
 
-extension Bundle {
-    /// SwiftPM's `Bundle.module` only looks next to the `.app` and in the
-    /// build-time `.build` path, and traps when neither exists. A packaged app
-    /// keeps the resource bundle in `Contents/Resources`, so look there first.
-    static let appResources: Bundle = Bundle.main
-        .url(forResource: "SayKuku_SayKuku", withExtension: "bundle")
-        .flatMap(Bundle.init(url:)) ?? .module
-}
-
 struct BrandMark: View {
     private static let size: CGFloat = 27
 
