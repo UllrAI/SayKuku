@@ -10,6 +10,15 @@ struct KnowledgePipelineTests {
         #expect(KnowledgeNormalizer.key("Ani Kuku") == "anikuku")
     }
 
+    @Test("normalized key follows the name and ignores the system locale")
+    func derivedNormalizedKey() {
+        var entity = KnowledgeEntity(name: "AniKuku", type: .project)
+        entity.name = "Work Buddy"
+        #expect(entity.normalizedKey == "workbuddy")
+        #expect(KnowledgeNormalizer.key("İstanbul") == KnowledgeNormalizer.key("istanbul"))
+        #expect(KnowledgeNormalizer.key("İstanbul") == "istanbul")
+    }
+
     @Test("PII is redacted before model extraction")
     func redaction() {
         let result = KnowledgePipeline.redactingPII(in: "王涛 18600000000 wang@example.com\n地址：北京市朝阳区测试路 1 号")

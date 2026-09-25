@@ -480,12 +480,14 @@ enum EntitySource: String, Codable { case manual, importText, correction }
 struct KnowledgeEntity: Identifiable, Codable, Equatable {
     var id: UUID
     var name: String
-    var normalizedKey: String
     var detail: String
     var type: EntityType
     var aliases: [String]
     var source: EntitySource
     var createdAt: Date
+
+    /// Derived from `name` so it can never go stale; not encoded, and legacy stored values are ignored.
+    var normalizedKey: String { KnowledgeNormalizer.key(name) }
 
     init(
         id: UUID = UUID(), name: String, detail: String = "", type: EntityType,
@@ -494,7 +496,6 @@ struct KnowledgeEntity: Identifiable, Codable, Equatable {
         self.id = id
         self.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         let key = KnowledgeNormalizer.key(name)
-        normalizedKey = key
         self.detail = detail.trimmingCharacters(in: .whitespacesAndNewlines)
         self.type = type
         var aliasKeys = Set<String>()
@@ -648,8 +649,9 @@ struct AgentResponse: Codable, Equatable {
 }
 
 enum KnowledgeNormalizer {
+    /// Fixed locale so keys stored or compared on one machine match on another (e.g. Turkish i/İ).
     static func key(_ value: String) -> String {
-        value.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+        value.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))
             .unicodeScalars
             .filter { CharacterSet.alphanumerics.contains($0) }
             .map(String.init)

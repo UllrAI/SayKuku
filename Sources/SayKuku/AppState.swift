@@ -1698,7 +1698,8 @@ final class AppState {
         return terms.compactMap { term in
             let value = term.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !value.isEmpty, value.count <= maxDomainTermLength else { return nil }
-            let key = value.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+            // Fixed locale so deduplication does not depend on the system language.
+            let key = value.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))
             guard seen.insert(key).inserted else { return nil }
             return value
         }.prefix(maxDomainTerms).map { $0 }
