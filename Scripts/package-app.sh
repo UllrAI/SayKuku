@@ -38,9 +38,29 @@ APP_DIR="$ROOT_DIR/Build/SayKuku.app"
 rm -rf "$APP_DIR"
 mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
 
-cp "$PRODUCT_DIR/SayKuku" "$APP_DIR/Contents/MacOS/SayKuku"
+APP_BINARY="$APP_DIR/Contents/MacOS/SayKuku"
 if [[ "$CONFIGURATION" == "release" ]]; then
-    ARCHS=" $(lipo -archs "$APP_DIR/Contents/MacOS/SayKuku") "
+    # Keep the debug symbols in a dSYM so shipped crash reports can be
+    # symbolicated, then strip them from the binary that goes into the App.
+    VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$ROOT_DIR/Scripts/Resources/Info.plist")"
+    DSYM_DIR="$ROOT_DIR/Dist/SayKuku-${VERSION}.dSYM"
+    mkdir -p "$ROOT_DIR/Dist"
+    rm -rf "$DSYM_DIR"
+    DSYMUTIL_STATUS=0
+    DSYMUTIL_OUTPUT="$(dsymutil "$PRODUCT_DIR/SayKuku" -o "$DSYM_DIR" 2>&1)" || DSYMUTIL_STATUS=$?
+    if [[ -n "$DSYMUTIL_OUTPUT" ]]; then
+        print -u2 -r -- "$DSYMUTIL_OUTPUT"
+    fi
+    if (( DSYMUTIL_STATUS != 0 )) || [[ "$DSYMUTIL_OUTPUT" == *"no debug symbols"* ]]; then
+        print -u2 "dsymutil could not extract debug symbols into $DSYM_DIR"
+        exit 1
+    fi
+fi
+cp "$PRODUCT_DIR/SayKuku" "$APP_BINARY"
+if [[ "$CONFIGURATION" == "release" ]]; then
+    # strip -S keeps every architecture; the lipo check below runs on the result.
+    strip -S "$APP_BINARY"
+    ARCHS=" $(lipo -archs "$APP_BINARY") "
     if [[ "$ARCHS" != *" arm64 "* || "$ARCHS" != *" x86_64 "* ]]; then
         print -u2 "Release binary must contain arm64 and x86_64, got:$ARCHS"
         exit 1
