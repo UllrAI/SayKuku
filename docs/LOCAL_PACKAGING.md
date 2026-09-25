@@ -199,7 +199,8 @@ Scripts/package-app.sh release
 1. 以 release 配置同时编译 `arm64` 和 `x86_64`，生成通用二进制。
 2. 用 `dsymutil` 从编译产物提取调试符号到 `Dist/SayKuku-<版本>.dSYM`，再把二进制复制进 App 并执行 `strip -S`；随后用 `lipo -archs` 确认两个架构都在。
 3. 生成 `Build/SayKuku.app`，资源包放在 `Contents/Resources/SayKuku_SayKuku.bundle`，`Sparkle.framework` 放在 `Contents/Frameworks`（二进制带 `@executable_path/../Frameworks` rpath）。
-4. 写入正式 Bundle ID 和资源，并把 `Scripts/Resources/Licenses` 中的第三方许可证复制到 `Contents/Resources/Licenses`；`SUPublicEDKey` 为空时直接退出。
+4. 写入正式 Bundle ID 和资源（App 图标见本节末尾），并把 `Scripts/Resources/Licenses` 中的第三方许可证复制到 `Contents/Resources/Licenses`；`SUPublicEDKey` 为空时直接退出。
+   目前有两份：`Sparkle.txt`（Sparkle 框架）和 `Lucide.txt`（App 图标、菜单栏图标和 `SayKuku.svg` 用到的 Lucide Bird 路径，ISC 许可证，原文取自 [lucide-icons/lucide 的 LICENSE](https://github.com/lucide-icons/lucide/blob/main/LICENSE)）。新增第三方代码或素材时，把许可证原文放进这个目录。
 5. 由内向外签名：先签 `Sparkle.framework/Versions/B` 下的 `XPCServices/*.xpc`、`Autoupdate`、`Updater.app`（保留它们自带的 entitlement），再签框架，最后用 `Scripts/Resources/SayKuku.entitlements` 签 App。不用 `--deep`，否则 App 的 entitlement 会被盖到 Sparkle 的辅助程序上。
 6. 全部使用同一签名身份、Hardened Runtime 和时间戳，并执行严格签名验证。
 
@@ -242,6 +243,37 @@ git rev-list --count HEAD
 最后两条命令的输出应相同。
 
 此时 `spctl` 显示 `Unnotarized Developer ID` 是正常的，因为公证尚未完成；不要把这个阶段的包交给用户。
+
+### App 图标
+
+App 带两份图标，各给不同系统用：
+
+| 源文件 | 打进 App 的形式 | Info.plist 键 | 谁在用 |
+| --- | --- | --- | --- |
+| `Scripts/Resources/AppIcon.icon` | `Contents/Resources/Assets.car` | `CFBundleIconName = AppIcon` | macOS 26 及以后，显示为分层（Liquid Glass）图标 |
+| `Scripts/Resources/AppIcon.icns` | `Contents/Resources/AppIcon.icns` | `CFBundleIconFile = AppIcon` | macOS 15 |
+
+`AppIcon.icon` 是 Icon Composer 的文件包：`icon.json` 描述底色和分组，`Assets/Bird.svg` 是鸟形图层。底色用珊瑚红 `#F04A3A` 的自动渐变，鸟形沿用 `SayKuku.svg` 的 Lucide Bird 路径和 `.icns` 里的比例。要调整时在 Mac 上用 Icon Composer（Xcode › Open Developer Tool › Icon Composer）打开这个包修改并保存，文件名保持 `AppIcon`，因为它必须和 `actool --app-icon` 的名字一致。
+
+每次打包，脚本都会先复制 `AppIcon.icns`，再用 `xcrun actool` 把 `AppIcon.icon` 编译成 `Assets.car`。部署目标写的是 26.0，这样 actool 只产出 macOS 26 用的分层图标，不会为旧系统另生成一套图标去顶替手工调好的 `.icns`；actool 顺带生成的 `AppIcon.icns` 也不会被使用。
+
+以下情况脚本会打印一行 `warning: actool could not compile AppIcon.icon ...`，照常继续打包，只是不带 `Assets.car` 和 `CFBundleIconName`，所有系统都显示 `.icns`：
+
+- 找不到 `actool`，或 `actool` 返回失败；
+- 没有生成 `Assets.car`；
+- 生成的 partial Info.plist 里没有 `CFBundleIconName = AppIcon`。
+
+actool 的完整输出保存在 `Build/AppIcon.actool/actool.log`。删掉 `AppIcon.icon` 时脚本直接跳过这一步，不会有警告。
+
+确认分层图标已经打进去：
+
+```bash
+ls Build/SayKuku.app/Contents/Resources/Assets.car
+/usr/libexec/PlistBuddy -c 'Print :CFBundleIconName' \
+  Build/SayKuku.app/Contents/Info.plist
+```
+
+Dock 会缓存图标。换图标后看到的还是旧样子时，执行 `killall Dock` 刷新。
 
 ## 5. 公证、装订与最终 ZIP
 
