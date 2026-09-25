@@ -59,6 +59,7 @@ final class AppState {
     @ObservationIgnored private(set) var updater: SPUStandardUpdaterController?
     @ObservationIgnored private var didEvaluateStartupPermissions = false
     @ObservationIgnored private var pendingSetupSteps: [AppSheet] = []
+    @ObservationIgnored var savedForRelaunch = false
 
     static let mainWindowID = "main"
 
@@ -302,22 +303,26 @@ final class AppState {
     }
     /// Opens a new instance, then quits this one, so a new `appLanguage` takes effect.
     func relaunch() {
-        // Release the global shortcuts first: the new instance registers them before this one quits.
-        setGlobalShortcutsPaused(true)
-        let configuration = NSWorkspace.OpenConfiguration()
-        configuration.createsNewApplicationInstance = true
-        NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: configuration) { @Sendable _, error in
-            Task { @MainActor in
-                guard let error else {
-                    NSApplication.shared.terminate(nil)
-                    return
+        Task {
+            guard await data.flushPersistence() else { return }
+            // Release the global shortcuts first: the new instance registers them before this one quits.
+            setGlobalShortcutsPaused(true)
+            let configuration = NSWorkspace.OpenConfiguration()
+            configuration.createsNewApplicationInstance = true
+            NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: configuration) { @Sendable _, error in
+                Task { @MainActor in
+                    guard let error else {
+                        self.savedForRelaunch = true
+                        NSApplication.shared.terminate(nil)
+                        return
+                    }
+                    self.setGlobalShortcutsPaused(false)
+                    Log.workflow.error("Relaunch failed: \(Log.describe(error), privacy: .public)")
+                    self.showToast(
+                        localized("Couldn’t reopen SayKuku. Quit and open it again."),
+                        symbol: "exclamationmark.triangle.fill"
+                    )
                 }
-                self.setGlobalShortcutsPaused(false)
-                Log.workflow.error("Relaunch failed: \(Log.describe(error), privacy: .public)")
-                self.showToast(
-                    localized("Couldn’t reopen SayKuku. Quit and open it again."),
-                    symbol: "exclamationmark.triangle.fill"
-                )
             }
         }
     }
