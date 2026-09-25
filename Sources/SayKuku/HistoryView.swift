@@ -110,19 +110,19 @@ struct HistoryView: View {
     }
 
     private var retentionSubtitle: String {
-        switch appState.historyRetention {
+        switch appState.settings.historyRetention {
         case .off:
             localized("New items aren’t being saved. Existing ones stay until you clear them.")
         case .forever:
             localized("History is kept until you delete it.")
         default:
-            localized("Kept for \(appState.historyRetention.title). Starred items are never deleted automatically.")
+            localized("Kept for \(appState.settings.historyRetention.title). Starred items are never deleted automatically.")
         }
     }
 
     @ViewBuilder
     private var emptyState: some View {
-        if appState.historyEntries.isEmpty, appState.historyRetention == .off {
+        if appState.historyEntries.isEmpty, appState.settings.historyRetention == .off {
             KukuEmptyState(
                 title: localized("History is off"),
                 symbol: "pause.circle",
@@ -474,10 +474,10 @@ private struct HistoryRow: View {
                 .accessibilityValue(Self.durationLabel(entry.durationSeconds))
                 .help(playbackTitle(titleCase: false))
             } else {
-                Image(systemName: entry.status == .processing && appState.storeVoiceAudio ? "ellipsis" : "waveform.slash")
+                Image(systemName: entry.status == .processing && appState.settings.storeVoiceAudio ? "ellipsis" : "waveform.slash")
                     .font(.kukuIcon(.small))
                     .foregroundStyle(KukuColor.textSecondary)
-                Text(entry.status == .processing && appState.storeVoiceAudio
+                Text(entry.status == .processing && appState.settings.storeVoiceAudio
                      ? localized("Saving recording…")
                      : localized("No recording"))
                     .font(.kuku(.subheadline))

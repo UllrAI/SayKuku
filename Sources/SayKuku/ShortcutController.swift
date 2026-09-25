@@ -217,7 +217,7 @@ final class ShortcutController: @unchecked Sendable {
     @MainActor
     private static func shouldArmHold(_ appState: AppState) -> Bool {
         shouldArmHold(
-            inputMode: appState.inputMode,
+            inputMode: appState.settings.inputMode,
             agentIsListening: appState.agentIsListening,
             dictationIsListening: appState.dictationIsListening
         )
@@ -256,7 +256,7 @@ final class ShortcutController: @unchecked Sendable {
 
         firstTapAt = now
         singleTapTask?.cancel()
-        guard appState.inputMode == .tap else { return }
+        guard appState.settings.inputMode == .tap else { return }
 
         singleTapTask = Task { @MainActor [weak self, weak appState] in
             try? await Task.sleep(for: self?.doubleTapInterval ?? .milliseconds(275))
@@ -342,7 +342,7 @@ final class ShortcutController: @unchecked Sendable {
         let handlerReady = installHotKeyHandlerIfNeeded()
         var failed: [GlobalShortcutAction] = []
         for action in GlobalShortcutAction.allCases {
-            guard let shortcut = appState.globalShortcut(for: action) else { continue }
+            guard let shortcut = appState.settings.globalShortcut(for: action) else { continue }
             if handlerReady, let hotKey = register(shortcut, for: action) {
                 hotKeys[action] = hotKey
             } else {

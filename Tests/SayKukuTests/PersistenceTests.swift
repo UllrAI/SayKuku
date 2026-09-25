@@ -55,24 +55,24 @@ struct PersistenceTests {
         defer { environment.clean() }
 
         let state = environment.makeState()
-        #expect(state.automaticAgentWriteBack)
-        #expect(state.matchAppTone)
-        state.recognitionLanguage = .english
-        state.dictationNumberFormat = .spoken
-        state.dictationCleanup = .verbatim
-        state.selectedDomains = [.aiVibeCoding, .softwareDevelopment]
-        state.didCompleteOnboarding = true
-        state.automaticAgentWriteBack = false
-        state.matchAppTone = false
+        #expect(state.settings.automaticAgentWriteBack)
+        #expect(state.settings.matchAppTone)
+        state.settings.recognitionLanguage = .english
+        state.settings.dictationNumberFormat = .spoken
+        state.settings.dictationCleanup = .verbatim
+        state.settings.selectedDomains = [.aiVibeCoding, .softwareDevelopment]
+        state.settings.didCompleteOnboarding = true
+        state.settings.automaticAgentWriteBack = false
+        state.settings.matchAppTone = false
 
         let reloaded = environment.makeState()
-        #expect(reloaded.recognitionLanguage == .english)
-        #expect(reloaded.dictationNumberFormat == .spoken)
-        #expect(reloaded.dictationCleanup == .verbatim)
-        #expect(reloaded.selectedDomains == [.aiVibeCoding, .softwareDevelopment])
-        #expect(reloaded.didCompleteOnboarding)
-        #expect(!reloaded.automaticAgentWriteBack)
-        #expect(!reloaded.matchAppTone)
+        #expect(reloaded.settings.recognitionLanguage == .english)
+        #expect(reloaded.settings.dictationNumberFormat == .spoken)
+        #expect(reloaded.settings.dictationCleanup == .verbatim)
+        #expect(reloaded.settings.selectedDomains == [.aiVibeCoding, .softwareDevelopment])
+        #expect(reloaded.settings.didCompleteOnboarding)
+        #expect(!reloaded.settings.automaticAgentWriteBack)
+        #expect(!reloaded.settings.matchAppTone)
     }
 
     @Test("menu bar-only close preference persists and keeps a recovery entry")
@@ -82,22 +82,22 @@ struct PersistenceTests {
         defer { environment.clean() }
 
         let state = environment.makeState()
-        #expect(!state.hideDockIconAfterMainWindowCloses)
-        state.setShowInMenuBar(false)
-        #expect(!state.showInMenuBar)
+        #expect(!state.settings.hideDockIconAfterMainWindowCloses)
+        state.settings.setShowInMenuBar(false)
+        #expect(!state.settings.showInMenuBar)
 
-        state.hideDockIconAfterMainWindowCloses = true
-        #expect(state.showInMenuBar)
-        state.setShowInMenuBar(false)
-        #expect(state.showInMenuBar)
+        state.settings.hideDockIconAfterMainWindowCloses = true
+        #expect(state.settings.showInMenuBar)
+        state.settings.setShowInMenuBar(false)
+        #expect(state.settings.showInMenuBar)
 
         let reloaded = environment.makeState()
-        #expect(reloaded.hideDockIconAfterMainWindowCloses)
-        #expect(reloaded.showInMenuBar)
+        #expect(reloaded.settings.hideDockIconAfterMainWindowCloses)
+        #expect(reloaded.settings.showInMenuBar)
 
-        reloaded.hideDockIconAfterMainWindowCloses = false
-        reloaded.setShowInMenuBar(false)
-        #expect(!reloaded.showInMenuBar)
+        reloaded.settings.hideDockIconAfterMainWindowCloses = false
+        reloaded.settings.setShowInMenuBar(false)
+        #expect(!reloaded.settings.showInMenuBar)
     }
 
     @Test("snapshot persists and reloads")

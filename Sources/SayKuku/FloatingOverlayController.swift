@@ -78,7 +78,7 @@ final class FloatingOverlayController {
         // Error feedback can wrap to two lines; the pill height is close enough for the caret gap.
         let contentHeight = appState.agentPhase == .answerReady ? appState.answerCardHeight : KukuLayout.pillHeight
         let origin = OverlayLayout.origin(
-            placement: appState.overlayPlacement, caretFrame: caretFrame, visibleFrame: visibleFrame,
+            placement: appState.settings.overlayPlacement, caretFrame: caretFrame, visibleFrame: visibleFrame,
             panelSize: size, contentHeight: contentHeight
         )
         panel.setFrame(NSRect(origin: origin, size: size), display: true)
@@ -256,7 +256,7 @@ private struct AgentAnswerCard: View {
     }
 
     private var searchEngineTitle: String {
-        appState.searchEngine.title
+        appState.settings.searchEngine.title
     }
 
     var body: some View {
