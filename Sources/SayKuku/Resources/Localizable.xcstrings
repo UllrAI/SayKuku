@@ -4744,6 +4744,17 @@
         }
       }
     },
+    "Text on screen" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "屏幕上的文字"
+          }
+        }
+      }
+    },
     "Text on your clipboard, excluding passwords" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4762,6 +4773,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "要导入的文本"
+          }
+        }
+      }
+    },
+    "Text visible in the current window, for commands like “reply to this” or “summarize this page”. Never from password fields or sensitive apps." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当前窗口里能看到的文字，用于“回复他”“总结这页”这类命令。密码框和敏感 App 除外。"
           }
         }
       }

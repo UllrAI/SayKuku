@@ -150,7 +150,7 @@ struct TextWriteVerificationTests {
         #expect(!AgentActionExecutor.needsConfirmation(shortcut, context: [app, domain]))
         #expect(!AgentActionExecutor.needsConfirmation(search, context: [app, domain]))
         #expect(!AgentActionExecutor.needsConfirmation(search, context: []))
-        for kind: ContextItem.Kind in [.selectedText, .previousOutput, .window, .clipboard, .browser, .session] {
+        for kind: ContextItem.Kind in [.selectedText, .previousOutput, .window, .clipboard, .browser, .screen, .session] {
             let untrusted = ContextItem(kind: kind, symbol: "", title: "", value: "text")
             #expect(AgentActionExecutor.needsConfirmation(open, context: [app, untrusted]))
             #expect(AgentActionExecutor.needsConfirmation(shortcut, context: [app, untrusted]))
@@ -239,6 +239,7 @@ struct TextWriteVerificationTests {
             windowTitleAllowed: false,
             clipboardAllowed: false,
             browserPage: nil,
+            screenText: "",
             session: nil,
             domains: [],
             knowledge: [
@@ -287,5 +288,72 @@ struct PasteKeyTests {
         let source = try #require(sources.firstObject) as! TISInputSource
         let layoutData = try #require(KeyboardLayout.layoutData(of: source))
         return KeyboardLayout.pasteKeyCode(in: layoutData)
+    }
+}
+
+@Suite("Screen text")
+struct ScreenTextTests {
+    private let later = ContinuousClock.now + .seconds(60)
+
+    private func node(_ path: [Int], _ role: String, _ text: String?) -> ScreenText.Node {
+        ScreenText.Node(path: path, role: role, text: text)
+    }
+
+    @Test("text roles are joined in reading order, one trimmed line each")
+    func readingOrder() {
+        // Breadth-first: the heading sits above the list whose rows are visited later.
+        let nodes = [
+            node([0], "AXHeading", " 周报 "),
+            node([1], "AXGroup", nil),
+            node([2], "AXButton", "发送"),
+            node([1, 0], "AXStaticText", "周四方便吗"),
+            node([1, 1], "AXSecureTextField", "hunter2"),
+            node([1, 2], "AXLink", "\n"),
+            node([1, 3], "AXCell", "下周一")
+        ]
+        #expect(ScreenText.collect(nodes, deadline: later) == "周报\n周四方便吗\n下周一")
+    }
+
+    @Test("only a line repeating the one before it is dropped")
+    func adjacentRepeats() {
+        let nodes = [
+            node([0], "AXStaticText", "完成"),
+            node([1], "AXStaticText", "完成"),
+            node([2], "AXStaticText", "进行中"),
+            node([3], "AXStaticText", "完成")
+        ]
+        #expect(ScreenText.collect(nodes, deadline: later) == "完成\n进行中\n完成")
+    }
+
+    @Test("collecting stops at the node limit without reading further nodes")
+    func nodeLimit() {
+        var pulled = 0
+        let nodes = AnyIterator<ScreenText.Node> {
+            pulled += 1
+            return ScreenText.Node(path: [pulled], role: "AXStaticText", text: "\(pulled)")
+        }
+        let text = ScreenText.collect(IteratorSequence(nodes), deadline: later)
+        #expect(pulled == ScreenText.nodeLimit)
+        #expect(text.split(separator: "\n").count == ScreenText.nodeLimit)
+    }
+
+    @Test("text stops at the character limit, line breaks included")
+    func characterLimit() {
+        let paragraph = String(repeating: "字", count: 500)
+        let nodes = (0..<10).map { node([$0], "AXStaticText", paragraph) }
+        let text = ScreenText.collect(nodes, deadline: later)
+        #expect(text.count == ScreenText.characterLimit)
+        #expect(text.hasPrefix(paragraph + "\n" + paragraph))
+    }
+
+    @Test("nothing is read once the time budget has run out")
+    func timeBudget() {
+        var pulled = 0
+        let nodes = AnyIterator<ScreenText.Node> {
+            pulled += 1
+            return ScreenText.Node(path: [pulled], role: "AXStaticText", text: "x")
+        }
+        #expect(ScreenText.collect(IteratorSequence(nodes), deadline: ContinuousClock.now - .seconds(1)).isEmpty)
+        #expect(pulled == 0)
     }
 }
