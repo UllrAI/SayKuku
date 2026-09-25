@@ -55,6 +55,8 @@ done
 
 # 2. Signed universal App plus dSYM.
 "$ROOT_DIR/Scripts/package-app.sh" release
+# Read the build number from the packaged App so the summary shows what shipped.
+BUILD_NUMBER="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP_DIR/Contents/Info.plist")"
 if [[ ! -d "$DSYM_DIR" ]]; then
     fail "Expected dSYM was not produced: $DSYM_DIR"
 fi
@@ -117,6 +119,7 @@ git tag "$TAG" "$COMMIT"
 
 print -u2 ""
 print -u2 "Released SayKuku $VERSION ($TAG -> ${COMMIT[1,12]})"
+print -u2 "  Build:   $BUILD_NUMBER"
 print -u2 "  Archive: $FINAL_ARCHIVE"
 print -u2 "  SHA-256: $SHA256"
 print -u2 "  dSYM:    $DSYM_DIR"

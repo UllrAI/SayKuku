@@ -23,6 +23,17 @@ if [[ "$CONFIGURATION" != "release" && "$BUNDLE_IDENTIFIER" == "com.saykuku.app"
     exit 1
 fi
 
+# Sparkle compares CFBundleVersion, so derive it from the commit count: it grows
+# with main and stays the same when one commit is rebuilt.
+if [[ "$(git -C "$ROOT_DIR" rev-parse --is-shallow-repository)" == "true" ]]; then
+    print -u2 "Shallow clone: the commit count would understate CFBundleVersion; run git fetch --unshallow"
+    exit 1
+fi
+BUILD_NUMBER="$(git -C "$ROOT_DIR" rev-list --count HEAD)" || {
+    print -u2 "Could not count commits for CFBundleVersion; package from a Git checkout"
+    exit 1
+}
+
 # Sparkle.framework lives in Contents/Frameworks, which SwiftPM's default rpath does not cover.
 BUILD_ARGS=(-c "$CONFIGURATION" -Xlinker -rpath -Xlinker @executable_path/../Frameworks)
 # macOS 15 still runs on Intel, so release builds ship a universal binary.
@@ -79,6 +90,7 @@ SPARKLE_FRAMEWORK="$APP_DIR/Contents/Frameworks/Sparkle.framework"
 ditto "$PRODUCT_DIR/Sparkle.framework" "$SPARKLE_FRAMEWORK"
 cp "$ROOT_DIR/Scripts/Resources/Info.plist" "$APP_DIR/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $BUNDLE_IDENTIFIER" "$APP_DIR/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" "$APP_DIR/Contents/Info.plist"
 if [[ "$CONFIGURATION" != "release" ]]; then
     /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName SayKuku Dev" "$APP_DIR/Contents/Info.plist"
 fi
