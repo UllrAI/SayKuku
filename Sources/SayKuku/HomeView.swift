@@ -8,8 +8,7 @@ struct HomeView: View {
     var body: some View {
         VStack(spacing: 0) {
             ScreenHeader(
-                eyebrow: appState.text("快速开始", "Quick start"),
-                title: appState.text("在当前输入框，直接开口", "Speak right where you type"),
+                title: appState.text("快速开始", "Quick Start"),
                 subtitle: appState.text("在任意输入框按 Fn 即可，不用打开 SayKuku。", "Press Fn in any text field. No need to open SayKuku.")
             )
 

@@ -80,7 +80,7 @@ App 图标不放文字，使用珊瑚红圆角底板与暖白 Lucide Bird 线稿
 描边                  1 pt 发丝线，焦点环 1.5 pt
 ```
 
-右侧内容始终从同一条左侧基线开始；超宽窗口只在右侧留下弹性空间，不把内容居中漂移。一级页面结构统一为 `ScreenHeader` → `KukuPageTabs`（如有）→ 分隔线 → `KukuPageScroll`。所有二级导航统一使用顶部水平 `KukuPageTabs`：
+右侧内容始终从同一条左侧基线开始；超宽窗口只在右侧留下弹性空间，不把内容居中漂移。一级页面结构统一为 `ScreenHeader` → `KukuPageTabs`（如有）→ 分隔线 → `KukuPageScroll`；`ScreenHeader` 只有标题 + 副标题：标题就是页面名词（快速开始、历史、知识、记忆），副标题用一句话说明这一页做什么，不加眉标。所有二级导航统一使用顶部水平 `KukuPageTabs`：
 
 ```text
 History    All / Voice Input / Voice Agent

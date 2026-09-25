@@ -8,8 +8,7 @@ struct MemoryView: View {
     var body: some View {
         VStack(spacing: 0) {
             ScreenHeader(
-                eyebrow: appState.text("记忆", "Memory"),
-                title: appState.text("越用越懂你", "Learns as you go"),
+                title: appState.text("记忆", "Memory"),
                 subtitle: appState.text(
                     "纠正建议经你确认才会进入知识；最近对话 30 分钟后自动清除。",
                     "Corrections go into Knowledge only after you approve them. Recent conversations clear after 30 minutes."

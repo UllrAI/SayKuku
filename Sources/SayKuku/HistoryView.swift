@@ -26,8 +26,7 @@ struct HistoryView: View {
 
         VStack(spacing: 0) {
             ScreenHeader(
-                eyebrow: appState.text("历史", "History"),
-                title: appState.text("说过的话，随时找回", "Find what you said"),
+                title: appState.text("历史", "History"),
                 subtitle: retentionSubtitle
             ) {
                 if !appState.historyEntries.isEmpty {
