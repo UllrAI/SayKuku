@@ -252,19 +252,17 @@ struct SectionEyebrow: View {
     }
 }
 
+/// Page header: the page's name as the title, plus one line on what the page is for.
 struct ScreenHeader<Accessory: View>: View {
-    let eyebrow: String
     let title: String
     let subtitle: String?
     @ViewBuilder let accessory: Accessory
 
     init(
-        eyebrow: String,
         title: String,
         subtitle: String? = nil,
         @ViewBuilder accessory: () -> Accessory
     ) {
-        self.eyebrow = eyebrow
         self.title = title
         self.subtitle = subtitle
         self.accessory = accessory()
@@ -273,7 +271,6 @@ struct ScreenHeader<Accessory: View>: View {
     var body: some View {
         HStack(alignment: .center, spacing: KukuSpacing.lg) {
             VStack(alignment: .leading, spacing: KukuSpacing.xs) {
-                SectionEyebrow(text: eyebrow)
                 Text(title)
                     .font(.kuku(.largeTitle))
                     .foregroundStyle(KukuColor.textPrimary)
@@ -295,8 +292,8 @@ struct ScreenHeader<Accessory: View>: View {
 }
 
 extension ScreenHeader where Accessory == EmptyView {
-    init(eyebrow: String, title: String, subtitle: String? = nil) {
-        self.init(eyebrow: eyebrow, title: title, subtitle: subtitle) { EmptyView() }
+    init(title: String, subtitle: String? = nil) {
+        self.init(title: title, subtitle: subtitle) { EmptyView() }
     }
 }
 
