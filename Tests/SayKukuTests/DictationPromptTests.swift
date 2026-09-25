@@ -70,6 +70,15 @@ struct DictationPromptTests {
         #expect(!verbatim.contains("Light cleanup"))
     }
 
+    @Test("the mixed-language rules are in the dictation prompt for every recognition language")
+    func mixedLanguageRules() {
+        for language in RecognitionLanguage.allCases {
+            let prompt = QwenRealtimeClient.makeDictationInstructions(knowledgePrompt: "", recognitionLanguage: language)
+            #expect(prompt.contains(PromptRules.mixedLanguage), "missing for \(language)")
+            #expect(prompt.contains("ordinary English words in lowercase inside a Chinese sentence, even at its start"))
+        }
+    }
+
     @Test("the tone rule follows the cleanup rule only when a target app is named")
     func toneRule() throws {
         let prompt = QwenRealtimeClient.makeDictationInstructions(knowledgePrompt: "")
