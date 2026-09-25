@@ -95,6 +95,16 @@ private struct VoiceInputSettings: View {
                 .foregroundStyle(KukuColor.textSecondary)
                 .padding(.horizontal, KukuLayout.rowPadding)
                 .padding(.bottom, KukuSpacing.md)
+                KukuDivider()
+                KukuToggleRow(
+                    title: localized("Match the app’s tone"),
+                    caption: localized(
+                        "Casual in chat, complete sentences in email and documents, no trailing punctuation in code. Sends the current app’s name along with your speech."
+                    ),
+                    isOn: $appState.matchAppTone
+                )
+                // Verbatim only adds punctuation, so there is no tone to adjust.
+                .disabled(appState.dictationCleanup == .verbatim)
             }
 
             KukuGroup(localized("Recognition")) {

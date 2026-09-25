@@ -38,6 +38,9 @@ struct AgentPromptTests {
         #expect(!prompt.contains(#"|null""#))
         #expect(!prompt.contains("hidden reasoning"))
         #expect(QwenReasoningClient.makeAgentInstructions(knowledgePrompt: "") == prompt)
+        #expect(!prompt.contains(QwenReasoningClient.agentToneInstruction))
+        #expect(QwenReasoningClient.makeAgentInstructions(knowledgePrompt: "", matchAppTone: true)
+            == "\(prompt)\n\n\(QwenReasoningClient.agentToneInstruction)")
     }
 
     @Test("agent input reports the text field state outside the untrusted sections")
