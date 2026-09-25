@@ -1,6 +1,44 @@
 import AppKit
 import SwiftUI
 
+// Each phase's status is the pill's text without live input, and what VoiceOver
+// announces when the overlay changes (see `FloatingSystemOverlay`).
+
+extension AppState.AgentPhase {
+    @MainActor func status(_ appState: AppState) -> String? {
+        switch self {
+        case .hidden, .answerReady:
+            return nil
+        case .listening:
+            return appState.text("正在听…", "Listening…")
+        case .transcribing:
+            return appState.text("正在理解…", "Understanding…")
+        case .processing:
+            // `agentCommand` holds the understood task by now, unless there was none.
+            let task = appState.agentCommand.trimmingCharacters(in: .whitespacesAndNewlines)
+            return task.isEmpty || task == Self.listening.status(appState)
+                ? appState.text("正在执行…", "Running…")
+                : appState.text("正在执行 · \(task)", "Running · \(task)")
+        case .result:
+            return appState.text("已完成", "Done")
+        case .copyReady:
+            return CopyFallbackContent.status(appState)
+        }
+    }
+}
+
+extension AppState.DictationPhase {
+    @MainActor func status(_ appState: AppState) -> String? {
+        switch self {
+        case .idle: nil
+        case .listening: appState.text("正在听…", "Listening…")
+        case .processing: appState.text("正在识别…", "Transcribing…")
+        case .success: appState.text("已输入", "Inserted")
+        case .copyReady: CopyFallbackContent.status(appState)
+        }
+    }
+}
+
 struct AgentPill: View {
     @Environment(AppState.self) private var appState
     @State private var showingContext = false
@@ -15,11 +53,11 @@ struct AgentPill: View {
         case .answerReady:
             0
         case .transcribing:
-            KukuPillLayout.width(for: transcribingLabel, minimum: 145, fixedContentWidth: 82, maximum: 233)
+            KukuPillLayout.width(for: status, minimum: 145, fixedContentWidth: 82, maximum: 233)
         case .processing:
-            KukuPillLayout.width(for: processingLabel, minimum: 145, fixedContentWidth: 82)
+            KukuPillLayout.width(for: status, minimum: 145, fixedContentWidth: 82)
         case .result:
-            KukuPillLayout.width(for: resultLabel, minimum: 78, fixedContentWidth: appState.resultCanUndo ? 96 : 38, maximum: 200)
+            KukuPillLayout.width(for: status, minimum: 78, fixedContentWidth: appState.resultCanUndo ? 96 : 38, maximum: 200)
         }
     }
 
@@ -27,23 +65,8 @@ struct AgentPill: View {
         appState.liveTranscript.isEmpty ? appState.agentCommand : appState.liveTranscript
     }
 
-    private var transcribingLabel: String {
-        appState.text("正在理解…", "Understanding…")
-    }
-
-    private var taskTitle: String {
-        let value = appState.agentCommand.trimmingCharacters(in: .whitespacesAndNewlines)
-        return value == appState.text("正在听…", "Listening…") ? "" : value
-    }
-
-    private var processingLabel: String {
-        taskTitle.isEmpty
-            ? appState.text("正在执行…", "Running…")
-            : appState.text("正在执行 · \(taskTitle)", "Running · \(taskTitle)")
-    }
-
-    private var resultLabel: String {
-        appState.text("已完成", "Done")
+    private var status: String {
+        appState.agentPhase.status(appState) ?? ""
     }
 
     var body: some View {
@@ -94,9 +117,7 @@ struct AgentPill: View {
                 )
             } else if appState.agentPhase == .transcribing || appState.agentPhase == .processing {
                 AgentActivityIndicator()
-                Text(appState.agentPhase == .transcribing
-                     ? transcribingLabel
-                     : processingLabel)
+                Text(status)
                     .font(.kuku(.callout, weight: .semibold))
                     .foregroundStyle(KukuColor.textPrimary)
                     .lineLimit(1)
@@ -108,7 +129,7 @@ struct AgentPill: View {
                 )
             } else if appState.agentPhase == .result {
                 Label {
-                    Text(resultLabel)
+                    Text(status)
                 } icon: {
                     Image(systemName: "checkmark")
                         .foregroundStyle(KukuColor.success)
@@ -282,27 +303,24 @@ struct DictationPill: View {
         switch appState.dictationPhase {
         case .idle: 0
         case .listening:
-            KukuPillLayout.width(for: listeningLabel, minimum: 160, fixedContentWidth: 135, maximum: 340)
+            KukuPillLayout.width(for: transcriptLabel, minimum: 160, fixedContentWidth: 135, maximum: 340)
         case .copyReady:
             CopyFallbackContent.width(appState)
         case .processing:
             // Padding 2×8, spinner 16, three 8 pt gaps and the 24 pt cancel button.
-            KukuPillLayout.width(for: processingLabel, minimum: 145, fixedContentWidth: 80, maximum: 340)
+            KukuPillLayout.width(for: transcriptLabel, minimum: 145, fixedContentWidth: 80, maximum: 340)
         case .success:
-            KukuPillLayout.width(for: successLabel, minimum: 78, fixedContentWidth: appState.canUndoLastWrite ? 100 : 42, maximum: 200)
+            KukuPillLayout.width(for: status, minimum: 78, fixedContentWidth: appState.canUndoLastWrite ? 100 : 42, maximum: 200)
         }
     }
 
-    private var listeningLabel: String {
-        appState.liveTranscript.isEmpty ? appState.text("正在听…", "Listening…") : appState.liveTranscript
+    private var status: String {
+        appState.dictationPhase.status(appState) ?? ""
     }
 
-    private var processingLabel: String {
-        appState.liveTranscript.isEmpty ? appState.text("正在识别…", "Transcribing…") : appState.liveTranscript
-    }
-
-    private var successLabel: String {
-        appState.text("已输入", "Inserted")
+    /// While listening and transcribing, live text replaces the status once there is some.
+    private var transcriptLabel: String {
+        appState.liveTranscript.isEmpty ? status : appState.liveTranscript
     }
 
     var body: some View {
@@ -316,7 +334,7 @@ struct DictationPill: View {
                     action: appState.cancelDictation
                 )
                 Waveform(color: KukuColor.coral, level: appState.inputLevel, barCount: 6, height: 16)
-                Text(listeningLabel)
+                Text(transcriptLabel)
                     .lineLimit(1)
                     .truncationMode(.tail)
                 Spacer(minLength: 0)
@@ -326,7 +344,7 @@ struct DictationPill: View {
                 )
             case .processing:
                 ProgressView().controlSize(.small)
-                Text(processingLabel)
+                Text(transcriptLabel)
                     .lineLimit(1)
                     .truncationMode(.tail)
                 Spacer(minLength: 0)
@@ -337,7 +355,7 @@ struct DictationPill: View {
             case .success:
                 Image(systemName: "checkmark")
                     .foregroundStyle(KukuColor.success)
-                Text(successLabel)
+                Text(status)
                 if appState.canUndoLastWrite {
                     Spacer(minLength: 0)
                     PillUndoButton()
@@ -366,7 +384,7 @@ private struct CopyFallbackContent: View {
         KukuPillLayout.width(for: status(appState), minimum: 180, fixedContentWidth: 96)
     }
 
-    private static func status(_ appState: AppState) -> String {
+    static func status(_ appState: AppState) -> String {
         appState.hasCopiedPendingText
             ? appState.text("已复制，按 ⌘V 粘贴", "Copied. Press ⌘V to paste.")
             : appState.text("点按复制结果", "Click to copy")

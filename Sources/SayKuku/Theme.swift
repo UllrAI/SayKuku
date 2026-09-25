@@ -27,18 +27,30 @@ enum KukuColor {
 
     static let textPrimary = adaptive(light: KukuTone(0.110, 0.106, 0.098), dark: KukuTone(0.929, 0.922, 0.910))
     /// Captions, descriptions and metadata. At least 4.5:1 on every background.
-    static let textSecondary = adaptive(light: KukuTone(0.380, 0.369, 0.349), dark: KukuTone(0.667, 0.655, 0.635))
+    static let textSecondary = adaptive(
+        light: KukuTone(0.380, 0.369, 0.349), dark: KukuTone(0.667, 0.655, 0.635),
+        highContrast: (light: KukuTone(0.220, 0.212, 0.200), dark: KukuTone(0.827, 0.820, 0.808))
+    )
     /// Placeholders, unselected indicators and decorative glyphs. Never for information people need to read.
     static let textTertiary = adaptive(light: KukuTone(0.545, 0.533, 0.514), dark: KukuTone(0.478, 0.467, 0.451))
 
     // MARK: Lines
 
     /// Outline of cards, groups, controls and fields.
-    static let border = adaptive(light: KukuTone(white: 0, alpha: 0.09), dark: KukuTone(white: 1, alpha: 0.10))
+    static let border = adaptive(
+        light: KukuTone(white: 0, alpha: 0.09), dark: KukuTone(white: 1, alpha: 0.10),
+        highContrast: (light: KukuTone(white: 0, alpha: 0.40), dark: KukuTone(white: 1, alpha: 0.45))
+    )
     /// Outline of selected choices and hovered fields.
-    static let borderStrong = adaptive(light: KukuTone(white: 0, alpha: 0.16), dark: KukuTone(white: 1, alpha: 0.18))
+    static let borderStrong = adaptive(
+        light: KukuTone(white: 0, alpha: 0.16), dark: KukuTone(white: 1, alpha: 0.18),
+        highContrast: (light: KukuTone(white: 0, alpha: 0.70), dark: KukuTone(white: 1, alpha: 0.75))
+    )
     /// Dividers between rows and below page tabs.
-    static let separator = adaptive(light: KukuTone(white: 0, alpha: 0.07), dark: KukuTone(white: 1, alpha: 0.08))
+    static let separator = adaptive(
+        light: KukuTone(white: 0, alpha: 0.07), dark: KukuTone(white: 1, alpha: 0.08),
+        highContrast: (light: KukuTone(white: 0, alpha: 0.30), dark: KukuTone(white: 1, alpha: 0.35))
+    )
 
     // MARK: Neutral fills
 
@@ -71,9 +83,23 @@ enum KukuColor {
     static let warning = adaptive(light: KukuTone(0.851, 0.557, 0.137), dark: KukuTone(0.937, 0.690, 0.314))
     static let danger = adaptive(light: KukuTone(0.816, 0.184, 0.220), dark: KukuTone(0.96, 0.40, 0.41))
 
-    fileprivate static func adaptive(light: KukuTone, dark: KukuTone) -> Color {
+    /// `highContrast` applies with Increase Contrast; tokens without it keep their regular values.
+    fileprivate static func adaptive(
+        light: KukuTone,
+        dark: KukuTone,
+        highContrast: (light: KukuTone, dark: KukuTone)? = nil
+    ) -> Color {
         Color(nsColor: NSColor(name: nil) { appearance in
-            appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark.nsColor : light.nsColor
+            let appearances: [NSAppearance.Name] = [
+                .aqua, .darkAqua, .accessibilityHighContrastAqua, .accessibilityHighContrastDarkAqua,
+            ]
+            let tone = switch appearance.bestMatch(from: appearances) ?? .aqua {
+            case .darkAqua: dark
+            case .accessibilityHighContrastAqua: highContrast?.light ?? light
+            case .accessibilityHighContrastDarkAqua: highContrast?.dark ?? dark
+            default: light
+            }
+            return tone.nsColor
         })
     }
 }
@@ -204,8 +230,9 @@ enum KukuBorder {
 
 enum KukuState {
     static let disabledOpacity: Double = 0.45
-    static let pressedScale: CGFloat = 0.98
-    static let iconPressedScale: CGFloat = 0.94
+    /// Pressed buttons shrink slightly; with Reduce Motion they hold still.
+    static var pressedScale: CGFloat { Motion.isReduced ? 1 : 0.98 }
+    static var iconPressedScale: CGFloat { Motion.isReduced ? 1 : 0.94 }
 }
 
 // MARK: - Typography
@@ -318,19 +345,27 @@ struct KukuShadow: Sendable {
 
 // MARK: - Motion
 
+/// Every token is nil with Reduce Motion, so changes apply without animating.
+/// Read on each use rather than from the environment because models animate their changes too.
 enum Motion {
+    static var isReduced: Bool { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
+
     /// Hover, selection and other small state changes.
-    static let snappy = Animation.easeInOut(duration: 0.22)
+    static var snappy: Animation? { animation(.easeInOut(duration: 0.22)) }
     /// Inserting, removing or reordering list content.
-    static let spring = Animation.spring(response: 0.42, dampingFraction: 0.76, blendDuration: 0.15)
+    static var spring: Animation? { animation(.spring(response: 0.42, dampingFraction: 0.76, blendDuration: 0.15)) }
     /// Overlay appearance and sheet step changes.
-    static let panel = Animation.spring(response: 0.5, dampingFraction: 0.82, blendDuration: 0.2)
+    static var panel: Animation? { animation(.spring(response: 0.5, dampingFraction: 0.82, blendDuration: 0.2)) }
     /// Overlay pill width changes.
-    static let pill = Animation.spring(response: 0.34, dampingFraction: 0.86, blendDuration: 0.12)
+    static var pill: Animation? { animation(.spring(response: 0.34, dampingFraction: 0.86, blendDuration: 0.12)) }
     /// Pressed feedback on buttons.
-    static let press = Animation.spring(response: 0.24, dampingFraction: 0.75)
+    static var press: Animation? { animation(.spring(response: 0.24, dampingFraction: 0.75)) }
     /// Audio level meters and waveforms that follow live input.
-    static let meter = Animation.linear(duration: 0.08)
+    static var meter: Animation? { animation(.linear(duration: 0.08)) }
+
+    private static func animation(_ animation: Animation) -> Animation? {
+        isReduced ? nil : animation
+    }
 }
 
 // MARK: - Surface modifiers
