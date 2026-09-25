@@ -20,6 +20,12 @@
 swift run SayKuku
 ```
 
+正式发布只需一条命令（前置条件见第 1 节，流程见第 5 节）：
+
+```bash
+Scripts/release.sh
+```
+
 需要测试权限、菜单栏和独立开发版 App 时，生成开发包：
 
 ```bash
@@ -136,7 +142,7 @@ Scripts/package-app.sh debug
 open Build/SayKuku.app
 ```
 
-如果本机有多个 Apple Development 证书，可以显式指定：
+脚本会优先选名称里带当前用户名的 Apple Development 证书，否则取第一个。需要指定别的证书时：
 
 ```bash
 SAYKUKU_SIGNING_IDENTITY='Apple Development: Your Name (TEAMID)' \
@@ -166,11 +172,21 @@ CFBundleDisplayName = SayKuku Dev
 正式版固定使用 Bundle ID `com.saykuku.app`，不能改成开发 Bundle ID。稳定的 Bundle ID 加稳定的 Developer ID 签名身份，才能让 macOS 在更新后正确识别原有权限记录。
 
 ```bash
-export SAYKUKU_SIGNING_IDENTITY='Developer ID Application: Your Name (TEAMID)'
 Scripts/package-app.sh release
 ```
 
-如果证书位于非默认钥匙串，可额外指定完整路径：
+签名身份由 `Scripts/signing-identity.sh` 选定，并在编译前检查，证书有问题几秒内就会报错：
+
+- 钥匙串里恰好有一个带私钥的 `Developer ID Application` 身份时，直接使用它。
+- 一个都没有时报错退出；有多个时列出全部并退出，这时用环境变量指定其中一个：
+
+  ```bash
+  export SAYKUKU_SIGNING_IDENTITY='Developer ID Application: Your Name (TEAMID)'
+  ```
+
+- 指定的身份不是 `Developer ID Application`，或钥匙串里找不到时，同样报错退出。
+
+如果证书位于非默认钥匙串，可额外指定完整路径（自动选择也只在这个钥匙串里找）：
 
 ```bash
 export SAYKUKU_KEYCHAIN='/path/to/signing.keychain-db'
@@ -180,7 +196,7 @@ Scripts/package-app.sh release
 脚本会：
 
 1. 以 release 配置同时编译 `arm64` 和 `x86_64`，生成通用二进制。
-2. 用 `dsymutil` 从编译产物提取调试符号到 `Dist/SayKuku-<版本>.dSYM`，再把二进制复制进 App 并执行 `strip -S`；随后用 `lipo -archs` 确认两个架构都在。
+2. 用 `dsymutil` 从编译产物提取调试符号到 `Dist/SayKuku-<版本>.dSYM`，再把二进制复制进 App 并执行 `strip -S`；随后用 `lipo -archs` 确认两个架构都在，并用 `dwarfdump --uuid` 确认 dSYM 与 App 二进制每个架构的 UUID 一致。
 3. 生成 `Build/SayKuku.app`，资源包放在 `Contents/Resources/SayKuku_SayKuku.bundle`。
 4. 写入正式 Bundle ID 和资源（App 图标见本节末尾），并把 `Scripts/Resources/Licenses` 中的第三方许可证复制到 `Contents/Resources/Licenses`。
    目前只有 `Lucide.txt`（App 图标、菜单栏图标和 `SayKuku.svg` 用到的 Lucide Bird 路径，ISC 许可证，原文取自 [lucide-icons/lucide 的 LICENSE](https://github.com/lucide-icons/lucide/blob/main/LICENSE)）。新增第三方代码或素材时，把许可证原文放进这个目录。
@@ -261,16 +277,15 @@ Dock 会缓存图标。换图标后看到的还是旧样子时，执行 `killall
 完成第 2 节的版本号修改并提交后，在干净的工作区运行：
 
 ```bash
-export SAYKUKU_SIGNING_IDENTITY='Developer ID Application: Your Name (TEAMID)'
 Scripts/release.sh
 ```
 
-`SAYKUKU_KEYCHAIN` 的用法与第 4 节相同。脚本任何一步失败都会立即退出，不重试，也不会等待输入。它按顺序执行：
+签名身份的选择规则、`SAYKUKU_SIGNING_IDENTITY` 和 `SAYKUKU_KEYCHAIN` 的用法与第 4 节相同。脚本任何一步失败都会立即退出，不重试，也不会等待输入。它按顺序执行：
 
-1. 前置检查：`git status --porcelain` 为空、已设置 `SAYKUKU_SIGNING_IDENTITY`、`v<版本>` 标签尚不存在、`xcrun notarytool history --keychain-profile 'SayKuku-Notary'` 能正常执行。
+1. 前置检查：`git status --porcelain` 为空、能确定唯一的 Developer ID 签名身份、`v<版本>` 标签尚不存在、`xcrun notarytool history --keychain-profile 'SayKuku-Notary'` 能正常执行。
 2. 运行 `swift test`。
 3. 若 `Dist/` 已有同版本的 ZIP 或 dSYM，先加时间戳后缀备份。
-4. 调用 `Scripts/package-app.sh release`，生成已签名的 App 和 dSYM。
+4. 调用 `Scripts/package-app.sh release`，生成已签名的 App 和 UUID 已核对的 dSYM。
 5. 生成公证 ZIP 并提交 Apple；状态不是 `Accepted` 时打印 `notarytool log` 后退出。结果保存在 `Build/notarization-result.json`，其中有 submission `id`。
 6. `stapler staple`、`stapler validate`；`spctl` 输出里没有 `source=Notarized Developer ID` 就退出。
 7. 从装订后的 App 重新生成最终 ZIP，确认不含 AppleDouble 文件，并输出 SHA-256。
@@ -386,7 +401,7 @@ if unzip -l "$FINAL_ARCHIVE" | rg -q '(^|/)\._'; then
 fi
 ```
 
-确认 dSYM 与 App 中的二进制对应：两条命令输出的每个架构 UUID 必须一致。
+确认 dSYM 与 App 中的二进制对应（打包脚本已自动核对，这里用于手动复查）：两条命令输出的每个架构 UUID 必须一致。
 
 ```bash
 dwarfdump --uuid Build/SayKuku.app/Contents/MacOS/SayKuku
@@ -479,7 +494,7 @@ Keychain 只保存 API Key。History、纠正建议与记忆（Knowledge）以 J
 - Key ID、Issuer ID、Team ID：不是私钥，但应和 `.p8` 的备份说明一起保存。
 - `SayKuku-Notary` profile：保存在本机钥匙串中，不需要也不应导出到仓库。
 
-当前项目的签名脚本是 `Scripts/package-app.sh`，发布脚本是 `Scripts/release.sh`，正式权限声明是 `Scripts/Resources/SayKuku.entitlements`。`Build/` 和 `Dist/` 都是本地产物，不是源代码；但已发布版本的 dSYM 需要另行长期备份。
+当前项目的签名脚本是 `Scripts/package-app.sh`（签名身份选择在 `Scripts/signing-identity.sh`），发布脚本是 `Scripts/release.sh`，正式权限声明是 `Scripts/Resources/SayKuku.entitlements`。`Build/` 和 `Dist/` 都是本地产物，不是源代码；但已发布版本的 dSYM 需要另行长期备份。
 
 ## 10. 常见错误
 

@@ -25,14 +25,13 @@ Scripts/package-app.sh debug
 open Build/SayKuku.app
 ```
 
-Release 构建必须显式指定 Developer ID：
+Release 构建只接受 `Developer ID Application` 身份：钥匙串里恰好一个时自动选用，没有或有多个时脚本报错，需用 `SAYKUKU_SIGNING_IDENTITY` 指定。签名身份的选择逻辑集中在 `Scripts/signing-identity.sh`。
 
 ```bash
-SAYKUKU_SIGNING_IDENTITY='Developer ID Application: Name (TEAMID)' \
-  Scripts/package-app.sh release
+Scripts/package-app.sh release
 ```
 
-完整发布（公证、装订、最终 ZIP、dSYM、打标签）使用 `Scripts/release.sh`，前置条件见 `docs/LOCAL_PACKAGING.md` 第 5 节。
+完整发布（测试、签名、公证、装订、最终 ZIP、dSYM、`ver.json`、打标签）一条命令完成：`Scripts/release.sh`，前置条件见 `docs/LOCAL_PACKAGING.md` 第 5 节。
 
 不要用 `swift run` 判断 TCC、签名、Keychain ACL 或 App Bundle 资源行为。
 
