@@ -798,7 +798,7 @@ enum ContextCollector {
             items.append(ContextItem(
                 kind: .knowledge,
                 symbol: "books.vertical",
-                title: localized("Saved knowledge"),
+                title: localized("Memory"),
                 value: "\(knowledge.count)"
             ))
         }

@@ -232,6 +232,42 @@ struct PersistenceTests {
         #expect(try await store.load().entities.map(\.type) == expected)
     }
 
+    @Test("Voice Agent turns saved by earlier builds are ignored and dropped at the next save")
+    func legacySessionsDropped() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let snapshotURL = root.appendingPathComponent("store.json")
+        let session = """
+        {"id":"\(UUID().uuidString)","app":"com.apple.Notes","contextSummary":"","userCommand":"改短",
+        "response":"短文","createdAt":1700000000123,"expiresAt":1700000000456}
+        """
+        try Data(#"{"version":1,"history":[],"sessions":[\#(session),"damaged"]}"#.utf8).write(to: snapshotURL)
+        let store = LocalStore(root: root)
+
+        #expect(await store.dataIssue == nil)
+        let snapshot = try await store.load()
+        try await store.replace(snapshot)
+        let saved = String(decoding: try Data(contentsOf: snapshotURL), as: UTF8.self)
+        #expect(!saved.contains("sessions"))
+        #expect(!saved.contains("改短"))
+    }
+
+    @Test("corrections saved before prompt counts load as never asked")
+    func legacyCorrectionPromptCount() throws {
+        let json = """
+        {"id":"\(UUID().uuidString)","raw":"张月","corrected":"张越","count":2,"lastApp":"Notes",
+        "lastSeenAt":1700000000123,"status":"pending"}
+        """
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .millisecondsSince1970
+        let record = try decoder.decode(CorrectionRecord.self, from: Data(json.utf8))
+
+        #expect(record.count == 2)
+        #expect(record.status == .pending)
+        #expect(record.promptCount == 0)
+    }
+
     @Test("data written by a newer version stays read-only")
     func newerSnapshotVersion() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

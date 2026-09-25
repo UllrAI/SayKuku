@@ -21,7 +21,11 @@ struct KnowledgePromptTests {
         let dictation = QwenRealtimeClient.makeDictationInstructions(knowledgePrompt: dictationKnowledge)
         let agent = QwenReasoningClient.makeAgentInstructions(knowledgePrompt: agentKnowledge)
 
-        #expect(dictation.contains(#"preferred spelling: "WorkBuddy"; type: project; spoken aliases: ["work body"]"#))
+        #expect(dictation.contains(#"preferred spelling: "WorkBuddy"; type: project; spoken aliases: ["work body"]; clue: "Internal product""#))
+        #expect(dictation.contains("choose by their clues"))
+        let withoutClue = KnowledgePrompt.render(entities: [KnowledgeEntity(name: "AniKuku", type: .project)], purpose: .transcription)
+        #expect(withoutClue.contains(#"spoken aliases: []"#))
+        #expect(!withoutClue.contains("; clue:"))
         #expect(agent.contains(#"canonical name: "WorkBuddy"; type: project; aliases: ["work body"]; detail: "Internal product""#))
         #expect(agent.contains("Reference facts"))
     }

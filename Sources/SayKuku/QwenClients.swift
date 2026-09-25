@@ -103,7 +103,7 @@ enum KnowledgePrompt {
 
         let knowledgeGuidance = switch purpose {
         case .transcription:
-            "Confirmed spellings: when the audio clearly says a name or one of its aliases, write the preferred spelling. Never substitute on mere similarity."
+            "Confirmed spellings: when the audio clearly says a name or one of its aliases, write the preferred spelling. Never substitute on mere similarity. When entries sound the same or alike, choose by their clues."
         case .agent:
             "Reference facts: use them when relevant, prefer the canonical name when the command uses an alias, and do not invent facts beyond them."
         }
@@ -145,7 +145,9 @@ enum KnowledgePrompt {
             .joined(separator: ", ") + "]"
         switch purpose {
         case .transcription:
-            return "- preferred spelling: \(name); type: \(entity.type.rawValue); spoken aliases: \(aliases)"
+            // The clue tells homophones apart; most entries have none, so it's left out when empty.
+            let clue = entity.detail.isEmpty ? "" : "; clue: " + quoted(clipped(entity.detail, to: maxDetailLength))
+            return "- preferred spelling: \(name); type: \(entity.type.rawValue); spoken aliases: \(aliases)\(clue)"
         case .agent:
             let detail = quoted(clipped(entity.detail, to: maxDetailLength))
             return "- canonical name: \(name); type: \(entity.type.rawValue); aliases: \(aliases); detail: \(detail)"

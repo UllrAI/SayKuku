@@ -18,7 +18,6 @@ actor LocalStore {
         var history: [HistoryEntry] = []
         var entities: [KnowledgeEntity] = []
         var corrections: [CorrectionRecord] = []
-        var sessions: [AgentSession] = []
     }
 
     /// How a damaged `store.json` was handled at launch. The original bytes are never overwritten.
@@ -204,7 +203,7 @@ actor LocalStore {
     private static func log(_ result: LoadResult) {
         let snapshot = result.snapshot
         let counts = "history \(snapshot.history.count), knowledge \(snapshot.entities.count), "
-            + "corrections \(snapshot.corrections.count), sessions \(snapshot.sessions.count)"
+            + "corrections \(snapshot.corrections.count)"
         switch result.issue {
         case nil:
             Log.store.info("Loaded store.json: \(counts, privacy: .public)")
@@ -245,12 +244,14 @@ actor LocalStore {
 }
 
 /// Decodes each record on its own so one damaged or newer-format record does not hide the rest.
+/// Keys it doesn't list, such as `sessions` from builds that saved Voice Agent turns, are ignored
+/// and dropped at the next save.
 private struct TolerantSnapshot: Decodable {
     let snapshot: LocalStore.Snapshot
     let skippedCount: Int
 
     private enum CodingKeys: String, CodingKey {
-        case version, history, entities, corrections, sessions
+        case version, history, entities, corrections
     }
 
     init(from decoder: Decoder) throws {
@@ -266,8 +267,7 @@ private struct TolerantSnapshot: Decodable {
             version: container.decodeIfPresent(Int.self, forKey: .version) ?? 1,
             history: records(.history),
             entities: records(.entities),
-            corrections: records(.corrections),
-            sessions: records(.sessions)
+            corrections: records(.corrections)
         )
         skippedCount = skipped
     }

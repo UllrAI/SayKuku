@@ -8,10 +8,10 @@
 
 - 第 0 节：当前实现状态与界面基线。
 - 第 1–6 节：产品核心、Fn 交互、Voice Input、Voice Agent 与 Context。
-- 第 7–15 节：Agent Session、Knowledge、Memory、纠错与 Prompt 约束。
-- 第 16–18 节：Dictation/Agent 边界、Settings、模型与实际架构。
-- 第 19–24 节：技术选型记录、外部项目调研与依赖策略；不代表当前仓库已引入相关代码。
-- 第 25 节：MVP 收敛范围。
+- 第 7–13 节：Agent 对话、记忆、纠正学习与 Prompt 约束。
+- 第 14–16 节：Dictation/Agent 边界、Settings、模型与实际架构。
+- 第 17–22 节：技术选型记录、外部项目调研与依赖策略；不代表当前仓库已引入相关代码。
+- 第 23 节：MVP 收敛范围。
 
 软件名称与所有纯文本固定写作 `SayKuku`。句点只作为 Logo 组合中的视觉细节，不进入窗口标题、菜单、按钮、权限文案或无障碍文本。
 
@@ -52,17 +52,16 @@ App 图标不放文字，使用珊瑚红圆角底板与暖白 Lucide Bird 线稿
 | 权限引导与麦克风测试 | ✅ 已完成 | 启动时缺失权限自动展示引导；麦克风与辅助功能实时状态、快捷开启，辅助功能授权后自动恢复，回到 App 也会复查；设置页可重新打开；AVAudioEngine 实时输入电平测试 | 增加多输入设备切换回归测试 |
 | 首页与两种浮层 | ✅ 已完成 | Voice Input / Voice Agent 的真实录音、识别、自动执行与结果状态，以及跨桌面非激活浮层 | — |
 | History | ✅ 已完成 | 停止录音即创建历史；原始语音优先落盘；识别或 Agent 失败仍保留输入及失败状态；支持回放、搜索、筛选、星标、删除、清空和按期限清理；列表支持键盘选择、Delete 删除、⌘C 复制结果、⌘F 搜索；本地数据损坏时先备份再恢复 | — |
-| Knowledge | ✅ 已完成 | 手动添加、模型抽取、PII 预过滤、分段、归一化、去重、实体 Review、本地存储，以及作为模型 Prompt 的结构化知识块；列表支持键盘选择、Return 编辑、Delete 删除、⌘C 复制名称、⌘F 搜索 | — |
-| Memory | 🟡 部分完成 | Agent Session 在 30 分钟 TTL 内进入同一 App 的后续 Agent Prompt；纠错建议经用户确认后进入长期 Knowledge Prompt | [#1](https://github.com/UllrAI/SayKuku/issues/1)：实现可审阅的自动记忆提炼链路 |
+| 记忆 | ✅ 已完成 | 手动添加、模型抽取、PII 预过滤、分段、归一化、去重、实体 Review、本地存储，以及作为模型 Prompt 的结构化知识块；纠正建议在页面顶部「建议」区确认后入库，学错的自动条目会自愈改名；Agent 最近对话在 30 分钟 TTL 内只存内存；列表支持键盘选择、Return 编辑、Delete 删除、⌘C 复制名称、⌘F 搜索 | — |
 | Settings 与中英文 | ✅ 已完成 | 独立设置窗口（⌘,，不拉起主窗口，隐藏 Dock 图标时也不恢复）、统一水平 Tab、语言、输入模式、浮层位置、隐私开关、菜单栏、登录项、关闭窗口后的 Dock 行为、快捷键状态和持久化；界面文案在 String Catalog（英文源语言 + 简体中文），界面语言写入 `AppleLanguages`，重新打开后与系统菜单、对话框和日期一起切换 | — |
 | Qwen Realtime / Omni | ✅ 已完成 | Realtime WebSocket、Omni 请求式 API、批处理音频 fallback、错误与超时 | — |
 | 麦克风与系统写回 | ✅ 已完成 | 16kHz PCM 录音、可选 Semantic VAD、目标快照、写回前校验和 Accessibility 写回 | — |
-| 本地存储 | ✅ 已完成 | API Key 使用 Keychain；History / Memory / Knowledge 使用 Application Support JSON，录音使用 WAV 文件，并按保留期限清理 | — |
+| 本地存储 | ✅ 已完成 | API Key 使用 Keychain；History、记忆与纠正建议使用 Application Support JSON，录音使用 WAV 文件，并按保留期限清理；Agent 最近对话不落盘 | — |
 | 截图 OCR 导入 | ⏸ 后续版本 | 仅保留产品设计 | MVP 后再评估 |
 
 ### 0.1 桌面端视觉与布局标准
 
-视觉语言：安静、克制、原生。中性色承载层级，珊瑚红（coral）是唯一强调色，只用于品牌、每个视图唯一的主操作、选中指示、焦点环和“正在录音”等进行中的关键状态；成功、警告、错误色只表达状态；分类（知识类型、导入状态、历史模式）一律用中性图标加文字徽标区分。不用渐变，不用彩色阴影。
+视觉语言：安静、克制、原生。中性色承载层级，珊瑚红（coral）是唯一强调色，只用于品牌、每个视图唯一的主操作、选中指示、焦点环和“正在录音”等进行中的关键状态；成功、警告、错误色只表达状态；分类（记忆条目类型、导入状态、历史模式）一律用中性图标加文字徽标区分。不用渐变，不用彩色阴影。
 
 所有数值以代码为准：`Sources/SayKuku/Theme.swift` 定义 token（`KukuColor`、`KukuSpacing`、`KukuLayout`、`KukuTextStyle` / `Font.kuku`、`KukuIconSize`、`KukuShadow`、`KukuBorder`、`Motion`），`Sources/SayKuku/DesignSystem.swift` 提供共享组件（`KukuButtonStyle`、`KukuGroup`、`KukuRow`、`KukuBadge`、`KukuStatusLabel`、`KukuSearchField`、`KukuTextField`、`KukuEmptyState`、`KukuSheetHeader` / `KukuSheetFooter`、`KukuToast` 等）。页面不直接写颜色、字号、间距与圆角字面量。
 
@@ -80,16 +79,15 @@ App 图标不放文字，使用珊瑚红圆角底板与暖白 Lucide Bird 线稿
 描边                  1 pt 发丝线，焦点环 1.5 pt
 ```
 
-右侧内容始终从同一条左侧基线开始；超宽窗口只在右侧留下弹性空间，不把内容居中漂移。一级页面结构统一为 `ScreenHeader` → `KukuPageTabs`（如有）→ 分隔线 → `KukuPageScroll`；`ScreenHeader` 只有标题 + 副标题：标题就是页面名词（快速开始、历史、知识、记忆），副标题用一句话说明这一页做什么，不加眉标。所有二级导航统一使用顶部水平 `KukuPageTabs`：
+右侧内容始终从同一条左侧基线开始；超宽窗口只在右侧留下弹性空间，不把内容居中漂移。一级页面结构统一为 `ScreenHeader` → `KukuPageTabs`（如有）→ 分隔线 → `KukuPageScroll`；`ScreenHeader` 只有标题 + 副标题：标题就是页面名词（快速开始、历史、记忆），副标题用一句话说明这一页做什么，不加眉标。所有二级导航统一使用顶部水平 `KukuPageTabs`：
 
 ```text
-History    All / Voice Input / Voice Agent
-Knowledge  All / People / Organizations / Projects / Terms
-Memory     Corrections / Short-term
-Settings   General / Voice Input / Voice Agent / History / Privacy / Qwen Connection
+History     All / Voice Input / Voice Agent
+Memory      All / People / Organizations / Projects / Terms
+Settings    General / Voice Input / Voice Agent / History / Privacy / Qwen Connection
 ```
 
-Knowledge 与 Memory 是一级侧栏页面，不再重复出现在 Settings 内。设置分组使用 `KukuGroup`，每一行使用 `KukuRow` 撑满卡片宽度并左对齐（放不进 `KukuRow` 的行用 `.kukuRowFrame()` 保持相同的内边距与行高），行之间用 `KukuDivider` 分隔；只有明确的右侧值、Picker 或 Toggle 才使用尾部对齐。每个页头、sheet 底栏或卡片最多一个主按钮，列表行内的操作一律使用次按钮。
+侧栏只有 首页 / 历史 / 记忆 三个一级页面；Settings 是独立窗口，不在侧栏里重复这些页面。设置分组使用 `KukuGroup`，每一行使用 `KukuRow` 撑满卡片宽度并左对齐（放不进 `KukuRow` 的行用 `.kukuRowFrame()` 保持相同的内边距与行高），行之间用 `KukuDivider` 分隔；只有明确的右侧值、Picker 或 Toggle 才使用尾部对齐。每个页头、sheet 底栏或卡片最多一个主按钮，列表行内的操作一律使用次按钮。
 
 ### 0.2 权限引导与输入测试标准
 
@@ -144,7 +142,7 @@ Fn
 Fn Fn
 → 用户是否愿意把它当成当前上下文的 AI 入口
 
-Knowledge
+记忆
 → 人名、项目名、组织名和专业词是否真的能越用越准
 ```
 
@@ -153,9 +151,9 @@ Knowledge
 * Hold Fn / Tap Fn 二选一的 Voice Input，以及 Double Fn Voice Agent
 * 当前选中文字、当前应用、窗口标题等轻量 Context
 * Translate / Rewrite / Generate，并根据当前是否有选区自动写回原输入框
-* 文本粘贴导入 Knowledge
+* 文本粘贴导入记忆
 * 实体抽取、归一化、去重、用户确认
-* 最近 Agent Session、Knowledge Prompt 和用户确认后的纠错记忆
+* 最近 Agent 对话（只存内存）、Knowledge Prompt 和用户确认后的纠正
 * 本地 History：语音、输入转写和最终输出可回看，默认保留 30 天，星标记录永久保留
 
 MVP 暂不提供：
@@ -166,7 +164,7 @@ MVP 暂不提供：
 * Calendar、Email、Files、Terminal 等高风险工具
 * 多供应商和本地模型选择器
 
-Knowledge 不是被砍掉，而是先把输入渠道收窄到“粘贴文本”，保留后续最有价值的数据模型和处理流程。
+记忆不是被砍掉，而是先把导入渠道收窄到“粘贴文本”，保留后续最有价值的数据模型和处理流程。
 
 ---
 
@@ -516,7 +514,7 @@ Safari                         ×
 Selected text · 436 字          ×
 上次写入 · 28 字               ×
 Domains                         ×
-Knowledge base                  ×
+Memory                          ×
 ```
 
 用户需要时可以明确知道：
@@ -633,7 +631,7 @@ AgentSession
 └── Expires At
 ```
 
-当前每个 App 最多保留最近 3 轮 Session，新一轮成功后丢弃同一 App 最早的一轮；每轮在 30 分钟后过期。Context 摘要只记录对模型有意义的内容（执行的动作、改写对象和选中文字节选），按时间顺序放进下一次 Agent 请求。切换 App 时只使用目标 App 自己的 Session，不会把上一 App 的内容带过去。关闭“连续对话”后不读取也不新增 Session；当前没有手动结束单条 Session 的入口。
+当前每个 App 最多保留最近 3 轮 Session，新一轮成功后丢弃同一 App 最早的一轮；每轮在 30 分钟后过期。Context 摘要只记录对模型有意义的内容（执行的动作、改写对象和选中文字节选），按时间顺序放进下一次 Agent 请求。切换 App 时只使用目标 App 自己的 Session，不会把上一 App 的内容带过去。关闭“连续对话”后不读取也不新增 Session；当前没有手动结束单条 Session 的入口。Session 只存在内存里，退出 SayKuku 即清除（见第 12 节）。
 
 因此它实际上是：
 
@@ -643,19 +641,27 @@ AgentSession
 
 ---
 
-## 8. 热词 / 人名 / 组织知识
+## 8. 记忆
 
-> 实现状态：`✅ 已完成`。列表、分类、搜索、手动添加、模型抽取、归一化、去重、Review 与本地存储均已接入。
+> 实现状态：`✅ 已完成`。列表、分类、搜索、手动添加、模型抽取、归一化、去重、Review、纠正建议与本地存储均已接入。
 
-一级导航中单独提供：
+一级导航中单独提供「记忆 / Memory」：SayKuku 记住的人名、项目和用词，删掉就会忘记。它不叫“知识”，因为用户要解决的只有一件事：我说的名字、产品名、缩写，写出来要对；也不做成数据库，页面要像记忆：
 
-### Knowledge
+- 列表按学到或添加的时间倒序，不按类型分组；类型只是条目上的小标签和顶部的筛选条件。
+- 每条在线索下方显示「来源 · 时间」，例如「从纠正学到 · 昨天」「你添加的 · 2026年9月12日」「从粘贴的文本导入 · 今天」；时间沿用历史页的 今天 / 昨天 / 日期 格式。
+- 页头副标题：「SayKuku 记住的人名、项目和用词。删掉就会忘记。」
+- 「添加」仍在页头，但只是次要入口，主路径是纠正学习。
 
-不要简单叫 Dictionary。
+代码里的 `Knowledge*` 标识符暂不改名。
 
-因为后面装进去的不只是单词。
+「记忆」是一张识别词表，也是用户让 SayKuku 认识一个词的唯一入口。用户几乎不会主动打开这个页面，所以条目主要不靠手动填：
 
-Knowledge 是一张识别词表，也是用户让 SayKuku 认识一个词的唯一入口：Onboarding 中手动添加的词、接受的纠错建议都作为条目存进这里。每个条目属于以下 4 种类型之一：
+```text
+纠正      听写后在目标 App 里改掉识别错的词，确认后写入（第 12 节）
+粘贴文本  从名单、术语表或任意文本里抽取候选，Review 后写入（第 10 节）
+```
+
+手动添加和领域 Onboarding 里输入的词是兜底。每个条目有名称、类型、别名和一句线索。线索用来区分同音字，例如「张越，AniKuku 的产品经理」：读音相同或相近时，听写按线索选写法；Agent 也把它当参考事实。类型是以下 4 种之一：
 
 ```text
 Person         人物
@@ -693,21 +699,21 @@ Detail: UllrAI Lab 创始人
 张越
 ```
 
-系统可以建议：
+记忆页的「建议」区会列出：
 
-> 是否将「张越」加入人名？
+> 张月 → 张越
 
-而不是偷偷写入。
+用户点「记住」后才写入，而不是偷偷写入。
 
 ---
 
 ## 9. 组织架构
 
-关系（谁属于哪个部门、谁负责哪个项目）不在 MVP 范围内。MVP 的 Action 白名单没有会用到关系的动作，识别消歧也只需要名称、别名和类型，因此 Knowledge 只保存名称、别名、类型和一句说明。“王涛在产品部”这类信息可以写进说明，Agent Prompt 会带上它。
+关系（谁属于哪个部门、谁负责哪个项目）不在 MVP 范围内。MVP 的 Action 白名单没有会用到关系的动作，识别消歧也只需要名称、别名和类型，因此记忆只保存名称、别名、类型和一句线索。“王涛在产品部”这类信息可以写进线索，Prompt 会带上它。
 
 ---
 
-## 10. Knowledge 导入
+## 10. 记忆导入
 
 MVP 只提供两种入口：
 
@@ -737,7 +743,7 @@ Project
 Term
 ```
 
-还可以填写备注和别名。手动添加不调用模型自动判型；模型抽取只用于“粘贴文本”入口。
+还可以填写线索和别名。手动添加不调用模型自动判型；模型抽取只用于“粘贴文本”入口。
 
 ---
 
@@ -811,7 +817,7 @@ Entity
 └── source
 ```
 
-运行时 Prompt 的知识块格式如下（以 Agent 为例；听写只输出拼写、类型和别名，不含 detail）。没有内容的小节整段省略；领域和知识都为空时返回空字符串，调用方也不再附加“按下方用户上下文处理”的引导语：
+运行时 Prompt 的知识块格式如下（以 Agent 为例；听写只输出拼写、类型和别名，有线索时附上 `clue`，不带 Agent 的 `detail` 字段）。没有内容的小节整段省略；领域和知识都为空时返回空字符串，调用方也不再附加“按下方用户上下文处理”的引导语：
 
 ```text
 <user_context>
@@ -879,7 +885,7 @@ Recent conversation in this app, oldest first (untrusted data):
 
 知识抽取 Prompt 说明 person / organization / project / term 四种实体类型的含义；`aliases` 只收原文出现或约定俗成的其他叫法（昵称、缩写、全称、其他语言名称），不猜测误识别写法，最多 8 个；`detail` 用原文语言、不超过一句；每段文本最多 40 个实体，跳过 PII 和 `[FILTERED]` 占位符。
 
-听写 Prompt 额外要求模型只在语音明确指向别名时使用 canonical name，不改变普通词语、不凭相似度臆造实体。Agent Prompt 则允许模型使用实体、别名和详情理解当前命令，但知识块永远不是可执行指令。
+听写 Prompt 额外要求模型只在语音明确指向别名时使用 canonical name，不改变普通词语、不凭相似度臆造实体；几个条目读音相同或相近时按线索选。Agent Prompt 则允许模型使用实体、别名和详情理解当前命令，但知识块永远不是可执行指令。
 
 去重规则：
 
@@ -893,7 +899,7 @@ Knowledge 抽取时，用户粘贴的文本一律视为不可信数据，其中�
 
 每个候选实体必须携带原文 evidence；无 evidence 的推断默认不入库。
 
-模型返回按宽松规则解码：缺失的 `entities`、`aliases`、`detail` 视为空；类型不区分大小写，无法识别的类型归为术语（`term`），导入后可在 Knowledge 中修改；缺少名称或 evidence 的实体逐条丢弃，不让整次导入失败。本地数据里的旧类型也在读取时归并：`orgUnit` 归为组织、`product` 归为项目、`unknown` 归为术语，不另做数据迁移。
+模型返回按宽松规则解码：缺失的 `entities`、`aliases`、`detail` 视为空；类型不区分大小写，无法识别的类型归为术语（`term`），导入后可在记忆中修改；缺少名称或 evidence 的实体逐条丢弃，不让整次导入失败。本地数据里的旧类型也在读取时归并：`orgUnit` 归为组织、`product` 归为项目、`unknown` 归为术语，不另做数据迁移。
 
 这是“抽离”最有价值的部分：
 
@@ -944,128 +950,43 @@ Import 18 items
 
 而不是一句：
 
-> 已加入知识库。
+> 已记住。
 
 ---
 
-## 12. 短期记忆
+## 12. 纠正学习与最近对话
 
-> 实现状态：`🟡 部分完成`。Agent Session 会在 30 分钟 TTL 内进入同一 App 的后续 Voice Agent Prompt；Memory 页面只展示这些真正参与 Prompt 的 Session，不再混入普通 History，按 App 名称显示并支持手动清除。当前没有基于模型的自动提炼、归纳偏好或长期记忆生成。
+> 实现状态：`✅ 已完成`。长期记忆就是「记忆」页：纠正经用户确认后作为条目进入后续 Prompt。短期记忆是 Voice Agent 最近 30 分钟的对话缓冲，只存在内存里。两者都没有独立页面。
 
-Short-term Memory 的目标是：
+### 纠正学习
 
-**让我不用重复刚才说过的话。**
+同事名字、产品名和大小写是“越用越准”的全部来源：用户在目标 App 里顺手把「张月」改成「张越」、把 “work body” 改成 “WorkBuddy”，期待的是改一次以后就对了。
 
-当前只保存同一 App 最近 3 轮 Voice Agent 的命令、响应和 Context 摘要，每轮保留 30 分钟。下面列出的页面、Dictation、人物或 Project 聚合是后续设计方向，不是当前数据源。
+Voice Input 成功写回约 5 秒后，SayKuku 比对输入框内容，只记录落在写入文本范围内的改动，并扩展到完整的英文单词或中文词组（如「王小明 → 王晓明」，而不是「小 → 晓」）；纯标点、空白、大小写或数字改动，单纯增删中文字词，以及紧接着的续写都不会记录。相同改动累计次数。
 
-例如：
+检测到的改动作为建议出现在记忆页顶部的「建议」区，侧栏「记忆」显示待处理的数量；没有建议时整块不显示，搜索或切换分类时也不显示。点「记住」写入一条来源为「从纠正学到」的条目：名称是改正后的写法，改正前的写法作为别名；点「忽略」后不再显示。
 
-```text
-最近 Agent Session
-当前页面
-最近几次 Dictation
-最近提到的人
-当前 Project
-```
+不做无条件自动学习。用户把「我们」改成「大家」只是改写，不是拼写规则；自动写入会让以后每次说「我们」都变成「大家」。
 
-生命周期可以是：
+自愈：学到 X → Y 时，如果 X 本身是某条「从纠正学到」条目的名称（上次学错了），就把那条改名为 Y、X 降为别名，而不是再新建一条；记忆里已有 Y 时，把错学的那条并进 Y。手动添加或导入的条目不会被改名。
 
-```text
-当前 Session
-几十分钟
-当天
-```
+确认后的纠正不会在客户端直接替换下一次转写文本，而是作为 canonical name 与 alias 放进后续模型调用的 Knowledge Prompt。模型输出什么，客户端就写回什么。
 
-根据类型不同自动失效。
-
-例如：
-
-> “他刚才说的那个方案。”
-
-需要最近 Context 才能理解。
-
-但一天以后没有必要继续保存这个指代。
-
----
-
-## 13. 长期记忆
-
-> 实现状态：`🟡 部分完成`。长期内容就是 Knowledge，没有独立页面，Memory 中也不再有“长期”Tab：用户手动添加、导入或接受纠错建议后写入的条目进入后续 Prompt，在“知识”页查看和编辑；语言习惯、自动偏好提炼和“请记住”指令尚未实现。
-
-长期记忆的设计边界是只保存真正稳定的东西：
-
-```text
-常用人名
-项目
-产品名称
-专业术语
-固定拼写
-语言习惯
-常见纠错
-用户明确要求记住的信息
-```
-
-以及：
-
-```text
-AniKuku
-不是 Anikuku / Ani Kuku
-
-BifroMQ
-B / M / Q 大小写固定
-```
-
----
-
-## 14. Correction Memory
-
-> 实现状态：`✅ 已完成`。Voice Input 成功写回后，App 会在约 5 秒后比较目标文本；检测到用户改动时生成一条待确认建议，相同改动会累计次数。只有用户点击“加入知识”后，纠错才进入长期 Knowledge。
-
-我认为这一层甚至比“LLM Memory”更重要。
-
-记录：
-
-```text
-ASR:
-work body
-
-用户最终：
-WorkBuddy
-```
-
-或者：
-
-```text
-ASR:
-张月
-
-用户：
-张越
-```
-
-形成：
-
-```text
-Recognition Correction
-```
-
-检测到以后可以提示；重复出现时累计次数：
-
-> 经常把「张越」识别为「张月」，是否加入识别词库？
-
-用户确认后进入长期 Knowledge。
-
-写入 5 秒后，SayKuku 会比对输入框内容，只记录落在写入文本范围内的改动，并扩展到完整的英文单词或中文词组（如「王小明 → 王晓明」，而不是「小 → 晓」）；纯标点、空白、大小写或数字改动，单纯增删中文字词，以及紧接着的续写都不会记录。
-
-确认后的纠正不会在客户端直接替换下一次转写文本，而是进入 Knowledge Store，作为 canonical name 与 alias 关系放进后续模型调用的 Knowledge Prompt。模型输出什么，客户端就写回什么。
+“从纠正中学习”开关在 设置 › 语音输入 › 识别；关闭时不检测、不产生建议。关闭后「建议」区里还有遗留建议时，区内提供“开启”入口。
 
 这会让产品产生非常直观的：
 
 > **越用越准。**
 
+### 最近对话
+
+Voice Agent 的连续对话只在内存里保留同一 App 最近 3 轮、每轮 30 分钟（见第 7 节），不写入 `store.json`，退出 SayKuku 即清除；旧版本存下的 `sessions` 键在读取时忽略，下次保存时从文件里去掉。
+
+用户要的是上一段能被继续改（“改短一点”“再正式一点”），不是一个能翻看的对话列表，所以没有页面：录音时在聆听 Pill 的上下文弹层里能看到“最近对话”，也能把它从本次请求中移除。代价是 30 分钟内重启 SayKuku 会丢掉追问上下文。
+
 ---
 
-## 15. Knowledge Prompt 与规模控制
+## 13. Knowledge Prompt 与规模控制
 
 MVP 的运行时 pipeline 是：
 
@@ -1104,11 +1025,11 @@ Audio:
 
 如果 Knowledge Store 未来大到超出模型上下文预算，可以把安全的检索结果作为 Knowledge Prompt 的子集传入；检索只能决定“哪些知识进入 Prompt”，不能在模型返回后改写文本。任何规模控制都必须保留 canonical name、alias、detail 的结构和数据标记。
 
-当前实现按用途设置预算：听写 Prompt 最多 80 个实体、约 5k 字符；Agent Prompt 最多 150 个实体、约 9k 字符。单条名称和别名截断到 80 字符、每个实体最多 8 个别名、detail 截断到 160 字符。超出预算时优先保留手动添加和纠正记忆确认的条目，其次按创建时间从新到旧。所有用户值（名称、别名、detail）都以 JSON 字符串转义输出，避免换行或标签破坏 Prompt 结构。
+当前实现按用途设置预算：听写 Prompt 最多 80 个实体、约 5k 字符；Agent Prompt 最多 150 个实体、约 9k 字符。单条名称和别名截断到 80 字符、每个实体最多 8 个别名、detail 截断到 160 字符。超出预算时优先保留手动添加和纠正学习确认的条目，其次按创建时间从新到旧。所有用户值（名称、别名、detail）都以 JSON 字符串转义输出，避免换行或标签破坏 Prompt 结构。
 
 ---
 
-## 16. Dictation 与 Agent 必须严格分开
+## 14. Dictation 与 Agent 必须严格分开
 
 这是一个很重要的产品原则。
 
@@ -1156,7 +1077,7 @@ Knowledge Prompt 只作为模型的参考数据；模型必须在语音明确指
 
 ---
 
-## 17. Settings 信息架构
+## 15. Settings 信息架构
 
 > 实现状态：`✅ 已完成`。界面结构、设置持久化、Keychain API Key 和真实 Qwen 连接测试均已接入。
 
@@ -1168,7 +1089,7 @@ Settings 不再使用第二套左侧导航。所有设置统一使用页面顶�
 General | Voice Input | Voice Agent | History | Privacy | Qwen Connection
 ```
 
-Knowledge 与 Memory 保持为一级侧栏目的地，不在 Settings 中重复。MVP 不提供 Advanced 空壳页面。
+记忆保持为一级侧栏目的地，不在 Settings 中重复。MVP 不提供 Advanced 空壳页面。
 
 ### General
 
@@ -1198,7 +1119,7 @@ Knowledge 与 Memory 保持为一级侧栏目的地，不在 Settings 中重复�
 
 界面语言保存在本 App 的 `AppleLanguages` 里：简体中文写 `["zh-Hans"]`，English 写 `["en"]`，跟随系统时删除该键。macOS 在启动时据此统一决定 App 文案、系统菜单、对话框和日期格式的语言，所以切换后会提示“重新打开 SayKuku 后生效”，可选“现在重新打开”或“稍后”。文案集中在 `Sources/SayKuku/Resources/Localizable.xcstrings`，以英文为源语言，提供简体中文翻译，数量相关的文案用复数变体。目录不含繁体中文：macOS 不会把 zh-Hant 回落到 zh-Hans，繁体中文系统会显示英文界面；以后补上 zh-Hant 翻译即可支持。发给模型的 Prompt 不做本地化。
 
-首次启动先展示轻量领域 Onboarding，再进入系统权限引导（权限齐全时跳过），最后引导连接 Qwen：按三步说明（打开对应地域的百炼控制台、创建并粘贴 API Key、可选复制以 `llm-` 开头的业务空间 ID）完成填写；“测试连接”是可选的次按钮，连接成功后隐藏；主按钮响应 Return，未填 API Key 时显示为“跳过”；填好的内容在关闭弹窗时即生效，不会丢失；已保存 API Key 时跳过这一步。三个步骤的弹窗尺寸、页头和底栏一致：进行中的步骤主按钮为“继续”，最后一步为“完成”，未完成时可“跳过”；权限在从系统设置返回时自动刷新，全部开启前“继续”不可用。用户可以多选 AI / Vibe Coding、软件开发、产品设计、市场增长等常用领域，选择会持久化为识别上下文，并以“仅用于词汇消歧、不得补写未说内容”的参考数据加入 Voice Input 与 Voice Agent Prompt；以后可在 Voice Input 设置中重新编辑。同一页也可以手动添加产品名、项目名或技术词，点“继续”或“保存”时逐个作为术语存进 Knowledge（已有同名条目时就地提示），以后在“知识”页补别名。旧版本存在 UserDefaults `dictation.customDomainTerms` 中的自定义词，会在本地数据加载后一次性迁入 Knowledge（重复的跳过），随后删除该键。
+首次启动先展示轻量领域 Onboarding，再进入系统权限引导（权限齐全时跳过），最后引导连接 Qwen：按三步说明（打开对应地域的百炼控制台、创建并粘贴 API Key、可选复制以 `llm-` 开头的业务空间 ID）完成填写；“测试连接”是可选的次按钮，连接成功后隐藏；主按钮响应 Return，未填 API Key 时显示为“跳过”；填好的内容在关闭弹窗时即生效，不会丢失；已保存 API Key 时跳过这一步。三个步骤的弹窗尺寸、页头和底栏一致：进行中的步骤主按钮为“继续”，最后一步为“完成”，未完成时可“跳过”；权限在从系统设置返回时自动刷新，全部开启前“继续”不可用。用户可以多选 AI / Vibe Coding、软件开发、产品设计、市场增长等常用领域，选择会持久化为识别上下文，并以“仅用于词汇消歧、不得补写未说内容”的参考数据加入 Voice Input 与 Voice Agent Prompt；以后可在 Voice Input 设置中重新编辑。同一页也可以手动添加产品名、项目名或技术词，点“继续”或“保存”时逐个作为术语存进记忆（已有同名条目时就地提示），以后在“记忆”页补别名。旧版本存在 UserDefaults `dictation.customDomainTerms` 中的自定义词，会在本地数据加载后一次性迁入记忆（重复的跳过），随后删除该键。
 
 ### Voice Input
 
@@ -1216,7 +1137,7 @@ Knowledge 与 Memory 保持为一级侧栏目的地，不在 Settings 中重复�
 
 识别
 常用领域：已选领域 · 编辑
-识别词表：知识中有 N 条 · 打开知识
+记忆：N 条 · 打开记忆
 从纠正中学习
 ```
 
@@ -1315,21 +1236,21 @@ MVP 数据规则：
 
 * Context 只在用户触发 Fn Fn 时采集，不后台持续扫描。
 * Voice Input 发送音频、听写 instruction 和已确认的 Knowledge Prompt，默认不携带窗口内容。
-* Voice Agent 发送音频、Selected Text / App / Window 等用户允许的 Context、短期 Session 和已确认的 Knowledge Prompt；发送前可从聆听 Pill 的 scope 图标查看并删除 Context 项，Knowledge Prompt 作为单独的可见 Knowledge base 项。
+* Voice Agent 发送音频、Selected Text / App / Window 等用户允许的 Context、短期 Session 和已确认的 Knowledge Prompt；发送前可从聆听 Pill 的 scope 图标查看并删除 Context 项，Knowledge Prompt 作为单独的可见“记忆”项。
 * 安全输入（`AXSecureTextField` 或系统安全输入模式）与已知密码管理器为硬性阻断：不开始录音、不读取 Context、不写回，不是可配置开关。
 * 进入 Listening 后，录音音频先保存在内存；停止录音后，只要“保存录音”开启且目标非敏感环境，就在请求完成前将 WAV 文件存入本地 History，不以模型或写回成功为前提。
 * History 默认保留 30 天，可选不保存、1 / 7 / 30 / 90 天或永久；星标记录不自动删除。
-* History 与 Memory 分离：History 保存可回看的输入/输出记录，Memory 只展示短期 Session 和待确认的纠错建议；确认后的长期内容就是 Knowledge。
+* History 与记忆分离：History 保存可回看的输入/输出记录；记忆保存确认后的长期条目和待处理的纠正建议；Agent 最近对话只在内存里。
 * 诊断日志只记录状态、目标 Bundle ID / Accessibility role、可读性和错误信息，不记录原始语音、转写文本、输入框全文或 Context 内容。
-* Short-term Memory 必须有 TTL；长期 Knowledge 只由用户确认后写入。
+* 最近对话必须有 TTL 且不落盘；记忆条目只由用户确认后写入。
 
 ---
 
-## 18. MVP 模型选型与技术架构
+## 16. MVP 模型选型与技术架构
 
 > 实现状态：`✅ 已完成`。App 已接入 Qwen3.8 Omni Flash Realtime WebSocket 与 Qwen3.8 Omni Chat Completions；未填写业务空间 ID 时听写直接走批处理识别，Realtime 出现可恢复错误时使用完整内存录音执行一次批处理 fallback。
 
-### 18.1 官方型号与发布状态
+### 16.1 官方型号与发布状态
 
 截至 2026-09-25，MVP 使用两个已在百炼官方模型目录和 API 文档中明确列出的型号：
 
@@ -1358,7 +1279,7 @@ qwen3.8-omni-flash-realtime
 * [OpenAI 兼容 Chat 服务地址](https://help.aliyun.com/zh/model-studio/qwen-api-via-openai-chat-completions)
 * [百炼 Omni 模型目录](https://help.aliyun.com/zh/model-studio/omni/)
 
-### 18.2 两个模型的分工
+### 16.2 两个模型的分工
 
 #### `qwen3.8-omni-flash-realtime`
 
@@ -1429,7 +1350,7 @@ enable_thinking: false
 
 当前设置页不开放 thinking 开关，代码也不发送 `reasoning_effort`：`json_object` 响应在 thinking 模式下不可用，普通语音操作也不应承担额外的延迟和输出 Token。
 
-### 18.3 为什么要同时使用两个
+### 16.3 为什么要同时使用两个
 
 只用 `qwen3.8-omni-flash`：
 
@@ -1449,7 +1370,7 @@ enable_thinking: false
 
 Realtime 连接失败但内存中仍有完整录音时，可以用 `qwen3.8-omni-flash` 作一次批处理 fallback，因此异常路径可能有第二次模型请求；400/401/403 属于配置错误，不回退。未填写业务空间 ID 时听写不建立 Realtime 会话，停止录音后直接批处理识别，正常路径仍只有一次模型请求。fallback 使用同一份内存 WAV；是否落盘只由 History 的“保存录音”设置和敏感目标阻断规则决定。
 
-### 18.4 具体架构
+### 16.4 具体架构
 
 MVP 只实现 Qwen，不做多供应商设置页，也不做为了“以后可能换模型”而层层抽象的通用 SDK。
 
@@ -1494,11 +1415,11 @@ SayKukuApp / AppState
 │
 └── UI
     ├── HomeView / FloatingOverlayController / DictationPill / AgentPill
-    ├── HistoryView / KnowledgeView / MemoryView
+    ├── HistoryView / KnowledgeView（记忆）
     └── SettingsView / PermissionGuideView / DomainOnboardingView / QwenSetupView
 ```
 
-### 18.5 Qwen 配置
+### 16.5 Qwen 配置
 
 当前设置包含五类 Qwen 配置：
 
@@ -1510,7 +1431,7 @@ SayKukuApp / AppState
 
 提供一个简单的“测试连接”按钮即可。首版不做自定义 Base URL、账号体系、复杂密钥状态、安全策略页面或详细账单展示。
 
-### 18.6 MVP 技术验收指标
+### 16.6 MVP 技术验收指标
 
 ```text
 Fn UI 首次反馈 P95             < 100 ms
@@ -1520,7 +1441,7 @@ Voice Agent 首个结果 Token P95     < 2.5 s
 支持应用的插入成功率             > 98%
 Replace 目标错位率                  = 0
 Fn 系统组合键误触发率            = 0
-Knowledge 未经确认写入率         = 0
+记忆未经确认写入率              = 0
 ```
 
 数字是 MVP 目标而不是官方模型承诺。正式发布前必须先对北京和新加坡地域做真实网络 spike，根据目标用户地理位置复核默认地域。
@@ -1554,7 +1475,7 @@ B. qwen3.8-omni-flash 直接处理整段音频，enable_thinking=false
 
 ---
 
-## 19. 从 0 构建还是 Fork
+## 17. 从 0 构建还是 Fork
 
 我的建议非常明确：
 
@@ -1595,7 +1516,7 @@ Pindrop
 
 ---
 
-## 20. [Pindrop](https://github.com/watzon/pindrop) 应该怎么用
+## 18. [Pindrop](https://github.com/watzon/pindrop) 应该怎么用
 
 不是 Fork。
 
@@ -1621,7 +1542,7 @@ Pindrop 是 MIT License，而且目前工程结构已经把 Services、Transcrip
 
 ---
 
-## 21. 全局快捷键与 Fn 的开源实现对照
+## 19. 全局快捷键与 Fn 的开源实现对照
 
 本轮对实现做了源码级对照，而不是把“全局快捷键”笼统地等同于“输入监控”：
 
@@ -1634,7 +1555,7 @@ Pindrop 是 MIT License，而且目前工程结构已经把 Services、Transcrip
 
 SayKuku 因此采用两层策略：可配置的全局快捷键（默认 `⌃⌥⌘V` 与 `⌃⌥⌘A`）使用 Carbon，永远不依赖隐私权限；单独 Fn / Fn Fn 在 Accessibility 已授权后使用 `NSEvent.addGlobalMonitorForEvents`，并用 local monitor 覆盖 App 自身前台事件。应用不创建 CGEvent tap，也不申请 Input Monitoring。
 
-### 21.1 Looped Whisper 更值得参考的部分
+### 19.1 Looped Whisper 更值得参考的部分
 
 Looped Whisper 的产品方向和我们更接近。
 
@@ -1692,7 +1613,7 @@ Agent UI
 
 ---
 
-## 22. VoiceInk
+## 20. VoiceInk
 
 把它当作：
 
@@ -1717,7 +1638,7 @@ Knowledge Import / Correction Learning 的产品 Reference
 
 ---
 
-## 23. [VibeTyping](https://github.com/chenlu-hung/VibeTyping)
+## 21. [VibeTyping](https://github.com/chenlu-hung/VibeTyping)
 
 可以看：
 
@@ -1746,7 +1667,7 @@ Accessibility 写回，加上 Carbon 普通快捷键与 AppKit Fn event monitor�
 
 ---
 
-## 24. 依赖策略与当前实现
+## 22. 依赖策略与当前实现
 
 当前 `Package.swift` 唯一的第三方依赖是 [Sparkle 2](https://github.com/sparkle-project/Sparkle)（MIT），只负责自动更新。选中文字、写回、上下文采集、全局快捷键和 Fn 手势均由仓库内实现完成：
 
@@ -1810,7 +1731,7 @@ Fork Pindrop
 
 ---
 
-## 25. MVP 应该砍到这里
+## 23. MVP 应该砍到这里
 
 第一版需要把下面几个体验做到极好：
 
@@ -1833,7 +1754,8 @@ Fn Fn
 以及：
 
 ```text
-Knowledge
+记忆
+→ 用户纠正学习
 → 手动添加
 → 粘贴文本
 → 实体 / 别名抽取
@@ -1844,9 +1766,9 @@ Knowledge
 和：
 
 ```text
-Memory
-→ 最近上下文
-→ 用户纠正学习
+Voice Agent 连续对话
+→ 同一 App 最近 30 分钟
+→ 只存内存
 ```
 
 和：

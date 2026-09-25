@@ -102,7 +102,7 @@ struct HistoryView: View {
                 symbol: "archivebox",
                 title: localized("Encrypted history from an earlier version wasn’t carried over"),
                 message: localized(
-                    "History, Knowledge, and Memory saved by an earlier encrypted version can’t be opened here. SayKuku won’t migrate or delete these files. They’re still on this Mac for you to keep or remove."
+                    "History and Memory data saved by an earlier encrypted version can’t be opened here. SayKuku won’t migrate or delete these files. They’re still on this Mac for you to keep or remove."
                 ),
                 fileURL: legacyURL
             ) { appState.dismissLegacyDataNotice() }
@@ -214,7 +214,7 @@ struct HistoryView: View {
     private func daySections(_ entries: [HistoryEntry]) -> [HistoryDay] {
         var days: [HistoryDay] = []
         for entry in entries {
-            let label = dayLabel(for: entry)
+            let label = entry.createdAt.dayLabel
             if days.last?.label == label {
                 days[days.count - 1].entries.append(entry)
             } else {
@@ -269,11 +269,6 @@ struct HistoryView: View {
         }
     }
 
-    private func dayLabel(for entry: HistoryEntry) -> String {
-        if Calendar.current.isDateInToday(entry.createdAt) { return localized("Today") }
-        if Calendar.current.isDateInYesterday(entry.createdAt) { return localized("Yesterday") }
-        return entry.createdAt.formatted(Date.FormatStyle(date: .abbreviated, time: .omitted, locale: historyLocale))
-    }
 
     private func issueCopy(_ issue: LocalStore.DataIssue) -> (title: String, message: String) {
         switch issue {
@@ -605,6 +600,15 @@ private struct HistoryRow: View {
 
 private extension HistoryEntry {
     var hasCopyableOutput: Bool { status == .completed && !output.isEmpty }
+}
+
+extension Date {
+    /// Today, Yesterday, or the date, for History days and when something was remembered.
+    var dayLabel: String {
+        if Calendar.current.isDateInToday(self) { return localized("Today") }
+        if Calendar.current.isDateInYesterday(self) { return localized("Yesterday") }
+        return formatted(Date.FormatStyle(date: .abbreviated, time: .omitted, locale: historyLocale))
+    }
 }
 
 /// Uses the interface language for dates, keeping the user's regional formats when the languages match.
