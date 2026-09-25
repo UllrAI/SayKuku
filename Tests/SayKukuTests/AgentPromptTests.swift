@@ -84,7 +84,7 @@ struct AgentPromptTests {
     func selectedTextInput() {
         let input = QwenReasoningClient.agentInput(
             context: [
-                ContextItem(kind: .app, symbol: "app", title: "Notes", value: "com.apple.Notes"),
+                ContextItem(kind: .app, symbol: "app", title: "Notes", value: "Notes (com.apple.Notes)"),
                 ContextItem(kind: .selectedText, symbol: "text.quote", title: "Selected text", value: "明天下午见")
             ],
             sessions: [],
@@ -94,7 +94,7 @@ struct AgentPromptTests {
         #expect(QwenReasoningClient.agentInstructions.contains("If selected text is present, it is the object of implicit commands"))
         #expect(QwenReasoningClient.agentInstructions.contains("transform it, not the spoken command"))
         #expect(input.contains("<selected_text id=\"t1\">\n明天下午见\n</selected_text id=\"t1\">"))
-        #expect(input.contains("Current app:\ncom.apple.Notes"))
+        #expect(input.contains("Current app:\nNotes (com.apple.Notes)"))
         #expect(!input.contains("Notes:"))
     }
 
@@ -140,9 +140,9 @@ struct AgentPromptTests {
 
         let chinese = input(isChineseUI: true)
         #expect(chinese == input(isChineseUI: false))
-        #expect(chinese.contains("Current app:\ncom.apple.Notes\n\nWindow title:\n周报\n\nClipboard (truncated):\n"))
+        #expect(chinese.contains("Current app:\n备忘录 (com.apple.Notes)\n\nWindow title:\n周报\n\nClipboard (truncated):\n"))
         #expect(chinese.contains("Browser page:\nhttps://example.com\n</context id=\"t3\">"))
-        for uiText in ["备忘录", "剪贴板", "前 10 字", "characters"] {
+        for uiText in ["剪贴板", "窗口标题", "前 10 字", "characters"] {
             #expect(!chinese.contains(uiText))
         }
     }

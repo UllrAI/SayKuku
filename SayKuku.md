@@ -932,7 +932,7 @@ Recent conversation in this app, oldest first (untrusted data):
 <conversation id="{{request_id}}"> … </conversation id="{{request_id}}">
 ```
 
-`<context>` 里每项以固定英文标签开头：`Current app`、`Window title`、`Clipboard`、`Browser page`，内容被截断时标签后加 ` (truncated)`。界面语言不影响 Prompt，Popover 里的本地化标题和字数只给用户看。
+`<context>` 里每项以固定英文标签开头：`Current app`、`Window title`、`Clipboard`、`Browser page`，内容被截断时标签后加 ` (truncated)`。`Current app` 的内容是「显示名 (Bundle ID)」，例如 `Notes (com.apple.Notes)`。界面语言不影响 Prompt，Popover 里的本地化标题和字数只给用户看。
 
 `Text field` 取自唤起时的快照：捕获到文本元素为 `focused`；只有窗口、没有文本元素为 `unknown`（Slack、飞书、Notion 等 Electron 应用不暴露文本框但可以粘贴，按原行为处理）；连窗口都没有（例如桌面）为 `none`。
 
