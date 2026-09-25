@@ -1543,17 +1543,12 @@ final class AppState {
         }
     }
 
-    /// Our errors describe themselves; anything else gets a plain message rather than the system's.
+    /// Errors that adopt `LocalizedError` describe themselves; system errors such as `URLError`
+    /// don't, so they get a plain message rather than Foundation's, which follows the system language.
     func localizedError(_ error: Error) -> String {
-        switch error {
-        case is QwenError, is TextInteractionError, is AudioCaptureError, is AgentActionError,
-             is LocalStoreError, is SecureStorageError:
-            error.localizedDescription
-        case is URLError:
-            localized("Couldn’t connect. Check your network and try again.")
-        default:
-            localized("Something went wrong. Try again.")
-        }
+        if let description = (error as? LocalizedError)?.errorDescription { return description }
+        if error is URLError { return localized("Couldn’t connect. Check your network and try again.") }
+        return localized("Something went wrong. Try again.")
     }
 
     /// Earlier builds saved these placeholders as detail; clear them so they stay out of the UI and prompts.
