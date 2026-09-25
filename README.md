@@ -7,7 +7,7 @@ SayKuku 是一款使用 SwiftUI 与 AppKit 构建的原生 macOS 语音输入应
 - Knowledge：管理人名、项目、组织和术语，提高识别与处理准确度。
 - History / Memory：在本机保存历史、短期 Agent Session 和用户确认的纠错记忆；失败听写可从录音重试。
 
-项目要求 macOS 15+、Swift 6 和 Xcode 26 或更新。当前 Swift Package 没有第三方依赖。
+项目要求 macOS 15+、Swift 6 和 Xcode 26 或更新。唯一的第三方依赖是负责自动更新的 [Sparkle 2](https://github.com/sparkle-project/Sparkle)（MIT）。
 
 ## 开发
 
@@ -48,6 +48,8 @@ Qwen API Key 保存在这台 Mac 的钥匙串中；输入历史、知识、记�
 ## 发布
 
 正式包固定使用 Bundle ID `com.saykuku.app`，必须由稳定的 Developer ID Application 身份签名并完成 Apple 公证。不要分发 ad-hoc 签名或仅签名但未公证的构建。正式发布运行 `Scripts/release.sh`，它依次完成测试、构建签名、公证、装订、最终 ZIP 和 dSYM；前置条件和排查步骤见 [本地打包与发布](docs/LOCAL_PACKAGING.md)。
+
+正式版通过 Sparkle 2 自动更新：发布脚本最后会用本机钥匙串中的 EdDSA 私钥生成 `appcast.xml`，与最终 ZIP 一起上传到 GitHub Release；App 从最新 Release 读取 appcast 并提示更新。开发版不检查更新。
 
 ## License
 
