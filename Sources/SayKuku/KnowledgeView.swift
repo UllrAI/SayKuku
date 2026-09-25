@@ -69,11 +69,10 @@ struct KnowledgeView: View {
 
     private var header: some View {
         ScreenHeader(
-            eyebrow: appState.text("知识", "Knowledge"),
-            title: appState.text("常用的人名和词，一次就听对", "Get names and terms right the first time"),
+            title: appState.text("知识", "Knowledge"),
             subtitle: appState.text(
-                "保存常用的人名、项目和术语，让识别更准确。语音 Agent 也会参考这些内容。",
-                "Save names, projects, and terms for more accurate transcription. Voice Agent uses them too."
+                "保存常用的人名、项目和术语，识别时按这里的写法输出。",
+                "Names, projects, and terms you use often. SayKuku spells them the way you saved them."
             )
         ) {
             HStack(spacing: KukuSpacing.sm) {
