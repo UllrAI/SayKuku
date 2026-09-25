@@ -590,10 +590,15 @@ final class TextInteraction {
     private func isSensitive(element: AXUIElement?, bundleID: String) -> Bool {
         let elementRole = element.map(role(of:)) ?? ""
         let subrole: String = element.flatMap { copyAttribute($0, kAXSubroleAttribute) } ?? ""
-        return IsSecureEventInputEnabled()
+        return Self.isSensitiveWithoutAccessibility(bundleID: bundleID)
             || elementRole == "AXSecureTextField"
             || subrole.lowercased().contains("secure")
-            || SensitiveApps.contains(bundleID: bundleID)
+    }
+
+    /// The checks that need no Accessibility round trip, so a voice workflow can refuse a password field
+    /// or manager before the microphone starts. The focused element is checked again once it's read.
+    nonisolated static func isSensitiveWithoutAccessibility(bundleID: String) -> Bool {
+        IsSecureEventInputEnabled() || SensitiveApps.contains(bundleID: bundleID)
     }
 
     static func snapshot(of pasteboard: NSPasteboard) -> PasteboardSnapshot {

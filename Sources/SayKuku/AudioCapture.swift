@@ -27,7 +27,7 @@ final class AudioCapture: @unchecked Sendable {
     private var configurationObserver: NSObjectProtocol?
     /// Starting an engine can take hundreds of milliseconds with Bluetooth inputs, so it runs here rather
     /// than on the caller's thread. `stop` and `cancel` go through the same queue, so they always follow
-    /// a start that is still in flight.
+    /// a start that is still in flight and come before the next one.
     private let queue = DispatchQueue(label: "com.saykuku.audio-capture")
     private let signposter = OSSignposter.performance
     private let lock = NSLock()
@@ -134,18 +134,19 @@ final class AudioCapture: @unchecked Sendable {
         )
     }
 
+    /// Returns at once, without waiting for a start still in flight; the queue runs this right after it.
     func cancel() {
-        queue.sync {
-            lock.withLock {
-                running = false
-                chunkHandler = nil
-                levelHandler = nil
-                interruptionHandler = nil
+        queue.async {
+            self.lock.withLock {
+                self.running = false
+                self.chunkHandler = nil
+                self.levelHandler = nil
+                self.interruptionHandler = nil
             }
-            stopEngine()
-            lock.withLock {
-                pcm.removeAll()
-                converter = nil
+            self.stopEngine()
+            self.lock.withLock {
+                self.pcm.removeAll()
+                self.converter = nil
             }
         }
     }
