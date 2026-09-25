@@ -33,7 +33,7 @@ open Build/SayKuku.app
 
 本机需要：
 
-- Xcode 及 Command Line Tools。
+- Xcode 及 Command Line Tools。首次 `swift build` 会解析 Sparkle 并生成 `Package.resolved`，必须提交到仓库，否则依赖版本不固定，`Scripts/release.sh` 的干净工作区检查也会失败。
 - 钥匙串中带私钥的 `Developer ID Application` 证书。
 - App Store Connect API Key，或 Apple ID 的 App 专用密码。
 - Sparkle 发行包（从 [Sparkle Releases](https://github.com/sparkle-project/Sparkle/releases) 下载与 `Package.swift` 同一大版本的 `Sparkle-<版本>.tar.xz`），解压后把其中的 `bin/` 加入 `PATH`，发布脚本需要 `generate_appcast`。
@@ -201,7 +201,7 @@ Scripts/package-app.sh release
 1. 以 release 配置同时编译 `arm64` 和 `x86_64`，生成通用二进制。
 2. 用 `dsymutil` 从编译产物提取调试符号到 `Dist/SayKuku-<版本>.dSYM`，再把二进制复制进 App 并执行 `strip -S`；随后用 `lipo -archs` 确认两个架构都在。
 3. 生成 `Build/SayKuku.app`，资源包放在 `Contents/Resources/SayKuku_SayKuku.bundle`，`Sparkle.framework` 放在 `Contents/Frameworks`（二进制带 `@executable_path/../Frameworks` rpath）。
-4. 写入正式 Bundle ID 和资源；`SUPublicEDKey` 为空时直接退出。
+4. 写入正式 Bundle ID 和资源，并把 `Scripts/Resources/Licenses` 中的第三方许可证复制到 `Contents/Resources/Licenses`；`SUPublicEDKey` 为空时直接退出。
 5. 由内向外签名：先签 `Sparkle.framework/Versions/B` 下的 `XPCServices/*.xpc`、`Autoupdate`、`Updater.app`（保留它们自带的 entitlement），再签框架，最后用 `Scripts/Resources/SayKuku.entitlements` 签 App。不用 `--deep`，否则 App 的 entitlement 会被盖到 Sparkle 的辅助程序上。
 6. 全部使用同一签名身份、Hardened Runtime 和时间戳，并执行严格签名验证。
 
