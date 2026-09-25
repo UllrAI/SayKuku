@@ -523,6 +523,7 @@ private struct KnowledgeImportSheet: View {
         .frame(width: KukuLayout.sheetWideWidth, height: KukuLayout.sheetHeight)
         .background(KukuColor.canvas)
         .onChange(of: source) { errorMessage = nil }
+        .onDisappear { analysisTask?.cancel() }
         .confirmationDialog(
             appState.text("放弃这次导入？", "Discard this import?"),
             isPresented: $confirmingDiscard,
@@ -661,7 +662,6 @@ private struct KnowledgeImportSheet: View {
     }
 
     private func cancel() {
-        analysisTask?.cancel()
         if reviewing && !selected.isEmpty {
             confirmingDiscard = true
         } else {
