@@ -85,6 +85,8 @@ extension GlobalShortcut.RecordingIssue {
             appState.text("快捷键需包含 ⌘ 或 ⌃", "Shortcuts need ⌘ or ⌃")
         case .unsupportedKey:
             appState.text("这个键不能用作快捷键，请换一个", "That key can’t be used. Try another.")
+        case .reserved:
+            appState.text("这是 macOS 常用快捷键，请换一个", "macOS already uses this shortcut. Try another.")
         case .duplicate:
             appState.text(
                 "已用于\(action.other.title(appState))，请换一个",
