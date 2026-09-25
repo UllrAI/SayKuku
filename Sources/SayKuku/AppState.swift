@@ -943,7 +943,7 @@ final class AppState {
                           self.dictationPhase == .listening || self.agentPhase == .listening else { return }
                     self.finishListening(for: mode)
                     self.showOverlayFeedback(
-                        self.text("输入设备已切换，录音已结束", "Input device changed. Recording stopped."),
+                        self.text("音频设备已切换，录音已结束", "Audio device changed. Recording stopped."),
                         symbol: "mic.slash"
                     )
                 }

@@ -139,9 +139,8 @@ final class MicrophoneTestController {
     private(set) var level: Double = 0
     private(set) var deviceName = ""
 
-    /// Recreated per test, since a reused engine can keep a stale input format after a device change.
+    /// A fresh engine per test, with its tap installed; a reused engine can keep a stale input format.
     @ObservationIgnored private var engine: AVAudioEngine?
-    @ObservationIgnored private var tapInstalled = false
 
     init() {
         refreshDeviceName()
@@ -160,7 +159,6 @@ final class MicrophoneTestController {
         phase = .starting
 
         let engine = AVAudioEngine()
-        self.engine = engine
         let input = engine.inputNode
         let format = input.outputFormat(forBus: 0)
         guard format.channelCount > 0, format.sampleRate > 0 else {
@@ -177,17 +175,14 @@ final class MicrophoneTestController {
             }
         }
         input.installTap(onBus: 0, bufferSize: 2_048, format: format, block: levelHandler)
-        tapInstalled = true
 
         do {
             engine.prepare()
             try engine.start()
+            self.engine = engine
             phase = .running
         } catch {
-            if tapInstalled {
-                input.removeTap(onBus: 0)
-                tapInstalled = false
-            }
+            input.removeTap(onBus: 0)
             phase = .failed(.couldNotStart)
         }
     }
@@ -199,10 +194,9 @@ final class MicrophoneTestController {
     private func stop(resetPhase: Bool) {
         if let engine {
             if engine.isRunning { engine.stop() }
-            if tapInstalled { engine.inputNode.removeTap(onBus: 0) }
+            engine.inputNode.removeTap(onBus: 0)
+            self.engine = nil
         }
-        engine = nil
-        tapInstalled = false
         level = 0
         if resetPhase { phase = .idle }
     }
