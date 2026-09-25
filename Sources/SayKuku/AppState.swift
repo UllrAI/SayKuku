@@ -392,12 +392,9 @@ final class AppState {
                 guard let self, generation == self.workflowGeneration else { return }
                 await self.showAgentResult(generation: generation)
             } catch {
+                // A cancel bumps the generation first, so only real failures get past this guard.
                 guard let self, generation == self.workflowGeneration else { return }
-                if error is CancellationError {
-                    self.agentPhase = .hidden
-                } else {
-                    self.handleWorkflowError(error, agent: true)
-                }
+                self.handleWorkflowError(error, agent: true)
             }
         }
     }
@@ -1182,10 +1179,8 @@ final class AppState {
                 guard let text = response.output, !text.isEmpty else { throw QwenError.invalidResponse }
                 output = text
             } else if AgentActionExecutor.needsConfirmation(response, context: context) {
-                // Checked now so the card never offers a link that cannot open.
-                if response.action == .openURL, AgentActionExecutor.webURL(response.url) == nil {
-                    throw QwenError.invalidResponse
-                }
+                // Checked now so the card never offers an action that cannot run.
+                try AgentActionExecutor.validate(response, region: configuration.region)
                 actionToConfirm = response
                 output = response.url ?? response.shortcutName ?? ""
             } else {
@@ -1203,7 +1198,7 @@ final class AppState {
                     expiresAt: .now.addingTimeInterval(30 * 60)
                 ), to: sessions)
             }
-            // Actions such as shortcuts can outlive a dismissed or newer workflow.
+            // A write or action can finish after the user dismissed this workflow or started a new one.
             guard generation == workflowGeneration else { return }
             if needsCopyFallback {
                 presentCopyFallback(output, agent: true, copyImmediately: automaticAgentWriteBack)
