@@ -844,7 +844,7 @@ final class AppState {
                 let generation = workflowGeneration
                 let (stream, continuation) = AsyncStream<Data>.makeStream()
                 chunkContinuation = continuation
-                try startAudioCapture { continuation.yield($0) }
+                try startAudioCapture(for: mode) { continuation.yield($0) }
                 withAnimation(Motion.spring) { dictationPhase = .listening }
                 let shouldAutoStop = autoStop
                 let selectedRecognitionLanguage = recognitionLanguage
@@ -879,7 +879,7 @@ final class AppState {
                     for await chunk in stream { try await realtimeClient.append(chunk, session: realtimeSession) }
                 }
             } else {
-                try startAudioCapture { _ in }
+                try startAudioCapture(for: mode) { _ in }
                 if mode == .dictation { withAnimation(Motion.spring) { dictationPhase = .listening } }
             }
             scheduleRecordingLimit(for: mode, streamsAudio: streamsAudio)
@@ -908,8 +908,12 @@ final class AppState {
                 return
             }
             guard let self, self.workflowGeneration == generation else { return }
-            if mode == .agent { self.finishAgentListening() } else { self.finishDictation() }
+            self.finishListening(for: mode)
         }
+    }
+
+    private func finishListening(for mode: VoiceWorkflowMode) {
+        if mode == .agent { finishAgentListening() } else { finishDictation() }
     }
 
     private func stopRecording() -> AudioCapture.Recording {
@@ -922,7 +926,8 @@ final class AppState {
         return recording
     }
 
-    private func startAudioCapture(onChunk: @escaping @Sendable (Data) -> Void) throws {
+    private func startAudioCapture(for mode: VoiceWorkflowMode, onChunk: @escaping @Sendable (Data) -> Void) throws {
+        let generation = workflowGeneration
         try audioCapture.start(
             onLevel: { [weak self] level in
                 Task { @MainActor [weak self] in
@@ -930,7 +935,19 @@ final class AppState {
                     self.inputLevel = (self.inputLevel * 0.55) + (level * 0.45)
                 }
             },
-            onChunk: onChunk
+            onChunk: onChunk,
+            onInterruption: { [weak self] in
+                // Keep what was heard so far, as if the user had stopped the recording.
+                Task { @MainActor [weak self] in
+                    guard let self, self.workflowGeneration == generation,
+                          self.dictationPhase == .listening || self.agentPhase == .listening else { return }
+                    self.finishListening(for: mode)
+                    self.showOverlayFeedback(
+                        self.text("输入设备已切换，录音已结束", "Input device changed. Recording stopped."),
+                        symbol: "mic.slash"
+                    )
+                }
+            }
         )
     }
 

@@ -20,14 +20,16 @@ final class AudioCapture: @unchecked Sendable {
         let hasSpeech: Bool
     }
 
-    private lazy var engine = AVAudioEngine()
+    /// A fresh engine per recording, with its tap installed; a reused engine can keep a stale input format.
+    private var engine: AVAudioEngine?
+    private var configurationObserver: NSObjectProtocol?
     private let lock = NSLock()
     private var pcm = Data()
     private var converter: AVAudioConverter?
     private var chunkHandler: (@Sendable (Data) -> Void)?
     private var levelHandler: (@Sendable (Double) -> Void)?
+    private var interruptionHandler: (@Sendable () -> Void)?
     private var running = false
-    private var tapInstalled = false
     private let targetFormat = AVAudioFormat(
         commonFormat: .pcmFormatInt16,
         sampleRate: 16_000,
@@ -35,11 +37,14 @@ final class AudioCapture: @unchecked Sendable {
         interleaved: false
     )!
 
+    /// `onInterruption` fires once, on an arbitrary thread, when an input device change stops the engine.
     func start(
         onLevel: @escaping @Sendable (Double) -> Void,
-        onChunk: @escaping @Sendable (Data) -> Void
+        onChunk: @escaping @Sendable (Data) -> Void,
+        onInterruption: @escaping @Sendable () -> Void
     ) throws {
         stopEngine()
+        let engine = AVAudioEngine()
         let input = engine.inputNode
         let sourceFormat = input.outputFormat(forBus: 0)
         guard sourceFormat.channelCount > 0, sourceFormat.sampleRate > 0 else {
@@ -48,25 +53,34 @@ final class AudioCapture: @unchecked Sendable {
         guard let converter = AVAudioConverter(from: sourceFormat, to: targetFormat) else {
             throw AudioCaptureError.unsupportedFormat
         }
+        // Mix every input channel; by default the converter keeps only the first one.
+        converter.downmix = true
 
         lock.withLock {
             pcm.removeAll(keepingCapacity: true)
             self.converter = converter
             chunkHandler = onChunk
             levelHandler = onLevel
+            interruptionHandler = onInterruption
             running = true
         }
 
         input.installTap(onBus: 0, bufferSize: 1_024, format: sourceFormat) { [weak self] buffer, _ in
             self?.consume(buffer, sourceFormat: sourceFormat)
         }
-        lock.withLock { tapInstalled = true }
+        self.engine = engine
         engine.prepare()
         do {
             try engine.start()
         } catch {
             stopEngine()
             throw error
+        }
+        // The engine stops itself when the input hardware changes, so the tap goes quiet.
+        configurationObserver = NotificationCenter.default.addObserver(
+            forName: .AVAudioEngineConfigurationChange, object: engine, queue: nil
+        ) { [weak self] _ in
+            self?.interrupt()
         }
     }
 
@@ -75,6 +89,7 @@ final class AudioCapture: @unchecked Sendable {
             running = false
             chunkHandler = nil
             levelHandler = nil
+            interruptionHandler = nil
         }
         stopEngine()
         let data = lock.withLock { () -> Data in
@@ -93,6 +108,7 @@ final class AudioCapture: @unchecked Sendable {
             running = false
             chunkHandler = nil
             levelHandler = nil
+            interruptionHandler = nil
         }
         stopEngine()
         lock.withLock {
@@ -102,13 +118,23 @@ final class AudioCapture: @unchecked Sendable {
     }
 
     private func stopEngine() {
-        if engine.isRunning { engine.stop() }
-        let shouldRemoveTap = lock.withLock { () -> Bool in
-            guard tapInstalled else { return false }
-            tapInstalled = false
-            return true
+        if let configurationObserver {
+            NotificationCenter.default.removeObserver(configurationObserver)
+            self.configurationObserver = nil
         }
-        if shouldRemoveTap { engine.inputNode.removeTap(onBus: 0) }
+        guard let engine else { return }
+        if engine.isRunning { engine.stop() }
+        engine.inputNode.removeTap(onBus: 0)
+        self.engine = nil
+    }
+
+    private func interrupt() {
+        let handler = lock.withLock { () -> (@Sendable () -> Void)? in
+            guard running else { return nil }
+            defer { interruptionHandler = nil }
+            return interruptionHandler
+        }
+        handler?()
     }
 
     private func consume(_ input: AVAudioPCMBuffer, sourceFormat: AVAudioFormat) {
