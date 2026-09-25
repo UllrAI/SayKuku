@@ -6,8 +6,6 @@ struct MemoryView: View {
     @Binding var selectedScope: MemoryScope
 
     var body: some View {
-        @Bindable var appState = appState
-
         VStack(spacing: 0) {
             ScreenHeader(
                 eyebrow: appState.text("记忆", "Memory"),
@@ -16,12 +14,7 @@ struct MemoryView: View {
                     "纠正建议经你确认才会保存，最近对话 30 分钟后自动清除。",
                     "Corrections are saved only after you approve them. Recent conversations clear after 30 minutes."
                 )
-            ) {
-                Toggle(appState.text("从纠正中学习", "Learn from corrections"), isOn: $appState.learnFromCorrections)
-                    .toggleStyle(.switch)
-                    .controlSize(.small)
-                    .font(.kuku(.callout))
-            }
+            )
 
             KukuPageTabs(
                 items: MemoryScope.allCases,
