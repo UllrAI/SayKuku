@@ -189,6 +189,45 @@ struct VoiceWorkflowTests {
         #expect(text.writes.isEmpty)
     }
 
+    @Test("the Agent deletes the last write without a History entry, and the deletion can be undone")
+    func agentDeletesLastWrite() async throws {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let deletion = AgentResponse(transcript: "删掉刚才那段", action: .writeText, target: .previous, intent: "删除", output: "")
+        let text = FakeTextWriting(snapshot: .fake(valueBefore: "", selectedRange: CFRange(location: 0, length: 0)))
+        let state = try makeState(environment, .fake(reasoning: FakeReasoning(agentReply: .success(deletion)), text: text))
+        try await startListening(state)
+        state.finishDictation()
+        try #require(await eventually { state.dictationPhase == .success })
+
+        // The field still holds exactly what was dictated, so the Agent is offered it.
+        text.snapshot = .fake(valueBefore: "Hello world.", selectedRange: CFRange(location: 12, length: 0))
+        text.fieldValue = "Hello world."
+        try await startAgentListening(state)
+        #expect(state.contextItems.contains { $0.kind == .previousOutput && $0.value == "Hello world." })
+        state.finishAgentListening()
+        #expect(await eventually { state.agentPhase == .result })
+        #expect(text.writes == ["Hello world.", ""])
+        #expect(state.resultCanUndo)
+        #expect(state.historyEntries.map(\.output) == ["Hello world."])
+
+        // The next turn sees the deletion in the Session, but not the emptied range as text to revise.
+        text.snapshot = .fake(valueBefore: "", selectedRange: CFRange(location: 0, length: 0))
+        text.fieldValue = ""
+        try await startAgentListening(state)
+        #expect(state.contextItems.contains {
+            $0.kind == .session && $0.value == "Action: writeText\nTarget: previous SayKuku output, deleted"
+        })
+        #expect(!state.contextItems.contains { $0.kind == .previousOutput })
+        state.dismissAgent()
+
+        // Undo writes back the text the deletion replaced.
+        #expect(state.canUndoLastWrite)
+        await state.undoLastWrite()
+        #expect(text.writes == ["Hello world.", "", "Hello world."])
+        #expect(!state.canUndoLastWrite)
+    }
+
     @Test("undo clears the last write once it lands, and keeps it when the field changed")
     func undoLastWrite() async throws {
         let environment = AppStateTestEnvironment()

@@ -61,7 +61,9 @@ extension AudioCapture.Recording {
 
 extension TextTargetSnapshot {
     /// A plain, non-sensitive field with no Accessibility elements behind it.
-    static func fake(selectedText: String = "") -> TextTargetSnapshot {
+    static func fake(
+        selectedText: String = "", valueBefore: String? = nil, selectedRange: CFRange? = nil
+    ) -> TextTargetSnapshot {
         TextTargetSnapshot(
             appPID: 0,
             bundleID: "com.example.editor",
@@ -69,9 +71,9 @@ extension TextTargetSnapshot {
             windowTitle: "",
             windowElement: nil,
             textElement: nil,
-            selectedRange: nil,
+            selectedRange: selectedRange,
             selectedText: selectedText,
-            valueBefore: nil,
+            valueBefore: valueBefore,
             isSensitive: false,
             caretFrame: nil
         )
@@ -233,6 +235,8 @@ final class FakeTextWriting: TextWriting {
     var writeOutcome = TextWriteOutcome.verified
     var writeError: TextInteractionError?
     var replacementError: TextInteractionError?
+    /// What `currentValue(of:)` reads back from the field.
+    var fieldValue: String?
     private(set) var writes: [String] = []
 
     init(snapshot: TextTargetSnapshot = .fake()) {
@@ -249,12 +253,17 @@ final class FakeTextWriting: TextWriting {
         return writeOutcome
     }
 
-    func currentValue(of snapshot: TextTargetSnapshot) -> String? { nil }
+    func currentValue(of snapshot: TextTargetSnapshot) -> String? { fieldValue }
 
     func browserPageAddress(in snapshot: TextTargetSnapshot) -> String? { nil }
 
     func replacementSnapshot(for write: VerifiedWrite) throws -> TextTargetSnapshot {
         if let replacementError { throw replacementError }
-        return write.target
+        // Like the real one: the written text, selected in the field it was written to.
+        return .fake(
+            selectedText: write.text,
+            valueBefore: write.expectedValue,
+            selectedRange: CFRange(location: write.target.selectedRange?.location ?? 0, length: (write.text as NSString).length)
+        )
     }
 }

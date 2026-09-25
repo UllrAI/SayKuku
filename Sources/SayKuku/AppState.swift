@@ -980,17 +980,12 @@ final class AppState {
             domains: selectedDomains,
             knowledge: knowledgeEntities
         )
-        if let lastVerifiedWrite, lastVerifiedWrite.isRecent,
+        // After a deletion the last write is kept only for undo; there is nothing left to revise.
+        if let lastVerifiedWrite, lastVerifiedWrite.isRecent, !lastVerifiedWrite.text.isEmpty,
            let expected = lastVerifiedWrite.expectedValue,
            snapshot.valueBefore == expected,
            textInteraction.currentValue(of: lastVerifiedWrite.target) == expected {
-            contextItems.append(ContextCollector.textItem(
-                kind: .previousOutput,
-                symbol: "arrow.uturn.backward",
-                title: localized("Last insertion"),
-                value: lastVerifiedWrite.text,
-                limit: ContextCollector.textLimit
-            ))
+            contextItems.append(ContextCollector.previousOutputItem(lastVerifiedWrite.text))
         }
         agentCommand = localized("Listening…")
     }
@@ -1206,6 +1201,8 @@ final class AppState {
                   !transcript.isEmpty else { throw QwenError.invalidResponse }
             let command = SpeechDisfluencyCleaner.clean(transcript, mode: .light)
             guard let snapshot else { throw TextInteractionError.targetChanged }
+            // An empty result is not worth keeping; the Session still records the deletion.
+            if response.deletesPrevious, let historyID { deleteHistoryEntry(historyID) }
             updateHistory(historyID, input: command)
             agentCommand = response.intent ?? response.action.title
             withAnimation(Motion.panel) { agentPhase = .processing }
@@ -1296,7 +1293,9 @@ final class AppState {
             var actionToConfirm: AgentResponse?
             if response.action == .writeText {
                 // Generated text is final prose, not a speech trace; cleaning it could alter names or code.
-                guard let text = response.output, !text.isEmpty else { throw QwenError.invalidResponse }
+                guard let text = response.output, !text.isEmpty || response.deletesPrevious else {
+                    throw QwenError.invalidResponse
+                }
                 if automaticAgentWriteBack, !AgentActionExecutor.replacesClippedText(response, context: context) {
                     do {
                         let writeTarget: TextTargetSnapshot
@@ -1313,10 +1312,13 @@ final class AppState {
                         guard generation == workflowGeneration else { throw CancellationError() }
                         lastVerifiedWrite = outcome == .verified ? VerifiedWrite(target: writeTarget, text: text) : nil
                         resultCanUndo = outcome == .verified
-                    } catch is TextInteractionError {
+                    } catch let error as TextInteractionError {
+                        // A deletion has no text to copy instead.
+                        guard !text.isEmpty else { throw error }
                         needsCopyFallback = true
                     }
                 } else {
+                    guard !text.isEmpty else { throw AgentActionError.deleteNeedsInsert }
                     needsCopyFallback = true
                 }
                 output = text
