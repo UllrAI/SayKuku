@@ -111,6 +111,32 @@ struct GlobalShortcutTests {
         ) == .reject(.duplicate))
     }
 
+    @Test("recording rejects standard macOS shortcuts but allows variants")
+    func recordingReservedCombinations() {
+        let command = UInt32(cmdKey)
+        let commandKeys = [
+            kVK_ANSI_V, kVK_ANSI_C, kVK_ANSI_X, kVK_ANSI_Z, kVK_ANSI_A, kVK_ANSI_Q,
+            kVK_ANSI_W, kVK_ANSI_H, kVK_ANSI_M, kVK_Tab, kVK_Space, kVK_ANSI_Comma
+        ]
+        for key in commandKeys {
+            #expect(GlobalShortcut.recordingResult(
+                keyCode: UInt16(key), carbonModifiers: command, otherShortcut: nil
+            ) == .reject(.reserved))
+        }
+        #expect(GlobalShortcut.recordingResult(
+            keyCode: UInt16(kVK_ANSI_Z), carbonModifiers: UInt32(shiftKey | cmdKey), otherShortcut: nil
+        ) == .reject(.reserved))
+
+        let optionCommandV = GlobalShortcut(keyCode: UInt32(kVK_ANSI_V), carbonModifiers: UInt32(optionKey | cmdKey))
+        #expect(GlobalShortcut.recordingResult(
+            keyCode: UInt16(kVK_ANSI_V), carbonModifiers: optionCommandV.carbonModifiers, otherShortcut: nil
+        ) == .record(optionCommandV))
+        let controlSpace = GlobalShortcut(keyCode: UInt32(kVK_Space), carbonModifiers: UInt32(controlKey))
+        #expect(GlobalShortcut.recordingResult(
+            keyCode: UInt16(kVK_Space), carbonModifiers: controlSpace.carbonModifiers, otherShortcut: nil
+        ) == .record(controlSpace))
+    }
+
     @Test("status reports which shortcut failed before Accessibility")
     @MainActor
     func status() {
