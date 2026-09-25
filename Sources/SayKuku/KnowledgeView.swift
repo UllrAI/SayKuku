@@ -9,6 +9,9 @@ struct KnowledgeView: View {
     @State private var showingAdd = false
     @State private var editingEntity: KnowledgeEntity?
     @State private var pendingDeletion: KnowledgeEntity?
+    @State private var selection: KnowledgeEntity.ID?
+    @FocusState private var searchFocused: Bool
+    @FocusState private var listFocused: Bool
 
     /// "All" first, then one tab per type.
     private static let tabs: [EntityType?] = [nil] + EntityType.allCases.map(Optional.some)
@@ -100,18 +103,33 @@ struct KnowledgeView: View {
                 searchBar(count: entities.count)
             }
 
-            ScrollView {
-                LazyVStack(spacing: KukuLayout.listSpacing) {
-                    ForEach(entities) { entity in
-                        EntityRow(entity: entity) {
-                            pendingDeletion = entity
-                        } onEdit: {
-                            editingEntity = entity
-                        }
+            List(selection: $selection) {
+                ForEach(entities) { entity in
+                    EntityRow(entity: entity, isSelected: selection == entity.id) {
+                        pendingDeletion = entity
+                    } onEdit: {
+                        editingEntity = entity
                     }
+                    .tag(entity.id)
+                    .kukuListRow(EdgeInsets(top: 0, leading: 0, bottom: KukuLayout.listSpacing, trailing: 0))
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.bottom, KukuLayout.contentBottom)
+            }
+            .kukuList()
+            .contentMargins(.bottom, KukuLayout.contentBottom, for: .scrollContent)
+            .focused($listFocused)
+            .onDeleteCommand {
+                if let entity = selectedEntity(in: entities) { pendingDeletion = entity }
+            }
+            .onCopyCommand {
+                guard let entity = selectedEntity(in: entities) else { return [] }
+                return [NSItemProvider(object: entity.name as NSString)]
+            }
+            // A key handler on the focused list: a default-action button would also fire
+            // while typing in the search field.
+            .onKeyPress(.return) {
+                guard let entity = selectedEntity(in: entities) else { return .ignored }
+                editingEntity = entity
+                return .handled
             }
             .overlay {
                 if entities.isEmpty {
@@ -119,6 +137,10 @@ struct KnowledgeView: View {
                 }
             }
         }
+    }
+
+    private func selectedEntity(in entities: [KnowledgeEntity]) -> KnowledgeEntity? {
+        entities.first { $0.id == selection }
     }
 
     @ViewBuilder
@@ -156,8 +178,11 @@ struct KnowledgeView: View {
                 prompt: appState.text("搜索名称、别名或备注", "Search names, aliases, or notes"),
                 clearLabel: appState.text("清除搜索", "Clear search"),
                 text: $search,
-                width: nil
+                width: nil,
+                focus: $searchFocused,
+                onExit: { listFocused = true }
             )
+            .focusedSceneValue(\.searchFieldFocus, $searchFocused)
             Text(appState.text("\(count) 条", count == 1 ? "1 item" : "\(count) items"))
                 .font(.kuku(.subheadline))
                 .monospacedDigit()
@@ -178,6 +203,7 @@ struct KnowledgeView: View {
     }
 
     private func delete(_ entity: KnowledgeEntity) {
+        if selection == entity.id { selection = filteredEntities.selectionAfterRemoving(entity.id) }
         appState.knowledgeEntities.removeAll { $0.id == entity.id }
     }
 }
@@ -185,6 +211,7 @@ struct KnowledgeView: View {
 private struct EntityRow: View {
     @Environment(AppState.self) private var appState
     let entity: KnowledgeEntity
+    let isSelected: Bool
     let onDelete: () -> Void
     let onEdit: () -> Void
 
@@ -245,7 +272,7 @@ private struct EntityRow: View {
         .padding(.horizontal, KukuLayout.rowPadding)
         .padding(.vertical, KukuSpacing.md)
         .frame(maxWidth: .infinity, minHeight: KukuLayout.rowMinHeightWithCaption, alignment: .leading)
-        .kukuInteractiveSurface()
+        .kukuInteractiveSurface(isSelected: isSelected)
         .contextMenu {
             Button(appState.text("编辑…", "Edit…"), action: onEdit)
             Divider()
