@@ -120,7 +120,14 @@ final class AppState {
     var automaticAgentWriteBack = true {
         didSet { defaults.set(automaticAgentWriteBack, forKey: Keys.automaticAgentWriteBack) }
     }
-    var searchEngine: SearchEngine = .google { didSet { defaults.set(searchEngine.rawValue, forKey: Keys.searchEngine) } }
+    /// Nil until the user picks an engine, so the default keeps following the region.
+    private var storedSearchEngine: SearchEngine? = nil {
+        didSet { defaults.set(storedSearchEngine?.rawValue, forKey: Keys.searchEngine) }
+    }
+    var searchEngine: SearchEngine {
+        get { storedSearchEngine ?? SearchEngine.defaultEngine(for: qwenRegion) }
+        set { storedSearchEngine = newValue }
+    }
     var learnFromCorrections = true { didSet { defaults.set(learnFromCorrections, forKey: Keys.learnCorrections) } }
     var soundCuesEnabled = true { didSet { defaults.set(soundCuesEnabled, forKey: Keys.soundCues) } }
     var selectedTextAllowed = true { didSet { defaults.set(selectedTextAllowed, forKey: Keys.selectedText) } }
@@ -1635,9 +1642,7 @@ final class AppState {
         )
         defaults.set(true, forKey: Keys.realtimeModelUpgraded)
         reasoningModel = QwenModelCatalog.reasoningModel(stored: defaults.string(forKey: Keys.reasoningModel))
-        // Saved on first read, so a later region change leaves the engine alone.
-        searchEngine = defaults.string(forKey: Keys.searchEngine).flatMap(SearchEngine.init(rawValue:))
-            ?? SearchEngine.defaultEngine(for: qwenRegion)
+        storedSearchEngine = defaults.string(forKey: Keys.searchEngine).flatMap(SearchEngine.init(rawValue:))
         autoStop = storedBool(Keys.autoStop, default: false)
         continuousConversation = storedBool(Keys.continuousConversation, default: true)
         automaticAgentWriteBack = storedBool(Keys.automaticAgentWriteBack, default: true)
