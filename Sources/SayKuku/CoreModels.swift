@@ -125,11 +125,11 @@ enum RecognitionLanguage: String, CaseIterable, Identifiable, Sendable {
     var promptInstruction: String {
         switch self {
         case .automatic:
-            "Detect the spoken language automatically. Preserve the original language and natural code-switching. Never translate."
+            "Language: detect it automatically and keep code-switching as spoken. Never translate."
         case .chinese:
-            "Treat Mandarin Chinese as the primary recognition language and output Chinese speech in Simplified Chinese. Preserve clearly spoken words in other languages. Never translate."
+            "Language: expect mainly Mandarin and write it in Simplified Chinese. Keep clearly spoken words in other languages. Never translate."
         case .english:
-            "Treat English as the primary recognition language. Preserve clearly spoken words in other languages. Never translate."
+            "Language: expect mainly English. Keep clearly spoken words in other languages. Never translate."
         }
     }
 }
@@ -150,9 +150,9 @@ enum DictationNumberFormat: String, CaseIterable, Identifiable, Sendable {
     var promptInstruction: String {
         switch self {
         case .preferDigits:
-            "Use Arabic digits for unambiguous numbers, dates, times, amounts, percentages, measurements, phone numbers, and codes. Preserve idioms, proper nouns, and ambiguous number words as spoken."
+            "Numbers: use Arabic digits for unambiguous numbers, dates, times, amounts, percentages, measurements, phone numbers, and codes. Keep idioms, proper nouns, and ambiguous number words as spoken."
         case .spoken:
-            "Preserve number expressions as spoken instead of converting number words into digits. Keep explicitly dictated digit sequences, codes, and existing numeric forms unchanged."
+            "Numbers: keep number words as spoken; do not convert them to digits. Keep dictated digit sequences and codes unchanged."
         }
     }
 }
@@ -174,12 +174,14 @@ enum DictationCleanup: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .light:
             """
-            LIGHT CLEANUP: Return the cleaned final utterance, not the raw speech trace. Silently remove clear, meaningless fillers (嗯、呃、啊、额、那个、就是、然后、uh、um、you know), accidental immediate repeats, and abandoned starts. For a clear self-correction, keep the final wording. Do this cleanup even when the audio model initially recognizes those filler words.
-            Remove adjacent repeats of hesitation words and short fragments, even without a pause: "这个这个新版本" → "这个新版本", "我我觉得" → "我觉得", "然后，然后再提交" → "然后再提交". Also: "嗯，我觉得，呃，这个方案可以" → "我觉得这个方案可以。"; "周三，不对，周四见" → "周四见。"
-            Keep meaningful uses of the same words: "那个方案" keeps 那个, "这就是原因" keeps 就是, and "然后提交" keeps 然后 when it marks sequence. Keep deliberate repetition, quoted speech, uncertainty, and all meaningful content. If unsure whether a word is filler or content, keep it. Never paraphrase or add information.
+            Light cleanup: output the cleaned final utterance, not the raw speech trace.
+            - Remove meaningless fillers (嗯、呃、啊、额、那个、就是、然后、uh、um、you know), accidental repeats, and abandoned starts, even though they were clearly spoken.
+            - For a clear self-correction, keep only the final wording.
+            - Keep deliberate repetition, quoted speech, expressed uncertainty, and every word that carries meaning. If unsure whether a word is filler, keep it.
+            - Examples: "这个这个新版本" → "这个新版本"; "嗯，我觉得，呃，可以" → "我觉得可以。"; "周三，不对，周四见" → "周四见。"; "那个方案写完然后提交" stays unchanged because 那个 and 然后 carry meaning there.
             """
         case .verbatim:
-            "VERBATIM: Keep fillers, repetitions, false starts, and self-corrections as spoken. Add punctuation, but do not clean up or rewrite the speech."
+            "Verbatim: keep fillers, repetitions, false starts, and self-corrections as spoken. Only add punctuation."
         }
     }
 }

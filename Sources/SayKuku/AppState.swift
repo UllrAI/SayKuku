@@ -516,8 +516,7 @@ final class AppState {
     }
 
     func suggestEntityType(for name: String) async throws -> EntityType {
-        let result = try await reasoningClient.extractKnowledge(apiKey: apiKey, configuration: configuration, text: name)
-        return result.entities.first?.type ?? .unknown
+        try await reasoningClient.classifyEntity(apiKey: apiKey, configuration: configuration, name: name)
     }
 
     func acceptCorrection(_ id: UUID) {
@@ -1062,6 +1061,7 @@ final class AppState {
                 wav: recording.wav,
                 context: context,
                 sessions: context.contains(where: { $0.kind == .session }) ? conversation : [],
+                editableTextField: snapshot?.textElement != nil,
                 knowledgePrompt: knowledgePrompt
             )
             try Task.checkCancellation()
