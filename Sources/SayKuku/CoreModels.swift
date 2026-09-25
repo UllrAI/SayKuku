@@ -29,6 +29,47 @@ enum QwenRegion: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+/// Where Voice Agent sends web searches. A user setting, because the API region says nothing about the network.
+enum SearchEngine: String, Codable, CaseIterable, Identifiable {
+    case google, bing, baidu, duckduckgo
+
+    var id: String { rawValue }
+
+    /// RFC 3986 unreserved characters; everything else, including `&`, `+` and `=`, is percent-encoded.
+    private static let queryValueAllowed = CharacterSet(
+        charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~"
+    )
+
+    /// Used until the user picks one: Google is blocked in mainland China, where Beijing-region users usually are.
+    static func defaultEngine(for region: QwenRegion) -> SearchEngine {
+        region == .beijing ? .bing : .google
+    }
+
+    /// Brand names, so only Baidu differs between languages.
+    func title(isChineseUI: Bool) -> String {
+        switch self {
+        case .google: "Google"
+        case .bing: "Bing"
+        case .baidu: isChineseUI ? "百度" : "Baidu"
+        case .duckduckgo: "DuckDuckGo"
+        }
+    }
+
+    func url(for query: String) -> URL? {
+        guard let encoded = query.addingPercentEncoding(withAllowedCharacters: Self.queryValueAllowed) else { return nil }
+        return URL(string: searchPrefix + encoded)
+    }
+
+    private var searchPrefix: String {
+        switch self {
+        case .google: "https://www.google.com/search?q="
+        case .bing: "https://www.bing.com/search?q="
+        case .baidu: "https://www.baidu.com/s?wd="
+        case .duckduckgo: "https://duckduckgo.com/?q="
+        }
+    }
+}
+
 enum QwenModelCatalog {
     static let defaultRealtimeModel = "qwen3.8-omni-flash-realtime"
     static let defaultReasoningModel = "qwen3.8-omni-flash"

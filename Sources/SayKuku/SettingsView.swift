@@ -169,6 +169,18 @@ private struct VoiceAgentSettings: View {
                     ),
                     isOn: $appState.automaticAgentWriteBack
                 )
+                KukuDivider()
+                KukuRow(
+                    appState.text("搜索引擎", "Search engine"),
+                    caption: appState.text("语音 Agent 搜索时打开的网站", "Used when Voice Agent searches the web")
+                ) {
+                    KukuPicker(
+                        appState.text("搜索引擎", "Search engine"),
+                        options: SearchEngine.allCases,
+                        selection: $appState.searchEngine,
+                        label: { $0.title(isChineseUI: appState.usesChineseUI) }
+                    )
+                }
             }
         }
     }
