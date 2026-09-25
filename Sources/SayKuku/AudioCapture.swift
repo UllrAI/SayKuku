@@ -22,9 +22,10 @@ final class AudioCapture: @unchecked Sendable {
     }
 
     /// A fresh engine per recording, with its tap installed; a reused engine can keep a stale input format.
-    /// The engine and its observer are only touched on `queue`.
+    /// The engine, its observer and the last input device are only touched on `queue`.
     private var engine: AVAudioEngine?
     private var configurationObserver: NSObjectProtocol?
+    private var lastDeviceID: UInt32?
     /// Starting an engine can take hundreds of milliseconds with Bluetooth inputs, so it runs here rather
     /// than on the caller's thread. `stop` and `cancel` go through the same queue, so they always follow
     /// a start that is still in flight and come before the next one.
@@ -59,6 +60,7 @@ final class AudioCapture: @unchecked Sendable {
                 try self.startEngine(onLevel: onLevel, onChunk: onChunk, onInterruption: onInterruption)
                 continuation.finish()
             } catch {
+                Log.audio.error("Engine start failed: \(Log.describe(error), privacy: .public)")
                 continuation.finish(throwing: error)
             }
         }
@@ -111,6 +113,14 @@ final class AudioCapture: @unchecked Sendable {
         ) { [weak self] _ in
             self?.interrupt()
         }
+        let deviceID = input.auAudioUnit.deviceID
+        let deviceChanged = lastDeviceID.map { $0 != deviceID } ?? false
+        lastDeviceID = deviceID
+        let sampleRate = Int(sourceFormat.sampleRate)
+        let channels = Int(sourceFormat.channelCount)
+        Log.audio.info(
+            "Engine started: \(sampleRate, privacy: .public) Hz, \(channels, privacy: .public) ch, device changed: \(deviceChanged, privacy: .public)"
+        )
     }
 
     func stop() -> Recording {

@@ -1221,6 +1221,7 @@ final class AppState {
                 guard generation == workflowGeneration else { throw CancellationError() }
                 // Batch recognition only helps with transport problems; configuration errors would fail twice.
                 guard QwenError.allowsBatchFallback(after: error) else { throw error }
+                Log.qwen.notice("Realtime failed with \(Log.describe(error), privacy: .public); falling back to batch")
                 await realtimeClient.cancel(session: realtimeSession)
             }
         }
@@ -1441,6 +1442,10 @@ final class AppState {
     }
 
     private func handleWorkflowError(_ error: Error, agent: Bool) {
+        // Logged before the phase resets; `idle` or `hidden` means the pill never showed.
+        let stage = agent ? "agent \(agentPhase)" : "dictation \(dictationPhase)"
+        let level: OSLogType = (error as? QwenError) == .noSpeech ? .info : .error
+        Log.workflow.log(level: level, "Workflow failed in \(stage, privacy: .public): \(Log.describe(error), privacy: .public)")
         recordingLimitTask?.cancel()
         recordingLimitTask = nil
         audioCapture.cancel()
@@ -1826,12 +1831,4 @@ struct ToastMessage: Equatable, Identifiable {
     let id = UUID()
     let text: String
     let symbol: String
-}
-
-extension OSSignposter {
-    /// Intervals on the way from Fn to the pill, for the os_signpost instrument (see docs/COMPATIBILITY.md).
-    /// Computed so this nonisolated extension holds no global state of a possibly non-Sendable type.
-    static var performance: OSSignposter {
-        OSSignposter(subsystem: Bundle.main.bundleIdentifier ?? "SayKuku", category: "Performance")
-    }
 }

@@ -3,6 +3,7 @@ import AppKit
 import AVFAudio
 import AVFoundation
 import Observation
+import os
 
 enum SystemPermissionKind: String, Identifiable, CaseIterable {
     case microphone
@@ -65,6 +66,8 @@ final class SystemPermissionController {
     }
 
     func refresh() {
+        let previousMicrophone = microphoneStatus
+        let previousAccessibility = accessibilityStatus
         switch AVAudioApplication.shared.recordPermission {
         case .undetermined:
             microphoneStatus = .notDetermined
@@ -81,6 +84,17 @@ final class SystemPermissionController {
         } else {
             accessibilityStatus = .denied
         }
+        Self.logChange(.microphone, from: previousMicrophone, to: microphoneStatus)
+        Self.logChange(.accessibility, from: previousAccessibility, to: accessibilityStatus)
+    }
+
+    /// Only changes are logged: `refresh` runs on every activation and permission check.
+    private static func logChange(
+        _ kind: SystemPermissionKind, from old: SystemPermissionStatus, to new: SystemPermissionStatus
+    ) {
+        guard old != new else { return }
+        let change = "\(kind.rawValue) \(old) -> \(new)"
+        Log.permissions.info("Permission changed: \(change, privacy: .public)")
     }
 
     private func accessibilityDidChange() {

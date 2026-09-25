@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 enum LocalStoreError: LocalizedError {
     case unreadableSnapshot
@@ -66,23 +67,33 @@ actor LocalStore {
     func replace(_ newValue: Snapshot, generation: Int? = nil) throws {
         guard loadedSnapshot().isReadable else { throw LocalStoreError.unreadableSnapshot }
         if let generation, generation < latestGeneration { return }
-        try prepareDirectories()
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .millisecondsSince1970
         encoder.outputFormatting = [.sortedKeys]
-        try encoder.encode(newValue).write(to: snapshotURL, options: .atomic)
-        try restrictPermissions(at: snapshotURL, to: 0o600)
+        do {
+            try prepareDirectories()
+            try encoder.encode(newValue).write(to: snapshotURL, options: .atomic)
+            try restrictPermissions(at: snapshotURL, to: 0o600)
+        } catch {
+            Log.store.error("Saving store.json failed: \(Log.describe(error), privacy: .public)")
+            throw error
+        }
         if let generation { latestGeneration = generation }
         loaded?.snapshot = newValue
     }
 
     func saveAudio(_ wavData: Data, id: UUID) throws -> String {
         guard loadedSnapshot().isReadable else { throw LocalStoreError.unreadableSnapshot }
-        try prepareDirectories()
         let name = "\(id.uuidString).wav"
         let url = audioDirectory.appendingPathComponent(name)
-        try wavData.write(to: url, options: .atomic)
-        try restrictPermissions(at: url, to: 0o600)
+        do {
+            try prepareDirectories()
+            try wavData.write(to: url, options: .atomic)
+            try restrictPermissions(at: url, to: 0o600)
+        } catch {
+            Log.store.error("Saving a recording failed: \(Log.describe(error), privacy: .public)")
+            throw error
+        }
         return name
     }
 
@@ -111,6 +122,7 @@ actor LocalStore {
     private func loadedSnapshot() -> LoadResult {
         if let loaded { return loaded }
         let result = Self.loadSnapshot(from: snapshotURL)
+        Self.log(result)
         loaded = result
         if result.isReadable { removeUnreferencedAudio(keeping: result.snapshot.history) }
         return result
@@ -189,6 +201,27 @@ actor LocalStore {
             return LoadResult(isReadable: false, issue: .readOnly(file: url))
         }
         return LoadResult(issue: .movedAside(backup: backup))
+    }
+
+    /// Only counts and the backup's file name: full paths contain the user name.
+    private static func log(_ result: LoadResult) {
+        let snapshot = result.snapshot
+        let counts = "history \(snapshot.history.count), knowledge \(snapshot.entities.count), "
+            + "corrections \(snapshot.corrections.count), sessions \(snapshot.sessions.count)"
+        switch result.issue {
+        case nil:
+            Log.store.info("Loaded store.json: \(counts, privacy: .public)")
+        case .skippedRecords(let count, let backup):
+            let backupName = backup.lastPathComponent
+            Log.store.notice(
+                "Loaded store.json: \(counts, privacy: .public); skipped \(count, privacy: .public) damaged records, original copied to \(backupName, privacy: .public)"
+            )
+        case .movedAside(let backup):
+            let backupName = backup.lastPathComponent
+            Log.store.error("store.json unreadable; moved to \(backupName, privacy: .public), starting empty")
+        case .readOnly:
+            Log.store.error("store.json unreadable, not backed up or from a newer version; staying read-only")
+        }
     }
 
     /// Saves the file as `store.corrupt-<timestamp>.json` next to it, never replacing an existing backup.

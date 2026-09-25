@@ -40,6 +40,14 @@ struct QwenRequestContractTests {
         #expect(!QwenError.allowsBatchFallback(after: CancellationError()))
     }
 
+    @Test("logged errors name the case or code, never the message")
+    func errorLogDescription() {
+        #expect(Log.describe(QwenError.server(status: 503, message: "明天下午开会")) == "QwenError.server(503)")
+        #expect(Log.describe(QwenError.protocolError("明天下午开会")) == "QwenError.protocolError")
+        #expect(Log.describe(QwenError.timeout) == "QwenError.timeout")
+        #expect(Log.describe(URLError(.timedOut)) == "NSURLErrorDomain -1001")
+    }
+
     @Test("realtime dictation never settles for a partial transcript")
     func partialTranscriptTimesOut() async throws {
         let client = QwenRealtimeClient()
