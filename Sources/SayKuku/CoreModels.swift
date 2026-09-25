@@ -23,8 +23,8 @@ enum QwenRegion: String, Codable, CaseIterable, Identifiable {
 
     func title(isChineseUI: Bool) -> String {
         switch self {
-        case .beijing: isChineseUI ? "中国内地（北京）" : "China (Beijing)"
-        case .singapore: isChineseUI ? "国际（新加坡）" : "International (Singapore)"
+        case .beijing: localized("China (Beijing)")
+        case .singapore: localized("International (Singapore)")
         }
     }
 }
@@ -50,7 +50,7 @@ enum SearchEngine: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .google: "Google"
         case .bing: "Bing"
-        case .baidu: isChineseUI ? "百度" : "Baidu"
+        case .baidu: localized("Baidu")
         case .duckduckgo: "DuckDuckGo"
         }
     }
@@ -78,9 +78,9 @@ enum OverlayPlacement: String, Codable, CaseIterable, Identifiable {
 
     func title(isChineseUI: Bool) -> String {
         switch self {
-        case .bottom: isChineseUI ? "底部居中" : "Bottom center"
-        case .top: isChineseUI ? "顶部" : "Top"
-        case .caret: isChineseUI ? "跟随光标" : "Follow the cursor"
+        case .bottom: localized("Bottom center")
+        case .top: localized("Top")
+        case .caret: localized("Follow the cursor")
         }
     }
 }
@@ -172,7 +172,7 @@ enum RecognitionLanguage: String, CaseIterable, Identifiable, Sendable {
 
     func title(isChineseUI: Bool) -> String {
         switch self {
-        case .automatic: isChineseUI ? "自动（中英混合）" : "Auto (Chinese & English)"
+        case .automatic: localized("Auto (Chinese & English)")
         case .chinese: "简体中文"
         case .english: "English"
         }
@@ -198,8 +198,8 @@ enum DictationNumberFormat: String, CaseIterable, Identifiable, Sendable {
 
     func title(isChineseUI: Bool) -> String {
         switch self {
-        case .preferDigits: isChineseUI ? "优先阿拉伯数字" : "Prefer digits"
-        case .spoken: isChineseUI ? "保持口述" : "As spoken"
+        case .preferDigits: localized("Prefer digits")
+        case .spoken: localized("As spoken")
         }
     }
 
@@ -221,8 +221,8 @@ enum DictationCleanup: String, CaseIterable, Identifiable, Sendable {
 
     func title(isChineseUI: Bool) -> String {
         switch self {
-        case .light: isChineseUI ? "轻整理" : "Light cleanup"
-        case .verbatim: isChineseUI ? "原样" : "Verbatim"
+        case .light: localized("Light cleanup")
+        case .verbatim: localized("Verbatim")
         }
     }
 
@@ -330,14 +330,14 @@ enum DomainPreset: String, CaseIterable, Identifiable, Sendable {
     func title(isChineseUI: Bool) -> String {
         switch self {
         case .aiVibeCoding: "AI / Vibe Coding"
-        case .softwareDevelopment: isChineseUI ? "软件开发" : "Software Development"
-        case .productDesign: isChineseUI ? "产品设计" : "Product Design"
-        case .productManagement: isChineseUI ? "产品管理" : "Product Management"
-        case .marketingGrowth: isChineseUI ? "市场与增长" : "Marketing & Growth"
-        case .contentCreation: isChineseUI ? "内容创作" : "Content Creation"
-        case .finance: isChineseUI ? "金融与投资" : "Finance & Investing"
-        case .healthcare: isChineseUI ? "医疗健康" : "Healthcare"
-        case .legal: isChineseUI ? "法律" : "Legal"
+        case .softwareDevelopment: localized("Software Development")
+        case .productDesign: localized("Product Design")
+        case .productManagement: localized("Product Management")
+        case .marketingGrowth: localized("Marketing & Growth")
+        case .contentCreation: localized("Content Creation")
+        case .finance: localized("Finance & Investing")
+        case .healthcare: localized("Healthcare")
+        case .legal: localized("Legal")
         }
     }
 
@@ -574,9 +574,9 @@ enum KnowledgeSaveError: Error, Equatable {
     @MainActor func message(_ appState: AppState) -> String {
         switch self {
         case .emptyName:
-            appState.text("名称里要有文字或数字", "A name needs at least one letter or number")
+            localized("A name needs at least one letter or number")
         case .duplicate(let name):
-            appState.text("已有同名条目“\(name)”", "“\(name)” is already in Knowledge")
+            localized("“\(name)” is already in Knowledge")
         }
     }
 }
@@ -586,10 +586,10 @@ enum ImportStatus: String, Codable {
 
     @MainActor func title(_ appState: AppState) -> String {
         switch self {
-        case .new: appState.text("新增", "New")
-        case .merge: appState.text("更新已有条目", "Updates existing")
-        case .conflict: appState.text("可能重复", "Possible duplicate")
-        case .ignored: appState.text("已忽略", "Ignored")
+        case .new: localized("New")
+        case .merge: localized("Updates existing")
+        case .conflict: localized("Possible duplicate")
+        case .ignored: localized("Ignored")
         }
     }
 }
@@ -684,11 +684,11 @@ struct AgentResponse: Codable, Equatable {
 
         func title(isChineseUI: Bool) -> String {
             switch self {
-            case .writeText: isChineseUI ? "写入文字" : "Write text"
-            case .answer: isChineseUI ? "回答" : "Answer"
-            case .openURL: isChineseUI ? "打开网址" : "Open link"
-            case .webSearch: isChineseUI ? "网页搜索" : "Search the web"
-            case .runShortcut: isChineseUI ? "运行快捷指令" : "Run shortcut"
+            case .writeText: localized("Write text")
+            case .answer: localized("Answer")
+            case .openURL: localized("Open link")
+            case .webSearch: localized("Search the web")
+            case .runShortcut: localized("Run shortcut")
             }
         }
     }

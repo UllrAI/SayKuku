@@ -33,13 +33,13 @@ struct HistoryView: View {
 
         VStack(spacing: 0) {
             ScreenHeader(
-                title: appState.text("历史", "History"),
+                title: localized("History"),
                 subtitle: retentionSubtitle
             ) {
                 if !appState.historyEntries.isEmpty {
                     KukuSearchField(
-                        prompt: appState.text("搜索内容或 App", "Search text or apps"),
-                        clearLabel: appState.text("清除搜索", "Clear search"),
+                        prompt: localized("Search text or apps"),
+                        clearLabel: localized("Clear search"),
                         text: $search,
                         focus: $searchFocused,
                         onExit: { listFocused = true }
@@ -69,7 +69,7 @@ struct HistoryView: View {
         }
         .onDisappear(perform: stopPlayback)
         .confirmationDialog(
-            appState.text("删除这条星标记录？", "Delete this starred item?"),
+            localized("Delete this starred item?"),
             isPresented: Binding(
                 get: { pendingDeletion != nil },
                 set: { if !$0 { pendingDeletion = nil } }
@@ -77,12 +77,12 @@ struct HistoryView: View {
             titleVisibility: .visible,
             presenting: pendingDeletion
         ) { entry in
-            Button(appState.text("删除", "Delete"), role: .destructive) { delete(entry) }
-            Button(appState.text("取消", "Cancel"), role: .cancel) { }
+            Button(localized("Delete"), role: .destructive) { delete(entry) }
+            Button(localized("Cancel"), role: .cancel) { }
         } message: { entry in
             Text(entry.hasAudio
-                 ? appState.text("录音也会一起删除，且无法恢复。", "Its recording will be deleted too. This can’t be undone.")
-                 : appState.text("删除后无法恢复。", "This can’t be undone."))
+                 ? localized("Its recording will be deleted too. This can’t be undone.")
+                 : localized("This can’t be undone."))
         }
     }
 
@@ -100,9 +100,8 @@ struct HistoryView: View {
         if let legacyURL = appState.legacyDataURL {
             HistoryNotice(
                 symbol: "archivebox",
-                title: appState.text("旧版本的加密记录没有迁移过来", "Encrypted history from an earlier version wasn’t carried over"),
-                message: appState.text(
-                    "早期版本加密保存的历史、知识和记忆无法在当前版本打开。SayKuku 不会自动迁移或删除它们，文件仍在这台 Mac 上，保留还是删除由你决定。",
+                title: localized("Encrypted history from an earlier version wasn’t carried over"),
+                message: localized(
                     "History, Knowledge, and Memory saved by an earlier encrypted version can’t be opened here. SayKuku won’t migrate or delete these files. They’re still on this Mac for you to keep or remove."
                 ),
                 fileURL: legacyURL
@@ -113,9 +112,9 @@ struct HistoryView: View {
     private var retentionSubtitle: String {
         switch appState.historyRetention {
         case .off:
-            appState.text("已停止记录新内容，已有记录会保留到你手动清空。", "New items aren’t being saved. Existing ones stay until you clear them.")
+            localized("New items aren’t being saved. Existing ones stay until you clear them.")
         case .forever:
-            appState.text("历史记录会一直保留，直到你手动删除。", "History is kept until you delete it.")
+            localized("History is kept until you delete it.")
         default:
             appState.text(
                 "保留 \(appState.historyRetention.chineseTitle)，星标记录不会自动删除。",
@@ -128,37 +127,34 @@ struct HistoryView: View {
     private var emptyState: some View {
         if appState.historyEntries.isEmpty, appState.historyRetention == .off {
             KukuEmptyState(
-                title: appState.text("已停止记录历史", "History is off"),
+                title: localized("History is off"),
                 symbol: "pause.circle",
-                message: appState.text(
-                    "在“设置 › 历史”里选择保留期限即可重新记录。",
-                    "Choose a retention period in Settings › History to start keeping history again."
-                )
+                message: localized("Choose a retention period in Settings › History to start keeping history again.")
             ) {
-                Button(appState.text("打开设置", "Open Settings")) {
+                Button(localized("Open Settings")) {
                     appState.showSettings(section: .history)
                 }
                 .buttonStyle(.kukuSecondary)
             }
         } else if appState.historyEntries.isEmpty {
             KukuEmptyState(
-                title: appState.text("还没有历史记录", "No history yet"),
+                title: localized("No history yet"),
                 symbol: "waveform",
-                message: appState.text("按 Fn 说句话，记录就会出现在这里。", "Press Fn and start talking. Your history shows up here.")
+                message: localized("Press Fn and start talking. Your history shows up here.")
             )
         } else if !query.isEmpty {
             KukuEmptyState(
-                title: appState.text("没有找到匹配的历史记录", "No matching history"),
+                title: localized("No matching history"),
                 symbol: "magnifyingglass",
-                message: appState.text("换个关键词试试。", "Try a different search.")
+                message: localized("Try a different search.")
             )
         } else {
             KukuEmptyState(
-                title: appState.text("这个分类还没有历史记录", "No history in this category"),
+                title: localized("No history in this category"),
                 symbol: "line.3.horizontal.decrease.circle",
-                message: appState.text("换个分类，或清除筛选查看全部。", "Switch categories, or clear the filter to see everything.")
+                message: localized("Switch categories, or clear the filter to see everything.")
             ) {
-                Button(appState.text("清除筛选", "Clear Filter")) { filter = .all }
+                Button(localized("Clear Filter")) { filter = .all }
                     .buttonStyle(.kukuSecondary)
             }
         }
@@ -240,7 +236,7 @@ struct HistoryView: View {
         if playback?.entryID == entry.id { stopPlayback() }
         if selection == entry.id { selection = filteredEntries.selectionAfterRemoving(entry.id) }
         withAnimation(Motion.snappy) { appState.deleteHistoryEntry(entry.id) }
-        appState.showToast(appState.text("已删除", "Deleted"), symbol: "trash")
+        appState.showToast(localized("Deleted"), symbol: "trash")
     }
 
     private func stopPlayback() {
@@ -269,7 +265,7 @@ struct HistoryView: View {
             } catch {
                 if playback?.entryID == entry.id { withAnimation(Motion.snappy) { playback = nil } }
                 appState.showToast(
-                    appState.text("无法播放这段录音，文件可能已被移动或删除", "Couldn’t play this recording. The file may have been moved or deleted."),
+                    localized("Couldn’t play this recording. The file may have been moved or deleted."),
                     symbol: "exclamationmark.triangle.fill"
                 )
             }
@@ -277,8 +273,8 @@ struct HistoryView: View {
     }
 
     private func dayLabel(for entry: HistoryEntry) -> String {
-        if Calendar.current.isDateInToday(entry.createdAt) { return appState.text("今天", "Today") }
-        if Calendar.current.isDateInYesterday(entry.createdAt) { return appState.text("昨天", "Yesterday") }
+        if Calendar.current.isDateInToday(entry.createdAt) { return localized("Today") }
+        if Calendar.current.isDateInYesterday(entry.createdAt) { return localized("Yesterday") }
         let locale = historyLocale(chinese: appState.usesChineseUI)
         return entry.createdAt.formatted(Date.FormatStyle(date: .abbreviated, time: .omitted, locale: locale))
     }
@@ -291,24 +287,19 @@ struct HistoryView: View {
                     "有 \(count) 条本机记录无法读取，已跳过",
                     count == 1 ? "1 saved item couldn’t be read and was skipped" : "\(count) saved items couldn’t be read and were skipped"
                 ),
-                message: appState.text(
-                    "其余内容都已正常载入。原文件已完整备份为 \(backup.lastPathComponent)。",
+                message: localized(
                     "Everything else loaded normally. The original file was backed up as \(backup.lastPathComponent)."
                 )
             )
         case .movedAside(let backup):
             return (
-                title: appState.text("本机数据无法读取，已从空白记录重新开始", "Local data couldn’t be read, so SayKuku started fresh"),
-                message: appState.text(
-                    "原文件没有被覆盖，已完整备份为 \(backup.lastPathComponent)。",
-                    "The original file wasn’t overwritten. It’s saved as \(backup.lastPathComponent)."
-                )
+                title: localized("Local data couldn’t be read, so SayKuku started fresh"),
+                message: localized("The original file wasn’t overwritten. It’s saved as \(backup.lastPathComponent).")
             )
         case .readOnly:
             return (
-                title: appState.text("本机数据暂时无法读取", "Local data can’t be read right now"),
-                message: appState.text(
-                    "为避免覆盖原文件，新的更改暂不保存。请检查文件权限或更新 SayKuku，然后重新打开。",
+                title: localized("Local data can’t be read right now"),
+                message: localized(
                     "To avoid overwriting the file, new changes won’t be saved. Check the file’s permissions or update SayKuku, then reopen it."
                 )
             )
@@ -351,7 +342,7 @@ private struct HistoryNotice: View {
                     .font(.kuku(.subheadline))
                     .foregroundStyle(KukuColor.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
-                Button(appState.text("在访达中显示", "Show in Finder")) {
+                Button(localized("Show in Finder")) {
                     appState.revealInFinder(fileURL)
                 }
                 .buttonStyle(.kuku(.secondary, size: .small))
@@ -360,7 +351,7 @@ private struct HistoryNotice: View {
 
             Spacer(minLength: KukuSpacing.sm)
 
-            KukuIconButton(symbol: "xmark", label: appState.text("关闭", "Close"), action: onDismiss)
+            KukuIconButton(symbol: "xmark", label: localized("Close"), action: onDismiss)
         }
         .kukuCard()
         .padding(.bottom, KukuLayout.listSpacing)
@@ -397,8 +388,8 @@ private struct HistoryRow: View {
                 .foregroundStyle(KukuColor.textSecondary)
 
                 VStack(alignment: .leading, spacing: KukuSpacing.iconText) {
-                    historyLine(label: appState.text("你说的", "Spoken")) { inputContent }
-                    historyLine(label: appState.text("结果", "Result")) { outputContent }
+                    historyLine(label: localized("Spoken")) { inputContent }
+                    historyLine(label: localized("Result")) { outputContent }
                 }
             }
 
@@ -408,15 +399,15 @@ private struct HistoryRow: View {
                 if hovering {
                     KukuIconButton(
                         symbol: "trash",
-                        label: appState.text("删除这条记录", "Delete this item"),
+                        label: localized("Delete this item"),
                         action: onDelete
                     )
                 }
 
                 KukuIconButton(
                     symbol: entry.isStarred ? "star.fill" : "star",
-                    label: entry.isStarred ? appState.text("取消星标", "Remove star") : appState.text("加星标", "Star"),
-                    help: entry.isStarred ? nil : appState.text("加星标，永久保留", "Star and keep forever"),
+                    label: entry.isStarred ? localized("Remove star") : localized("Star"),
+                    help: entry.isStarred ? nil : localized("Star and keep forever"),
                     tint: starTint,
                     action: toggleStar
                 )
@@ -432,17 +423,17 @@ private struct HistoryRow: View {
         .animation(Motion.snappy, value: isSelected)
         .contextMenu {
             if entry.hasCopyableOutput {
-                Button(appState.text("复制结果", "Copy Result")) { appState.copyHistoryOutput(entry.output) }
+                Button(localized("Copy Result")) { appState.copyHistoryOutput(entry.output) }
             }
             if entry.hasAudio {
                 Button(playbackTitle(titleCase: true), action: onTogglePlayback)
             }
-            Button(entry.isStarred ? appState.text("取消星标", "Remove Star") : appState.text("加星标", "Star")) {
+            Button(entry.isStarred ? localized("Remove Star") : localized("Star")) {
                 toggleStar()
             }
             Divider()
             Button(
-                entry.isStarred ? appState.text("删除…", "Delete…") : appState.text("删除", "Delete"),
+                entry.isStarred ? localized("Delete…") : localized("Delete"),
                 role: .destructive,
                 action: onDelete
             )
@@ -499,8 +490,8 @@ private struct HistoryRow: View {
                     .font(.kukuIcon(.small))
                     .foregroundStyle(KukuColor.textSecondary)
                 Text(entry.status == .processing && appState.storeVoiceAudio
-                     ? appState.text("正在保存录音…", "Saving recording…")
-                     : appState.text("没有录音", "No recording"))
+                     ? localized("Saving recording…")
+                     : localized("No recording"))
                     .font(.kuku(.subheadline))
                     .foregroundStyle(KukuColor.textSecondary)
             }
@@ -521,14 +512,14 @@ private struct HistoryRow: View {
             HStack(spacing: KukuSpacing.iconText) {
                 ProgressView().controlSize(.mini)
                 Text(entry.mode == .dictation
-                     ? appState.text("正在识别…", "Transcribing…")
-                     : appState.text("正在处理…", "Processing…"))
+                     ? localized("Transcribing…")
+                     : localized("Processing…"))
             }
             .foregroundStyle(KukuColor.textSecondary)
         case .failed:
             VStack(alignment: .leading, spacing: KukuSpacing.sm) {
                 KukuStatusLabel(
-                    text: entry.errorMessage ?? appState.text("处理失败", "Processing failed"),
+                    text: entry.errorMessage ?? localized("Processing failed"),
                     tone: .danger,
                     font: .kuku(.body)
                 )
@@ -536,7 +527,7 @@ private struct HistoryRow: View {
             }
         case .cancelled:
             VStack(alignment: .leading, spacing: KukuSpacing.sm) {
-                Label(appState.text("已取消", "Cancelled"), systemImage: "xmark.circle")
+                Label(localized("Cancelled"), systemImage: "xmark.circle")
                     .foregroundStyle(KukuColor.textSecondary)
                 retryButton
             }
@@ -553,7 +544,7 @@ private struct HistoryRow: View {
                     Button {
                         appState.copyHistoryOutput(entry.output)
                     } label: {
-                        Label(appState.text("复制结果", "Copy Result"), systemImage: "doc.on.doc")
+                        Label(localized("Copy Result"), systemImage: "doc.on.doc")
                     }
                     .buttonStyle(.kuku(.plain, size: .small))
                 }
@@ -564,8 +555,8 @@ private struct HistoryRow: View {
                     } label: {
                         Label(
                             isOutputExpanded
-                                ? appState.text("收起", "Show Less")
-                                : appState.text("展开", "Show More"),
+                                ? localized("Show Less")
+                                : localized("Show More"),
                             systemImage: isOutputExpanded ? "chevron.up" : "chevron.down"
                         )
                     }
@@ -578,7 +569,7 @@ private struct HistoryRow: View {
     @ViewBuilder
     private var retryButton: some View {
         if entry.canRetryTranscription {
-            Button(appState.text("重新识别", "Retry Transcription")) {
+            Button(localized("Retry Transcription")) {
                 Task { await appState.retryDictation(entry.id) }
             }
             .buttonStyle(.kuku(.secondary, size: .small))
@@ -635,7 +626,7 @@ enum HistoryFilter: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     @MainActor func title(_ appState: AppState) -> String {
         switch self {
-        case .all: appState.text("全部", "All")
+        case .all: localized("All")
         case .dictation: appState.voiceInputTitle
         case .agent: appState.voiceAgentTitle
         }

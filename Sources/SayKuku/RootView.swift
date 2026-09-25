@@ -111,7 +111,7 @@ private struct Sidebar: View {
                 .padding(.bottom, KukuSpacing.sm)
 
             // Settings lives in its own window, so this button never shows as selected.
-            SidebarButton(title: appState.text("设置", "Settings"), symbol: "gearshape", isSelected: false) {
+            SidebarButton(title: localized("Settings"), symbol: "gearshape", isSelected: false) {
                 appState.showSettings()
             }
             .padding(.horizontal, KukuSpacing.sm)

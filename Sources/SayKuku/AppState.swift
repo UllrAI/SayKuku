@@ -22,10 +22,10 @@ final class AppState {
         }
         @MainActor func title(_ appState: AppState) -> String {
             switch self {
-            case .home: appState.text("首页", "Home")
-            case .history: appState.text("历史", "History")
-            case .knowledge: appState.text("知识", "Knowledge")
-            case .memory: appState.text("记忆", "Memory")
+            case .home: localized("Home")
+            case .history: localized("History")
+            case .knowledge: localized("Knowledge")
+            case .memory: localized("Memory")
             }
         }
     }
@@ -64,27 +64,21 @@ final class AppState {
             let shortcutsOff = GlobalShortcutAction.allCases.allSatisfy { appState.globalShortcut(for: $0) == nil }
             switch self {
             case .starting:
-                return appState.text("正在启动快捷键…", "Starting shortcuts…")
+                return localized("Starting shortcuts…")
             case .ready:
                 return shortcutsOff
-                    ? appState.text("Fn 已就绪 · 全局快捷键已关闭", "Fn ready · Global shortcuts off")
-                    : appState.text("Fn 与全局快捷键已就绪", "Fn and global shortcuts ready")
+                    ? localized("Fn ready · Global shortcuts off")
+                    : localized("Fn and global shortcuts ready")
             case .accessibilityRequired:
                 return shortcutsOff
-                    ? appState.text("Fn 需要辅助功能权限 · 全局快捷键已关闭", "Fn needs Accessibility · Global shortcuts off")
-                    : appState.text("全局快捷键可用 · Fn 需要辅助功能权限", "Global shortcuts ready · Fn needs Accessibility")
+                    ? localized("Fn needs Accessibility · Global shortcuts off")
+                    : localized("Global shortcuts ready · Fn needs Accessibility")
             case .hotKeyConflict(let actions):
                 guard actions.count == 1, let action = actions.first else {
-                    return appState.text(
-                        "两个全局快捷键都已被其他 App 占用，请重新设置",
-                        "Both global shortcuts are already in use by other apps. Record new ones."
-                    )
+                    return localized("Both global shortcuts are already in use by other apps. Record new ones.")
                 }
                 let keys = appState.globalShortcut(for: action)?.displayString ?? ""
-                return appState.text(
-                    "\(keys)（\(action.title(appState))）已被其他 App 占用，请重新设置",
-                    "\(keys) for \(action.title(appState)) is already in use by another app. Record a new one."
-                )
+                return localized("\(keys) for \(action.title(appState)) is already in use by another app. Record a new one.")
             }
         }
     }
@@ -306,8 +300,8 @@ final class AppState {
     }
 
     func text(_ chinese: String, _ english: String) -> String { usesChineseUI ? chinese : english }
-    var voiceInputTitle: String { text("语音输入", "Voice Input") }
-    var voiceAgentTitle: String { text("语音 Agent", "Voice Agent") }
+    var voiceInputTitle: String { localized("Voice Input") }
+    var voiceAgentTitle: String { localized("Voice Agent") }
 
     func setShowInMenuBar(_ isVisible: Bool) {
         guard isVisible || !hideDockIconAfterMainWindowCloses else { return }
@@ -428,14 +422,14 @@ final class AppState {
             if agentPhase == .result { agentPhase = .hidden }
             showOverlayFeedback(
                 outcome == .verified
-                    ? text("已撤销", "Undone")
-                    : text("已尝试撤销，请核对", "Tried to undo. Check the text."),
+                    ? localized("Undone")
+                    : localized("Tried to undo. Check the text."),
                 symbol: "arrow.uturn.backward"
             )
         } catch {
             if generation == workflowGeneration, self.lastVerifiedWrite?.id == lastVerifiedWrite.id {
                 showOverlayFeedback(
-                    text("无法撤销，文字已被改动，或这个 App 不支持撤销", "Can’t undo. The text changed, or this app doesn’t support it."),
+                    localized("Can’t undo. The text changed, or this app doesn’t support it."),
                     symbol: "exclamationmark.triangle"
                 )
             }
@@ -454,7 +448,7 @@ final class AppState {
         guard !pendingAnswerText.isEmpty else { return }
         pendingCopyText = pendingAnswerText
         copyPendingText()
-        pendingAnswerStatus = pendingAction == nil ? text("已复制回答", "Answer copied") : text("已复制", "Copied")
+        pendingAnswerStatus = pendingAction == nil ? localized("Answer copied") : localized("Copied")
     }
 
     func confirmPendingAction() {
@@ -489,10 +483,10 @@ final class AppState {
             guard generation == workflowGeneration, pendingAnswerText == answer else { return }
             lastVerifiedWrite = outcome == .verified ? VerifiedWrite(target: snapshot, text: answer) : nil
             dismissAnswer()
-            showOverlayFeedback(text("已输入", "Inserted"), symbol: "checkmark")
+            showOverlayFeedback(localized("Inserted"), symbol: "checkmark")
         } catch {
             if generation == workflowGeneration, pendingAnswerText == answer {
-                pendingAnswerStatus = text("输入位置变了，请复制回答后手动粘贴", "The text field changed. Copy the answer instead.")
+                pendingAnswerStatus = localized("The text field changed. Copy the answer instead.")
             }
         }
     }
@@ -536,7 +530,7 @@ final class AppState {
         if let error = insertKnowledge(KnowledgeEntity(name: name, detail: detail ?? "", type: type, aliases: aliases)) {
             return error
         }
-        showToast(text("已加入知识", "Added to Knowledge"), symbol: "checkmark.circle.fill")
+        showToast(localized("Added to Knowledge"), symbol: "checkmark.circle.fill")
         return nil
     }
 
@@ -570,7 +564,7 @@ final class AppState {
         if let error = validateKnowledge(candidate) { return error }
 
         knowledgeEntities[index] = candidate
-        showToast(text("已更新知识", "Knowledge updated"), symbol: "checkmark.circle.fill")
+        showToast(localized("Knowledge updated"), symbol: "checkmark.circle.fill")
         return nil
     }
 
@@ -710,7 +704,7 @@ final class AppState {
             )
             let cleaned = try SpeechDisfluencyCleaner.dictation(result, mode: dictationCleanup)
             updateHistory(id, input: cleaned, output: cleaned, status: .completed)
-            showToast(text("已重新识别", "Transcribed again"), symbol: "checkmark")
+            showToast(localized("Transcribed again"), symbol: "checkmark")
         } catch {
             updateHistory(id, status: .failed, errorMessage: localizedError(error))
         }
@@ -720,7 +714,7 @@ final class AppState {
         guard !text.isEmpty else { return }
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
-        showToast(self.text("已复制", "Copied"), symbol: "doc.on.doc")
+        showToast(localized("Copied"), symbol: "doc.on.doc")
     }
 
     func toggleHistoryStar(_ id: UUID) {
@@ -736,8 +730,8 @@ final class AppState {
         removeHistory { !keepingStarred || !$0.isStarred }
         showToast(
             keepingStarred
-                ? text("已清空历史，星标记录已保留", "History cleared. Starred items were kept.")
-                : text("已清空历史", "History cleared"),
+                ? localized("History cleared. Starred items were kept.")
+                : localized("History cleared"),
             symbol: "trash"
         )
     }
@@ -793,12 +787,12 @@ final class AppState {
 
     /// Primary button of a setup sheet: Continue mid-flow, Done on the last step or outside the flow.
     var setupContinueTitle: String {
-        setupProgress?.isLastStep == false ? text("继续", "Continue") : text("完成", "Done")
+        setupProgress?.isLastStep == false ? localized("Continue") : localized("Done")
     }
 
     /// Secondary button of a setup sheet that leaves the step unfinished.
     var setupSkipTitle: String {
-        setupProgress == nil ? text("以后再说", "Not Now") : text("跳过", "Skip")
+        setupProgress == nil ? localized("Not Now") : localized("Skip")
     }
 
     private func isSetupStepNeeded(_ step: AppSheet) -> Bool {
@@ -832,7 +826,7 @@ final class AppState {
         } catch {
             launchAtLogin = SMAppService.mainApp.status == .enabled
             showToast(
-                text("无法更新登录项，请在“系统设置 › 通用 › 登录项”中检查", "Couldn’t update Login Items. Check System Settings › General › Login Items."),
+                localized("Couldn’t update Login Items. Check System Settings › General › Login Items."),
                 symbol: "exclamationmark.triangle.fill"
             )
         }
@@ -890,7 +884,7 @@ final class AppState {
         agentPhase = .hidden
         // Shortcuts usually fire from another app, so explain on the overlay and open the fix.
         guard systemPermissions.microphoneStatus == .authorized else {
-            showOverlayFeedback(text("请先允许 SayKuku 使用麦克风", "Allow microphone access first"), symbol: "mic.slash", duration: .seconds(4))
+            showOverlayFeedback(localized("Allow microphone access first"), symbol: "mic.slash", duration: .seconds(4))
             showPermissionGuide()
             showMainWindow()
             return
@@ -988,13 +982,13 @@ final class AppState {
             contextItems.append(ContextCollector.textItem(
                 kind: .previousOutput,
                 symbol: "arrow.uturn.backward",
-                title: text("上次输入", "Last insertion"),
+                title: localized("Last insertion"),
                 value: lastVerifiedWrite.text,
                 limit: ContextCollector.textLimit,
                 isChineseUI: usesChineseUI
             ))
         }
-        agentCommand = text("正在听…", "Listening…")
+        agentCommand = localized("Listening…")
     }
 
     /// Shows the pill only once the target is read and the engine runs, so it still means the microphone is open.
@@ -1057,7 +1051,7 @@ final class AppState {
                 if let self, self.workflowGeneration == generation {
                     let seconds = warning.components.seconds
                     self.showOverlayFeedback(
-                        self.text("\(seconds) 秒后自动结束录音", "Recording stops in \(seconds) seconds"),
+                        localized("Recording stops in \(seconds) seconds"),
                         symbol: "timer"
                     )
                 }
@@ -1115,7 +1109,7 @@ final class AppState {
                           self.dictationIsListening || self.agentIsListening else { return }
                     self.finishListening(for: mode)
                     self.showOverlayFeedback(
-                        self.text("音频设备已切换，录音已结束", "Audio device changed. Recording stopped."),
+                        localized("Audio device changed. Recording stopped."),
                         symbol: "mic.slash"
                     )
                 }
@@ -1409,7 +1403,7 @@ final class AppState {
         // The user is usually in another app, where only the overlay is visible.
         if saveFailed {
             showOverlayFeedback(
-                text("这条历史没能保存，识别不受影响", "Couldn’t save this to History. Transcription will continue."),
+                localized("Couldn’t save this to History. Transcription will continue."),
                 symbol: "exclamationmark.triangle"
             )
         }
@@ -1491,7 +1485,7 @@ final class AppState {
         if Self.needsSettings(error) {
             showSettings(section: .qwen)
             // The overlay already says what went wrong; the toast explains why Settings opened.
-            showToast(text("已打开“设置 › Qwen 连接”", "Opened Settings › Qwen Connection"), symbol: "gearshape")
+            showToast(localized("Opened Settings › Qwen Connection"), symbol: "gearshape")
         } else if NSApplication.shared.isActive {
             showToast(message, symbol: "exclamationmark.triangle.fill")
         }
@@ -1544,74 +1538,68 @@ final class AppState {
         if let textError = error as? TextInteractionError {
             switch textError {
             case .accessibilityRequired:
-                return text("请先允许 SayKuku 使用辅助功能", "Allow Accessibility access for SayKuku first")
+                return localized("Allow Accessibility access for SayKuku first")
             case .noFocusedElement:
-                return text("请先点一下要输入文字的位置", "Click where you want to type first")
+                return localized("Click where you want to type first")
             case .sensitiveTarget:
-                return text("为保护隐私，SayKuku 不在密码框和密码管理器中使用", "SayKuku doesn’t work in password fields or password managers.")
+                return localized("SayKuku doesn’t work in password fields or password managers.")
             case .targetChanged:
-                return text("输入位置变了，请回到输入框再试一次", "The text field changed. Click back into it and try again.")
+                return localized("The text field changed. Click back into it and try again.")
             case .writeFailed:
-                return text("这个 App 没有接收文字，请重试", "This app didn’t accept the text. Try again.")
+                return localized("This app didn’t accept the text. Try again.")
             }
         }
         if let qwenError = error as? QwenError {
             switch qwenError {
             case .missingConfiguration:
-                return text("请先添加 Qwen API Key", "Add your Qwen API Key first")
+                return localized("Add your Qwen API Key first")
             case .invalidEndpoint:
-                return text(
-                    "无法连接 Qwen，请在“设置 › Qwen 连接”中检查地域和业务空间 ID",
-                    "Couldn’t reach Qwen. Check the Region and Workspace ID in Settings › Qwen Connection."
-                )
+                return localized("Couldn’t reach Qwen. Check the Region and Workspace ID in Settings › Qwen Connection.")
             case .invalidResponse:
-                return text("没有拿到结果，请重试", "Couldn’t get a result. Try again.")
+                return localized("Couldn’t get a result. Try again.")
             case .noSpeech:
-                return text("没有听清，请再说一次", "Didn’t catch that. Try again.")
+                return localized("Didn’t catch that. Try again.")
             case .server(let status, _):
                 if status == 401 || status == 403 {
-                    return text("API Key 无效或没有权限，请在“设置 › Qwen 连接”中检查", "Your API Key was rejected. Check Settings › Qwen Connection.")
+                    return localized("Your API Key was rejected. Check Settings › Qwen Connection.")
                 }
                 if status == 429 {
-                    return text("请求太频繁，请稍后再试", "Too many requests. Try again in a moment.")
+                    return localized("Too many requests. Try again in a moment.")
                 }
                 if status == 400 {
                     // Often content inspection or unreadable audio, so Settings is only the last resort.
-                    return text(
-                        "Qwen 没有接受这次请求，请重试，或在“设置 › Qwen 连接”中检查模型",
-                        "Qwen rejected this request. Try again, or check the model in Settings › Qwen Connection."
-                    )
+                    return localized("Qwen rejected this request. Try again, or check the model in Settings › Qwen Connection.")
                 }
-                return text("Qwen 暂时无法处理，请重试", "Qwen couldn’t handle the request. Try again.")
+                return localized("Qwen couldn’t handle the request. Try again.")
             case .protocolError:
-                return text("与 Qwen 的连接中断了，请重试", "Lost connection to Qwen. Try again.")
+                return localized("Lost connection to Qwen. Try again.")
             case .timeout:
-                return text("Qwen 响应超时，请重试", "Qwen took too long to respond. Try again.")
+                return localized("Qwen took too long to respond. Try again.")
             case .recordingTooLong:
-                return text("录音太长了，请分成几段说", "That recording is too long. Try shorter parts.")
+                return localized("That recording is too long. Try shorter parts.")
             }
         }
         if error is AudioCaptureError {
-            return text("无法使用麦克风，请检查输入设备和麦克风权限", "Couldn’t use the microphone. Check your input device and microphone access.")
+            return localized("Couldn’t use the microphone. Check your input device and microphone access.")
         }
         if error is LocalStoreError {
-            return text("无法读取本机数据，请重启 SayKuku 后重试", "Couldn’t read local data. Restart SayKuku and try again.")
+            return localized("Couldn’t read local data. Restart SayKuku and try again.")
         }
         if error is SecureStorageError {
-            return text("无法保存 API Key，请检查这台 Mac 的钥匙串", "Couldn’t save the API Key. Check Keychain on this Mac.")
+            return localized("Couldn’t save the API Key. Check Keychain on this Mac.")
         }
         if error is URLError {
-            return text("无法连接网络，请检查网络后重试", "Couldn’t connect. Check your network and try again.")
+            return localized("Couldn’t connect. Check your network and try again.")
         }
         if let actionError = error as? AgentActionError {
             switch actionError {
             case .shortcutFailed:
-                return text("快捷指令运行失败，请在“快捷指令”App 中检查", "Couldn’t run the shortcut. Check it in the Shortcuts app.")
+                return localized("Couldn’t run the shortcut. Check it in the Shortcuts app.")
             case .shortcutTimedOut:
-                return text("快捷指令超过 1 分钟没有完成，已停止", "The shortcut took over a minute, so it was stopped.")
+                return localized("The shortcut took over a minute, so it was stopped.")
             }
         }
-        return text("出了点问题，请重试", "Something went wrong. Try again.")
+        return localized("Something went wrong. Try again.")
     }
 
     /// Earlier builds saved these placeholders as detail; clear them so they stay out of the UI and prompts.
@@ -1629,14 +1617,14 @@ final class AppState {
             snapshot = try await store.load()
         } catch {
             showToast(
-                text("无法读取本机数据，新的更改暂时不会保存，详情见“历史”", "Couldn’t read local data, so new changes won’t be saved. See History for details."),
+                localized("Couldn’t read local data, so new changes won’t be saved. See History for details."),
                 symbol: "exclamationmark.triangle.fill"
             )
             return
         }
         historyEntries = Self.merging(historyEntries, Self.recoveringInterruptedHistory(
             snapshot.history,
-            message: text("SayKuku 退出时还没处理完", "SayKuku quit before this finished")
+            message: localized("SayKuku quit before this finished")
         )).sorted { $0.createdAt > $1.createdAt }
         knowledgeEntities = Self.merging(knowledgeEntities, snapshot.entities.map { entity in
             var entity = entity
@@ -1652,7 +1640,7 @@ final class AppState {
         schedulePersistence()
         if localDataIssue != nil {
             showToast(
-                text("读取本机数据时出了问题，原文件已备份，详情见“历史”", "There was a problem reading local data. The original file was backed up. See History for details."),
+                localized("There was a problem reading local data. The original file was backed up. See History for details."),
                 symbol: "exclamationmark.triangle.fill"
             )
         }
@@ -1719,7 +1707,7 @@ final class AppState {
             return true
         } catch {
             showToast(
-                text("本机数据没能保存，最近的更改可能会丢失，请检查磁盘空间", "Couldn’t save your data, so recent changes may be lost. Check your available storage."),
+                localized("Couldn’t save your data, so recent changes may be lost. Check your available storage."),
                 symbol: "exclamationmark.triangle.fill"
             )
             return false
@@ -1832,7 +1820,7 @@ struct SetupProgress: Equatable {
     var isLastStep: Bool { step >= total }
 
     @MainActor func title(_ appState: AppState) -> String {
-        appState.text("第 \(step) 步，共 \(total) 步", "Step \(step) of \(total)")
+        localized("Step \(step) of \(total)")
     }
 }
 
@@ -1846,7 +1834,7 @@ enum AppLanguage: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     func title(isChineseUI: Bool) -> String {
         switch self {
-        case .system: isChineseUI ? "跟随系统" : "System Default"
+        case .system: localized("System Default")
         case .chinese: "简体中文"
         case .english: "English"
         }

@@ -4,6 +4,7 @@ import PackageDescription
 
 let package = Package(
     name: "SayKuku",
+    defaultLocalization: "en",
     platforms: [
         .macOS(.v15)
     ],
@@ -16,6 +17,7 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "SayKuku",
+    defaultLocalization: "en",
             dependencies: [.product(name: "Sparkle", package: "Sparkle")],
             path: "Sources/SayKuku",
             resources: [.process("Resources")]

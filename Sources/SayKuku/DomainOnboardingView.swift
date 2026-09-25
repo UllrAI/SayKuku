@@ -20,10 +20,9 @@ struct DomainOnboardingView: View {
             KukuSheetHeader(
                 eyebrow: appState.setupProgress?.title(appState),
                 title: appState.didCompleteOnboarding
-                    ? appState.text("常用领域与词汇", "Domains & Vocabulary")
-                    : appState.text("先让 SayKuku 认识你的词", "Teach SayKuku Your Vocabulary"),
-                description: appState.text(
-                    "选择你常聊的领域，识别时会优先考虑相关术语。你也可以添加自己的产品名、技术词或行业词。",
+                    ? localized("Domains & Vocabulary")
+                    : localized("Teach SayKuku Your Vocabulary"),
+                description: localized(
                     "Pick the domains you talk about most, and SayKuku will favor their terms when transcribing. You can also add your own product names, technical terms, or industry jargon."
                 )
             ) {
@@ -52,7 +51,7 @@ struct DomainOnboardingView: View {
 
     private var domainSection: some View {
         VStack(alignment: .leading, spacing: KukuSpacing.md) {
-            KukuFieldLabel(text: appState.text("常用领域（可多选）", "Common domains (select any)"))
+            KukuFieldLabel(text: localized("Common domains (select any)"))
 
             LazyVGrid(columns: columns, spacing: KukuSpacing.sm) {
                 ForEach(DomainPreset.allCases) { domain in
@@ -72,26 +71,25 @@ struct DomainOnboardingView: View {
 
     private var termsSection: some View {
         VStack(alignment: .leading, spacing: KukuSpacing.md) {
-            KukuFieldLabel(text: appState.text("自定义词汇", "Custom vocabulary"))
+            KukuFieldLabel(text: localized("Custom vocabulary"))
 
             VStack(alignment: .leading, spacing: KukuSpacing.sm) {
                 HStack(spacing: KukuSpacing.sm) {
                     KukuTextField(
-                        prompt: appState.text("例如：Vibe Coding、SayKuku、项目代号", "For example: Vibe Coding, SayKuku, project names"),
+                        prompt: localized("For example: Vibe Coding, SayKuku, project names"),
                         text: $newTerm,
                         onSubmit: addTerm
                     )
 
                     Button(action: addTerm) {
-                        Label(appState.text("添加", "Add"), systemImage: "plus")
+                        Label(localized("Add"), systemImage: "plus")
                     }
                     .buttonStyle(.kukuSecondary)
                     .disabled(!canAddTerm)
                 }
 
                 KukuSheetNote(
-                    text: termError?.message(appState) ?? appState.text(
-                        "这些词会保存到“知识”，以后可以在那里补别名。",
+                    text: termError?.message(appState) ?? localized(
                         "These words are saved to Knowledge, where you can add aliases later."
                     ),
                     isError: termError != nil
@@ -115,7 +113,7 @@ struct DomainOnboardingView: View {
                             Spacer(minLength: 0)
                             KukuIconButton(
                                 symbol: "xmark",
-                                label: appState.text("移除 \(term)", "Remove \(term)"),
+                                label: localized("Remove \(term)"),
                                 size: .small
                             ) {
                                 terms.removeAll { $0 == term }
@@ -133,7 +131,7 @@ struct DomainOnboardingView: View {
 
     private var privacyNote: some View {
         Label(
-            appState.text("选中的领域和词汇会随语音请求发送给 Qwen。", "Your selected domains and terms are sent to Qwen with voice requests."),
+            localized("Your selected domains and terms are sent to Qwen with voice requests."),
             systemImage: "paperplane"
         )
         .font(.kuku(.subheadline))
@@ -145,10 +143,10 @@ struct DomainOnboardingView: View {
         KukuSheetFooter(
             note: appState.didCompleteOnboarding
                 ? nil
-                : KukuSheetNote(text: appState.text("以后可在“设置 › 语音输入”中修改。", "You can change this later in Settings › Voice Input."))
+                : KukuSheetNote(text: localized("You can change this later in Settings › Voice Input."))
         ) {
             if appState.didCompleteOnboarding {
-                Button(appState.text("取消", "Cancel"), action: dismiss.callAsFunction)
+                Button(localized("Cancel"), action: dismiss.callAsFunction)
                     .buttonStyle(.kukuSecondary)
                     .keyboardShortcut(.cancelAction)
             } else {
@@ -159,7 +157,7 @@ struct DomainOnboardingView: View {
                 .keyboardShortcut(.cancelAction)
             }
             Button(appState.didCompleteOnboarding
-                   ? appState.text("保存", "Save")
+                   ? localized("Save")
                    : appState.setupContinueTitle) {
                 addTerm()
                 // Terms were checked against Knowledge as they were added.
