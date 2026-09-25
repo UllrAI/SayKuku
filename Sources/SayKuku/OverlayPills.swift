@@ -10,17 +10,17 @@ extension AppState.AgentPhase {
         case .hidden, .answerReady:
             return nil
         case .listening:
-            return appState.text("正在听…", "Listening…")
+            return localized("Listening…")
         case .transcribing:
-            return appState.text("正在理解…", "Understanding…")
+            return localized("Understanding…")
         case .processing:
             // `agentCommand` holds the understood task by now, unless there was none.
             let task = appState.agentCommand.trimmingCharacters(in: .whitespacesAndNewlines)
             return task.isEmpty || task == Self.listening.status(appState)
-                ? appState.text("正在执行…", "Running…")
-                : appState.text("正在执行 · \(task)", "Running · \(task)")
+                ? localized("Running…")
+                : localized("Running · \(task)")
         case .result:
-            return appState.text("已完成", "Done")
+            return localized("Done (status)")
         case .copyReady:
             return CopyFallbackContent.status(appState)
         }
@@ -31,9 +31,9 @@ extension AppState.DictationPhase {
     @MainActor func status(_ appState: AppState) -> String? {
         switch self {
         case .idle: nil
-        case .listening: appState.text("正在听…", "Listening…")
-        case .processing: appState.text("正在识别…", "Transcribing…")
-        case .success: appState.text("已输入", "Inserted")
+        case .listening: localized("Listening…")
+        case .processing: localized("Transcribing…")
+        case .success: localized("Inserted")
         case .copyReady: CopyFallbackContent.status(appState)
         }
     }
@@ -71,7 +71,7 @@ struct AgentPill: View {
                 CopyFallbackContent()
             } else if appState.agentPhase == .listening {
                 PillCancelButton(
-                    label: appState.text("取消语音 Agent", "Cancel Voice Agent"),
+                    label: localized("Cancel Voice Agent"),
                     action: appState.dismissAgent
                 )
 
@@ -84,8 +84,8 @@ struct AgentPill: View {
                             .frame(width: 16, height: 22)
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel(appState.text("查看本次会发送的内容", "Review what’s sent"))
-                    .help(appState.text("查看本次会发送的内容", "Review what’s sent"))
+                    .accessibilityLabel(localized("Review what’s sent"))
+                    .help(localized("Review what’s sent"))
                     .popover(isPresented: $showingContext, arrowEdge: .bottom) {
                         AgentContextPopover()
                     }
@@ -108,7 +108,7 @@ struct AgentPill: View {
                 Spacer(minLength: 0)
 
                 PillConfirmButton(
-                    label: appState.text("结束录音并执行", "Stop recording and run"),
+                    label: localized("Stop recording and run"),
                     action: appState.finishAgentListening
                 )
             } else if appState.agentPhase == .transcribing || appState.agentPhase == .processing {
@@ -120,7 +120,7 @@ struct AgentPill: View {
                     .truncationMode(.tail)
                 Spacer(minLength: 0)
                 PillCancelButton(
-                    label: appState.text("取消语音 Agent", "Cancel Voice Agent"),
+                    label: localized("Cancel Voice Agent"),
                     action: appState.dismissAgent
                 )
             } else if appState.agentPhase == .result {
@@ -186,7 +186,7 @@ private struct PillUndoButton: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
-        Button(appState.text("撤销", "Undo")) {
+        Button(localized("Undo")) {
             Task { await appState.undoLastWrite() }
         }
         .buttonStyle(.plain)
@@ -240,12 +240,12 @@ private struct AgentContextPopover: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: KukuSpacing.sm) {
-            Text(appState.text("本次会发送的内容", "What’s sent"))
+            Text(localized("What’s sent"))
                 .font(.kuku(.subheadline, weight: .semibold))
                 .foregroundStyle(KukuColor.textSecondary)
 
             if appState.contextItems.isEmpty {
-                Text(appState.text("本次只发送你的语音", "Only your voice will be sent"))
+                Text(localized("Only your voice will be sent"))
                     .font(.kuku(.callout))
                     .foregroundStyle(KukuColor.textSecondary)
             }
@@ -266,7 +266,7 @@ private struct AgentContextPopover: View {
                     if appState.agentPhase == .listening {
                         KukuIconButton(
                             symbol: "xmark",
-                            label: appState.text("移除“\(item.title)”", "Remove \(item.title)"),
+                            label: localized("Remove \(item.title)"),
                             size: .small
                         ) {
                             appState.contextItems.removeAll { $0.id == item.id }
@@ -327,7 +327,7 @@ struct DictationPill: View {
                 EmptyView()
             case .listening:
                 PillCancelButton(
-                    label: appState.text("取消语音输入", "Cancel Voice Input"),
+                    label: localized("Cancel Voice Input"),
                     action: appState.cancelDictation
                 )
                 Waveform(color: KukuColor.coral, level: appState.inputLevel, barCount: 6, height: 16)
@@ -336,7 +336,7 @@ struct DictationPill: View {
                     .truncationMode(.tail)
                 Spacer(minLength: 0)
                 PillConfirmButton(
-                    label: appState.text("结束录音并输入", "Stop recording and insert"),
+                    label: localized("Stop recording and insert"),
                     action: appState.finishDictation
                 )
             case .processing:
@@ -346,7 +346,7 @@ struct DictationPill: View {
                     .truncationMode(.tail)
                 Spacer(minLength: 0)
                 PillCancelButton(
-                    label: appState.text("取消语音输入", "Cancel Voice Input"),
+                    label: localized("Cancel Voice Input"),
                     action: appState.cancelDictation
                 )
             case .success:
@@ -384,8 +384,8 @@ private struct CopyFallbackContent: View {
 
     static func status(_ appState: AppState) -> String {
         appState.hasCopiedPendingText
-            ? appState.text("已复制，按 ⌘V 粘贴", "Copied. Press ⌘V to paste.")
-            : appState.text("点按复制结果", "Click to copy")
+            ? localized("Copied. Press ⌘V to paste.")
+            : localized("Click to copy")
     }
 
     var body: some View {
@@ -406,7 +406,7 @@ private struct CopyFallbackContent: View {
             .accessibilityLabel(Self.status(appState))
             .accessibilityValue(appState.pendingCopyText)
             Spacer(minLength: KukuSpacing.xs)
-            PillCancelButton(label: appState.text("关闭", "Close"), action: appState.dismissCopyFallback)
+            PillCancelButton(label: localized("Close"), action: appState.dismissCopyFallback)
         }
         .font(.kuku(.callout, weight: .semibold))
         .foregroundStyle(KukuColor.textPrimary)

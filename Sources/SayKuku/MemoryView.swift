@@ -8,9 +8,8 @@ struct MemoryView: View {
     var body: some View {
         VStack(spacing: 0) {
             ScreenHeader(
-                title: appState.text("记忆", "Memory"),
-                subtitle: appState.text(
-                    "纠正建议经你确认才会进入知识；最近对话 30 分钟后自动清除。",
+                title: localized("Memory"),
+                subtitle: localized(
                     "Corrections go into Knowledge only after you approve them. Recent conversations clear after 30 minutes."
                 )
             )
@@ -49,20 +48,16 @@ struct MemoryView: View {
     private var correctionsEmptyView: some View {
         if appState.learnFromCorrections {
             KukuEmptyState(
-                title: appState.text("还没有纠正建议", "No correction suggestions yet"),
+                title: localized("No correction suggestions yet"),
                 symbol: "sparkles",
-                message: appState.text(
-                    "改正识别错的词后，SayKuku 会在这里给出建议，确认后才会保存。",
+                message: localized(
                     "When you fix a word SayKuku got wrong, a suggestion shows up here. Nothing is saved until you approve it."
                 )
             )
         } else {
             FeatureOffView(
-                title: appState.text("已关闭“从纠正中学习”", "Learning from corrections is off"),
-                message: appState.text(
-                    "开启后，你改正的识别结果会作为建议出现在这里。",
-                    "Turn it on to see suggestions from words you fix."
-                ),
+                title: localized("Learning from corrections is off"),
+                message: localized("Turn it on to see suggestions from words you fix."),
                 systemImage: "sparkles"
             ) { appState.learnFromCorrections = true }
         }
@@ -79,7 +74,7 @@ private struct FeatureOffView: View {
 
     var body: some View {
         KukuEmptyState(title: title, symbol: systemImage, message: message) {
-            Button(appState.text("开启", "Turn On"), action: turnOn)
+            Button(localized("Turn On"), action: turnOn)
                 .buttonStyle(.kukuPrimary)
         }
     }
@@ -93,7 +88,7 @@ private struct CorrectionSummary: View {
         HStack(spacing: KukuSpacing.md) {
             KukuIconTile(symbol: "wand.and.stars")
             VStack(alignment: .leading, spacing: KukuSpacing.xxs) {
-                Text(appState.text("纠正建议", "Correction suggestions"))
+                Text(localized("Correction suggestions"))
                     .font(.kuku(.headline))
                     .foregroundStyle(KukuColor.textPrimary)
                 Text(appState.text(
@@ -137,14 +132,14 @@ private struct CorrectionRow: View {
                     .foregroundStyle(KukuColor.textSecondary)
             }
             Spacer()
-            Button(appState.text("忽略", "Ignore")) {
+            Button(localized("Ignore")) {
                 withAnimation(Motion.snappy) { appState.ignoreCorrection(item.id) }
-                appState.showToast(appState.text("已忽略这条建议", "Suggestion ignored"), symbol: "xmark.circle")
+                appState.showToast(localized("Suggestion ignored"), symbol: "xmark.circle")
             }
             .buttonStyle(.kukuSecondary)
-            Button(appState.text("加入知识", "Add to Knowledge")) {
+            Button(localized("Add to Knowledge")) {
                 withAnimation(Motion.spring) { appState.acceptCorrection(item.id) }
-                appState.showToast(appState.text("已加入知识", "Added to Knowledge"), symbol: "checkmark.circle.fill")
+                appState.showToast(localized("Added to Knowledge"), symbol: "checkmark.circle.fill")
             }
             .buttonStyle(.kukuSecondary)
         }
@@ -173,15 +168,12 @@ private struct SessionMemoryView: View {
         } else {
             VStack(alignment: .leading, spacing: KukuSpacing.md) {
                 HStack(spacing: KukuSpacing.md) {
-                    Text(appState.text(
-                        "在同一个 App 中再次使用语音 Agent 时，会参考这些对话，30 分钟后自动清除。",
-                        "Voice Agent uses these in the same app. They’re cleared after 30 minutes."
-                    ))
+                    Text(localized("Voice Agent uses these in the same app. They’re cleared after 30 minutes."))
                         .font(.kuku(.subheadline))
                         .foregroundStyle(KukuColor.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: KukuSpacing.md)
-                    Button(appState.text("全部清除…", "Clear All…")) { confirmingClear = true }
+                    Button(localized("Clear All…")) { confirmingClear = true }
                         .buttonStyle(.kukuSecondary)
                 }
 
@@ -193,20 +185,17 @@ private struct SessionMemoryView: View {
                 .kukuCard()
             }
             .confirmationDialog(
-                appState.text("清除全部最近对话？", "Clear all recent conversations?"),
+                localized("Clear all recent conversations?"),
                 isPresented: $confirmingClear,
                 titleVisibility: .visible
             ) {
-                Button(appState.text("全部清除", "Clear All"), role: .destructive) {
+                Button(localized("Clear All"), role: .destructive) {
                     withAnimation(Motion.snappy) { appState.clearSessions() }
-                    appState.showToast(appState.text("已清除最近对话", "Recent conversations cleared"), symbol: "trash")
+                    appState.showToast(localized("Recent conversations cleared"), symbol: "trash")
                 }
-                Button(appState.text("取消", "Cancel"), role: .cancel) {}
+                Button(localized("Cancel"), role: .cancel) {}
             } message: {
-                Text(appState.text(
-                    "清除后语音 Agent 不会再参考这些对话，且无法恢复。",
-                    "Voice Agent will stop using them. This can’t be undone."
-                ))
+                Text(localized("Voice Agent will stop using them. This can’t be undone."))
             }
         }
     }
@@ -215,20 +204,14 @@ private struct SessionMemoryView: View {
     private var emptyView: some View {
         if appState.continuousConversation {
             KukuEmptyState(
-                title: appState.text("还没有最近对话", "No recent conversations yet"),
+                title: localized("No recent conversations yet"),
                 symbol: "clock.arrow.circlepath",
-                message: appState.text(
-                    "使用语音 Agent 后，最近的对话会在这里保留 30 分钟。",
-                    "Your recent Voice Agent conversations stay here for 30 minutes."
-                )
+                message: localized("Your recent Voice Agent conversations stay here for 30 minutes.")
             )
         } else {
             FeatureOffView(
-                title: appState.text("已关闭“连续对话”", "Continuous conversation is off"),
-                message: appState.text(
-                    "开启后，语音 Agent 会记住同一个 App 中最近的对话。",
-                    "Turn it on so Voice Agent remembers recent conversations in the same app."
-                ),
+                title: localized("Continuous conversation is off"),
+                message: localized("Turn it on so Voice Agent remembers recent conversations in the same app."),
                 systemImage: "clock.arrow.circlepath"
             ) { appState.continuousConversation = true }
         }
@@ -272,7 +255,7 @@ private struct SessionRow: View {
                 }
             }
             Spacer(minLength: KukuSpacing.md)
-            Text(appState.text("还剩 \(minutesLeft) 分钟", "Expires in \(minutesLeft) min"))
+            Text(localized("Expires in \(minutesLeft) min"))
                 .font(.kuku(.caption))
                 .monospacedDigit()
                 .foregroundStyle(KukuColor.textSecondary)
@@ -303,8 +286,8 @@ enum MemoryScope: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     @MainActor func title(_ appState: AppState) -> String {
         switch self {
-        case .corrections: appState.text("纠正", "Corrections")
-        case .shortTerm: appState.text("短期", "Short-Term")
+        case .corrections: localized("Corrections")
+        case .shortTerm: localized("Short-Term")
         }
     }
 }

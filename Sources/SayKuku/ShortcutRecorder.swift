@@ -82,21 +82,15 @@ extension GlobalShortcut.RecordingIssue {
     @MainActor func message(for action: GlobalShortcutAction, _ appState: AppState) -> String {
         switch self {
         case .needsModifier:
-            appState.text("快捷键需包含 ⌘ 或 ⌃", "Shortcuts need ⌘ or ⌃")
+            localized("Shortcuts need ⌘ or ⌃")
         case .unsupportedKey:
-            appState.text("这个键不能用作快捷键，请换一个", "That key can’t be used. Try another.")
+            localized("That key can’t be used. Try another.")
         case .reserved:
-            appState.text(
-                "只含 ⌘ 或 ⇧⌘ 的组合留给各个 App，请加上 ⌃ 或 ⌥",
-                "Shortcuts with only ⌘ or ⇧⌘ belong to apps. Add ⌃ or ⌥."
-            )
+            localized("Shortcuts with only ⌘ or ⇧⌘ belong to apps. Add ⌃ or ⌥.")
         case .system:
-            appState.text("这是 macOS 常用快捷键，请换一个", "macOS already uses this shortcut. Try another.")
+            localized("macOS already uses this shortcut. Try another.")
         case .duplicate:
-            appState.text(
-                "已用于\(action.other.title(appState))，请换一个",
-                "Already used for \(action.other.title(appState)). Try another."
-            )
+            localized("Already used for \(action.other.title(appState)). Try another.")
         }
     }
 }
@@ -118,8 +112,8 @@ struct ShortcutRecorderButton: View {
                 if isRecording { recorder.stop() } else { recorder.start(action, appState: appState) }
             } label: {
                 Text(isRecording
-                     ? appState.text("按下快捷键…", "Press keys…")
-                     : shortcut?.displayString ?? appState.text("录制快捷键", "Record Shortcut"))
+                     ? localized("Press keys…")
+                     : shortcut?.displayString ?? localized("Record Shortcut"))
                     .font(.kuku(.callout, weight: .semibold))
                     .foregroundStyle(isRecording ? KukuColor.accentText : shortcut == nil ? KukuColor.textSecondary : KukuColor.textPrimary)
                     .padding(.horizontal, KukuSpacing.md)
@@ -135,16 +129,13 @@ struct ShortcutRecorderButton: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .help(appState.text("点击后按下新的组合键", "Click, then press a new shortcut"))
+            .help(localized("Click, then press a new shortcut"))
             .accessibilityLabel(spokenLabel(isRecording: isRecording, shortcut: shortcut))
 
             if shortcut != nil, !isRecording {
                 KukuIconButton(
                     symbol: "xmark.circle.fill",
-                    label: appState.text(
-                        "关闭\(action.title(appState))快捷键",
-                        "Turn off \(action.title(appState)) shortcut"
-                    ),
+                    label: localized("Turn off \(action.title(appState)) shortcut"),
                     size: .small,
                     tint: KukuColor.textTertiary
                 ) {
@@ -157,12 +148,12 @@ struct ShortcutRecorderButton: View {
     private func spokenLabel(isRecording: Bool, shortcut: GlobalShortcut?) -> String {
         let title = action.title(appState)
         let value = if isRecording {
-            appState.text("请按下新的组合键", "press new keys")
+            localized("press new keys")
         } else if let shortcut {
             shortcut.spokenString
         } else {
-            appState.text("已关闭", "off")
+            localized("off")
         }
-        return appState.text("\(title)快捷键：\(value)", "\(title) shortcut: \(value)")
+        return localized("\(title) shortcut: \(value)")
     }
 }

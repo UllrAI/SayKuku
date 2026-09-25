@@ -37,7 +37,7 @@ struct KnowledgeView: View {
             KukuPageTabs(
                 items: Self.tabs,
                 selection: $filter,
-                title: { $0?.title(appState, plural: true) ?? appState.text("全部", "All") }
+                title: { $0?.title(appState, plural: true) ?? localized("All") }
             )
             KukuDivider(inset: 0)
 
@@ -55,7 +55,7 @@ struct KnowledgeView: View {
             KnowledgeFormSheet(entity: entity)
         }
         .confirmationDialog(
-            pendingDeletion.map { appState.text("删除“\($0.name)”？", "Delete “\($0.name)”?") } ?? "",
+            pendingDeletion.map { localized("Delete “\($0.name)”?") } ?? "",
             isPresented: Binding(
                 get: { pendingDeletion != nil },
                 set: { if !$0 { pendingDeletion = nil } }
@@ -63,33 +63,30 @@ struct KnowledgeView: View {
             titleVisibility: .visible,
             presenting: pendingDeletion
         ) { entity in
-            Button(appState.text("删除", "Delete"), role: .destructive) { delete(entity) }
-            Button(appState.text("取消", "Cancel"), role: .cancel) { }
+            Button(localized("Delete"), role: .destructive) { delete(entity) }
+            Button(localized("Cancel"), role: .cancel) { }
         } message: { _ in
-            Text(appState.text("删除后无法恢复。", "This can’t be undone."))
+            Text(localized("This can’t be undone."))
         }
     }
 
     private var header: some View {
         ScreenHeader(
-            title: appState.text("知识", "Knowledge"),
-            subtitle: appState.text(
-                "保存常用的人名、项目和术语，识别时按这里的写法输出。",
-                "Names, projects, and terms you use often. SayKuku spells them the way you saved them."
-            )
+            title: localized("Knowledge"),
+            subtitle: localized("Names, projects, and terms you use often. SayKuku spells them the way you saved them.")
         ) {
             HStack(spacing: KukuSpacing.sm) {
                 Button {
                     showingImport = true
                 } label: {
-                    Label(appState.text("从文本导入…", "Import from Text…"), systemImage: "doc.on.clipboard")
+                    Label(localized("Import from Text…"), systemImage: "doc.on.clipboard")
                 }
                 .buttonStyle(.kukuSecondary)
 
                 Button {
                     showingAdd = true
                 } label: {
-                    Label(appState.text("添加…", "Add…"), systemImage: "plus")
+                    Label(localized("Add…"), systemImage: "plus")
                 }
                 .buttonStyle(.kukuPrimary)
             }
@@ -147,27 +144,24 @@ struct KnowledgeView: View {
     private var emptyState: some View {
         if appState.knowledgeEntities.isEmpty {
             KukuEmptyState(
-                title: appState.text("知识里还没有内容", "Nothing in Knowledge yet"),
+                title: localized("Nothing in Knowledge yet"),
                 symbol: "books.vertical",
-                message: appState.text(
-                    "添加常用的人名、项目和术语，让识别更准确。",
-                    "Add names, projects, and terms for more accurate transcription."
-                )
+                message: localized("Add names, projects, and terms for more accurate transcription.")
             ) {
-                Button(appState.text("添加…", "Add…")) { showingAdd = true }
+                Button(localized("Add…")) { showingAdd = true }
                     .buttonStyle(.kukuSecondary)
             }
         } else if !query.isEmpty {
             KukuEmptyState(
-                title: appState.text("没有找到匹配的条目", "No matching items"),
+                title: localized("No matching items"),
                 symbol: "magnifyingglass",
-                message: appState.text("换个关键词或分类试试。", "Try a different search or category.")
+                message: localized("Try a different search or category.")
             )
         } else {
             KukuEmptyState(
-                title: appState.text("这个分类还没有条目", "No items in this category"),
+                title: localized("No items in this category"),
                 symbol: filter?.symbol ?? "books.vertical",
-                message: appState.text("切换到“全部”查看其他条目。", "Choose All to see your other items.")
+                message: localized("Choose All to see your other items.")
             )
         }
     }
@@ -175,8 +169,8 @@ struct KnowledgeView: View {
     private func searchBar(count: Int) -> some View {
         HStack(spacing: KukuSpacing.sm) {
             KukuSearchField(
-                prompt: appState.text("搜索名称、别名或备注", "Search names, aliases, or notes"),
-                clearLabel: appState.text("清除搜索", "Clear search"),
+                prompt: localized("Search names, aliases, or notes"),
+                clearLabel: localized("Clear search"),
                 text: $search,
                 width: nil,
                 focus: $searchFocused,
@@ -189,7 +183,7 @@ struct KnowledgeView: View {
                 .foregroundStyle(KukuColor.textSecondary)
                 .fixedSize()
             if filter != nil || !search.isEmpty {
-                Button(appState.text("清除筛选", "Clear Filters")) {
+                Button(localized("Clear Filters")) {
                     withAnimation(Motion.snappy) {
                         filter = nil
                         search = ""
@@ -246,15 +240,15 @@ private struct EntityRow: View {
                 Button(action: onEdit) {
                     HStack(spacing: KukuSpacing.iconText) {
                         Image(systemName: "pencil")
-                        Text(appState.text("编辑…", "Edit…"))
+                        Text(localized("Edit…"))
                     }
                 }
                 .buttonStyle(.kukuSecondary)
                 .fixedSize()
-                .accessibilityLabel(appState.text("编辑“\(entity.name)”", "Edit “\(entity.name)”"))
+                .accessibilityLabel(localized("Edit “\(entity.name)”"))
 
                 Menu {
-                    Button(appState.text("删除…", "Delete…"), role: .destructive, action: onDelete)
+                    Button(localized("Delete…"), role: .destructive, action: onDelete)
                 } label: {
                     Image(systemName: "ellipsis")
                         .foregroundStyle(KukuColor.textSecondary)
@@ -263,8 +257,8 @@ private struct EntityRow: View {
                 }
                 .menuStyle(.borderlessButton)
                 .menuIndicator(.hidden)
-                .accessibilityLabel(appState.text("更多操作", "More actions"))
-                .help(appState.text("更多操作", "More actions"))
+                .accessibilityLabel(localized("More actions"))
+                .help(localized("More actions"))
             }
             // Fixed action column keeps the edit buttons aligned from row to row.
             .frame(width: 120, alignment: .trailing)
@@ -274,9 +268,9 @@ private struct EntityRow: View {
         .frame(maxWidth: .infinity, minHeight: KukuLayout.rowMinHeightWithCaption, alignment: .leading)
         .kukuInteractiveSurface(isSelected: isSelected)
         .contextMenu {
-            Button(appState.text("编辑…", "Edit…"), action: onEdit)
+            Button(localized("Edit…"), action: onEdit)
             Divider()
-            Button(appState.text("删除…", "Delete…"), role: .destructive, action: onDelete)
+            Button(localized("Delete…"), role: .destructive, action: onDelete)
         }
     }
 }
@@ -302,8 +296,8 @@ private struct KnowledgeFormSheet: View {
     var body: some View {
         VStack(spacing: 0) {
             KukuSheetHeader(
-                title: entity == nil ? appState.text("添加到知识", "Add to Knowledge") : appState.text("编辑条目", "Edit Item"),
-                description: appState.text("让 SayKuku 认识这个名称。", "Teach SayKuku this name.")
+                title: entity == nil ? localized("Add to Knowledge") : localized("Edit Item"),
+                description: localized("Teach SayKuku this name.")
             ) {
                 KukuSheetIcon(symbol: entity == nil ? "plus" : "pencil")
             }
@@ -313,9 +307,9 @@ private struct KnowledgeFormSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: KukuSpacing.lg) {
                     VStack(alignment: .leading, spacing: KukuSpacing.sm) {
-                        KukuFieldLabel(text: appState.text("名称", "Name"), isRequired: true)
+                        KukuFieldLabel(text: localized("Name"), isRequired: true)
                         KukuTextField(
-                            prompt: appState.text("输入名称", "Enter a name"),
+                            prompt: localized("Enter a name"),
                             text: $name,
                             autoFocus: entity == nil,
                             onSubmit: save
@@ -323,9 +317,9 @@ private struct KnowledgeFormSheet: View {
                     }
 
                     VStack(alignment: .leading, spacing: KukuSpacing.sm) {
-                        KukuFieldLabel(text: appState.text("类别", "Category"), isRequired: true)
+                        KukuFieldLabel(text: localized("Category"), isRequired: true)
                         KukuPicker(
-                            appState.text("类别", "Category"),
+                            localized("Category"),
                             options: EntityType.allCases,
                             selection: $type,
                             label: { $0.title(appState) }
@@ -333,21 +327,21 @@ private struct KnowledgeFormSheet: View {
                     }
 
                     VStack(alignment: .leading, spacing: KukuSpacing.sm) {
-                        KukuFieldLabel(text: appState.text("备注", "Notes"))
+                        KukuFieldLabel(text: localized("Notes"))
                         KukuTextField(
-                            prompt: appState.text("例如：团队负责人、常用项目名", "e.g. Team lead, main project"),
+                            prompt: localized("e.g. Team lead, main project"),
                             text: $detail,
                             multiline: true
                         )
                     }
 
                     VStack(alignment: .leading, spacing: KukuSpacing.sm) {
-                        KukuFieldLabel(text: appState.text("别名", "Aliases"))
+                        KukuFieldLabel(text: localized("Aliases"))
                         KukuTextField(
-                            prompt: appState.text("多个别名用顿号或逗号分隔", "Separate aliases with commas"),
+                            prompt: localized("Separate aliases with commas"),
                             text: $aliases
                         )
-                        Text(appState.text("别名同样能被识别", "Aliases are recognized too"))
+                        Text(localized("Aliases are recognized too"))
                             .font(.kuku(.subheadline))
                             .foregroundStyle(KukuColor.textSecondary)
                     }
@@ -360,10 +354,10 @@ private struct KnowledgeFormSheet: View {
             KukuDivider(inset: 0)
 
             KukuSheetFooter(note: footerNote) {
-                Button(appState.text("取消", "Cancel")) { dismiss() }
+                Button(localized("Cancel")) { dismiss() }
                     .buttonStyle(.kukuSecondary)
                     .keyboardShortcut(.cancelAction)
-                Button(entity == nil ? appState.text("添加", "Add") : appState.text("保存", "Save")) { save() }
+                Button(entity == nil ? localized("Add") : localized("Save")) { save() }
                     .buttonStyle(.kukuPrimary)
                     .keyboardShortcut(.defaultAction)
                     .disabled(!canSave)
@@ -383,8 +377,8 @@ private struct KnowledgeFormSheet: View {
         if let note { return note }
         guard !canSave else { return nil }
         return KukuSheetNote(text: entity == nil
-            ? appState.text("填写名称后即可添加", "Enter a name to continue")
-            : appState.text("填写名称后即可保存", "Enter a name to save"))
+            ? localized("Enter a name to continue")
+            : localized("Enter a name to save"))
     }
 
     private func save() {
@@ -432,11 +426,11 @@ private struct KnowledgeImportSheet: View {
         VStack(spacing: 0) {
             KukuSheetHeader(
                 title: reviewing
-                    ? appState.text("选择要导入的内容", "Choose What to Import")
-                    : appState.text("从文本导入", "Import from Text"),
+                    ? localized("Choose What to Import")
+                    : localized("Import from Text"),
                 description: reviewing
-                    ? appState.text("检查建议，选择要保存到知识的内容。", "Review the suggestions and choose what to save to Knowledge.")
-                    : appState.text("粘贴一段文字，SayKuku 会找出其中的人名、项目和术语。", "Paste some text and SayKuku will pick out names, projects, and terms.")
+                    ? localized("Review the suggestions and choose what to save to Knowledge.")
+                    : localized("Paste some text and SayKuku will pick out names, projects, and terms.")
             ) {
                 KukuSheetIcon(symbol: "doc.on.clipboard")
             }
@@ -450,9 +444,9 @@ private struct KnowledgeImportSheet: View {
                     reviewList
                 } else {
                     KukuEmptyState(
-                        title: appState.text("没有找到可以保存的名称或术语", "No names or terms found"),
+                        title: localized("No names or terms found"),
                         symbol: "text.magnifyingglass",
-                        message: appState.text("试试包含人名、项目或产品名的文本。", "Try text that mentions people, projects, or products.")
+                        message: localized("Try text that mentions people, projects, or products.")
                     )
                 }
             }
@@ -462,7 +456,7 @@ private struct KnowledgeImportSheet: View {
                 if analyzing {
                     ZStack {
                         KukuColor.fill
-                        ProgressView(appState.text("正在分析…", "Analyzing…"))
+                        ProgressView(localized("Analyzing…"))
                             .padding(KukuSpacing.lg)
                             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: KukuLayout.radiusMedium, style: .continuous))
                             .kukuShadow(.floating)
@@ -479,14 +473,14 @@ private struct KnowledgeImportSheet: View {
         .onChange(of: source) { errorMessage = nil }
         .onDisappear { analysisTask?.cancel() }
         .confirmationDialog(
-            appState.text("放弃这次导入？", "Discard this import?"),
+            localized("Discard this import?"),
             isPresented: $confirmingDiscard,
             titleVisibility: .visible
         ) {
-            Button(appState.text("放弃", "Discard"), role: .destructive) { dismiss() }
-            Button(appState.text("继续导入", "Keep Importing"), role: .cancel) { }
+            Button(localized("Discard"), role: .destructive) { dismiss() }
+            Button(localized("Keep Importing"), role: .cancel) { }
         } message: {
-            Text(appState.text("分析结果不会保存。", "The analysis results won’t be saved."))
+            Text(localized("The analysis results won’t be saved."))
         }
     }
 
@@ -498,9 +492,8 @@ private struct KnowledgeImportSheet: View {
                 .focused($sourceFocused)
                 .padding(KukuSpacing.md)
                 .kukuFieldChrome(isFocused: sourceFocused)
-                .accessibilityLabel(appState.text("要导入的文本", "Text to import"))
-            Label(appState.text(
-                "分析前会先去掉常见格式的电话号码、邮箱、身份证号和银行卡号，以及标注为地址的内容",
+                .accessibilityLabel(localized("Text to import"))
+            Label(localized(
                 "Before analysis, SayKuku removes phone numbers, emails, and ID and bank card numbers in common formats, plus labeled addresses"
             ), systemImage: "eye.slash")
                 .font(.kuku(.subheadline))
@@ -517,7 +510,7 @@ private struct KnowledgeImportSheet: View {
                 ForEach(analysis?.candidates ?? []) { candidate in
                     let ignored = candidate.status == .ignored
                     ImportRow(
-                        title: ignored ? appState.text("已过滤的敏感信息", "Filtered sensitive info") : candidate.entity.name,
+                        title: ignored ? localized("Filtered sensitive info") : candidate.entity.name,
                         badge: badge(for: candidate),
                         badgeTone: candidate.status.tone,
                         badgeSymbol: candidate.status.symbol,
@@ -537,11 +530,11 @@ private struct KnowledgeImportSheet: View {
 
     private var footer: some View {
         KukuSheetFooter(note: footerNote) {
-            Button(appState.text("取消", "Cancel")) { cancel() }
+            Button(localized("Cancel")) { cancel() }
                 .buttonStyle(.kukuSecondary)
                 .keyboardShortcut(.cancelAction)
             if reviewing && hasResults {
-                Button(appState.text("返回", "Back")) { goBack() }
+                Button(localized("Back")) { goBack() }
                     .buttonStyle(.kukuSecondary)
             }
             primaryButton
@@ -551,20 +544,17 @@ private struct KnowledgeImportSheet: View {
     private var footerNote: KukuSheetNote? {
         if let errorMessage { return KukuSheetNote(text: errorMessage, isError: true) }
         if !reviewing {
-            return KukuSheetNote(text: appState.text(
-                "文本会发送给 Qwen 分析，SayKuku 不保存原文",
-                "Text is sent to Qwen for analysis. SayKuku doesn’t keep a copy."
-            ))
+            return KukuSheetNote(text: localized("Text is sent to Qwen for analysis. SayKuku doesn’t keep a copy."))
         }
         guard hasResults else { return nil }
-        return KukuSheetNote(text: appState.text("已选 \(selected.count) 条", "\(selected.count) selected"))
+        return KukuSheetNote(text: localized("\(selected.count) selected"))
     }
 
     @ViewBuilder
     private var primaryButton: some View {
         if !reviewing {
             // Return belongs to the text editor, so analysis uses ⌘Return.
-            Button(appState.text("分析", "Analyze")) { analyze() }
+            Button(localized("Analyze")) { analyze() }
                 .buttonStyle(.kukuPrimary)
                 .keyboardShortcut(.return, modifiers: .command)
                 .disabled(source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || analyzing)
@@ -575,7 +565,7 @@ private struct KnowledgeImportSheet: View {
                 .keyboardShortcut(.defaultAction)
                 .disabled(selected.isEmpty)
         } else {
-            Button(appState.text("返回修改", "Edit Text")) { goBack() }
+            Button(localized("Edit Text")) { goBack() }
                 .buttonStyle(.kukuPrimary)
                 .keyboardShortcut(.defaultAction)
         }
@@ -586,7 +576,7 @@ private struct KnowledgeImportSheet: View {
               let match = appState.knowledgeEntities.first(where: { $0.id == candidate.matchedEntityID }) else {
             return candidate.status.title(appState)
         }
-        return appState.text("可能与“\(match.name)”重复", "May duplicate “\(match.name)”")
+        return localized("May duplicate “\(match.name)”")
     }
 
     private func toggle(_ id: UUID) {
@@ -692,9 +682,9 @@ private struct ImportRow: View {
 private extension EntitySource {
     @MainActor func title(_ appState: AppState) -> String {
         switch self {
-        case .manual: appState.text("手动添加", "Added manually")
-        case .importText: appState.text("从文本导入", "Imported from text")
-        case .correction: appState.text("来自纠正建议", "From a correction")
+        case .manual: localized("Added manually")
+        case .importText: localized("Imported from text")
+        case .correction: localized("From a correction")
         }
     }
 }

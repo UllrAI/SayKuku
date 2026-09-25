@@ -20,7 +20,7 @@ enum GlobalShortcutAction: UInt32, CaseIterable, Sendable {
     @MainActor func fnGesture(_ appState: AppState) -> String {
         switch self {
         case .voiceInput: "Fn"
-        case .voiceAgent: appState.text("连按两次 Fn", "Pressing Fn twice")
+        case .voiceAgent: localized("Pressing Fn twice")
         }
     }
 
