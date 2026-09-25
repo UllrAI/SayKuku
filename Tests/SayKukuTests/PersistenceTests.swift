@@ -227,7 +227,7 @@ struct PersistenceTests {
         try Data(json.utf8).write(to: root.appendingPathComponent("store.json"))
         let store = LocalStore(root: root)
 
-        let expected: [EntityType] = [.person, .organization, .organization, .project, .project, .term, .term, .term]
+        let expected: [EntityType] = [.person, .organization, .organization, .project, .project, .term, .other, .other]
         #expect(await store.dataIssue == nil)
         #expect(try await store.load().entities.map(\.type) == expected)
     }
