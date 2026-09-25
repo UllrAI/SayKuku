@@ -28,7 +28,7 @@ struct AgentPromptTests {
         #expect(prompt.contains("at most 12 Chinese characters"))
         #expect(prompt.contains("webSearch: when the user asks to search online, or the answer depends on current information"))
         #expect(prompt.contains("Also use it when Text field is none"))
-        #expect(prompt.contains(#"set transcript to "" and everything else to null"#))
+        #expect(prompt.contains(#"reply only {"transcript":""}"#))
         #expect(prompt.contains(#"Otherwise writeText uses target "current""#))
         // The schema lists the choices instead of showing one action the model could copy,
         // and keeps null outside quotes so it is never copied as the string "null".

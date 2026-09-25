@@ -546,7 +546,7 @@ struct QwenReasoningClient: Sendable {
     - answer: output.
     - openURL: url. webSearch: query. runShortcut: shortcutName.
     - Set every field the action does not use to null.
-    - If the audio has no intelligible command, set transcript to "" and everything else to null.
+    - If the audio has no intelligible command, reply only {"transcript":""}.
 
     Target and source text:
     - target "previous": only when the user explicitly asks to revise what SayKuku just wrote and Previous SayKuku output is present. Transform that output, even if other text is selected.
