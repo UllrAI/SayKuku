@@ -508,14 +508,20 @@ final class AppState {
     func submitQwenCredentials(_ draft: QwenCredentialsDraft) async {
         guard connectionState != .testing else { return }
         let action = draft.action(savedKey: apiKey, savedWorkspaceID: qwenWorkspaceID)
-        guard action != .unavailable else { return }
+        guard action != .unavailable, commitQwenCredentials(draft) else { return }
+        if action != .save { await testQwenConnection() }
+    }
+
+    /// Saves the draft and reports a Keychain failure in the connection status.
+    @discardableResult
+    func commitQwenCredentials(_ draft: QwenCredentialsDraft) -> Bool {
         do {
             try saveQwenCredentials(draft)
+            return true
         } catch {
             connectionState = .failed(localizedError(error))
-            return
+            return false
         }
-        if action != .save { await testQwenConnection() }
     }
 
     func saveQwenCredentials(_ draft: QwenCredentialsDraft) throws {

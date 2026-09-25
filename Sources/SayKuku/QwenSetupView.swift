@@ -4,6 +4,7 @@ struct QwenSetupView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.dismiss) private var dismiss
     @State private var draft = QwenCredentialsDraft()
+    @State private var isConfirmingLeave = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -43,6 +44,19 @@ struct QwenSetupView: View {
         // Same size as the other setup steps, so the flow doesn't jump between sheets.
         .frame(width: KukuLayout.sheetWideWidth, height: KukuLayout.sheetHeight)
         .background(KukuColor.canvas)
+        .confirmationDialog(
+            appState.text("保存刚才的修改？", "Save your changes?"),
+            isPresented: $isConfirmingLeave,
+            titleVisibility: .visible
+        ) {
+            Button(appState.text("保存", "Save")) {
+                if appState.commitQwenCredentials(draft) { dismiss() }
+            }
+            Button(appState.text("不保存", "Don’t Save"), role: .destructive) { dismiss() }
+            Button(appState.text("取消", "Cancel"), role: .cancel) {}
+        } message: {
+            Text(appState.text("不保存的话，这些修改不会生效。", "If you don’t save, these changes won’t take effect."))
+        }
     }
 
     private var steps: some View {
@@ -78,11 +92,9 @@ struct QwenSetupView: View {
                     .keyboardShortcut(.defaultAction)
             } else {
                 // A saved key is enough to move on; testing it is recommended, not required.
-                Button(appState.apiKey.isEmpty ? appState.setupSkipTitle : appState.setupContinueTitle) {
-                    dismiss()
-                }
-                .buttonStyle(.kukuSecondary)
-                .keyboardShortcut(.cancelAction)
+                Button(appState.apiKey.isEmpty ? appState.setupSkipTitle : appState.setupContinueTitle, action: leave)
+                    .buttonStyle(.kukuSecondary)
+                    .keyboardShortcut(.cancelAction)
                 // Applies to the Button inside, so Return saves and tests.
                 QwenConnectionButton(draft: draft)
                     .keyboardShortcut(.defaultAction)
@@ -93,7 +105,16 @@ struct QwenSetupView: View {
     /// Connected with nothing left unsaved, so the only thing left is to finish.
     private var isConnected: Bool {
         guard case .connected = appState.connectionState else { return false }
-        return !draft.action(savedKey: appState.apiKey, savedWorkspaceID: appState.qwenWorkspaceID).hasChanges
+        return !hasUnsavedChanges
+    }
+
+    private var hasUnsavedChanges: Bool {
+        draft.action(savedKey: appState.apiKey, savedWorkspaceID: appState.qwenWorkspaceID).hasChanges
+    }
+
+    /// Skip or Done: asks before dropping what was typed but not saved.
+    private func leave() {
+        if hasUnsavedChanges { isConfirmingLeave = true } else { dismiss() }
     }
 }
 
