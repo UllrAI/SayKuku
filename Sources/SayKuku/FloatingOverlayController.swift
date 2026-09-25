@@ -36,8 +36,9 @@ final class FloatingOverlayController {
     }
 
     /// Shared by the panel and its SwiftUI root so both always agree on the overlay bounds.
-    /// `answerHeight` is the answer card's height, or nil while a pill shows. The answer panel
-    /// leaves room around the card for its shadow.
+    /// `answerHeight` is the answer card's height, or nil while a pill shows. The pill panel is
+    /// the 36 pt pill plus the 16 pt bottom inset, with room above for a two-line error and the
+    /// shadow; the answer panel leaves room around the card for its shadow.
     nonisolated static func panelSize(answerHeight: CGFloat?) -> NSSize {
         guard let answerHeight else { return NSSize(width: 380, height: 92) }
         return NSSize(width: OverlayLayout.answerCardWidth + 20, height: answerHeight + 30)
@@ -73,9 +74,12 @@ final class FloatingOverlayController {
     /// Sizes the panel and keeps it on the anchor; resizing alone would grow it from its bottom-left corner.
     private func place(size: NSSize) {
         // Before the first workflow there is no anchor yet.
-        guard let visibleFrame = visibleFrame ?? NSScreen.main?.visibleFrame else { return }
+        guard let visibleFrame = visibleFrame ?? NSScreen.main?.visibleFrame, let appState else { return }
+        // Error feedback can wrap to two lines; the pill height is close enough for the caret gap.
+        let contentHeight = appState.agentPhase == .answerReady ? appState.answerCardHeight : KukuLayout.pillHeight
         let origin = OverlayLayout.origin(
-            caretFrame: caretFrame, windowFrame: windowFrame, visibleFrame: visibleFrame, panelSize: size
+            caretFrame: caretFrame, windowFrame: windowFrame, visibleFrame: visibleFrame,
+            panelSize: size, contentHeight: contentHeight
         )
         panel.setFrame(NSRect(origin: origin, size: size), display: true)
     }
@@ -83,8 +87,10 @@ final class FloatingOverlayController {
 
 /// Overlay geometry in AppKit screen coordinates, where y grows upward.
 enum OverlayLayout {
-    /// Space between the caret and the panel.
+    /// Space between the caret and the pill or card itself.
     static let caretGap: CGFloat = 12
+    /// Space below the pill or card inside the panel; the content sits at the panel's bottom.
+    static let contentBottomInset = KukuSpacing.lg
     /// Space between the panel and the bottom of the window or screen it sits on.
     static let bottomInset: CGFloat = 8
     static let answerCardWidth: CGFloat = 440
@@ -97,11 +103,17 @@ enum OverlayLayout {
 
     /// Below the caret, centered on it, or above it when there's no room below. Without a caret,
     /// the bottom center of the target window, then of the screen. Always kept inside `visibleFrame`.
-    static func origin(caretFrame: CGRect?, windowFrame: CGRect?, visibleFrame: CGRect, panelSize: CGSize) -> CGPoint {
+    /// `contentHeight` is the pill or card inside the panel, so the caret gap is measured to it.
+    static func origin(
+        caretFrame: CGRect?, windowFrame: CGRect?, visibleFrame: CGRect, panelSize: CGSize, contentHeight: CGFloat
+    ) -> CGPoint {
         var origin: CGPoint
         if let caret = caretFrame {
-            origin = CGPoint(x: caret.midX - panelSize.width / 2, y: caret.minY - caretGap - panelSize.height)
-            if origin.y < visibleFrame.minY { origin.y = caret.maxY + caretGap }
+            origin = CGPoint(
+                x: caret.midX - panelSize.width / 2,
+                y: caret.minY - caretGap - contentBottomInset - contentHeight
+            )
+            if origin.y < visibleFrame.minY { origin.y = caret.maxY + caretGap - contentBottomInset }
         } else {
             let base = windowFrame ?? visibleFrame
             origin = CGPoint(x: base.midX - panelSize.width / 2, y: base.minY + bottomInset)
@@ -169,7 +181,7 @@ private struct FloatingSystemOverlay: View {
                     .transition(.scale(scale: 0.94, anchor: .bottom).combined(with: .opacity))
             }
         }
-        .padding(.bottom, KukuSpacing.lg)
+        .padding(.bottom, OverlayLayout.contentBottomInset)
         .frame(width: size.width, height: size.height)
         .animation(Motion.panel, value: appState.agentPhase)
         .animation(Motion.panel, value: appState.dictationPhase)
