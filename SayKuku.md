@@ -63,7 +63,7 @@ App 图标不放文字，使用珊瑚红圆角底板与暖白 Lucide Bird 线稿
 
 视觉语言：安静、克制、原生。中性色承载层级，珊瑚红（coral）是唯一强调色，只用于品牌、每个视图唯一的主操作、选中指示、焦点环和“正在录音”等进行中的关键状态；成功、警告、错误色只表达状态；分类（记忆条目类型、导入状态、历史模式）一律用中性图标加文字徽标区分。不用渐变，不用彩色阴影。
 
-所有数值以代码为准：`Sources/SayKuku/Theme.swift` 定义 token（`KukuColor`、`KukuSpacing`、`KukuLayout`、`KukuTextStyle` / `Font.kuku`、`KukuIconSize`、`KukuShadow`、`KukuBorder`、`Motion`），`Sources/SayKuku/DesignSystem.swift` 提供共享组件（`KukuButtonStyle`、`KukuGroup`、`KukuRow`、`KukuBadge`、`KukuStatusLabel`、`KukuSearchField`、`KukuTextField`、`KukuEmptyState`、`KukuSheetHeader` / `KukuSheetFooter`、`KukuToast` 等）。页面不直接写颜色、字号、间距与圆角字面量。
+所有数值以代码为准：`Sources/SayKuku/DesignSystem/Theme.swift` 定义 token（`KukuColor`、`KukuSpacing`、`KukuLayout`、`KukuTextStyle` / `Font.kuku`、`KukuIconSize`、`KukuShadow`、`KukuBorder`、`Motion`），`Sources/SayKuku/DesignSystem/DesignSystem.swift` 提供共享组件（`KukuButtonStyle`、`KukuGroup`、`KukuRow`、`KukuBadge`、`KukuStatusLabel`、`KukuSearchField`、`KukuTextField`、`KukuEmptyState`、`KukuSheetHeader` / `KukuSheetFooter`、`KukuToast` 等）。页面不直接写颜色、字号、间距与圆角字面量。
 
 ```text
 默认窗口             1000 × 660 pt
@@ -845,7 +845,7 @@ Reference facts: use them when relevant, prefer the canonical name when the comm
 
 ### Runtime Prompt Contract
 
-Prompt 原文以 `Sources/SayKuku/QwenClients.swift` 和 `CoreModels.swift` 中的 `promptInstruction` 为准，这里只记录约束。所有 Chat Completions 请求都使用 `temperature: 0.1`（与 Realtime 会话一致）并关闭 thinking（`enable_thinking: false`），不再同时发送 `reasoning_effort`。
+Prompt 原文以 `Sources/SayKuku/Qwen/`（`QwenClients.swift`、`PromptRules.swift`）、`Memory/MemoryPrompt.swift` 和 `CoreModels.swift` 中的 `promptInstruction` 为准，这里只记录约束。所有 Chat Completions 请求都使用 `temperature: 0.1`（与 Realtime 会话一致）并关闭 thinking（`enable_thinking: false`），不再同时发送 `reasoning_effort`。
 
 Voice Input 的 Realtime `session.instructions` 和批处理 fallback 的 `system` 使用同一套听写 Prompt，批处理的 `user` 文本只有一句 “Transcribe the attached audio.”：
 
