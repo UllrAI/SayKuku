@@ -110,7 +110,9 @@ final class AppState {
             self?.showMainWindow()
         }
         updateChecker?.promptHandler = { feed, currentVersion in AppState.offerUpdate(feed, currentVersion: currentVersion) }
-        updateChecker?.toastHandler = { [weak self] text, symbol in self?.showToast(text, symbol: symbol) }
+        if let currentVersion = updateChecker?.currentVersion {
+            updateChecker?.resultHandler = { AppState.reportUpdateCheck($0, currentVersion: currentVersion) }
+        }
     }
 
     func startSystemServices() {
@@ -349,6 +351,21 @@ final class AppState {
         default:
             return .later
         }
+    }
+    /// A manual check's answer, as an alert: Settings and the menu bar menu have no toast.
+    private static func reportUpdateCheck(_ result: UpdateChecker.Decision, currentVersion: String) {
+        let alert = NSAlert()
+        if result == .upToDate {
+            alert.messageText = localized("You’re up to date")
+            alert.informativeText = localized("SayKuku \(currentVersion) is the latest version.")
+        } else {
+            alert.alertStyle = .warning
+            alert.messageText = localized("Couldn’t check for updates")
+            alert.informativeText = localized("Check your connection and try again.")
+        }
+        alert.addButton(withTitle: localized("OK"))
+        NSApplication.shared.activate()
+        _ = alert.runModal()
     }
     func showToast(_ text: String, symbol: String) {
         let message = ToastMessage(text: text, symbol: symbol)

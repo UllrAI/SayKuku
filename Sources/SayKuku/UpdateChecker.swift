@@ -43,7 +43,8 @@ final class UpdateChecker {
 
     /// Shows the offer and returns the user's choice.
     @ObservationIgnored var promptHandler: (@MainActor (UpdateFeed, _ currentVersion: String) -> Response)?
-    @ObservationIgnored var toastHandler: (@MainActor (String, String) -> Void)?
+    /// Reports `.upToDate` or `.failed`, which only manual checks produce.
+    @ObservationIgnored var resultHandler: (@MainActor (Decision) -> Void)?
     private(set) var isChecking = false
 
     let currentVersion: String
@@ -119,11 +120,8 @@ final class UpdateChecker {
         case .offer(let feed):
             offeredVersion = AppVersion(feed.version)
             if promptHandler?(feed, currentVersion) == .skip { settings.skippedUpdateVersion = feed.version }
-        case .upToDate:
-            toastHandler?(localized("You’re up to date"), "checkmark.circle.fill")
-        case .failed:
-            toastHandler?(localized("Couldn’t check for updates. Try again later."), "exclamationmark.triangle.fill")
         case .silent: break
+        case let result: resultHandler?(result)
         }
     }
 
