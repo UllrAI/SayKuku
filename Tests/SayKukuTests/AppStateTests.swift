@@ -33,6 +33,21 @@ struct AppStateTests {
         #expect(!entry(.agent, .cancelled).canRetryTranscription)
     }
 
+    @Test("overlay status names the running task, never the listening placeholder")
+    @MainActor
+    func overlayPhaseStatus() {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let state = environment.makeState()
+        state.appLanguage = .english
+        #expect(AppState.DictationPhase.idle.status(state) == nil)
+        #expect(AppState.AgentPhase.answerReady.status(state) == nil)
+        state.agentCommand = "Listening…"
+        #expect(AppState.AgentPhase.processing.status(state) == "Running…")
+        state.agentCommand = "Summarize this page"
+        #expect(AppState.AgentPhase.processing.status(state) == "Running · Summarize this page")
+    }
+
     @Test("toasts with the same copy are still distinct")
     func toastIdentity() {
         #expect(ToastMessage(text: "已复制", symbol: "doc.on.doc") != ToastMessage(text: "已复制", symbol: "doc.on.doc"))

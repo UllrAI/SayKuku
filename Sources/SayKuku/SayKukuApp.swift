@@ -29,7 +29,6 @@ struct SayKukuApp: App {
         }
         .defaultSize(width: 1_000, height: 660)
         .windowStyle(.hiddenTitleBar)
-        .windowToolbarStyle(.unifiedCompact)
         .commands {
             CommandGroup(replacing: .appSettings) {
                 Button(appState.text("设置…", "Settings…")) {
