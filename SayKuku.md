@@ -45,7 +45,7 @@ App 图标不放文字，使用珊瑚红圆角底板与暖白 Lucide Bird 线稿
 | 模块 | 状态 | 当前已经完成 | 下一步 |
 | --- | --- | --- | --- |
 | 原生 App 外壳与统一设计系统 | 🟡 部分完成 | SwiftUI 原生窗口、固定侧栏、统一页面宽度；设计 token（颜色、间距、字号、图标、阴影、描边、动效）与共享组件已落在 `Theme.swift` / `DesignSystem.swift` | 逐页替换为新 token 与组件，清零弃用别名 |
-| App 图标与打包 | ✅ 已完成 | Lucide Bird 品牌母形、ICNS、菜单栏 template 资源、固定 Bundle ID、开发/正式身份隔离，以及强制 Developer ID 的 Release 签名脚本 | 每次正式分发按发布文档完成公证、装订和最终 ZIP |
+| App 图标与打包 | ✅ 已完成 | Lucide Bird 品牌母形、ICNS、菜单栏 template 资源、固定 Bundle ID、开发/正式身份隔离，强制 Developer ID 的 Release 签名脚本，以及 Sparkle 2 自动更新（正式版自动检查、菜单“检查更新…”、发布脚本生成 appcast） | 每次正式分发按发布文档完成公证、装订、最终 ZIP 和 appcast |
 | 菜单栏常驻入口 | ✅ 已完成 | 18 × 18 pt template 画布内放置约 15 × 13.5 pt Lucide Bird，使用原生 template 渲染自动适配明暗与按下态；包含 Voice Input、Voice Agent、显示主窗口、设置、状态与退出菜单；可选在关闭主窗口后隐藏 Dock 图标，从菜单栏重开时恢复 | 后续增加连接延迟与录音态图标 |
 | 全局快捷键 | ✅ 已完成 | 默认 `⌃⌥⌘V` Voice Input、`⌃⌥⌘A` Voice Agent，可在设置中录制或关闭，拒绝所有只含 ⌘ 或 ⇧⌘ 的组合（留给各个 App 的菜单快捷键），以及 ⌥⌘D、⌃⌘Q、⌃Space 等 macOS 系统组合；通过 Carbon 注册且不需要任何隐私权限，注册失败时提示冲突 | — |
 | Fn Gesture Router | 🟡 部分完成 | Hold Fn、Tap Fn、Double Fn、录音或处理中 Esc 取消、组合键取消、录音时长上限、录音开始与结束提示音、睡眠唤醒后重建监听、系统 Fn 行为引导与全局快捷键 fallback；复用写回所需的辅助功能权限，不申请输入监控 | 不检测 Fn 与其他 App 或系统功能的冲突；增加真实设备与外接键盘回归测试 |
@@ -1639,6 +1639,8 @@ Updater
 对应单元测试
 ```
 
+其中 Updater 已改为直接接入 [Sparkle 2](https://github.com/sparkle-project/Sparkle)（MIT）：正式版启动后按默认周期自动检查，App 菜单和菜单栏菜单都有“检查更新…”；不做 delta 包和多通道。签名、appcast 与密钥说明见 [本地打包与发布](docs/LOCAL_PACKAGING.md)。
+
 Pindrop 是 MIT License，而且目前工程结构已经把 Services、Transcription、Models、UI 等模块拆得比较清楚，所以适合当工程参考。
 
 但不要移植它的大型 `AppCoordinator`。只参考生命周期和协调责任，具体复用应限定在边界清晰、依赖可控、有对应测试的小型服务。
@@ -1772,7 +1774,7 @@ Accessibility 写回，加上 Carbon 普通快捷键与 AppKit Fn event monitor�
 
 ## 24. 依赖策略与当前实现
 
-当前 `Package.swift` 没有第三方依赖。选中文字、写回、上下文采集、全局快捷键和 Fn 手势均由仓库内实现完成：
+当前 `Package.swift` 唯一的第三方依赖是 [Sparkle 2](https://github.com/sparkle-project/Sparkle)（MIT），只负责自动更新。选中文字、写回、上下文采集、全局快捷键和 Fn 手势均由仓库内实现完成：
 
 ```text
 Apple frameworks
@@ -1782,6 +1784,9 @@ Apple frameworks
 ├── Carbon.HIToolbox
 ├── Security / CryptoKit
 └── ServiceManagement
+
+Sparkle 2
+└── SPUStandardUpdaterController   // 仅正式版启动
 
 SayKuku code
 ├── TextInteraction / ContextCollector
@@ -1809,6 +1814,7 @@ Our App
 │   └── SwiftUI
 │
 ├── Optional small dependencies
+│   ├── Sparkle                     // 已引入，仅自动更新
 │   ├── SelectedTextKit             // 当前未引入
 │   └── KeyboardShortcuts           // 当前未引入
 │

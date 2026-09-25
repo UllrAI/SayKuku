@@ -1,13 +1,15 @@
 #!/bin/zsh
 set -euo pipefail
 
-# Build, notarize, staple and archive a release. Fails fast on the first error;
-# nothing is retried and nothing prompts. See docs/LOCAL_PACKAGING.md.
+# Build, notarize, staple and archive a release, then sign its appcast. Fails
+# fast on the first error; nothing is retried and nothing prompts.
+# See docs/LOCAL_PACKAGING.md.
 
 ROOT_DIR="${0:A:h:h}"
 NOTARY_PROFILE="SayKuku-Notary"
 APP_DIR="$ROOT_DIR/Build/SayKuku.app"
 DIST_DIR="$ROOT_DIR/Dist"
+APPCAST_DIR="$DIST_DIR/appcast"
 NOTARY_RESULT="$ROOT_DIR/Build/notarization-result.json"
 
 fail() {
@@ -32,6 +34,9 @@ if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
 fi
 if ! xcrun notarytool history --keychain-profile "$NOTARY_PROFILE" >/dev/null; then
     fail "notarytool profile $NOTARY_PROFILE is unavailable; see docs/LOCAL_PACKAGING.md section 1"
+fi
+if ! command -v generate_appcast >/dev/null; then
+    fail "generate_appcast is not on PATH; add the bin directory of Sparkle's release archive"
 fi
 
 swift test
@@ -94,7 +99,20 @@ if unzip -Z1 "$FINAL_ARCHIVE" | grep -E '(^|/)\._' >/dev/null; then
 fi
 SHA256="$(shasum -a 256 "$FINAL_ARCHIVE" | cut -d ' ' -f 1)"
 
-# 6. Tag the commit that was built. Pushing stays a manual decision.
+# 6. Sign the final archive into a one-item appcast with the EdDSA key from the
+# login Keychain. Downloads point at this tag's GitHub Release asset.
+rm -rf "$APPCAST_DIR"
+mkdir -p "$APPCAST_DIR"
+cp "$FINAL_ARCHIVE" "$APPCAST_DIR/"
+generate_appcast \
+    --download-url-prefix "https://github.com/UllrAI/SayKuku/releases/download/$TAG/" \
+    "$APPCAST_DIR"
+APPCAST="$APPCAST_DIR/appcast.xml"
+if [[ ! -f "$APPCAST" ]]; then
+    fail "generate_appcast did not produce $APPCAST"
+fi
+
+# 7. Tag the commit that was built. Pushing stays a manual decision.
 git tag "$TAG" "$COMMIT"
 
 print -u2 ""
@@ -102,5 +120,6 @@ print -u2 "Released SayKuku $VERSION ($TAG -> ${COMMIT[1,12]})"
 print -u2 "  Archive: $FINAL_ARCHIVE"
 print -u2 "  SHA-256: $SHA256"
 print -u2 "  dSYM:    $DSYM_DIR"
-print -u2 "Publish the tag with: git push origin $TAG"
+print -u2 "  Appcast: $APPCAST"
+print -u2 "Publish with: git push origin $TAG && gh release create $TAG $FINAL_ARCHIVE $APPCAST"
 print "$FINAL_ARCHIVE"

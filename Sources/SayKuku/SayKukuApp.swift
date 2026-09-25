@@ -1,4 +1,5 @@
 import AppKit
+import Sparkle
 import SwiftUI
 
 enum AppSheet: String, Identifiable {
@@ -30,6 +31,9 @@ struct SayKukuApp: App {
         .defaultSize(width: 1_000, height: 660)
         .windowStyle(.hiddenTitleBar)
         .commands {
+            CommandGroup(after: .appInfo) {
+                CheckForUpdatesItem(appState: appState)
+            }
             CommandGroup(replacing: .appSettings) {
                 Button(appState.text("设置…", "Settings…")) {
                     appState.showMainWindow(destination: .settings)
@@ -113,6 +117,12 @@ private struct MenuBarIcon: View {
 
 @MainActor
 private final class AppDelegate: NSObject, NSApplicationDelegate {
+    /// Only release builds update themselves: a dev build must never be replaced by the
+    /// release app, and `swift run` has no Info.plist for Sparkle to read.
+    static let updater: SPUStandardUpdaterController? = StorageIdentity() == .release
+        ? SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
+        : nil
+
     private(set) lazy var appState = AppState()
     private weak var mainWindow: NSWindow?
     private var suppressesLaunchWindow = false
@@ -122,6 +132,8 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
             suppressLaunchWindow()
         }
         appState.startSystemServices()
+        // Start scheduled checks even if no menu has touched the updater yet.
+        _ = Self.updater
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -266,6 +278,8 @@ private struct MenuBarContent: View {
         }
         .keyboardShortcut(",", modifiers: .command)
 
+        CheckForUpdatesItem(appState: appState)
+
         Divider()
 
         shortcutStatusItem
@@ -299,6 +313,19 @@ private struct MenuBarContent: View {
     private func showWindow(destination: AppState.Destination) {
         appState.registerMainWindowOpener(openWindow)
         appState.showMainWindow(destination: destination)
+    }
+}
+
+/// Manual update check for the app menu and the menu bar menu; hidden when updates are off.
+private struct CheckForUpdatesItem: View {
+    let appState: AppState
+
+    var body: some View {
+        if let updater = AppDelegate.updater {
+            Button(appState.text("检查更新…", "Check for Updates…")) {
+                updater.checkForUpdates(nil)
+            }
+        }
     }
 }
 
