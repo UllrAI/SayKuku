@@ -210,12 +210,14 @@ struct VoiceWorkflowTests {
         #expect(text.writes == ["Hello world.", ""])
         #expect(state.resultCanUndo)
         #expect(state.historyEntries.map(\.output) == ["Hello world."])
-        #expect(state.sessions.last?.contextSummary == "Action: writeText\nTarget: previous SayKuku output, deleted")
 
-        // The emptied range is not offered as text to revise.
+        // The next turn sees the deletion in the Session, but not the emptied range as text to revise.
         text.snapshot = .fake(valueBefore: "", selectedRange: CFRange(location: 0, length: 0))
         text.fieldValue = ""
         try await startAgentListening(state)
+        #expect(state.contextItems.contains {
+            $0.kind == .session && $0.value == "Action: writeText\nTarget: previous SayKuku output, deleted"
+        })
         #expect(!state.contextItems.contains { $0.kind == .previousOutput })
         state.dismissAgent()
 
