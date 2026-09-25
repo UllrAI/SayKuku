@@ -207,8 +207,8 @@ struct TextWriteVerificationTests {
             domains: [],
             customDomainTerms: [],
             knowledge: [
-                KnowledgeEntity(name: "WorkBuddy", type: .product),
-                KnowledgeEntity(name: "SayKuku", type: .product)
+                KnowledgeEntity(name: "WorkBuddy", type: .project),
+                KnowledgeEntity(name: "SayKuku", type: .project)
             ],
             isChineseUI: false
         )

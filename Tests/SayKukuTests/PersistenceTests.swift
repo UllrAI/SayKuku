@@ -210,6 +210,27 @@ struct PersistenceTests {
         #expect(snapshot.entities.isEmpty)
     }
 
+    @Test("retired knowledge types load as their merged types")
+    func legacyEntityTypes() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let types = ["person", "organization", "orgUnit", "project", "product", "term", "unknown", "futureType"]
+        let entities = types.map { type in
+            """
+            {"id":"\(UUID().uuidString)","name":"\(type)","normalizedKey":"\(type.lowercased())","detail":"",
+            "type":"\(type)","aliases":[],"source":"manual","createdAt":1700000000123}
+            """
+        }
+        let json = #"{"version":1,"entities":[\#(entities.joined(separator: ","))]}"#
+        try Data(json.utf8).write(to: root.appendingPathComponent("store.json"))
+        let store = LocalStore(root: root)
+
+        let expected: [EntityType] = [.person, .organization, .organization, .project, .project, .term, .term, .term]
+        #expect(await store.dataIssue == nil)
+        #expect(try await store.load().entities.map(\.type) == expected)
+    }
+
     @Test("data written by a newer version stays read-only")
     func newerSnapshotVersion() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -278,7 +299,7 @@ struct PersistenceTests {
         let loading = Task { await state.loadStoredData() }
         await Task.yield()
         let recorded = historyEntry("recorded")
-        let entity = KnowledgeEntity(name: "SayKuku", type: .product)
+        let entity = KnowledgeEntity(name: "SayKuku", type: .project)
         state.historyEntries.insert(recorded, at: 0)
         state.knowledgeEntities.append(entity)
         await loading.value

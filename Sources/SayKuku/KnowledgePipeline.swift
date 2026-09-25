@@ -2,7 +2,6 @@ import Foundation
 
 struct KnowledgeAnalysis: Equatable {
     var candidates: [ImportCandidate]
-    var relationships: [ImportRelationshipCandidate]
 }
 
 enum KnowledgePipeline {
@@ -56,7 +55,7 @@ enum KnowledgePipeline {
                 let value = String(redacted[swiftRange])
                 // The row shows a localized label; keep only a masked hint of the original value.
                 ignored.append(ImportCandidate(
-                    entity: KnowledgeEntity(name: "", type: .unknown, source: .importText),
+                    entity: KnowledgeEntity(name: "", type: .term, source: .importText),
                     status: .ignored,
                     evidence: masked(value)
                 ))
@@ -83,9 +82,7 @@ enum KnowledgePipeline {
 
     static func analyze(
         proposals: [ProposedEntity],
-        relationships: [ProposedRelationship],
         existing: [KnowledgeEntity],
-        existingRelationships: [KnowledgeRelationship] = [],
         ignored: [ImportCandidate]
     ) -> KnowledgeAnalysis {
         let uniqueProposals = proposals.reduce(into: [String: ProposedEntity]()) { result, proposal in
@@ -124,26 +121,14 @@ enum KnowledgePipeline {
             return ImportCandidate(entity: entity, status: .new, evidence: proposal.evidence)
         }
         candidates.append(contentsOf: ignored)
-        let knownEntities = existing + candidates.filter { $0.status != .ignored }.map(\.entity)
-        let relationshipCandidates = relationships.reduce(into: [String: ImportRelationshipCandidate]()) { result, proposal in
-            guard !proposal.evidence.isEmpty,
-                  let from = findEntity(named: proposal.from, in: knownEntities),
-                  let to = findEntity(named: proposal.to, in: knownEntities), from.id != to.id else { return }
-            let key = "\(KnowledgeNormalizer.key(proposal.from))-\(proposal.type.rawValue)-\(KnowledgeNormalizer.key(proposal.to))"
-            guard result[key] == nil else { return }
-            let exists = existingRelationships.contains {
-                $0.fromEntityID == from.id && $0.type == proposal.type && $0.toEntityID == to.id
-            }
-            result[key] = ImportRelationshipCandidate(relationship: proposal, status: exists ? .merge : .new)
-        }.values.sorted { $0.relationship.from < $1.relationship.from }
-        return KnowledgeAnalysis(candidates: candidates, relationships: relationshipCandidates)
+        return KnowledgeAnalysis(candidates: candidates)
     }
 
     static func commit(
         analysis: KnowledgeAnalysis,
         selectedIDs: Set<UUID>,
         existing: [KnowledgeEntity]
-    ) -> (entities: [KnowledgeEntity], relationships: [KnowledgeRelationship]) {
+    ) -> [KnowledgeEntity] {
         var entities = existing
         let chosen = analysis.candidates.filter { selectedIDs.contains($0.id) && $0.status != .ignored }
         for candidate in chosen {
@@ -160,29 +145,13 @@ enum KnowledgePipeline {
                 entities.append(candidate.entity)
             }
         }
-
-        let importedNames = Set(chosen.flatMap { [$0.entity.name] + $0.entity.aliases }.map(KnowledgeNormalizer.key))
-        let relationships = analysis.relationships.compactMap { candidate -> KnowledgeRelationship? in
-            guard selectedIDs.contains(candidate.id) else { return nil }
-            let proposal = candidate.relationship
-            guard importedNames.contains(KnowledgeNormalizer.key(proposal.from)) || importedNames.contains(KnowledgeNormalizer.key(proposal.to)),
-                  let from = findEntity(named: proposal.from, in: entities),
-                  let to = findEntity(named: proposal.to, in: entities),
-                  from.id != to.id, !proposal.evidence.isEmpty else { return nil }
-            return KnowledgeRelationship(fromEntityID: from.id, type: proposal.type, toEntityID: to.id, evidence: proposal.evidence)
-        }
-        return (entities, relationships)
+        return entities
     }
 
     private static func exactMatch(_ lhs: KnowledgeEntity, _ rhs: KnowledgeEntity) -> Bool {
         let lhsKeys = Set([lhs.normalizedKey] + lhs.aliases.map(KnowledgeNormalizer.key))
         let rhsKeys = Set([rhs.normalizedKey] + rhs.aliases.map(KnowledgeNormalizer.key))
         return !lhsKeys.isDisjoint(with: rhsKeys)
-    }
-
-    private static func findEntity(named name: String, in entities: [KnowledgeEntity]) -> KnowledgeEntity? {
-        let key = KnowledgeNormalizer.key(name)
-        return entities.first { $0.normalizedKey == key || $0.aliases.map(KnowledgeNormalizer.key).contains(key) }
     }
 
     private static func similarity(_ lhs: String, _ rhs: String) -> Double {

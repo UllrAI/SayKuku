@@ -8,7 +8,7 @@ struct RootView: View {
     @State private var historyFilter: HistoryFilter = .all
     @State private var historySearch = ""
     @State private var knowledgeSearch = ""
-    @State private var knowledgeFilter: KnowledgeFilter = .all
+    @State private var knowledgeFilter: EntityType?
     @State private var memoryScope: MemoryScope = .corrections
 
     var body: some View {

@@ -148,7 +148,6 @@ final class AppState {
     var toast: ToastMessage?
     var historyEntries: [HistoryEntry] = [] { didSet { schedulePersistence() } }
     var knowledgeEntities: [KnowledgeEntity] = [] { didSet { schedulePersistence() } }
-    var knowledgeRelationships: [KnowledgeRelationship] = [] { didSet { schedulePersistence() } }
     var corrections: [CorrectionRecord] = [] { didSet { schedulePersistence() } }
     var sessions: [AgentSession] = [] { didSet { schedulePersistence() } }
     var historyRetention: HistoryRetention = .days30 {
@@ -470,28 +469,14 @@ final class AppState {
     func analyzeKnowledge(_ source: String) async throws -> KnowledgeAnalysis {
         let redacted = KnowledgePipeline.redactingPII(in: source)
         var entities: [ProposedEntity] = []
-        var relationships: [ProposedRelationship] = []
         for chunk in KnowledgePipeline.chunks(redacted.text) {
-            let extraction = try await reasoningClient.extractKnowledge(apiKey: apiKey, configuration: configuration, text: chunk)
-            entities.append(contentsOf: extraction.entities)
-            relationships.append(contentsOf: extraction.relationships)
+            entities += try await reasoningClient.extractKnowledge(apiKey: apiKey, configuration: configuration, text: chunk)
         }
-        return KnowledgePipeline.analyze(
-            proposals: entities,
-            relationships: relationships,
-            existing: knowledgeEntities,
-            existingRelationships: knowledgeRelationships,
-            ignored: redacted.ignored
-        )
+        return KnowledgePipeline.analyze(proposals: entities, existing: knowledgeEntities, ignored: redacted.ignored)
     }
 
     func commitKnowledge(_ analysis: KnowledgeAnalysis, selectedIDs: Set<UUID>) {
-        let result = KnowledgePipeline.commit(analysis: analysis, selectedIDs: selectedIDs, existing: knowledgeEntities)
-        knowledgeEntities = result.entities
-        let existingKeys = Set(knowledgeRelationships.map { "\($0.fromEntityID)-\($0.type.rawValue)-\($0.toEntityID)" })
-        knowledgeRelationships.append(contentsOf: result.relationships.filter {
-            !existingKeys.contains("\($0.fromEntityID)-\($0.type.rawValue)-\($0.toEntityID)")
-        })
+        knowledgeEntities = KnowledgePipeline.commit(analysis: analysis, selectedIDs: selectedIDs, existing: knowledgeEntities)
     }
 
     /// Returns why the item couldn't be saved, or `nil` once it's added.
@@ -536,10 +521,6 @@ final class AppState {
             return .duplicate(existingName: existing.name)
         }
         return nil
-    }
-
-    func suggestEntityType(for name: String) async throws -> EntityType {
-        try await reasoningClient.classifyEntity(apiKey: apiKey, configuration: configuration, name: name)
     }
 
     func acceptCorrection(_ id: UUID) {
@@ -1170,7 +1151,6 @@ final class AppState {
     ) -> String {
         KnowledgePrompt.render(
             entities: includesKnowledge ? knowledgeEntities : [],
-            relationships: includesKnowledge ? knowledgeRelationships : [],
             domains: includesDomains ? selectedDomains : [],
             customTerms: includesDomains ? customDomainTerms : [],
             purpose: purpose
@@ -1541,7 +1521,6 @@ final class AppState {
             if Self.legacyPlaceholderDetails.contains(entity.detail) { entity.detail = "" }
             return entity
         })
-        knowledgeRelationships = Self.merging(knowledgeRelationships, snapshot.relationships)
         corrections = Self.merging(corrections, snapshot.corrections)
         sessions = Self.merging(sessions, snapshot.sessions.filter { $0.expiresAt > .now })
         cleanExpiredHistory()
@@ -1628,8 +1607,7 @@ final class AppState {
         guard isLoaded else { return nil }
         persistenceGeneration += 1
         let value = LocalStore.Snapshot(
-            history: historyEntries, entities: knowledgeEntities,
-            relationships: knowledgeRelationships, corrections: corrections, sessions: sessions
+            history: historyEntries, entities: knowledgeEntities, corrections: corrections, sessions: sessions
         )
         return (value, persistenceGeneration)
     }
