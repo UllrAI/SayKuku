@@ -23,9 +23,10 @@ cd "$ROOT_DIR"
 if [[ -n "$(git status --porcelain)" ]]; then
     fail "Working tree must be clean before a release; commit or remove local changes first"
 fi
-if [[ -z "${SAYKUKU_SIGNING_IDENTITY:-}" ]]; then
-    fail "Release requires SAYKUKU_SIGNING_IDENTITY='Developer ID Application: ...'"
-fi
+# Resolve once and hand the result to package-app.sh so both use the same identity.
+source "$ROOT_DIR/Scripts/signing-identity.sh"
+SAYKUKU_SIGNING_IDENTITY="$(resolve_signing_identity release)"
+export SAYKUKU_SIGNING_IDENTITY
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$ROOT_DIR/Scripts/Resources/Info.plist")"
 TAG="v${VERSION}"
 COMMIT="$(git rev-parse HEAD)"
