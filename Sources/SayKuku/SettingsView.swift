@@ -98,7 +98,7 @@ private struct VoiceInputSettings: View {
                 .padding(.bottom, KukuSpacing.md)
             }
 
-            KukuGroup(appState.text("词汇", "Vocabulary")) {
+            KukuGroup(appState.text("识别", "Recognition")) {
                 KukuRow(appState.text("常用领域", "Domains"), caption: domainSummary) {
                     Button(appState.text("编辑…", "Edit…")) {
                         appState.showDomainOnboarding()
