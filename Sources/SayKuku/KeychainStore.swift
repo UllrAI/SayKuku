@@ -6,10 +6,7 @@ enum SecureStorageError: LocalizedError {
     case invalidData
 
     var errorDescription: String? {
-        switch self {
-        case .keychain(let status): "Keychain error (\(status))"
-        case .invalidData: "Stored data is invalid"
-        }
+        localized("Couldn’t save the API Key. Check Keychain on this Mac.")
     }
 }
 
