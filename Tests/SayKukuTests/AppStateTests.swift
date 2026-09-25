@@ -48,6 +48,24 @@ struct AppStateTests {
         #expect(AppState.AgentPhase.processing.status(state) == "Running · Summarize this page")
     }
 
+    @Test("Don’t keep never expires existing history and survives a relaunch")
+    @MainActor
+    func historyRetentionOff() {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let state = environment.makeState()
+        let old = HistoryEntry(
+            mode: .dictation, app: "Notes", createdAt: .now.addingTimeInterval(-400 * 86_400),
+            durationSeconds: 1, input: "hello", output: "hello"
+        )
+        state.historyEntries = [old]
+        state.historyRetention = .off
+        #expect(HistoryRetention.off.days == nil)
+        #expect(HistoryRetention.allCases.first == .off)
+        #expect(state.historyEntries == [old])
+        #expect(environment.makeState().historyRetention == .off)
+    }
+
     @Test("toasts with the same copy are still distinct")
     func toastIdentity() {
         #expect(ToastMessage(text: "已复制", symbol: "doc.on.doc") != ToastMessage(text: "已复制", symbol: "doc.on.doc"))
