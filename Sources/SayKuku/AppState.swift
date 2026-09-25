@@ -123,6 +123,8 @@ final class AppState {
     var pendingAnswerText = ""
     var pendingAnswerStatus: String?
     var resultCanUndo = false
+    /// Set while Insert or Undo is writing, so a double click can't paste the same text twice.
+    var isWriting = false
     var overlayErrorSymbol = "exclamationmark"
     var overlayError: String? { didSet { overlayController?.refresh() } }
     var toast: ToastMessage?
@@ -192,7 +194,7 @@ final class AppState {
     @ObservationIgnored private var targetSnapshot: TextTargetSnapshot?
     @ObservationIgnored private var activeAgentSessions: [AgentSession] = []
     @ObservationIgnored private var lastVerifiedWrite: VerifiedWrite?
-    @ObservationIgnored private var pendingAnswerTarget: TextTargetSnapshot?
+    @ObservationIgnored var pendingAnswerTarget: TextTargetSnapshot?
     @ObservationIgnored private var workflowGeneration = 0
     @ObservationIgnored private var realtimeSessionID = UUID()
     @ObservationIgnored private var recordingLimitTask: Task<Void, Never>?
@@ -331,7 +333,9 @@ final class AppState {
     var canUndoLastWrite: Bool { lastVerifiedWrite != nil }
 
     func undoLastWrite() async {
-        guard let lastVerifiedWrite else { return }
+        guard !isWriting, let lastVerifiedWrite else { return }
+        isWriting = true
+        defer { isWriting = false }
         let generation = workflowGeneration
         do {
             let replacement = try textInteraction.replacementSnapshot(for: lastVerifiedWrite)
@@ -372,7 +376,9 @@ final class AppState {
     }
 
     func insertAnswer() async {
-        guard let snapshot = pendingAnswerTarget, !pendingAnswerText.isEmpty else { return }
+        guard !isWriting, let snapshot = pendingAnswerTarget, !pendingAnswerText.isEmpty else { return }
+        isWriting = true
+        defer { isWriting = false }
         let answer = pendingAnswerText
         let generation = workflowGeneration
         do {
