@@ -43,8 +43,14 @@ struct SayKukuApp: App {
             CommandMenu(appState.text("语音", "Voice")) {
                 VoiceMenuItems(appState: appState)
             }
-            // There is no help book, so drop the item that only says help is unavailable.
-            CommandGroup(replacing: .help) { }
+            // There is no help book, so the Help menu points to the issue tracker instead.
+            CommandGroup(replacing: .help) {
+                Button(appState.text("反馈问题…", "Report a Problem…")) {
+                    if let url = URL(string: "https://github.com/UllrAI/SayKuku/issues") {
+                        NSWorkspace.shared.open(url)
+                    }
+                }
+            }
         }
 
         MenuBarExtra(isInserted: Binding(

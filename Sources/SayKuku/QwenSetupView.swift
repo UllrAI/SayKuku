@@ -71,24 +71,18 @@ struct QwenSetupView: View {
         KukuSheetFooter(
             note: KukuSheetNote(text: appState.text("以后可在“设置 › Qwen 连接”中修改。", "You can change this later in Settings › Qwen Connection."))
         ) {
-            if isConnected {
-                Button(appState.setupContinueTitle) { dismiss() }
-                    .buttonStyle(.kukuPrimary)
-                    .keyboardShortcut(.defaultAction)
-            } else {
-                // The form commits what was typed as the sheet closes, so a key is enough to move on;
-                // testing it is recommended, not required.
-                Button(draft.hasKey ? appState.setupContinueTitle : appState.setupSkipTitle) { dismiss() }
-                    .buttonStyle(.kukuSecondary)
-                    .keyboardShortcut(.cancelAction)
-                // Applies to the Button inside, so Return tests the connection.
-                QwenConnectionButton(draft: draft)
-                    .keyboardShortcut(.defaultAction)
+            if !isConnected {
+                QwenConnectionButton(draft: draft, kind: .secondary)
             }
+            // The form commits what was typed as the sheet closes, so a key is enough to move on;
+            // testing it is recommended, not required.
+            Button(draft.hasKey ? appState.setupContinueTitle : appState.setupSkipTitle) { dismiss() }
+                .buttonStyle(.kukuPrimary)
+                .keyboardShortcut(.defaultAction)
         }
     }
 
-    /// Connected, and nothing edited since, so the only thing left is to finish.
+    /// Connected, and nothing edited since, so there is nothing left to test.
     private var isConnected: Bool {
         guard case .connected = appState.connectionState else { return false }
         return draft.matches(apiKey: appState.apiKey, workspaceID: appState.qwenWorkspaceID)
