@@ -25,7 +25,6 @@ struct QwenSetupView: View {
                         steps
                     }
                     VStack(alignment: .leading, spacing: KukuSpacing.md) {
-                        // The footer button is the only save action during setup.
                         KukuGroup(appState.text("连接信息", "Connection details")) {
                             QwenConnectionForm(draft: $draft)
                         }
@@ -77,23 +76,22 @@ struct QwenSetupView: View {
                     .buttonStyle(.kukuPrimary)
                     .keyboardShortcut(.defaultAction)
             } else {
-                // A saved key is enough to move on; testing it is recommended, not required.
-                Button(appState.apiKey.isEmpty ? appState.setupSkipTitle : appState.setupContinueTitle) {
-                    dismiss()
-                }
-                .buttonStyle(.kukuSecondary)
-                .keyboardShortcut(.cancelAction)
-                // Applies to the Button inside, so Return saves and tests.
+                // The form commits what was typed as the sheet closes, so a key is enough to move on;
+                // testing it is recommended, not required.
+                Button(draft.hasKey ? appState.setupContinueTitle : appState.setupSkipTitle) { dismiss() }
+                    .buttonStyle(.kukuSecondary)
+                    .keyboardShortcut(.cancelAction)
+                // Applies to the Button inside, so Return tests the connection.
                 QwenConnectionButton(draft: draft)
                     .keyboardShortcut(.defaultAction)
             }
         }
     }
 
-    /// Connected with nothing left unsaved, so the only thing left is to finish.
+    /// Connected, and nothing edited since, so the only thing left is to finish.
     private var isConnected: Bool {
         guard case .connected = appState.connectionState else { return false }
-        return !draft.action(savedKey: appState.apiKey, savedWorkspaceID: appState.qwenWorkspaceID).hasChanges
+        return draft.matches(apiKey: appState.apiKey, workspaceID: appState.qwenWorkspaceID)
     }
 }
 

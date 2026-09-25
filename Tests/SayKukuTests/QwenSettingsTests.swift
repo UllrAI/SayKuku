@@ -4,32 +4,19 @@ import Testing
 
 @Suite("Qwen settings")
 struct QwenSettingsTests {
-    @Test("API Key draft state compares the trimmed draft with the saved key")
-    func apiKeyDraftState() {
-        #expect(APIKeyDraftState(draft: "", saved: "") == .empty)
-        #expect(APIKeyDraftState(draft: "  ", saved: "") == .empty)
-        #expect(APIKeyDraftState(draft: "sk-1", saved: "sk-1") == .saved)
-        #expect(APIKeyDraftState(draft: " sk-1\n", saved: "sk-1") == .saved)
-        #expect(APIKeyDraftState(draft: "sk-2", saved: "sk-1") == .modified)
-        #expect(APIKeyDraftState(draft: "sk-1", saved: "") == .modified)
-        #expect(APIKeyDraftState(draft: "", saved: "sk-1") == .cleared)
-        #expect(!APIKeyDraftState(draft: "sk-1", saved: "sk-1").hasChanges)
-        #expect(APIKeyDraftState(draft: "", saved: "sk-1").hasChanges)
+    @Test("a draft has a key only when it isn't blank")
+    func draftHasKey() {
+        #expect(!QwenCredentialsDraft().hasKey)
+        #expect(!QwenCredentialsDraft(apiKey: " \n").hasKey)
+        #expect(QwenCredentialsDraft(apiKey: " sk-1 ").hasKey)
     }
 
-    @Test("the connection button saves, tests, or both depending on what changed")
-    func credentialsAction() {
-        func action(key: String, workspace: String = "", savedKey: String, savedWorkspace: String = "") -> QwenCredentialsAction {
-            QwenCredentialsDraft(apiKey: key, workspaceID: workspace).action(savedKey: savedKey, savedWorkspaceID: savedWorkspace)
-        }
-        #expect(action(key: "", savedKey: "") == .unavailable)
-        #expect(action(key: "", workspace: "llm-1", savedKey: "") == .save)
-        #expect(action(key: "", savedKey: "sk-1") == .save)
-        #expect(action(key: "sk-2", savedKey: "sk-1") == .saveAndTest)
-        #expect(action(key: "sk-1", savedKey: "sk-1") == .test)
-        #expect(action(key: "sk-1", workspace: " llm-1 ", savedKey: "sk-1", savedWorkspace: "llm-1") == .test)
-        #expect(action(key: "sk-1", workspace: "llm-2", savedKey: "sk-1", savedWorkspace: "llm-1") == .saveAndTest)
-        #expect(action(key: "sk-1", savedKey: "sk-1", savedWorkspace: "llm-1") == .saveAndTest)
+    @Test("a draft matches the saved values once its trimmed edits are committed")
+    func draftMatches() {
+        let draft = QwenCredentialsDraft(apiKey: " sk-1\n", workspaceID: " llm-1 ")
+        #expect(draft.matches(apiKey: "sk-1", workspaceID: "llm-1"))
+        #expect(!draft.matches(apiKey: "sk-2", workspaceID: "llm-1"))
+        #expect(!draft.matches(apiKey: "sk-1", workspaceID: ""))
     }
 
     @Test("setup steps say Continue until the last one")
@@ -92,20 +79,21 @@ struct QwenSettingsTests {
         #expect(try environment.keychain.string(for: "qwen.apiKey") == nil)
     }
 
-    @Test("saving credentials stores the key and a trimmed Workspace ID together")
+    @Test("committing credentials stores the trimmed key and Workspace ID together")
     @MainActor
     func credentialsPersistence() async throws {
         let environment = AppStateTestEnvironment()
         defer { environment.clean() }
 
         let state = environment.makeState()
-        try state.saveQwenCredentials(QwenCredentialsDraft(apiKey: " sk-test ", workspaceID: " llm-1 \n"))
+        #expect(state.commitQwenCredentials(QwenCredentialsDraft(apiKey: " sk-test ", workspaceID: " llm-1 \n")))
         #expect(state.apiKey == "sk-test")
+        #expect(try environment.keychain.string(for: "qwen.apiKey") == "sk-test")
         #expect(state.qwenWorkspaceID == "llm-1")
         #expect(environment.makeState().qwenWorkspaceID == "llm-1")
 
-        // Clearing the key only saves; there is nothing left to test, so no network call happens.
-        await state.submitQwenCredentials(QwenCredentialsDraft(apiKey: "", workspaceID: "llm-1"))
+        // Testing commits the cleared key first; with no key left there is nothing to test and no network call.
+        await state.testQwenConnection(QwenCredentialsDraft(apiKey: "", workspaceID: "llm-1"))
         #expect(state.apiKey.isEmpty)
         #expect(try environment.keychain.string(for: "qwen.apiKey") == nil)
         #expect(state.connectionState == .idle)
