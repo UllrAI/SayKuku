@@ -111,38 +111,61 @@ struct GlobalShortcutTests {
         ) == .reject(.duplicate))
     }
 
-    @Test("recording rejects standard macOS shortcuts but allows variants")
-    func recordingReservedCombinations() {
+    @Test("recording rejects every ⌘ and ⇧⌘ combination")
+    func recordingAppReservedCombinations() {
         let command = UInt32(cmdKey)
-        let commandKeys = [
-            kVK_ANSI_V, kVK_ANSI_C, kVK_ANSI_X, kVK_ANSI_Z, kVK_ANSI_A, kVK_ANSI_Q,
-            kVK_ANSI_W, kVK_ANSI_H, kVK_ANSI_M, kVK_Tab, kVK_Space, kVK_ANSI_Comma
-        ]
-        for key in commandKeys {
+        let shiftCommand = UInt32(shiftKey | cmdKey)
+        let keys = [kVK_ANSI_V, kVK_ANSI_S, kVK_ANSI_F, kVK_ANSI_P, kVK_ANSI_3, kVK_Space, kVK_Tab, kVK_F5]
+        for key in keys {
             #expect(GlobalShortcut.recordingResult(
                 keyCode: UInt16(key), carbonModifiers: command, otherShortcut: nil
             ) == .reject(.reserved))
+            #expect(GlobalShortcut.recordingResult(
+                keyCode: UInt16(key), carbonModifiers: shiftCommand, otherShortcut: nil
+            ) == .reject(.reserved))
         }
-        #expect(GlobalShortcut.recordingResult(
-            keyCode: UInt16(kVK_ANSI_Z), carbonModifiers: UInt32(shiftKey | cmdKey), otherShortcut: nil
-        ) == .reject(.reserved))
+    }
 
-        let optionCommandV = GlobalShortcut(keyCode: UInt32(kVK_ANSI_V), carbonModifiers: UInt32(optionKey | cmdKey))
-        #expect(GlobalShortcut.recordingResult(
-            keyCode: UInt16(kVK_ANSI_V), carbonModifiers: optionCommandV.carbonModifiers, otherShortcut: nil
-        ) == .record(optionCommandV))
-        let controlShiftSpace = GlobalShortcut(keyCode: UInt32(kVK_Space), carbonModifiers: UInt32(controlKey | shiftKey))
-        #expect(GlobalShortcut.recordingResult(
-            keyCode: UInt16(kVK_Space), carbonModifiers: controlShiftSpace.carbonModifiers, otherShortcut: nil
-        ) == .record(controlShiftSpace))
+    @Test("recording rejects macOS system combinations but allows ⌃ and ⌥ variants")
+    func recordingSystemCombinations() {
+        let system: [(Int, Int)] = [
+            (kVK_ANSI_D, optionKey | cmdKey), (kVK_ANSI_H, optionKey | cmdKey), (kVK_ANSI_M, optionKey | cmdKey),
+            (kVK_ANSI_W, optionKey | cmdKey), (kVK_ANSI_I, optionKey | cmdKey), (kVK_Space, optionKey | cmdKey),
+            (kVK_ANSI_Q, controlKey | cmdKey), (kVK_Space, controlKey | cmdKey),
+            (kVK_ANSI_F, controlKey | cmdKey), (kVK_ANSI_D, controlKey | cmdKey),
+            (kVK_Space, controlKey | optionKey), (kVK_Space, controlKey)
+        ]
+        for (key, modifiers) in system {
+            #expect(GlobalShortcut.recordingResult(
+                keyCode: UInt16(key), carbonModifiers: UInt32(modifiers), otherShortcut: nil
+            ) == .reject(.system))
+        }
+
+        let allowed = [
+            GlobalShortcut(keyCode: UInt32(kVK_ANSI_V), carbonModifiers: UInt32(controlKey | cmdKey)),
+            GlobalShortcut(keyCode: UInt32(kVK_ANSI_V), carbonModifiers: UInt32(optionKey | cmdKey)),
+            GlobalShortcut(keyCode: UInt32(kVK_ANSI_S), carbonModifiers: UInt32(optionKey | shiftKey | cmdKey)),
+            GlobalShortcut(keyCode: UInt32(kVK_Space), carbonModifiers: UInt32(controlKey | shiftKey)),
+            GlobalShortcut.defaultVoiceInput,
+            GlobalShortcut.defaultVoiceAgent
+        ]
+        for shortcut in allowed {
+            #expect(GlobalShortcut.recordingResult(
+                keyCode: UInt16(shortcut.keyCode), carbonModifiers: shortcut.carbonModifiers, otherShortcut: nil
+            ) == .record(shortcut))
+        }
     }
 
     @Test("a reserved combination saved by an older version falls back to the default")
     func restoredReservedCombination() {
-        let commandV = GlobalShortcut(keyCode: UInt32(kVK_ANSI_V), carbonModifiers: UInt32(cmdKey))
-        #expect(GlobalShortcut.restored(from: commandV.storageValue, fallback: .defaultVoiceInput) == .defaultVoiceInput)
-        let shiftCommandZ = GlobalShortcut(keyCode: UInt32(kVK_ANSI_Z), carbonModifiers: UInt32(shiftKey | cmdKey))
-        #expect(GlobalShortcut.restored(from: shiftCommandZ.storageValue, fallback: .defaultVoiceAgent) == .defaultVoiceAgent)
+        let commandS = GlobalShortcut(keyCode: UInt32(kVK_ANSI_S), carbonModifiers: UInt32(cmdKey))
+        #expect(GlobalShortcut.restored(from: commandS.storageValue, fallback: .defaultVoiceInput) == .defaultVoiceInput)
+        let shiftCommand3 = GlobalShortcut(keyCode: UInt32(kVK_ANSI_3), carbonModifiers: UInt32(shiftKey | cmdKey))
+        #expect(GlobalShortcut.restored(from: shiftCommand3.storageValue, fallback: .defaultVoiceAgent) == .defaultVoiceAgent)
+        let controlSpace = GlobalShortcut(keyCode: UInt32(kVK_Space), carbonModifiers: UInt32(controlKey))
+        #expect(GlobalShortcut.restored(from: controlSpace.storageValue, fallback: .defaultVoiceInput) == .defaultVoiceInput)
+        let optionCommandV = GlobalShortcut(keyCode: UInt32(kVK_ANSI_V), carbonModifiers: UInt32(optionKey | cmdKey))
+        #expect(GlobalShortcut.restored(from: optionCommandV.storageValue, fallback: .defaultVoiceInput) == optionCommandV)
     }
 
     @Test("status reports which shortcut failed before Accessibility")
