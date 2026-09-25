@@ -124,10 +124,19 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         Task {
-            await appState.flushPersistence()
-            NSApplication.shared.reply(toApplicationShouldTerminate: true)
+            let saved = await appState.flushPersistence()
+            NSApplication.shared.reply(toApplicationShouldTerminate: saved || confirmQuitWithoutSaving())
         }
         return .terminateLater
+    }
+
+    private func confirmQuitWithoutSaving() -> Bool {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = appState.text("没能保存最近的更改", "Couldn’t save your latest changes")
+        alert.addButton(withTitle: appState.text("仍然退出", "Quit Anyway"))
+        alert.addButton(withTitle: appState.text("取消", "Cancel"))
+        return alert.runModal() == .alertFirstButtonReturn
     }
 
     func observeMainWindow(_ window: NSWindow?) {

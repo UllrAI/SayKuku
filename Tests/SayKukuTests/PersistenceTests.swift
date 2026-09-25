@@ -126,11 +126,12 @@ struct PersistenceTests {
         defer { try? FileManager.default.removeItem(at: root) }
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let snapshotURL = root.appendingPathComponent("store.json")
-        let original = Data("not valid JSON".utf8)
+        let recordingName = "\(UUID().uuidString).wav"
+        let original = Data(#"{"history":[{"audioFilename":"\#(recordingName)","#.utf8)
         try original.write(to: snapshotURL)
         let audioDirectory = root.appendingPathComponent("Audio", isDirectory: true)
         try FileManager.default.createDirectory(at: audioDirectory, withIntermediateDirectories: true)
-        let recording = audioDirectory.appendingPathComponent("\(UUID().uuidString).wav")
+        let recording = audioDirectory.appendingPathComponent(recordingName)
         try Data("audio".utf8).write(to: recording)
         let store = LocalStore(root: root)
 
@@ -232,22 +233,37 @@ struct PersistenceTests {
         let audioDirectory = root.appendingPathComponent("Audio", isDirectory: true)
         let referenced = "\(UUID().uuidString).wav"
         try await LocalStore(root: root).replace(.init(history: [historyEntry("kept", audioFilename: referenced)]))
+        let backedUpName = "\(UUID().uuidString).wav"
         let kept = audioDirectory.appendingPathComponent(referenced)
+        let backedUp = audioDirectory.appendingPathComponent(backedUpName)
         let orphan = audioDirectory.appendingPathComponent("\(UUID().uuidString).wav")
         let legacy = audioDirectory.appendingPathComponent("\(UUID().uuidString).audio")
-        for url in [kept, orphan, legacy] { try Data("audio".utf8).write(to: url) }
-
-        // A backup of damaged data may still point at any recording.
+        for url in [kept, backedUp, orphan, legacy] { try Data("audio".utf8).write(to: url) }
+        // A damaged backup still names its recordings even though it no longer parses.
         let backup = root.appendingPathComponent("store.corrupt-20240101-000000.json")
-        try Data("{}".utf8).write(to: backup)
-        _ = try await LocalStore(root: root).load()
-        #expect(FileManager.default.fileExists(atPath: orphan.path))
+        try Data(#"{"history":[{"audioFilename":"\#(backedUpName)""#.utf8).write(to: backup)
 
-        try FileManager.default.removeItem(at: backup)
         _ = try await LocalStore(root: root).load()
         #expect(!FileManager.default.fileExists(atPath: orphan.path))
         #expect(FileManager.default.fileExists(atPath: kept.path))
+        #expect(FileManager.default.fileExists(atPath: backedUp.path))
         #expect(FileManager.default.fileExists(atPath: legacy.path))
+    }
+
+    @Test("recordings are kept when a backup can't be read")
+    func unreadableBackupKeepsAudio() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let audioDirectory = root.appendingPathComponent("Audio", isDirectory: true)
+        try FileManager.default.createDirectory(at: audioDirectory, withIntermediateDirectories: true)
+        let recording = audioDirectory.appendingPathComponent("\(UUID().uuidString).wav")
+        try Data("audio".utf8).write(to: recording)
+        // A directory stands in for a backup whose contents can't be read.
+        let backup = root.appendingPathComponent("store.corrupt-20240101-000000.json", isDirectory: true)
+        try FileManager.default.createDirectory(at: backup, withIntermediateDirectories: true)
+
+        _ = try await LocalStore(root: root).load()
+        #expect(FileManager.default.fileExists(atPath: recording.path))
     }
 
     @Test("changes made while loading never replace stored data")
@@ -262,13 +278,18 @@ struct PersistenceTests {
         let loading = Task { await state.loadStoredData() }
         await Task.yield()
         let recorded = historyEntry("recorded")
+        let entity = KnowledgeEntity(name: "SayKuku", type: .product)
         state.historyEntries.insert(recorded, at: 0)
+        state.knowledgeEntities.append(entity)
         await loading.value
+        await state.loadStoredData()
         #expect(Set(state.historyEntries.map(\.id)) == [stored.id, recorded.id])
+        #expect(state.knowledgeEntities.map(\.id) == [entity.id])
 
         await state.flushPersistence()
         let saved = try await LocalStore(root: environment.root).load()
         #expect(Set(saved.history.map(\.id)) == [stored.id, recorded.id])
+        #expect(saved.entities.map(\.id) == [entity.id])
     }
 
     @Test("a burst of changes is saved in one write")

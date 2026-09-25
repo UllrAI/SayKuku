@@ -117,13 +117,18 @@ actor LocalStore {
         return result
     }
 
-    /// Deletes recordings left behind by a crash or a failed delete. While a backup of damaged data
-    /// exists, its entries may still point at recordings, so everything is kept.
+    /// Deletes recordings left behind by a crash or a failed delete. Recordings named in a backup of
+    /// damaged data are kept, so restoring the backup brings them back.
     private func removeUnreferencedAudio(keeping history: [HistoryEntry]) {
         let files = FileManager.default
+        var referenced = Set(history.compactMap(\.audioFilename))
         let rootNames = (try? files.contentsOfDirectory(atPath: root.path)) ?? []
-        guard !rootNames.contains(where: { $0.hasPrefix("store.corrupt-") }) else { return }
-        let referenced = Set(history.compactMap(\.audioFilename))
+        for name in rootNames where name.hasPrefix("store.corrupt-") {
+            // Scan the raw text, since a backup may not parse. If one can't be read, keep everything.
+            guard let data = try? Data(contentsOf: root.appendingPathComponent(name)) else { return }
+            let text = String(decoding: data, as: UTF8.self)
+            referenced.formUnion(text.matches(of: /[0-9A-Fa-f-]{36}\.wav/).map { String($0.output) })
+        }
         let audio = (try? files.contentsOfDirectory(at: audioDirectory, includingPropertiesForKeys: nil)) ?? []
         for url in audio where url.pathExtension == "wav" && !referenced.contains(url.lastPathComponent) {
             try? files.removeItem(at: url)
@@ -166,12 +171,11 @@ actor LocalStore {
         }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .millisecondsSince1970
-        // Saving would drop whatever a newer version added, so leave its file alone.
-        let version = (try? decoder.decode(SnapshotVersion.self, from: data))?.version ?? 1
-        guard version <= Snapshot.currentVersion else {
-            return LoadResult(isReadable: false, issue: .readOnly(file: url))
-        }
         if let decoded = try? decoder.decode(TolerantSnapshot.self, from: data) {
+            // Saving would drop whatever a newer version added, so leave its file alone.
+            guard decoded.snapshot.version <= Snapshot.currentVersion else {
+                return LoadResult(isReadable: false, issue: .readOnly(file: url))
+            }
             guard decoded.skippedCount > 0 else { return LoadResult(snapshot: decoded.snapshot) }
             // Copy rather than move: the next save rewrites store.json without the skipped records.
             guard let backup = try? backUp(url, keepingOriginal: true) else {
@@ -211,18 +215,13 @@ actor LocalStore {
     }
 }
 
-/// Files written before versioning have no `version` and count as version 1.
-private struct SnapshotVersion: Decodable {
-    let version: Int?
-}
-
 /// Decodes each record on its own so one damaged or newer-format record does not hide the rest.
 private struct TolerantSnapshot: Decodable {
     let snapshot: LocalStore.Snapshot
     let skippedCount: Int
 
     private enum CodingKeys: String, CodingKey {
-        case history, entities, relationships, corrections, sessions
+        case version, history, entities, relationships, corrections, sessions
     }
 
     init(from decoder: Decoder) throws {
@@ -234,6 +233,8 @@ private struct TolerantSnapshot: Decodable {
             return decoded.compactMap(\.value)
         }
         snapshot = try LocalStore.Snapshot(
+            // Files written before versioning have no version and count as version 1.
+            version: container.decodeIfPresent(Int.self, forKey: .version) ?? 1,
             history: records(.history),
             entities: records(.entities),
             relationships: records(.relationships),
