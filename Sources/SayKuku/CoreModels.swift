@@ -70,6 +70,21 @@ enum SearchEngine: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+/// Where the Voice Input and Voice Agent overlay appears.
+enum OverlayPlacement: String, Codable, CaseIterable, Identifiable {
+    case bottom, top, caret
+
+    var id: String { rawValue }
+
+    func title(isChineseUI: Bool) -> String {
+        switch self {
+        case .bottom: isChineseUI ? "底部居中" : "Bottom center"
+        case .top: isChineseUI ? "顶部" : "Top"
+        case .caret: isChineseUI ? "跟随光标" : "Follow the cursor"
+        }
+    }
+}
+
 enum QwenModelCatalog {
     static let defaultRealtimeModel = "qwen3.8-omni-flash-realtime"
     static let defaultReasoningModel = "qwen3.8-omni-flash"

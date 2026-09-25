@@ -100,6 +100,9 @@ final class AppState {
     var dictationIsListening: Bool { dictationPhase == .listening || startingWorkflow == .dictation }
     var agentIsListening: Bool { agentPhase == .listening || startingWorkflow == .agent }
     var inputMode: InputMode = .hold { didSet { defaults.set(inputMode.rawValue, forKey: Keys.inputMode) } }
+    var overlayPlacement: OverlayPlacement = .bottom {
+        didSet { defaults.set(overlayPlacement.rawValue, forKey: Keys.overlayPlacement) }
+    }
     var autoStop = false { didSet { defaults.set(autoStop, forKey: Keys.autoStop) } }
     var recognitionLanguage: RecognitionLanguage = .automatic {
         didSet { defaults.set(recognitionLanguage.rawValue, forKey: Keys.recognitionLanguage) }
@@ -893,7 +896,9 @@ final class AppState {
         startingWorkflow = mode
         do {
             let snapshot = try signposter.withIntervalSignpost("captureTarget") {
-                try textInteraction.captureTarget(requiringWindow: mode == .dictation)
+                try textInteraction.captureTarget(
+                    requiringWindow: mode == .dictation, includingCaretFrame: overlayPlacement == .caret
+                )
             }
             overlayController?.anchor(to: snapshot)
             guard !snapshot.isSensitive else { throw TextInteractionError.sensitiveTarget }
@@ -1702,6 +1707,8 @@ final class AppState {
 
     private func loadSettings() {
         if let raw = defaults.string(forKey: Keys.inputMode), let value = InputMode(rawValue: raw) { inputMode = value }
+        if let raw = defaults.string(forKey: Keys.overlayPlacement),
+           let value = OverlayPlacement(rawValue: raw) { overlayPlacement = value }
         if let raw = defaults.string(forKey: Keys.language), let value = AppLanguage(rawValue: raw) { appLanguage = value }
         if let raw = defaults.string(forKey: Keys.recognitionLanguage),
            let value = RecognitionLanguage(rawValue: raw) { recognitionLanguage = value }
@@ -1751,6 +1758,7 @@ final class AppState {
 
     private enum Keys {
         static let inputMode = "inputMode", language = "appLanguage", autoStop = "autoStop"
+        static let overlayPlacement = "overlay.placement"
         static let recognitionLanguage = "dictation.recognitionLanguage", dictationNumberFormat = "dictation.numberFormat"
         static let dictationCleanup = "dictation.cleanup", soundCues = "voice.soundCues"
         static let selectedDomains = "dictation.selectedDomains", legacyCustomTerms = "dictation.customDomainTerms"
