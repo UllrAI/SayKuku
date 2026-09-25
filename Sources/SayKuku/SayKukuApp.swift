@@ -384,7 +384,7 @@ private struct PageMenuItems: View {
     }
 
     private func pageItem(_ destination: AppState.Destination, key: KeyEquivalent) -> some View {
-        Button(destination.title(appState)) {
+        Button(destination.title) {
             appState.showMainWindow(destination: destination)
         }
         .keyboardShortcut(key, modifiers: .command)

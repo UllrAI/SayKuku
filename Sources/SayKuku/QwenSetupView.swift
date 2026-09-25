@@ -8,7 +8,7 @@ struct QwenSetupView: View {
     var body: some View {
         VStack(spacing: 0) {
             KukuSheetHeader(
-                eyebrow: appState.setupProgress?.title(appState),
+                eyebrow: appState.setupProgress?.title,
                 title: localized("Connect to Qwen"),
                 description: localized(
                     "SayKuku uses Qwen on Alibaba Cloud Model Studio to transcribe your voice and handle commands. Follow the steps below to get an API Key."

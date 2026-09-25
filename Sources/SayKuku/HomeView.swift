@@ -67,7 +67,7 @@ struct HomeView: View {
     private var voiceInputCard: some View {
         HomeGestureRow(
             key: "Fn",
-            title: appState.voiceInputTitle,
+            title: localized("Voice Input"),
             subtitle: appState.inputMode == .hold
                 ? localized("Hold to talk, release to insert")
                 : localized("Tap to start, tap again to insert"),
@@ -81,7 +81,7 @@ struct HomeView: View {
     private var voiceAgentCard: some View {
         HomeGestureRow(
             key: "Fn Fn",
-            title: appState.voiceAgentTitle,
+            title: localized("Voice Agent"),
             subtitle: localized("Rewrite selected text, ask questions, or open pages"),
             shortcut: appState.globalShortcut(for: .voiceAgent),
             symbol: "sparkles"
@@ -92,7 +92,6 @@ struct HomeView: View {
 }
 
 private struct HomeGestureRow: View {
-    @Environment(AppState.self) private var appState
     let key: String
     let title: String
     let subtitle: String

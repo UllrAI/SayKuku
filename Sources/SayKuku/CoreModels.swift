@@ -21,7 +21,7 @@ enum QwenRegion: String, Codable, CaseIterable, Identifiable {
             : "https://modelstudio.console.alibabacloud.com/")!
     }
 
-    func title(isChineseUI: Bool) -> String {
+    var title: String {
         switch self {
         case .beijing: localized("China (Beijing)")
         case .singapore: localized("International (Singapore)")
@@ -46,7 +46,7 @@ enum SearchEngine: String, Codable, CaseIterable, Identifiable {
     }
 
     /// Brand names, so only Baidu differs between languages.
-    func title(isChineseUI: Bool) -> String {
+    var title: String {
         switch self {
         case .google: "Google"
         case .bing: "Bing"
@@ -76,7 +76,7 @@ enum OverlayPlacement: String, Codable, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
-    func title(isChineseUI: Bool) -> String {
+    var title: String {
         switch self {
         case .bottom: localized("Bottom center")
         case .top: localized("Top")
@@ -170,7 +170,7 @@ enum RecognitionLanguage: String, CaseIterable, Identifiable, Sendable {
 
     var id: String { rawValue }
 
-    func title(isChineseUI: Bool) -> String {
+    var title: String {
         switch self {
         case .automatic: localized("Auto (Chinese & English)")
         case .chinese: "简体中文"
@@ -196,7 +196,7 @@ enum DictationNumberFormat: String, CaseIterable, Identifiable, Sendable {
 
     var id: String { rawValue }
 
-    func title(isChineseUI: Bool) -> String {
+    var title: String {
         switch self {
         case .preferDigits: localized("Prefer digits")
         case .spoken: localized("As spoken")
@@ -219,7 +219,7 @@ enum DictationCleanup: String, CaseIterable, Identifiable, Sendable {
 
     var id: String { rawValue }
 
-    func title(isChineseUI: Bool) -> String {
+    var title: String {
         switch self {
         case .light: localized("Light cleanup")
         case .verbatim: localized("Verbatim")
@@ -327,7 +327,7 @@ enum DomainPreset: String, CaseIterable, Identifiable, Sendable {
 
     var id: String { rawValue }
 
-    func title(isChineseUI: Bool) -> String {
+    var title: String {
         switch self {
         case .aiVibeCoding: "AI / Vibe Coding"
         case .softwareDevelopment: localized("Software Development")
@@ -398,28 +398,9 @@ enum HistoryRetention: String, Codable, CaseIterable, Identifiable {
         case .days90: 90
         }
     }
-    var chineseTitle: String {
-        switch self {
-        case .off: "不保存"
-        case .day1: "1 天"
-        case .days7: "7 天"
-        case .days30: "30 天"
-        case .days90: "90 天"
-        case .forever: "永久"
-        }
-    }
-    var englishTitle: String {
-        switch self {
-        case .off: "Don’t keep"
-        case .day1: "1 day"
-        case .days7: "7 days"
-        case .days30: "30 days"
-        case .days90: "90 days"
-        case .forever: "Forever"
-        }
-    }
-    @MainActor func title(_ appState: AppState) -> String {
-        appState.text(chineseTitle, englishTitle)
+    var title: String {
+        guard let days else { return self == .off ? localized("Don’t keep") : localized("Forever") }
+        return localized("\(days) days")
     }
 }
 
@@ -427,8 +408,8 @@ enum HistoryMode: String, Codable {
     case dictation, agent
     var filter: HistoryFilter { self == .dictation ? .dictation : .agent }
     var symbol: String { self == .dictation ? "mic.fill" : "sparkles" }
-    @MainActor func title(_ appState: AppState) -> String {
-        self == .dictation ? appState.voiceInputTitle : appState.voiceAgentTitle
+    var title: String {
+        self == .dictation ? localized("Voice Input") : localized("Voice Agent")
     }
 }
 
@@ -512,13 +493,21 @@ enum EntityType: String, Codable, CaseIterable, Identifiable {
         }
     }
 
-    /// `plural` names a filter tab rather than a single item.
-    @MainActor func title(_ appState: AppState, plural: Bool = false) -> String {
+    var title: String {
         switch self {
-        case .person: appState.text("人物", plural ? "People" : "Person")
-        case .organization: appState.text("组织", plural ? "Organizations" : "Organization")
-        case .project: appState.text("项目", plural ? "Projects" : "Project")
-        case .term: appState.text("术语", plural ? "Terms" : "Term")
+        case .person: localized("Person")
+        case .organization: localized("Organization")
+        case .project: localized("Project")
+        case .term: localized("Term")
+        }
+    }
+    /// Names a filter tab rather than a single item.
+    var pluralTitle: String {
+        switch self {
+        case .person: localized("People")
+        case .organization: localized("Organizations")
+        case .project: localized("Projects")
+        case .term: localized("Terms")
         }
     }
     var symbol: String {
@@ -571,7 +560,7 @@ enum KnowledgeSaveError: Error, Equatable {
     case emptyName
     case duplicate(existingName: String)
 
-    @MainActor func message(_ appState: AppState) -> String {
+    var message: String {
         switch self {
         case .emptyName:
             localized("A name needs at least one letter or number")
@@ -584,7 +573,7 @@ enum KnowledgeSaveError: Error, Equatable {
 enum ImportStatus: String, Codable {
     case new = "NEW", merge = "MERGE", conflict = "CONFLICT", ignored = "IGNORED"
 
-    @MainActor func title(_ appState: AppState) -> String {
+    var title: String {
         switch self {
         case .new: localized("New")
         case .merge: localized("Updates existing")
@@ -682,7 +671,7 @@ struct AgentResponse: Codable, Equatable {
     enum Action: String, Codable {
         case writeText, answer, openURL, webSearch, runShortcut
 
-        func title(isChineseUI: Bool) -> String {
+        var title: String {
             switch self {
             case .writeText: localized("Write text")
             case .answer: localized("Answer")

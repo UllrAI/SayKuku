@@ -79,7 +79,7 @@ final class ShortcutRecorder {
 }
 
 extension GlobalShortcut.RecordingIssue {
-    @MainActor func message(for action: GlobalShortcutAction, _ appState: AppState) -> String {
+    func message(for action: GlobalShortcutAction) -> String {
         switch self {
         case .needsModifier:
             localized("Shortcuts need ⌘ or ⌃")
@@ -90,7 +90,7 @@ extension GlobalShortcut.RecordingIssue {
         case .system:
             localized("macOS already uses this shortcut. Try another.")
         case .duplicate:
-            localized("Already used for \(action.other.title(appState)). Try another.")
+            localized("Already used for \(action.other.title). Try another.")
         }
     }
 }
@@ -135,7 +135,7 @@ struct ShortcutRecorderButton: View {
             if shortcut != nil, !isRecording {
                 KukuIconButton(
                     symbol: "xmark.circle.fill",
-                    label: localized("Turn off \(action.title(appState)) shortcut"),
+                    label: localized("Turn off \(action.title) shortcut"),
                     size: .small,
                     tint: KukuColor.textTertiary
                 ) {
@@ -146,7 +146,7 @@ struct ShortcutRecorderButton: View {
     }
 
     private func spokenLabel(isRecording: Bool, shortcut: GlobalShortcut?) -> String {
-        let title = action.title(appState)
+        let title = action.title
         let value = if isRecording {
             localized("press new keys")
         } else if let shortcut {

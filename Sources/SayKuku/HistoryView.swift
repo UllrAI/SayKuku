@@ -51,7 +51,7 @@ struct HistoryView: View {
             KukuPageTabs(
                 items: HistoryFilter.allCases,
                 selection: $filter,
-                title: { $0.title(appState) }
+                title: { $0.title }
             )
 
             KukuDivider(inset: 0)
@@ -116,10 +116,7 @@ struct HistoryView: View {
         case .forever:
             localized("History is kept until you delete it.")
         default:
-            appState.text(
-                "保留 \(appState.historyRetention.chineseTitle)，星标记录不会自动删除。",
-                "Kept for \(appState.historyRetention.englishTitle). Starred items are never deleted automatically."
-            )
+            localized("Kept for \(appState.historyRetention.title). Starred items are never deleted automatically.")
         }
     }
 
@@ -275,18 +272,14 @@ struct HistoryView: View {
     private func dayLabel(for entry: HistoryEntry) -> String {
         if Calendar.current.isDateInToday(entry.createdAt) { return localized("Today") }
         if Calendar.current.isDateInYesterday(entry.createdAt) { return localized("Yesterday") }
-        let locale = historyLocale(chinese: appState.usesChineseUI)
-        return entry.createdAt.formatted(Date.FormatStyle(date: .abbreviated, time: .omitted, locale: locale))
+        return entry.createdAt.formatted(Date.FormatStyle(date: .abbreviated, time: .omitted, locale: historyLocale))
     }
 
     private func issueCopy(_ issue: LocalStore.DataIssue) -> (title: String, message: String) {
         switch issue {
         case .skippedRecords(let count, let backup):
             return (
-                title: appState.text(
-                    "有 \(count) 条本机记录无法读取，已跳过",
-                    count == 1 ? "1 saved item couldn’t be read and was skipped" : "\(count) saved items couldn’t be read and were skipped"
-                ),
+                title: localized("\(count) saved items couldn’t be read and were skipped"),
                 message: localized(
                     "Everything else loaded normally. The original file was backed up as \(backup.lastPathComponent)."
                 )
@@ -369,7 +362,7 @@ private struct HistoryRow: View {
     @State private var isOutputExpanded = false
     @State private var hovering = false
 
-    private var locale: Locale { historyLocale(chinese: appState.usesChineseUI) }
+    private var locale: Locale { historyLocale }
 
     var body: some View {
         HStack(alignment: .top, spacing: KukuSpacing.md) {
@@ -377,7 +370,7 @@ private struct HistoryRow: View {
 
             VStack(alignment: .leading, spacing: KukuSpacing.sm) {
                 HStack(spacing: KukuSpacing.iconText) {
-                    Text(entry.mode.title(appState))
+                    Text(entry.mode.title)
                         .font(.kuku(.caption, weight: .semibold))
                     Text("·")
                     Text(entry.app)
@@ -454,8 +447,8 @@ private struct HistoryRow: View {
 
     private func playbackTitle(titleCase: Bool) -> String {
         isPlaying
-            ? appState.text("停止播放", titleCase ? "Stop Playback" : "Stop playback")
-            : appState.text("播放录音", titleCase ? "Play Recording" : "Play recording")
+            ? (titleCase ? localized("Stop Playback") : localized("Stop playback"))
+            : (titleCase ? localized("Play Recording") : localized("Play recording"))
     }
 
     @ViewBuilder
@@ -614,21 +607,21 @@ private extension HistoryEntry {
     var hasCopyableOutput: Bool { status == .completed && !output.isEmpty }
 }
 
-/// Uses the app's UI language for dates, keeping the user's regional formats when the languages match.
-private func historyLocale(chinese: Bool) -> Locale {
+/// Uses the interface language for dates, keeping the user's regional formats when the languages match.
+private var historyLocale: Locale {
     let current = Locale.autoupdatingCurrent
-    let currentIsChinese = current.language.languageCode == Locale.LanguageCode.chinese
-    return chinese == currentIsChinese ? current : Locale(identifier: chinese ? "zh-Hans" : "en")
+    guard current.language.languageCode != interfaceLanguage.languageCode else { return current }
+    return Locale(identifier: interfaceLanguage.minimalIdentifier)
 }
 
 enum HistoryFilter: String, CaseIterable, Identifiable {
     case all, dictation, agent
     var id: String { rawValue }
-    @MainActor func title(_ appState: AppState) -> String {
+    var title: String {
         switch self {
         case .all: localized("All")
-        case .dictation: appState.voiceInputTitle
-        case .agent: appState.voiceAgentTitle
+        case .dictation: localized("Voice Input")
+        case .agent: localized("Voice Agent")
         }
     }
 }

@@ -8,7 +8,7 @@ struct PermissionGuideView: View {
         let allGranted = appState.systemPermissions.allRequiredPermissionsGranted
         VStack(spacing: 0) {
             KukuSheetHeader(
-                eyebrow: appState.setupProgress?.title(appState),
+                eyebrow: appState.setupProgress?.title,
                 title: localized("Turn On Microphone and Accessibility"),
                 description: localized("SayKuku needs the microphone to hear you and Accessibility to type into text fields.")
             ) {
@@ -257,7 +257,6 @@ struct MicrophoneTestPanel: View {
 }
 
 private struct AudioLevelMeter: View {
-    @Environment(AppState.self) private var appState
     let level: Double
     private let barCount = 24
 

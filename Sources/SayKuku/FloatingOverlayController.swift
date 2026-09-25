@@ -234,7 +234,7 @@ private struct AgentAnswerCard: View {
     }
 
     private var searchEngineTitle: String {
-        appState.searchEngine.title(isChineseUI: appState.usesChineseUI)
+        appState.searchEngine.title
     }
 
     var body: some View {
