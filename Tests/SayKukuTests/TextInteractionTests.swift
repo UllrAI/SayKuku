@@ -1,4 +1,5 @@
 import AppKit
+import Carbon.HIToolbox
 import Foundation
 import Testing
 @testable import SayKuku
@@ -133,5 +134,25 @@ struct TextWriteVerificationTests {
             valueBefore: value,
             isSensitive: false
         )
+    }
+}
+
+@Suite("Paste key lookup")
+@MainActor
+struct PasteKeyTests {
+    @Test("⌘V uses the key that types v in the layout")
+    func pasteKeyCode() throws {
+        #expect(try pasteKeyCode(layout: "com.apple.keylayout.US") == CGKeyCode(kVK_ANSI_V))
+        #expect(try pasteKeyCode(layout: "com.apple.keylayout.Dvorak") == CGKeyCode(kVK_ANSI_Period))
+        // This layout switches to QWERTY while ⌘ is held.
+        #expect(try pasteKeyCode(layout: "com.apple.keylayout.DVORAK-QWERTYCMD") == CGKeyCode(kVK_ANSI_V))
+    }
+
+    private func pasteKeyCode(layout id: String) throws -> CGKeyCode? {
+        let filter = [kTISPropertyInputSourceID as String: id] as CFDictionary
+        let sources = try #require(TISCreateInputSourceList(filter, true)).takeRetainedValue() as NSArray
+        let source = try #require(sources.firstObject) as! TISInputSource
+        let layoutData = try #require(KeyboardLayout.layoutData(of: source))
+        return KeyboardLayout.pasteKeyCode(in: layoutData)
     }
 }

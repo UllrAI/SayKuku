@@ -151,6 +151,7 @@ private struct AgentAnswerCard: View {
                     Task { await appState.insertAnswer() }
                 }
                 .buttonStyle(.kukuPrimary)
+                .disabled(appState.isWriting)
             }
         }
         .padding(KukuLayout.cardPadding)
