@@ -119,8 +119,8 @@ private struct VoiceInputSettings: View {
                 // Many selected domains would otherwise stretch the row.
                 .lineLimit(2)
                 KukuDivider()
-                KukuRow(localized("Vocabulary"), caption: vocabularySummary) {
-                    Button(localized("Open Knowledge")) {
+                KukuRow(localized("Memory"), caption: memorySummary) {
+                    Button(localized("Open Memory")) {
                         appState.showMainWindow(destination: .knowledge)
                     }
                     .buttonStyle(.kukuSecondary)
@@ -129,7 +129,7 @@ private struct VoiceInputSettings: View {
                 KukuToggleRow(
                     title: localized("Learn from corrections"),
                     caption: localized(
-                        "Words you fix show up as suggestions in Memory › Corrections. Nothing is saved until you approve it."
+                        "Words you fix show up as suggestions in Memory. Nothing is saved until you approve it."
                     ),
                     isOn: $appState.learnFromCorrections
                 )
@@ -153,9 +153,9 @@ private struct VoiceInputSettings: View {
             : domains.joined(separator: localized(", "))
     }
 
-    private var vocabularySummary: String {
+    private var memorySummary: String {
         let count = appState.knowledgeEntities.count
-        return localized("\(count) items in Knowledge")
+        return localized("\(count) items")
     }
 }
 
@@ -168,7 +168,7 @@ private struct VoiceAgentSettings: View {
             KukuGroup(localized("Interaction")) {
                 KukuToggleRow(
                     title: localized("Continuous conversation"),
-                    caption: localized("Remembers recent conversations in the same app for 30 minutes. See Memory › Short-Term."),
+                    caption: localized("Remembers recent conversations in the same app for 30 minutes. Quitting SayKuku clears them."),
                     isOn: $appState.continuousConversation
                 )
                 KukuDivider()
@@ -258,7 +258,7 @@ private struct QwenSettings: View {
                 KukuDivider()
                 ModelPickerRow(
                     title: localized("Voice Agent"),
-                    caption: localized("Also used to organize Knowledge and retry recordings"),
+                    caption: localized("Also used for Memory imports and retrying recordings"),
                     value: $appState.reasoningModel,
                     presets: QwenModelCatalog.reasoningModels
                 )

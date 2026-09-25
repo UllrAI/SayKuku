@@ -10,22 +10,20 @@ import SwiftUI
 @Observable
 final class AppState {
     enum Destination: String, CaseIterable, Identifiable {
-        case home = "Home", history = "History", knowledge = "Knowledge", memory = "Memory"
+        case home = "Home", history = "History", knowledge = "Knowledge"
         var id: String { rawValue }
         var symbol: String {
             switch self {
             case .home: "house"
             case .history: "clock.arrow.circlepath"
             case .knowledge: "books.vertical"
-            case .memory: "sparkles.rectangle.stack"
             }
         }
         var title: String {
             switch self {
             case .home: localized("Home")
             case .history: localized("History")
-            case .knowledge: localized("Knowledge")
-            case .memory: localized("Memory")
+            case .knowledge: localized("Memory")
             }
         }
     }
@@ -157,7 +155,8 @@ final class AppState {
     var historyEntries: [HistoryEntry] = [] { didSet { schedulePersistence() } }
     var knowledgeEntities: [KnowledgeEntity] = [] { didSet { schedulePersistence() } }
     var corrections: [CorrectionRecord] = [] { didSet { schedulePersistence() } }
-    var sessions: [AgentSession] = [] { didSet { schedulePersistence() } }
+    /// Correction suggestions still waiting for an answer.
+    var pendingCorrections: [CorrectionRecord] { corrections.filter { $0.status == .pending } }
     var historyRetention: HistoryRetention = .days30 {
         didSet { defaults.set(historyRetention.rawValue, forKey: Keys.historyRetention); cleanExpiredHistory() }
     }
@@ -221,6 +220,8 @@ final class AppState {
     @ObservationIgnored private var uploadTask: Task<Void, Error>?
     @ObservationIgnored private var chunkContinuation: AsyncStream<Data>.Continuation?
     @ObservationIgnored private var targetSnapshot: TextTargetSnapshot?
+    /// Recent Voice Agent turns for continuous conversation. Memory only, so quitting clears them.
+    @ObservationIgnored private var sessions: [AgentSession] = []
     @ObservationIgnored private var activeAgentSessions: [AgentSession] = []
     @ObservationIgnored private var lastVerifiedWrite: VerifiedWrite?
     @ObservationIgnored private var pendingAnswerTarget: TextTargetSnapshot?
@@ -520,7 +521,7 @@ final class AppState {
         if let error = insertKnowledge(KnowledgeEntity(name: name, detail: detail ?? "", type: type, aliases: aliases)) {
             return error
         }
-        showToast(localized("Added to Knowledge"), symbol: "checkmark.circle.fill")
+        showToast(localized("Remembered"), symbol: "checkmark.circle.fill")
         return nil
     }
 
@@ -554,7 +555,7 @@ final class AppState {
         if let error = validateKnowledge(candidate) { return error }
 
         knowledgeEntities[index] = candidate
-        showToast(localized("Knowledge updated"), symbol: "checkmark.circle.fill")
+        showToast(localized("Memory updated"), symbol: "checkmark.circle.fill")
         return nil
     }
 
@@ -570,23 +571,11 @@ final class AppState {
         guard let index = corrections.firstIndex(where: { $0.id == id }) else { return }
         corrections[index].status = .accepted
         let record = corrections[index]
-        let entity = KnowledgeEntity(name: record.corrected, type: .term, aliases: [record.raw], source: .correction)
-        if let entityIndex = knowledgeEntities.firstIndex(where: { $0.normalizedKey == entity.normalizedKey }) {
-            if !knowledgeEntities[entityIndex].aliases.contains(record.raw) { knowledgeEntities[entityIndex].aliases.append(record.raw) }
-        } else {
-            knowledgeEntities.append(entity)
-        }
+        knowledgeEntities = KnowledgePipeline.learn(record.raw, as: record.corrected, into: knowledgeEntities)
     }
 
     func ignoreCorrection(_ id: UUID) {
         if let index = corrections.firstIndex(where: { $0.id == id }) { corrections[index].status = .ignored }
-    }
-
-    func clearSessions() {
-        sessions.removeAll()
-        // Also forget turns picked up by an Agent that is still listening.
-        activeAgentSessions = []
-        contextItems.removeAll { $0.kind == .session }
     }
 
     /// Commits pending edits, then tests the saved credentials.
@@ -1596,7 +1585,6 @@ final class AppState {
             return entity
         })
         corrections = Self.merging(corrections, snapshot.corrections)
-        sessions = Self.merging(sessions, snapshot.sessions.filter { $0.expiresAt > .now })
         cleanExpiredHistory()
         // Saving before every array is in place would replace the stored data with part of it.
         isLoaded = true
@@ -1690,7 +1678,7 @@ final class AppState {
         guard isLoaded else { return nil }
         persistenceGeneration += 1
         let value = LocalStore.Snapshot(
-            history: historyEntries, entities: knowledgeEntities, corrections: corrections, sessions: sessions
+            history: historyEntries, entities: knowledgeEntities, corrections: corrections
         )
         return (value, persistenceGeneration)
     }

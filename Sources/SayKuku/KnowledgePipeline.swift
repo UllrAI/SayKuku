@@ -148,6 +148,31 @@ enum KnowledgePipeline {
         return entities
     }
 
+    /// Saves a correction as the item `corrected` with `raw` as an alias. An automatically learned item
+    /// named `raw` was learned wrong, so it is renamed to `corrected` (or folded into an existing
+    /// `corrected`) instead of being left next to it.
+    static func learn(_ raw: String, as corrected: String, into existing: [KnowledgeEntity]) -> [KnowledgeEntity] {
+        var entities = existing
+        let rawKey = KnowledgeNormalizer.key(raw)
+        let correctedKey = KnowledgeNormalizer.key(corrected)
+        let mistaken = entities.firstIndex {
+            $0.source == .correction && $0.normalizedKey == rawKey && rawKey != correctedKey
+        }
+        if let target = entities.firstIndex(where: { $0.normalizedKey == correctedKey }) {
+            entities[target] = entities[target].adding(aliases: (mistaken.map { entities[$0].aliases } ?? []) + [raw])
+            if let mistaken { entities.remove(at: mistaken) }
+        } else if let mistaken {
+            let old = entities[mistaken]
+            entities[mistaken] = KnowledgeEntity(
+                id: old.id, name: corrected, detail: old.detail, type: old.type,
+                aliases: old.aliases + [raw], source: .correction, createdAt: old.createdAt
+            )
+        } else {
+            entities.append(KnowledgeEntity(name: corrected, type: .term, aliases: [raw], source: .correction))
+        }
+        return entities
+    }
+
     private static func exactMatch(_ lhs: KnowledgeEntity, _ rhs: KnowledgeEntity) -> Bool {
         let lhsKeys = Set([lhs.normalizedKey] + lhs.aliases.map(KnowledgeNormalizer.key))
         let rhsKeys = Set([rhs.normalizedKey] + rhs.aliases.map(KnowledgeNormalizer.key))
