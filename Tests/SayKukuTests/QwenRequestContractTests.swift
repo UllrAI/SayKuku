@@ -26,6 +26,78 @@ struct QwenRequestContractTests {
         #expect(!QwenError.allowsBatchFallback(after: CancellationError()))
     }
 
+    @Test("realtime dictation never settles for a partial transcript")
+    func partialTranscriptTimesOut() async throws {
+        let client = QwenRealtimeClient()
+        let session = UUID()
+        await client.begin(session: session, send: { _ in })
+        try await client.handle(serverEvent(["type": "response.text.delta", "delta": "明天下午"]), session: session)
+        await #expect(throws: QwenError.timeout) {
+            try await client.commit(session: session, timeout: .milliseconds(50))
+        }
+    }
+
+    @Test("realtime dictation returns the done text, not the deltas before it")
+    func transcriptWaitsForDone() async throws {
+        let client = QwenRealtimeClient()
+        let session = UUID()
+        await client.begin(session: session, send: { _ in })
+        try await client.handle(serverEvent(["type": "response.text.delta", "delta": "明天下午"]), session: session)
+        async let transcript = client.commit(session: session, timeout: .seconds(5))
+        try await client.handle(serverEvent(["type": "response.text.done", "text": "明天下午开会。"]), session: session)
+        #expect(try await transcript == "明天下午开会。")
+    }
+
+    @Test("stopping by hand commits the audio unless server VAD already did")
+    func commitSentUnlessServerCommitted() async throws {
+        let client = QwenRealtimeClient()
+        let sent = SentEvents()
+        let handStopped = UUID()
+        await client.begin(session: handStopped, send: { await sent.record($0) })
+        try await client.handle(serverEvent(["type": "response.text.done", "text": "好的"]), session: handStopped)
+        #expect(try await client.commit(session: handStopped, timeout: .seconds(5)) == "好的")
+        #expect(await sent.types == ["input_audio_buffer.commit", "response.create"])
+
+        let vadStopped = UUID()
+        await client.begin(session: vadStopped, send: { await sent.record($0) })
+        try await client.handle(serverEvent(["type": "input_audio_buffer.speech_stopped"]), session: vadStopped)
+        try await client.handle(serverEvent(["type": "response.text.done", "text": "好的"]), session: vadStopped)
+        #expect(try await client.commit(session: vadStopped, timeout: .seconds(5)) == "好的")
+        #expect(await sent.types.count == 2)
+    }
+
+    @Test("a realtime error that arrives early surfaces on the next send and wait")
+    func earlyErrorIsKept() async throws {
+        let client = QwenRealtimeClient()
+        let sent = SentEvents()
+        let session = UUID()
+        let rateLimited = QwenError.protocolError("Requests rate limit exceeded")
+        await client.begin(session: session, send: { await sent.record($0) })
+        try await client.handle(serverEvent(["type": "input_audio_buffer.speech_stopped"]), session: session)
+        try await client.handle(
+            serverEvent(["type": "error", "error": ["message": "Requests rate limit exceeded"]]),
+            session: session
+        )
+        await #expect(throws: rateLimited) {
+            try await client.append(Data([0, 1]), session: session)
+        }
+        await #expect(throws: rateLimited) {
+            try await client.commit(session: session, timeout: .seconds(5))
+        }
+        #expect(await sent.types.isEmpty)
+    }
+
+    @Test("frames that are not JSON events are skipped")
+    func nonJSONFramesSkipped() async throws {
+        let client = QwenRealtimeClient()
+        let session = UUID()
+        await client.begin(session: session, send: { _ in })
+        await client.handle(Data("pong".utf8), session: session)
+        await client.handle(Data([0xFF, 0x00]), session: session)
+        try await client.handle(serverEvent(["type": "response.text.done", "text": "你好"]), session: session)
+        #expect(try await client.commit(session: session, timeout: .seconds(5)) == "你好")
+    }
+
     @Test("live Qwen endpoints accept realtime dictation and direct agent audio")
     func liveEndpoints() async throws {
         guard ProcessInfo.processInfo.environment["SAYKUKU_LIVE_QWEN_TEST"] == "1" else { return }
@@ -60,7 +132,7 @@ struct QwenRequestContractTests {
             let end = min(start + 3_200, pcm.count)
             try await realtime.append(Data(pcm[start..<end]), session: manualSession)
         }
-        let dictation = try await realtime.commit(session: manualSession)
+        let dictation = try await realtime.commit(session: manualSession, timeout: .seconds(15))
         await realtime.cancel(session: manualSession)
         #expect(dictation.contains(expectedTranscript))
 
@@ -91,5 +163,19 @@ struct QwenRequestContractTests {
             #expect(response.action == .writeText)
             #expect(response.output?.localizedCaseInsensitiveContains(expectedOutput) == true)
         }
+    }
+}
+
+private func serverEvent(_ object: [String: Any]) throws -> Data {
+    try JSONSerialization.data(withJSONObject: object)
+}
+
+/// Types of the client events a realtime session sent, in order.
+private actor SentEvents {
+    private(set) var types: [String] = []
+
+    func record(_ event: String) {
+        let object = try? JSONSerialization.jsonObject(with: Data(event.utf8)) as? [String: Any]
+        types.append(object?["type"] as? String ?? "")
     }
 }

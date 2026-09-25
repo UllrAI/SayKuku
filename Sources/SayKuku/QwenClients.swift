@@ -195,16 +195,22 @@ actor QwenRealtimeClient {
     /// so a stale cancel can never tear down a newer session.
     private var currentSession: UUID?
     private var socket: URLSessionWebSocketTask?
+    private var sendEvent: (@Sendable (String) async throws -> Void)?
     private var receiveTask: Task<Void, Never>?
     private var transcriptTimeoutTask: Task<Void, Never>?
     private var transcriptContinuation: CheckedContinuation<String, Error>?
     private var sessionTimeoutTask: Task<Void, Never>?
     private var sessionContinuation: CheckedContinuation<Void, Error>?
     private var sessionReady = false
-    private var finalTranscript = ""
+    private var transcript = ""
+    /// Deltas keep arriving until `response.text.done`; only then is `transcript` final.
+    private var transcriptDone = false
+    /// Set once server VAD has committed the audio buffer on its own.
+    private var audioCommitted = false
+    /// The first failure, kept so a later send or wait reports it instead of timing out.
+    private var sessionError: Error?
     private var onDelta: (@Sendable (String) -> Void)?
     private var onSpeechStopped: (@Sendable () -> Void)?
-    private var manualMode = true
 
     func connect(
         session: UUID,
@@ -222,17 +228,24 @@ actor QwenRealtimeClient {
         guard let url = configuration.realtimeURL else { throw QwenError.invalidEndpoint }
         // A caller cancelled before reaching the actor must not replace a newer session.
         try Task.checkCancellation()
-        closeCurrentSession()
 
         var request = URLRequest(url: url)
         request.timeoutInterval = 15
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         let task = URLSession.shared.webSocketTask(with: request)
-        currentSession = session
+        begin(
+            session: session,
+            send: { event in
+                do {
+                    try await task.send(.string(event))
+                } catch {
+                    throw Self.transportError(error, socket: task)
+                }
+            },
+            onSpeechStopped: onSpeechStopped,
+            onDelta: onDelta
+        )
         socket = task
-        self.onDelta = onDelta
-        self.onSpeechStopped = onSpeechStopped
-        manualMode = !autoStop
         task.resume()
         receiveTask = Task { [weak self] in await self?.receiveLoop(session: session) }
 
@@ -267,6 +280,21 @@ actor QwenRealtimeClient {
         try await waitForSession(session)
     }
 
+    /// Replaces any current session. `send` delivers one encoded client event; tests pass their own
+    /// and feed server events through `handle(_:session:)` instead of opening a socket.
+    func begin(
+        session: UUID,
+        send: @escaping @Sendable (String) async throws -> Void,
+        onSpeechStopped: @escaping @Sendable () -> Void = {},
+        onDelta: @escaping @Sendable (String) -> Void = { _ in }
+    ) {
+        closeCurrentSession()
+        currentSession = session
+        sendEvent = send
+        self.onSpeechStopped = onSpeechStopped
+        self.onDelta = onDelta
+    }
+
     func append(_ pcm16: Data, session: UUID) async throws {
         guard !pcm16.isEmpty else { return }
         try await send([
@@ -276,12 +304,15 @@ actor QwenRealtimeClient {
         ], session: session)
     }
 
-    func commit(session: UUID) async throws -> String {
-        if manualMode {
+    /// Server VAD never commits once the audio stream stops, so a recording ended by hand
+    /// is committed here even with auto-stop on.
+    func commit(session: UUID, timeout: Duration) async throws -> String {
+        guard currentSession == session else { throw CancellationError() }
+        if !audioCommitted {
             try await send(["event_id": eventID(), "type": "input_audio_buffer.commit"], session: session)
             try await send(["event_id": eventID(), "type": "response.create"], session: session)
         }
-        return try await waitForTranscript(session)
+        return try await waitForTranscript(session, timeout: timeout)
     }
 
     func cancel(session: UUID) {
@@ -310,15 +341,20 @@ actor QwenRealtimeClient {
         }
         currentSession = nil
         socket = nil
+        sendEvent = nil
         onDelta = nil
         onSpeechStopped = nil
-        finalTranscript = ""
+        transcript = ""
+        transcriptDone = false
+        audioCommitted = false
+        sessionError = nil
         sessionReady = false
     }
 
     private func waitForSession(_ session: UUID) async throws {
         guard currentSession == session else { throw CancellationError() }
         if sessionReady { return }
+        if let sessionError { throw sessionError }
         try await withCheckedThrowingContinuation { continuation in
             sessionContinuation = continuation
             sessionTimeoutTask?.cancel()
@@ -342,35 +378,25 @@ actor QwenRealtimeClient {
         sessionTimeoutTask = nil
     }
 
-    private func waitForTranscript(_ session: UUID) async throws -> String {
+    private func waitForTranscript(_ session: UUID, timeout: Duration) async throws -> String {
         guard currentSession == session else { throw CancellationError() }
-        if !finalTranscript.isEmpty { return finalTranscript }
+        if transcriptDone { return transcript }
+        if let sessionError { throw sessionError }
         return try await withCheckedThrowingContinuation { continuation in
             transcriptContinuation = continuation
             transcriptTimeoutTask?.cancel()
             transcriptTimeoutTask = Task { [weak self] in
-                try? await Task.sleep(for: .seconds(15))
+                try? await Task.sleep(for: timeout)
                 guard !Task.isCancelled else { return }
                 await self?.timeOutTranscript(session)
             }
         }
     }
 
+    /// Never settles for the partial transcript: it would be inserted and saved as complete.
     private func timeOutTranscript(_ session: UUID) {
         guard currentSession == session else { return }
-        finishTranscript(usingPartialOr: QwenError.timeout)
-    }
-
-    private func finishTranscript(usingPartialOr error: Error) {
-        let transcript = finalTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !transcript.isEmpty {
-            transcriptContinuation?.resume(returning: transcript)
-            transcriptContinuation = nil
-            transcriptTimeoutTask?.cancel()
-            transcriptTimeoutTask = nil
-        } else {
-            failTranscript(error)
-        }
+        failTranscript(QwenError.timeout)
     }
 
     private func failTranscript(_ error: Error) {
@@ -380,67 +406,75 @@ actor QwenRealtimeClient {
         transcriptTimeoutTask = nil
     }
 
+    private func fail(_ error: Error) {
+        if sessionError == nil { sessionError = error }
+        failSession(error)
+        failTranscript(error)
+    }
+
     private func receiveLoop(session: UUID) async {
         guard currentSession == session, let socket else { return }
         while !Task.isCancelled {
+            let message: URLSessionWebSocketTask.Message
             do {
-                let message = try await socket.receive()
-                guard currentSession == session else { return }
-                let data: Data
-                switch message {
-                case .string(let string): data = Data(string.utf8)
-                case .data(let value): data = value
-                @unknown default: continue
-                }
-                guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                      let type = object["type"] as? String else { continue }
-                switch type {
-                case "session.updated":
-                    sessionReady = true
-                    sessionContinuation?.resume()
-                    sessionContinuation = nil
-                    sessionTimeoutTask?.cancel()
-                    sessionTimeoutTask = nil
-                case "response.text.delta":
-                    finalTranscript += object["delta"] as? String ?? ""
-                    onDelta?(finalTranscript)
-                case "response.text.done":
-                    let transcript = (object["text"] as? String ?? finalTranscript)
-                        .trimmingCharacters(in: .whitespacesAndNewlines)
-                    finalTranscript = transcript
-                    transcriptContinuation?.resume(returning: transcript)
-                    transcriptContinuation = nil
-                    transcriptTimeoutTask?.cancel()
-                    transcriptTimeoutTask = nil
-                case "input_audio_buffer.speech_stopped":
-                    onSpeechStopped?()
-                case "error":
-                    let error = object["error"] as? [String: Any]
-                    let message = error?["message"] as? String ?? "Qwen realtime request failed"
-                    let qwenError = QwenError.protocolError(message)
-                    failSession(qwenError)
-                    failTranscript(qwenError)
-                default:
-                    break
-                }
+                message = try await socket.receive()
             } catch {
                 if !Task.isCancelled, currentSession == session {
-                    let failure = Self.transportError(error, socket: socket)
-                    failSession(failure)
-                    finishTranscript(usingPartialOr: failure)
+                    fail(Self.transportError(error, socket: socket))
                 }
-                break
+                return
+            }
+            switch message {
+            case .string(let string): handle(Data(string.utf8), session: session)
+            case .data(let data): handle(data, session: session)
+            @unknown default: continue
             }
         }
     }
 
+    /// Applies one server event. Frames that are not JSON events are skipped.
+    func handle(_ data: Data, session: UUID) {
+        guard currentSession == session,
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let type = object["type"] as? String else { return }
+        switch type {
+        case "session.updated":
+            sessionReady = true
+            sessionContinuation?.resume()
+            sessionContinuation = nil
+            sessionTimeoutTask?.cancel()
+            sessionTimeoutTask = nil
+        case "response.text.delta":
+            transcript += object["delta"] as? String ?? ""
+            onDelta?(transcript)
+        case "response.text.done":
+            transcript = (object["text"] as? String ?? transcript).trimmingCharacters(in: .whitespacesAndNewlines)
+            transcriptDone = true
+            transcriptContinuation?.resume(returning: transcript)
+            transcriptContinuation = nil
+            transcriptTimeoutTask?.cancel()
+            transcriptTimeoutTask = nil
+        case "input_audio_buffer.speech_stopped":
+            audioCommitted = true
+            onSpeechStopped?()
+        case "input_audio_buffer.committed":
+            audioCommitted = true
+        case "error":
+            let error = object["error"] as? [String: Any]
+            fail(QwenError.protocolError(error?["message"] as? String ?? "Qwen realtime request failed"))
+        default:
+            break
+        }
+    }
+
     private func send(_ object: [String: Any], session: UUID) async throws {
-        guard currentSession == session, let socket else { throw CancellationError() }
+        guard currentSession == session, let sendEvent else { throw CancellationError() }
+        if let sessionError { throw sessionError }
         do {
-            try await socket.send(.string(Self.jsonString(object)))
+            try await sendEvent(Self.jsonString(object))
         } catch {
             guard currentSession == session else { throw CancellationError() }
-            throw Self.transportError(error, socket: socket)
+            throw error
         }
     }
 
