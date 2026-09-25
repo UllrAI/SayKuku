@@ -19,6 +19,16 @@ struct TextWriteVerificationTests {
         #expect(TextInteraction.expectedValue(afterWriting: "好", to: snapshot) == "A好BC")
     }
 
+    @Test("only an untouched caret and value count as an ignored Accessibility write")
+    func ignoredInsertion() {
+        let snapshot = target(value: "A😀BC", range: CFRange(location: 1, length: 2))
+        // AXValue lags behind, but the caret already sits after the inserted text.
+        #expect(!TextInteraction.insertionWasIgnored(caret: CFRange(location: 2, length: 0), value: "A😀BC", snapshot: snapshot))
+        #expect(!TextInteraction.insertionWasIgnored(caret: CFRange(location: 1, length: 2), value: "A好BC", snapshot: snapshot))
+        #expect(!TextInteraction.insertionWasIgnored(caret: nil, value: nil, snapshot: snapshot))
+        #expect(TextInteraction.insertionWasIgnored(caret: CFRange(location: 1, length: 2), value: "A😀BC", snapshot: snapshot))
+    }
+
     @Test("the Agent is told whether a text field is focused, unknown within a window, or absent")
     func agentTextField() {
         let element = AXUIElementCreateApplication(getpid())
