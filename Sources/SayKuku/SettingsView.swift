@@ -33,6 +33,8 @@ struct SettingsView: View {
                 case .qwen: QwenSettings()
                 }
             }
+            // Each tab opens at the top instead of at the last tab's scroll offset.
+            .id(selection)
         }
     }
 }
@@ -246,25 +248,25 @@ struct QwenConnectionForm: View {
                 appState.text("地域", "Region"),
                 caption: appState.text("需与 API Key 所属地域一致", "Must match where your API Key was created")
             ) {
-                Picker(appState.text("地域", "Region"), selection: $appState.qwenRegion) {
-                    ForEach(QwenRegion.allCases) { region in
-                        Text(region.title(isChineseUI: appState.usesChineseUI)).tag(region)
-                    }
-                }
-                .labelsHidden()
-                .frame(width: KukuLayout.pickerWidth)
+                KukuPicker(
+                    appState.text("地域", "Region"),
+                    options: QwenRegion.allCases,
+                    selection: $appState.qwenRegion,
+                    label: { $0.title(isChineseUI: appState.usesChineseUI) }
+                )
             }
             KukuDivider()
             credentialRow(
+                .apiKey,
                 title: "API Key",
                 caption: keyCaption,
                 link: helpLink(appState.text("获取 API Key", "Get an API Key"), page: "get-api-key")
             ) {
                 SecureField("sk-…", text: $draft.apiKey)
-                    .focused($focusedField, equals: .apiKey)
             }
             KukuDivider()
             credentialRow(
+                .workspaceID,
                 title: appState.text("业务空间 ID", "Workspace ID"),
                 caption: appState.text(
                     "可选，填写后语音输入会边说边识别，不用等你说完",
@@ -273,7 +275,6 @@ struct QwenConnectionForm: View {
                 link: helpLink(appState.text("查看业务空间 ID", "Find Your Workspace ID"), page: "obtain-the-app-id-and-workspace-id")
             ) {
                 TextField("llm-…", text: $draft.workspaceID)
-                    .focused($focusedField, equals: .workspaceID)
             }
         }
         .onChange(of: appState.apiKey, initial: true) { _, saved in draft.apiKey = saved }
@@ -283,10 +284,11 @@ struct QwenConnectionForm: View {
     }
 
     private func credentialRow<Input: View>(
+        _ field: Field,
         title: String,
         caption: String,
         link: KukuExternalLink,
-        @ViewBuilder field: () -> Input
+        @ViewBuilder input: () -> Input
     ) -> some View {
         HStack(spacing: KukuSpacing.md) {
             VStack(alignment: .leading, spacing: KukuSpacing.xxs) {
@@ -294,8 +296,9 @@ struct QwenConnectionForm: View {
                 link
             }
             Spacer(minLength: KukuSpacing.md)
-            field()
-                .textFieldStyle(.roundedBorder)
+            input()
+                .focused($focusedField, equals: field)
+                .kukuField(isFocused: focusedField == field)
                 .frame(width: KukuLayout.pickerWidth)
                 .accessibilityLabel(title)
                 .onSubmit(commit)
@@ -385,8 +388,6 @@ struct QwenConnectionButton: View {
 }
 
 private struct ModelPickerRow: View {
-    private enum Choice: Hashable { case model(String), custom }
-
     @Environment(AppState.self) private var appState
     let title: String
     let caption: String
@@ -397,42 +398,30 @@ private struct ModelPickerRow: View {
     var body: some View {
         KukuRow(title, caption: caption) {
             if let draft = customDraft {
-                TextField(
-                    appState.text("模型 ID", "Model ID"),
-                    text: Binding(get: { draft }, set: { customDraft = $0 })
+                KukuTextField(
+                    prompt: appState.text("模型 ID", "Model ID"),
+                    text: Binding(get: { draft }, set: { customDraft = $0 }),
+                    autoFocus: true,
+                    onSubmit: applyCustomModel
                 )
-                .textFieldStyle(.roundedBorder)
                 .frame(width: KukuLayout.pickerWidth)
-                .onSubmit(applyCustomModel)
                 .onExitCommand { customDraft = nil }
                 // Leaving the page applies the typed ID, as with the other settings fields.
                 .onDisappear(perform: applyCustomModel)
                 Button(appState.text("使用", "Use"), action: applyCustomModel)
                     .buttonStyle(.kukuSecondary)
             } else {
-                Picker(title, selection: selection) {
-                    ForEach(QwenModelCatalog.options(presets, including: value), id: \.self) { model in
-                        Text(model).tag(Choice.model(model))
-                    }
+                KukuPicker(
+                    title,
+                    options: QwenModelCatalog.options(presets, including: value),
+                    selection: $value,
+                    label: { $0 }
+                ) {
                     Divider()
-                    Text(appState.text("自定义…", "Custom…")).tag(Choice.custom)
+                    Button(appState.text("自定义…", "Custom…")) { customDraft = value }
                 }
-                .labelsHidden()
-                .frame(width: KukuLayout.pickerWidth)
             }
         }
-    }
-
-    private var selection: Binding<Choice> {
-        Binding(
-            get: { .model(value) },
-            set: { choice in
-                switch choice {
-                case .model(let model): value = model
-                case .custom: customDraft = value
-                }
-            }
-        )
     }
 
     private func applyCustomModel() {
@@ -454,13 +443,12 @@ private struct GeneralSettings: View {
                     appState.text("界面语言", "Interface language"),
                     caption: appState.text("默认跟随 macOS，可随时切换", "Follows macOS by default. Change it anytime.")
                 ) {
-                    Picker(appState.text("界面语言", "Interface language"), selection: $appState.appLanguage) {
-                        ForEach(AppLanguage.allCases) { language in
-                            Text(language.title(isChineseUI: appState.usesChineseUI)).tag(language)
-                        }
-                    }
-                    .labelsHidden()
-                    .frame(width: KukuLayout.pickerWidth)
+                    KukuPicker(
+                        appState.text("界面语言", "Interface language"),
+                        options: AppLanguage.allCases,
+                        selection: $appState.appLanguage,
+                        label: { $0.title(isChineseUI: appState.usesChineseUI) }
+                    )
                 }
             }
 
@@ -644,13 +632,12 @@ private struct HistorySettings: View {
                     appState.text("自动删除", "Delete history after"),
                     caption: appState.text("星标记录不受此期限影响", "Starred items are never deleted automatically")
                 ) {
-                    Picker(appState.text("自动删除", "Delete history after"), selection: $appState.historyRetention) {
-                        ForEach(HistoryRetention.allCases) { retention in
-                            Text(retention.title(appState)).tag(retention)
-                        }
-                    }
-                    .labelsHidden()
-                    .frame(width: KukuLayout.pickerWidth)
+                    KukuPicker(
+                        appState.text("自动删除", "Delete history after"),
+                        options: HistoryRetention.allCases,
+                        selection: $appState.historyRetention,
+                        label: { $0.title(appState) }
+                    )
                 }
 
                 KukuDivider()
@@ -744,13 +731,7 @@ where Option.AllCases: RandomAccessCollection {
 
     var body: some View {
         KukuRow(title) {
-            Picker(title, selection: $selection) {
-                ForEach(Option.allCases) { option in
-                    Text(label(option)).tag(option)
-                }
-            }
-            .labelsHidden()
-            .frame(width: KukuLayout.pickerWidth)
+            KukuPicker(title, options: Array(Option.allCases), selection: $selection, label: label)
         }
     }
 }
