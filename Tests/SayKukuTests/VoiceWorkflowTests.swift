@@ -228,6 +228,28 @@ struct VoiceWorkflowTests {
         #expect(!state.canUndoLastWrite)
     }
 
+    @Test("text on screen is read for the Agent with the setting on, and never for dictation")
+    func screenTextContext() async throws {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let text = FakeTextWriting()
+        text.screenText = "周四方便吗"
+        let state = try makeState(environment, .fake(text: text))
+
+        try await startListening(state)
+        #expect(text.visibleTextReads == 0)
+        state.cancelDictation()
+
+        try await startAgentListening(state)
+        #expect(state.contextItems.first { $0.kind == .screen }?.value == "周四方便吗")
+        state.dismissAgent()
+
+        state.screenTextAllowed = false
+        try await startAgentListening(state)
+        #expect(!state.contextItems.contains { $0.kind == .screen })
+        #expect(text.visibleTextReads == 1)
+    }
+
     @Test("undo clears the last write once it lands, and keeps it when the field changed")
     func undoLastWrite() async throws {
         let environment = AppStateTestEnvironment()

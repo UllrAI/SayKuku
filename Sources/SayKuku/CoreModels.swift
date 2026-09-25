@@ -689,7 +689,7 @@ struct AgentSession: Identifiable, Equatable {
 
 struct ContextItem: Identifiable, Equatable {
     enum Kind: Equatable {
-        case selectedText, previousOutput, app, window, clipboard, browser, session, domain, knowledge
+        case selectedText, previousOutput, app, window, clipboard, browser, screen, session, domain, knowledge
 
         /// Fixed English name the model sees, independent of the UI language.
         var promptLabel: String {
@@ -700,6 +700,7 @@ struct ContextItem: Identifiable, Equatable {
             case .window: "Window title"
             case .clipboard: "Clipboard"
             case .browser: "Browser page"
+            case .screen: "Text on screen"
             case .session: "Recent conversation"
             case .domain: "Domains"
             case .knowledge: "Saved knowledge"
