@@ -235,8 +235,7 @@ Scripts/release.sh
 5. 生成公证 ZIP 并提交 Apple；状态不是 `Accepted` 时打印 `notarytool log` 后退出。结果保存在 `Build/notarization-result.json`，其中有 submission `id`。
 6. `stapler staple`、`stapler validate`；`spctl` 输出里没有 `source=Notarized Developer ID` 就退出。
 7. 从装订后的 App 重新生成最终 ZIP，确认不含 AppleDouble 文件，并输出 SHA-256。
-8. 设置了 `SAYKUKU_APPCAST_DIR` 时，把最终 ZIP 复制进去并运行 `generate_appcast`；未设置则跳过。Sparkle 尚未接入，见 #57。这个目录只能放已发布的包，不能直接用 `Dist/`，否则公证 ZIP 和备份也会进入 appcast。
-9. 给构建时的提交打 `v<版本>` 标签。脚本不会推送，确认产物无误后手动执行 `git push origin v<版本>`。
+8. 给构建时的提交打 `v<版本>` 标签。脚本不会推送，确认产物无误后手动执行 `git push origin v<版本>`。
 
 成功后 `Dist/` 中有：
 

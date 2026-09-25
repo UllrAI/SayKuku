@@ -94,20 +94,7 @@ if unzip -Z1 "$FINAL_ARCHIVE" | grep -E '(^|/)\._' >/dev/null; then
 fi
 SHA256="$(shasum -a 256 "$FINAL_ARCHIVE" | cut -d ' ' -f 1)"
 
-# 6. Sparkle appcast (#57). Opt-in until Sparkle is integrated; the directory
-# must hold only published archives, so Dist/ itself is not suitable.
-if [[ -n "${SAYKUKU_APPCAST_DIR:-}" ]]; then
-    if ! command -v generate_appcast >/dev/null; then
-        fail "SAYKUKU_APPCAST_DIR is set but generate_appcast is not on PATH"
-    fi
-    mkdir -p "$SAYKUKU_APPCAST_DIR"
-    cp "$FINAL_ARCHIVE" "$SAYKUKU_APPCAST_DIR/"
-    generate_appcast "$SAYKUKU_APPCAST_DIR"
-else
-    print -u2 "Skipping appcast: SAYKUKU_APPCAST_DIR is not set"
-fi
-
-# 7. Tag the commit that was built. Pushing stays a manual decision.
+# 6. Tag the commit that was built. Pushing stays a manual decision.
 git tag "$TAG" "$COMMIT"
 
 print -u2 ""
