@@ -160,19 +160,19 @@ struct CorrectionMemoryTests {
     func correctionPromptLimit() {
         withState { state in
             let change = CorrectionCandidate(before: "张月", after: "张越")
-            state.noteCorrection(change, app: "Notes", windowTitle: "")
-            #expect(state.overlayError == localized("Remember “\("张月")” as “\("张越")”?"))
-            #expect(state.overlayButtons.map(\.title) == [localized("Not Now"), localized("Remember")])
-            state.pressOverlayButton(at: 0)
-            #expect(state.overlayError == nil)
-            #expect(state.overlayButtons.isEmpty)
+            state.workflow.noteCorrection(change, app: "Notes", windowTitle: "")
+            #expect(state.workflow.overlayError == localized("Remember “\("张月")” as “\("张越")”?"))
+            #expect(state.workflow.overlayButtons.map(\.title) == [localized("Not Now"), localized("Remember")])
+            state.workflow.pressOverlayButton(at: 0)
+            #expect(state.workflow.overlayError == nil)
+            #expect(state.workflow.overlayButtons.isEmpty)
 
-            state.noteCorrection(change, app: "Mail", windowTitle: "")
-            #expect(state.overlayError != nil)
-            state.pressOverlayButton(at: 0)
+            state.workflow.noteCorrection(change, app: "Mail", windowTitle: "")
+            #expect(state.workflow.overlayError != nil)
+            state.workflow.pressOverlayButton(at: 0)
 
-            state.noteCorrection(change, app: "Notes", windowTitle: "")
-            #expect(state.overlayError == nil)
+            state.workflow.noteCorrection(change, app: "Notes", windowTitle: "")
+            #expect(state.workflow.overlayError == nil)
             #expect(state.data.corrections.count == 1)
             #expect(state.data.corrections.first?.count == 3)
             #expect(state.data.corrections.first?.promptCount == CorrectionRecord.promptLimit)
@@ -185,30 +185,30 @@ struct CorrectionMemoryTests {
     func rememberFromOverlay() {
         withState { state in
             let change = CorrectionCandidate(before: "work body", after: "WorkBuddy")
-            state.noteCorrection(change, app: "Notes", windowTitle: "")
-            state.pressOverlayButton(at: 1)
+            state.workflow.noteCorrection(change, app: "Notes", windowTitle: "")
+            state.workflow.pressOverlayButton(at: 1)
             #expect(state.data.knowledgeEntities.map(\.name) == ["WorkBuddy"])
             #expect(state.data.knowledgeEntities.first?.aliases == ["work body"])
             #expect(state.data.corrections.first?.status == .accepted)
-            #expect(state.overlayError == localized("Remembered"))
-            #expect(state.overlayButtons.isEmpty)
+            #expect(state.workflow.overlayError == localized("Remembered"))
+            #expect(state.workflow.overlayButtons.isEmpty)
             #expect(state.data.pendingCorrections.isEmpty)
 
-            state.noteCorrection(change, app: "Notes", windowTitle: "")
-            #expect(state.overlayButtons.isEmpty)
+            state.workflow.noteCorrection(change, app: "Notes", windowTitle: "")
+            #expect(state.workflow.overlayButtons.isEmpty)
         }
     }
 
     @Test("the clue names the app and window title, unless window titles aren't shared")
     func correctionClue() {
         withState { state in
-            state.noteCorrection(CorrectionCandidate(before: "张月", after: "张越"), app: "Notes", windowTitle: "Weekly sync")
-            state.pressOverlayButton(at: 1)
+            state.workflow.noteCorrection(CorrectionCandidate(before: "张月", after: "张越"), app: "Notes", windowTitle: "Weekly sync")
+            state.workflow.pressOverlayButton(at: 1)
             #expect(state.data.knowledgeEntities.first?.detail == "Notes · Weekly sync")
 
             state.settings.windowTitleAllowed = false
-            state.noteCorrection(CorrectionCandidate(before: "work body", after: "WorkBuddy"), app: "Slack", windowTitle: "#product")
-            state.pressOverlayButton(at: 1)
+            state.workflow.noteCorrection(CorrectionCandidate(before: "work body", after: "WorkBuddy"), app: "Slack", windowTitle: "#product")
+            state.workflow.pressOverlayButton(at: 1)
             #expect(state.data.knowledgeEntities.last?.detail == "Slack")
         }
     }
@@ -216,9 +216,9 @@ struct CorrectionMemoryTests {
     @Test("a correction noticed while recording waits in Suggestions")
     func correctionDuringRecording() {
         withState { state in
-            state.dictationPhase = .listening
-            state.noteCorrection(CorrectionCandidate(before: "张月", after: "张越"), app: "Notes", windowTitle: "")
-            #expect(state.overlayError == nil)
+            state.workflow.dictationPhase = .listening
+            state.workflow.noteCorrection(CorrectionCandidate(before: "张月", after: "张越"), app: "Notes", windowTitle: "")
+            #expect(state.workflow.overlayError == nil)
             #expect(state.data.corrections.first?.promptCount == 0)
             #expect(state.data.pendingCorrections.count == 1)
         }

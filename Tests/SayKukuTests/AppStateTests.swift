@@ -77,13 +77,13 @@ struct AppStateTests {
         let environment = AppStateTestEnvironment()
         defer { environment.clean() }
         let state = environment.makeState()
-        #expect(AppState.DictationPhase.idle.status(state) == nil)
-        #expect(AppState.AgentPhase.answerReady.status(state) == nil)
-        state.agentCommand = localized("Listening…")
-        #expect(AppState.AgentPhase.processing.status(state) == localized("Running…"))
+        #expect(VoiceWorkflow.DictationPhase.idle.status(state.workflow) == nil)
+        #expect(VoiceWorkflow.AgentPhase.answerReady.status(state.workflow) == nil)
+        state.workflow.agentCommand = localized("Listening…")
+        #expect(VoiceWorkflow.AgentPhase.processing.status(state.workflow) == localized("Running…"))
         let task = "Summarize this page"
-        state.agentCommand = task
-        #expect(AppState.AgentPhase.processing.status(state) == localized("Running · \(task)"))
+        state.workflow.agentCommand = task
+        #expect(VoiceWorkflow.AgentPhase.processing.status(state.workflow) == localized("Running · \(task)"))
     }
 
     @Test("Don’t keep never expires existing history and survives a relaunch")
@@ -140,15 +140,15 @@ struct AppStateTests {
         let environment = AppStateTestEnvironment()
         defer { environment.clean() }
         let state = environment.makeState()
-        #expect(!state.isRecording)
-        state.dictationPhase = .listening
-        #expect(state.isRecording)
-        state.dictationPhase = .processing
-        #expect(!state.isRecording)
-        state.agentPhase = .listening
-        #expect(state.isRecording)
-        state.agentPhase = .transcribing
-        #expect(!state.isRecording)
+        #expect(!state.workflow.isRecording)
+        state.workflow.dictationPhase = .listening
+        #expect(state.workflow.isRecording)
+        state.workflow.dictationPhase = .processing
+        #expect(!state.workflow.isRecording)
+        state.workflow.agentPhase = .listening
+        #expect(state.workflow.isRecording)
+        state.workflow.agentPhase = .transcribing
+        #expect(!state.workflow.isRecording)
     }
 
     @Test("each sound cue is bundled, loads, and stays short")

@@ -118,9 +118,9 @@ final class ShortcutController: @unchecked Sendable {
         guard let appState else { return }
         switch GlobalShortcutAction(rawValue: id) {
         case .voiceInput:
-            appState.toggleDictation()
+            appState.workflow.toggleDictation()
         case .voiceAgent:
-            appState.startAgent()
+            appState.workflow.startAgent()
         case nil:
             break
         }
@@ -135,22 +135,22 @@ final class ShortcutController: @unchecked Sendable {
         if sample.kind == .keyDown,
            Self.shouldCancelForEscape(
                keyCode: sample.keyCode,
-               dictationIsCancellable: appState.dictationPhase.isCancellable || appState.dictationIsListening,
-               agentIsCancellable: appState.agentPhase.isCancellable || appState.agentIsListening
+               dictationIsCancellable: appState.workflow.dictationPhase.isCancellable || appState.workflow.dictationIsListening,
+               agentIsCancellable: appState.workflow.agentPhase.isCancellable || appState.workflow.agentIsListening
            ) {
             holdTask?.cancel()
             singleTapTask?.cancel()
             firstTapAt = nil
             fnWasChorded = fnIsDown
-            appState.cancelActiveVoiceWorkflow()
+            appState.workflow.cancelActiveVoiceWorkflow()
             return
         }
 
         if sample.kind == .keyDown, fnIsDown, !isFnKey {
             fnWasChorded = true
             holdTask?.cancel()
-            if appState.dictationIsListening {
-                appState.cancelDictation()
+            if appState.workflow.dictationIsListening {
+                appState.workflow.cancelDictation()
             }
             return
         }
@@ -177,7 +177,7 @@ final class ShortcutController: @unchecked Sendable {
                   ShortcutController.shouldArmHold(appState) else { return }
             self.firstTapAt = nil
             self.singleTapTask?.cancel()
-            appState.startDictation()
+            appState.workflow.startDictation()
         }
     }
 
@@ -190,8 +190,8 @@ final class ShortcutController: @unchecked Sendable {
 
         switch Self.releaseAction(
             wasChorded: wasChorded,
-            agentIsListening: appState.agentIsListening,
-            dictationIsListening: appState.dictationIsListening
+            agentIsListening: appState.workflow.agentIsListening,
+            dictationIsListening: appState.workflow.dictationIsListening
         ) {
         case .ignore:
             firstTapAt = nil
@@ -199,11 +199,11 @@ final class ShortcutController: @unchecked Sendable {
         case .finishAgent:
             firstTapAt = nil
             singleTapTask?.cancel()
-            appState.finishAgentListening()
+            appState.workflow.finishAgentListening()
         case .finishDictation:
             firstTapAt = nil
             singleTapTask?.cancel()
-            appState.finishDictation()
+            appState.workflow.finishDictation()
         case .registerQuickTap:
             registerQuickTap(appState)
         }
@@ -218,8 +218,8 @@ final class ShortcutController: @unchecked Sendable {
     private static func shouldArmHold(_ appState: AppState) -> Bool {
         shouldArmHold(
             inputMode: appState.settings.inputMode,
-            agentIsListening: appState.agentIsListening,
-            dictationIsListening: appState.dictationIsListening
+            agentIsListening: appState.workflow.agentIsListening,
+            dictationIsListening: appState.workflow.dictationIsListening
         )
     }
 
@@ -250,7 +250,7 @@ final class ShortcutController: @unchecked Sendable {
         if let firstTapAt, now - firstTapAt <= doubleTapInterval {
             self.firstTapAt = nil
             singleTapTask?.cancel()
-            appState.startAgent()
+            appState.workflow.startAgent()
             return
         }
 
@@ -262,7 +262,7 @@ final class ShortcutController: @unchecked Sendable {
             try? await Task.sleep(for: self?.doubleTapInterval ?? .milliseconds(275))
             guard let self, let appState, !Task.isCancelled else { return }
             self.firstTapAt = nil
-            appState.startDictation()
+            appState.workflow.startDictation()
         }
     }
 
