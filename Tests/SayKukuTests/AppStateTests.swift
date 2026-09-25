@@ -53,7 +53,7 @@ struct AppStateTests {
         // Unmapped, so the migration only deletes the key and never writes the test runner's AppleLanguages.
         environment.defaults.set("unknown", forKey: "appLanguage")
         let state = environment.makeState()
-        #expect(state.inputMode == .tap)
+        #expect(state.settings.inputMode == .tap)
         #expect(environment.defaults.string(forKey: "inputMode") == "tap")
         #expect(environment.defaults.object(forKey: "appLanguage") == nil)
     }
@@ -97,11 +97,11 @@ struct AppStateTests {
             durationSeconds: 1, input: "hello", output: "hello"
         )
         state.historyEntries = [old]
-        state.historyRetention = .off
+        state.settings.historyRetention = .off
         #expect(HistoryRetention.off.days == nil)
         #expect(HistoryRetention.allCases.first == .off)
         #expect(state.historyEntries == [old])
-        #expect(environment.makeState().historyRetention == .off)
+        #expect(environment.makeState().settings.historyRetention == .off)
     }
 
     @Test("sound cues default on and survive a relaunch")
@@ -110,9 +110,9 @@ struct AppStateTests {
         let environment = AppStateTestEnvironment()
         defer { environment.clean() }
         let state = environment.makeState()
-        #expect(state.soundCuesEnabled)
-        state.soundCuesEnabled = false
-        #expect(!environment.makeState().soundCuesEnabled)
+        #expect(state.settings.soundCuesEnabled)
+        state.settings.soundCuesEnabled = false
+        #expect(!environment.makeState().settings.soundCuesEnabled)
     }
 
     @Test("the search engine follows the region until the user picks one, then stays put")
@@ -121,17 +121,17 @@ struct AppStateTests {
         let environment = AppStateTestEnvironment()
         defer { environment.clean() }
         let state = environment.makeState()
-        state.qwenRegion = .beijing
-        #expect(state.searchEngine == .bing)
-        state.qwenRegion = .singapore
-        #expect(state.searchEngine == .google)
+        state.settings.qwenRegion = .beijing
+        #expect(state.settings.searchEngine == .bing)
+        state.settings.qwenRegion = .singapore
+        #expect(state.settings.searchEngine == .google)
         #expect(environment.defaults.string(forKey: "agent.searchEngine") == nil)
-        #expect(environment.makeState().searchEngine == .google)
+        #expect(environment.makeState().settings.searchEngine == .google)
 
-        state.searchEngine = .duckduckgo
-        state.qwenRegion = .beijing
-        #expect(state.searchEngine == .duckduckgo)
-        #expect(environment.makeState().searchEngine == .duckduckgo)
+        state.settings.searchEngine = .duckduckgo
+        state.settings.qwenRegion = .beijing
+        #expect(state.settings.searchEngine == .duckduckgo)
+        #expect(environment.makeState().settings.searchEngine == .duckduckgo)
     }
 
     @Test("only the listening phase counts as recording, so cancels elsewhere stay silent")

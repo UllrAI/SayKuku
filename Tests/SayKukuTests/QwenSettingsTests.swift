@@ -67,13 +67,13 @@ struct QwenSettingsTests {
         defer { environment.clean() }
 
         let state = environment.makeState()
-        try state.saveAPIKey("  sk-test \n")
-        #expect(state.apiKey == "sk-test")
+        try state.settings.saveAPIKey("  sk-test \n")
+        #expect(state.settings.apiKey == "sk-test")
         #expect(try environment.keychain.string(for: "qwen.apiKey") == "sk-test")
-        #expect(environment.makeState().apiKey == "sk-test")
+        #expect(environment.makeState().settings.apiKey == "sk-test")
 
-        try state.saveAPIKey("")
-        #expect(state.apiKey.isEmpty)
+        try state.settings.saveAPIKey("")
+        #expect(state.settings.apiKey.isEmpty)
         #expect(try environment.keychain.string(for: "qwen.apiKey") == nil)
     }
 
@@ -85,14 +85,14 @@ struct QwenSettingsTests {
 
         let state = environment.makeState()
         #expect(state.commitQwenCredentials(QwenCredentialsDraft(apiKey: " sk-test ", workspaceID: " llm-1 \n")))
-        #expect(state.apiKey == "sk-test")
+        #expect(state.settings.apiKey == "sk-test")
         #expect(try environment.keychain.string(for: "qwen.apiKey") == "sk-test")
-        #expect(state.qwenWorkspaceID == "llm-1")
-        #expect(environment.makeState().qwenWorkspaceID == "llm-1")
+        #expect(state.settings.qwenWorkspaceID == "llm-1")
+        #expect(environment.makeState().settings.qwenWorkspaceID == "llm-1")
 
         // Testing commits the cleared key first; with no key left there is nothing to test and no network call.
         await state.testQwenConnection(QwenCredentialsDraft(apiKey: "", workspaceID: "llm-1"))
-        #expect(state.apiKey.isEmpty)
+        #expect(state.settings.apiKey.isEmpty)
         #expect(try environment.keychain.string(for: "qwen.apiKey") == nil)
         #expect(state.connectionState == .idle)
     }
@@ -106,11 +106,11 @@ struct QwenSettingsTests {
         environment.defaults.set("qwen3-asr-flash-realtime", forKey: "qwen.realtimeModel")
         environment.defaults.set("qwen-custom-agent", forKey: "qwen.reasoningModel")
         let state = environment.makeState()
-        #expect(state.realtimeModel == QwenModelCatalog.defaultRealtimeModel)
-        #expect(state.reasoningModel == "qwen-custom-agent")
+        #expect(state.settings.realtimeModel == QwenModelCatalog.defaultRealtimeModel)
+        #expect(state.settings.reasoningModel == "qwen-custom-agent")
 
-        state.realtimeModel = "qwen-custom-realtime"
-        #expect(environment.makeState().realtimeModel == "qwen-custom-realtime")
+        state.settings.realtimeModel = "qwen-custom-realtime"
+        #expect(environment.makeState().settings.realtimeModel == "qwen-custom-realtime")
     }
 
     @Test("the old 3.5 realtime default moves to 3.8 once, then an explicit 3.5 choice sticks")
@@ -121,12 +121,12 @@ struct QwenSettingsTests {
 
         environment.defaults.set("qwen3.5-omni-flash-realtime", forKey: "qwen.realtimeModel")
         let state = environment.makeState()
-        #expect(state.realtimeModel == "qwen3.8-omni-flash-realtime")
+        #expect(state.settings.realtimeModel == "qwen3.8-omni-flash-realtime")
         #expect(environment.defaults.string(forKey: "qwen.realtimeModel") == "qwen3.8-omni-flash-realtime")
-        #expect(environment.makeState().realtimeModel == "qwen3.8-omni-flash-realtime")
+        #expect(environment.makeState().settings.realtimeModel == "qwen3.8-omni-flash-realtime")
 
-        state.realtimeModel = "qwen3.5-omni-flash-realtime"
-        #expect(environment.makeState().realtimeModel == "qwen3.5-omni-flash-realtime")
+        state.settings.realtimeModel = "qwen3.5-omni-flash-realtime"
+        #expect(environment.makeState().settings.realtimeModel == "qwen3.5-omni-flash-realtime")
     }
 
     @Test("connection-affecting edits reset the test result")
@@ -137,10 +137,10 @@ struct QwenSettingsTests {
 
         let state = environment.makeState()
         let edits: [@MainActor (AppState) -> Void] = [
-            { $0.qwenRegion = .singapore },
-            { $0.qwenWorkspaceID = "llm-1" },
-            { $0.realtimeModel = "qwen-custom-realtime" },
-            { $0.reasoningModel = "qwen-custom-agent" }
+            { $0.settings.qwenRegion = .singapore },
+            { $0.settings.qwenWorkspaceID = "llm-1" },
+            { $0.settings.realtimeModel = "qwen-custom-realtime" },
+            { $0.settings.reasoningModel = "qwen-custom-agent" }
         ]
         for edit in edits {
             state.connectionState = .connected(realtimeMilliseconds: 120, chatMilliseconds: 340)
