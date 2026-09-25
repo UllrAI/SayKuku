@@ -17,8 +17,6 @@ enum KukuColor {
     static let surface = adaptive(light: KukuTone(0.992, 0.991, 0.988), dark: KukuTone(0.141, 0.137, 0.133))
     /// Raised on a surface or fill: the selected tab, text fields, popover-like panels.
     static let surfaceRaised = adaptive(light: KukuTone(white: 1), dark: KukuTone(0.176, 0.172, 0.167))
-    /// Card background for the floating panel, which has no window backdrop behind it.
-    static let overlaySurface = adaptive(light: KukuTone(white: 1, alpha: 0.62), dark: KukuTone(0.16, 0.155, 0.15, alpha: 0.96))
     /// In-window toast. Inverted so it reads over any content.
     static let toastSurface = adaptive(light: KukuTone(0.157, 0.153, 0.145, alpha: 0.96), dark: KukuTone(0.235, 0.231, 0.224, alpha: 0.96))
     static let toastText = adaptive(light: KukuTone(white: 1), dark: KukuTone(white: 0.96))
@@ -337,7 +335,7 @@ struct KukuShadow: Sendable {
         radius: 10,
         y: 3
     )
-    /// Toasts, the answer card and other floating panels.
+    /// Toasts and other floating panels.
     static let floating = KukuShadow(
         color: KukuColor.adaptive(light: KukuTone(white: 0, alpha: 0.14), dark: KukuTone(white: 0, alpha: 0.45)),
         radius: 16,
@@ -374,14 +372,10 @@ enum Motion {
 
 extension View {
     /// Filled, outlined surface. `elevated` adds the card shadow and is for hero cards only.
-    func kukuSurface(
-        radius: CGFloat = KukuLayout.radiusMedium,
-        elevated: Bool = false,
-        fill: Color = KukuColor.surface
-    ) -> some View {
+    func kukuSurface(radius: CGFloat = KukuLayout.radiusMedium, elevated: Bool = false) -> some View {
         let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
         return self
-            .background(fill, in: shape)
+            .background(KukuColor.surface, in: shape)
             .overlay { shape.strokeBorder(KukuColor.border, lineWidth: KukuBorder.width) }
             .kukuShadow(elevated ? KukuShadow.card : nil)
     }
@@ -398,19 +392,26 @@ extension View {
         self.shadow(color: shadow?.color ?? .clear, radius: shadow?.radius ?? 0, y: shadow?.y ?? 0)
     }
 
+    /// Glass behind overlay content, which floats over other apps with no window backdrop.
+    func kukuGlass(in shape: some Shape) -> some View {
+        modifier(KukuGlassModifier(shape: shape))
+    }
+
     /// Glass capsule behind every overlay pill.
     func kukuGlassPill() -> some View {
-        modifier(KukuGlassPillModifier())
+        kukuGlass(in: Capsule())
     }
 }
 
-private struct KukuGlassPillModifier: ViewModifier {
+private struct KukuGlassModifier<S: Shape>: ViewModifier {
+    let shape: S
+
     @ViewBuilder
     func body(content: Content) -> some View {
         if #available(macOS 26.0, *) {
-            content.glassEffect(.regular, in: Capsule())
+            content.glassEffect(.regular, in: shape)
         } else {
-            content.background(.thinMaterial, in: Capsule())
+            content.background(.thinMaterial, in: shape)
         }
     }
 }
