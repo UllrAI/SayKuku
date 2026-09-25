@@ -18,17 +18,34 @@ if [[ "$CONFIGURATION" == "release" && "$BUNDLE_IDENTIFIER" != "com.saykuku.app"
     print -u2 "Release builds must use Bundle ID com.saykuku.app"
     exit 1
 fi
+if [[ "$CONFIGURATION" != "release" && "$BUNDLE_IDENTIFIER" == "com.saykuku.app" ]]; then
+    print -u2 "Development builds must not use the release Bundle ID com.saykuku.app"
+    exit 1
+fi
+
+# macOS 15 still runs on Intel, so release builds ship a universal binary.
+BUILD_ARGS=(-c "$CONFIGURATION")
+if [[ "$CONFIGURATION" == "release" ]]; then
+    BUILD_ARGS+=(--arch arm64 --arch x86_64)
+fi
 
 cd "$ROOT_DIR"
-swift build -c "$CONFIGURATION"
+swift build "${BUILD_ARGS[@]}"
 
-PRODUCT_DIR="$(swift build -c "$CONFIGURATION" --show-bin-path)"
+PRODUCT_DIR="$(swift build "${BUILD_ARGS[@]}" --show-bin-path)"
 APP_DIR="$ROOT_DIR/Build/SayKuku.app"
 
 rm -rf "$APP_DIR"
 mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
 
 cp "$PRODUCT_DIR/SayKuku" "$APP_DIR/Contents/MacOS/SayKuku"
+if [[ "$CONFIGURATION" == "release" ]]; then
+    ARCHS=" $(lipo -archs "$APP_DIR/Contents/MacOS/SayKuku") "
+    if [[ "$ARCHS" != *" arm64 "* || "$ARCHS" != *" x86_64 "* ]]; then
+        print -u2 "Release binary must contain arm64 and x86_64, got:$ARCHS"
+        exit 1
+    fi
+fi
 cp -R "$PRODUCT_DIR/SayKuku_SayKuku.bundle" "$APP_DIR/Contents/Resources/SayKuku_SayKuku.bundle"
 cp "$ROOT_DIR/Scripts/Resources/Info.plist" "$APP_DIR/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $BUNDLE_IDENTIFIER" "$APP_DIR/Contents/Info.plist"
@@ -77,12 +94,13 @@ if ! "${IDENTITY_ARGS[@]}" 2>/dev/null | grep -Fq "\"$SIGNING_IDENTITY\""; then
 fi
 
 print -u2 "Signing with $SIGNING_IDENTITY"
+# Debug builds also run hardened so missing entitlements surface before release.
 CODESIGN_ARGS=(
-    --force --deep
+    --force --options runtime
     --entitlements "$ROOT_DIR/Scripts/Resources/SayKuku.entitlements"
 )
 if [[ "$CONFIGURATION" == "release" ]]; then
-    CODESIGN_ARGS+=(--options runtime --timestamp)
+    CODESIGN_ARGS+=(--timestamp)
 else
     CODESIGN_ARGS+=(--timestamp=none)
 fi

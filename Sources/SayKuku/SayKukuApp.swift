@@ -73,7 +73,7 @@ struct SayKukuApp: App {
 
 private struct MenuBarIcon: View {
     private static let image: NSImage? = {
-        guard let url = Bundle.module.url(forResource: "MenuBarIcon", withExtension: "svg"),
+        guard let url = Bundle.appResources.url(forResource: "MenuBarIcon", withExtension: "svg"),
               let image = NSImage(contentsOf: url) else {
             return nil
         }
