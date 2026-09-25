@@ -755,20 +755,31 @@ enum AgentActionExecutor {
 
     @MainActor
     static func execute(_ response: AgentResponse, region: QwenRegion) async throws {
+        if let url = try validate(response, region: region) {
+            NSWorkspace.shared.open(url)
+        } else if response.action == .runShortcut, let name = response.shortcutName {
+            try await runShortcut(named: name)
+        }
+    }
+
+    /// Checks the payload an action needs, before a confirmation card offers it or the action runs.
+    /// Returns the address to open for links and searches.
+    @discardableResult
+    static func validate(_ response: AgentResponse, region: QwenRegion) throws -> URL? {
         switch response.action {
         case .writeText, .answer:
-            return
+            return nil
         case .openURL:
             guard let url = webURL(response.url) else { throw QwenError.invalidResponse }
-            NSWorkspace.shared.open(url)
+            return url
         case .webSearch:
-            guard let query = response.query, let url = webSearchURL(for: query, region: region) else {
+            guard let query = response.query, !query.isEmpty, let url = webSearchURL(for: query, region: region) else {
                 throw QwenError.invalidResponse
             }
-            NSWorkspace.shared.open(url)
+            return url
         case .runShortcut:
-            guard let name = response.shortcutName, !name.isEmpty else { throw QwenError.invalidResponse }
-            try await runShortcut(named: name)
+            guard response.shortcutName?.isEmpty == false else { throw QwenError.invalidResponse }
+            return nil
         }
     }
 
@@ -785,7 +796,7 @@ enum AgentActionExecutor {
     }
 
     /// Only plain web links; credentials such as `https://google.com@evil.com` would disguise the real host.
-    static func webURL(_ value: String?) -> URL? {
+    private static func webURL(_ value: String?) -> URL? {
         guard let value, let url = URL(string: value), ["http", "https"].contains(url.scheme?.lowercased()),
               url.user == nil, url.password == nil else { return nil }
         return url

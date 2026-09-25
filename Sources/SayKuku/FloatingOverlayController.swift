@@ -124,8 +124,7 @@ private struct AgentAnswerCard: View {
              appState.text("先核对网址，再决定是否打开", "Check the address before you open it"),
              appState.text("打开", "Open"))
         case .runShortcut:
-            (appState.text("运行快捷指令「\(appState.pendingAnswerText)」？", "Run the “\(appState.pendingAnswerText)” shortcut?"),
-             "square.stack.3d.up",
+            (appState.text("运行这个快捷指令？", "Run this shortcut?"), "square.stack.3d.up",
              appState.text("确认这是你要运行的快捷指令", "Make sure this is the shortcut you meant"),
              appState.text("运行", "Run"))
         default:
@@ -141,8 +140,6 @@ private struct AgentAnswerCard: View {
                 Label {
                     Text(labels.title)
                         .foregroundStyle(KukuColor.textPrimary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
                 } icon: {
                     Image(systemName: labels.symbol)
                         .foregroundStyle(KukuColor.textSecondary)

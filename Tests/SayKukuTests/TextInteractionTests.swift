@@ -121,12 +121,21 @@ struct TextWriteVerificationTests {
         }
     }
 
-    @Test("only plain web links open")
-    func webLinks() {
-        #expect(AgentActionExecutor.webURL("https://example.com")?.host == "example.com")
-        #expect(AgentActionExecutor.webURL("file:///etc/passwd") == nil)
-        #expect(AgentActionExecutor.webURL("https://google.com@evil.example/") == nil)
-        #expect(AgentActionExecutor.webURL("https://user:pass@example.com/") == nil)
+    @Test("actions without a usable payload are rejected before they are offered or run")
+    func actionValidation() throws {
+        func link(_ url: String) -> AgentResponse { AgentResponse(transcript: "打开", action: .openURL, url: url) }
+        #expect(try AgentActionExecutor.validate(link("https://example.com"), region: .singapore)?.host == "example.com")
+        for url in ["file:///etc/passwd", "https://google.com@evil.example/", "https://user:pass@example.com/"] {
+            #expect(throws: QwenError.invalidResponse) { try AgentActionExecutor.validate(link(url), region: .singapore) }
+        }
+        let search = AgentResponse(transcript: "搜一下", action: .webSearch, query: "SayKuku")
+        #expect(try AgentActionExecutor.validate(search, region: .beijing)?.host == "www.bing.com")
+        let emptySearch = AgentResponse(transcript: "搜一下", action: .webSearch, query: "")
+        #expect(throws: QwenError.invalidResponse) { try AgentActionExecutor.validate(emptySearch, region: .beijing) }
+        let shortcut = AgentResponse(transcript: "运行早安", action: .runShortcut, shortcutName: "早安")
+        #expect(try AgentActionExecutor.validate(shortcut, region: .beijing) == nil)
+        let unnamed = AgentResponse(transcript: "运行", action: .runShortcut, shortcutName: "")
+        #expect(throws: QwenError.invalidResponse) { try AgentActionExecutor.validate(unnamed, region: .beijing) }
     }
 
     @Test("rewriting clipped text is not written back")
