@@ -125,12 +125,10 @@ git status --short
 ```bash
 /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
   Scripts/Resources/Info.plist
-/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' \
-  Scripts/Resources/Info.plist
 ```
 
-- `CFBundleShortVersionString`：用户看到的版本，例如 `1.0.0`。
-- `CFBundleVersion`：每次发布递增的构建号，例如 `10`。Sparkle 按它判断是否有新版本，不递增用户就收不到更新。
+- `CFBundleShortVersionString`：用户看到的版本，例如 `1.0.0`。发布者只需要维护这一项。
+- `CFBundleVersion`：构建号，由 `Scripts/package-app.sh` 打包时写入，取值为当前提交的提交数（`git rev-list --count HEAD`）。它随主分支单调递增，同一提交重复打包得到同一个号。仓库里的 `Info.plist` 固定写 `0`，不用手动修改。Sparkle 按构建号判断是否有新版本，所以要在完整（非 shallow）的 Git 仓库里打包。
 
 版本号属于源代码。需要变更时应先修改、测试并提交，再生成发布包。
 
@@ -237,7 +235,12 @@ lipo -archs Build/SayKuku.app/Contents/MacOS/SayKuku
   Build/SayKuku.app/Contents/Info.plist
 /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
   Build/SayKuku.app/Contents/Info.plist
+/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' \
+  Build/SayKuku.app/Contents/Info.plist
+git rev-list --count HEAD
 ```
+
+最后两条命令的输出应相同。
 
 此时 `spctl` 显示 `Unnotarized Developer ID` 是正常的，因为公证尚未完成；不要把这个阶段的包交给用户。
 
@@ -271,7 +274,7 @@ Scripts/release.sh
 | `SayKuku-<版本>-notarization.zip` | 只用于提交 Apple，不要分发 |
 | `appcast/appcast.xml` | Sparkle 更新源，与最终 ZIP 一起上传到 GitHub Release |
 
-脚本不递增版本号，也不上传 GitHub Release。推送标签后手动发布：
+脚本不修改 `CFBundleShortVersionString`，也不上传 GitHub Release。推送标签后手动发布：
 
 ```bash
 gh release create "v${VERSION}" \
