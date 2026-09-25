@@ -704,7 +704,8 @@ struct QwenReasoningClient: Reasoning {
     - person: an individual.
     - organization: a company, institution, department, or team.
     - project: a project, product, app, service, model, or codename.
-    - term: jargon, an acronym, a technical term, or anything else worth keeping.
+    - term: jargon, an acronym, or a technical term.
+    - other: an item worth keeping when no more specific type fits.
 
     Rules:
     - Include people, organizations, projects, products, and jargon a recognizer could misspell. Skip common words.
@@ -716,7 +717,7 @@ struct QwenReasoningClient: Reasoning {
     - evidence: an exact quote from the text that supports the item.
 
     Return JSON only, {"entities":[]} when nothing qualifies:
-    {"entities":[{"name":"","type":"person|organization|project|term","aliases":[],"detail":"","evidence":""}]}
+    {"entities":[{"name":"","type":"person|organization|project|term|other","aliases":[],"detail":"","evidence":""}]}
     """
 
     func extractMemory(
@@ -929,7 +930,7 @@ private struct MemoryExtractionResponse: Decodable {
             detail = (try? container.decodeIfPresent(String.self, forKey: .detail)) ?? ""
             aliases = (try? container.decodeIfPresent([String].self, forKey: .aliases)) ?? []
             evidence = (try? container.decodeIfPresent(String.self, forKey: .evidence)) ?? ""
-            type = (try? container.decodeIfPresent(EntityType.self, forKey: .type)) ?? .term
+            type = (try? container.decodeIfPresent(EntityType.self, forKey: .type)) ?? .other
         }
     }
 

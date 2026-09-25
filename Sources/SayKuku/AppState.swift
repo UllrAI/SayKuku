@@ -202,7 +202,7 @@ final class AppState {
         connectionState = settings.apiKey == key && settings.configuration == tested ? result : .idle
     }
 
-    func copyHistoryOutput(_ text: String) {
+    func copyText(_ text: String) {
         guard !text.isEmpty else { return }
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
