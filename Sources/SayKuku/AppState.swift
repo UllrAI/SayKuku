@@ -341,8 +341,7 @@ final class AppState {
         alert.addButton(withTitle: localized("Download"))
         alert.addButton(withTitle: localized("Skip This Version"))
         alert.addButton(withTitle: localized("Later"))
-        NSApplication.shared.activate()
-        switch alert.runModal() {
+        switch alert.runModalInFront() {
         case .alertFirstButtonReturn:
             NSWorkspace.shared.open(feed.url)
             return .download
@@ -352,7 +351,7 @@ final class AppState {
             return .later
         }
     }
-    /// A manual check's answer, as an alert: Settings and the menu bar menu have no toast.
+    /// A manual check’s answer, as an alert: Settings and the app menu have no toast.
     private static func reportUpdateCheck(_ result: UpdateChecker.Decision, currentVersion: String) {
         let alert = NSAlert()
         if result == .upToDate {
@@ -361,11 +360,10 @@ final class AppState {
         } else {
             alert.alertStyle = .warning
             alert.messageText = localized("Couldn’t check for updates")
-            alert.informativeText = localized("Check your connection and try again.")
+            alert.informativeText = localized("Try again later.")
         }
         alert.addButton(withTitle: localized("OK"))
-        NSApplication.shared.activate()
-        _ = alert.runModal()
+        _ = alert.runModalInFront()
     }
     func showToast(_ text: String, symbol: String) {
         let message = ToastMessage(text: text, symbol: symbol)
@@ -419,6 +417,17 @@ struct SetupProgress: Equatable {
 
     var title: String {
         localized("Step \(step) of \(total)")
+    }
+}
+
+extension NSAlert {
+    /// For alerts that can come while the app is inactive, such as after a menu bar click or a background check.
+    /// macOS may refuse `activate()` then, and a hidden alert panel would leave the app stuck in its modal loop.
+    func runModalInFront() -> NSApplication.ModalResponse {
+        NSApplication.shared.activate()
+        window.hidesOnDeactivate = false
+        window.level = .floating
+        return runModal()
     }
 }
 
