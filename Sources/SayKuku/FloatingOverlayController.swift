@@ -58,12 +58,12 @@ final class FloatingOverlayController {
         guard let appState else { return }
         // Set here so the label follows the current UI language.
         panel.setAccessibilityLabel(localized("SayKuku voice overlay"))
-        let shouldShow = appState.overlayError != nil
-            || appState.dictationPhase != .idle
-            || appState.agentPhase != .hidden
+        let shouldShow = appState.workflow.overlayError != nil
+            || appState.workflow.dictationPhase != .idle
+            || appState.workflow.agentPhase != .hidden
 
         if shouldShow {
-            let answerHeight = appState.agentPhase == .answerReady ? appState.answerCardHeight : nil
+            let answerHeight = appState.workflow.agentPhase == .answerReady ? appState.workflow.answerCardHeight : nil
             place(size: Self.panelSize(answerHeight: answerHeight))
             panel.orderFrontRegardless()
         } else {
@@ -76,7 +76,7 @@ final class FloatingOverlayController {
         // Before the first workflow there is no anchor yet.
         guard let visibleFrame = visibleFrame ?? NSScreen.main?.visibleFrame, let appState else { return }
         // Error feedback can wrap to two lines; the pill height is close enough for the caret gap.
-        let contentHeight = appState.agentPhase == .answerReady ? appState.answerCardHeight : KukuLayout.pillHeight
+        let contentHeight = appState.workflow.agentPhase == .answerReady ? appState.workflow.answerCardHeight : KukuLayout.pillHeight
         let origin = OverlayLayout.origin(
             placement: appState.settings.overlayPlacement, caretFrame: caretFrame, visibleFrame: visibleFrame,
             panelSize: size, contentHeight: contentHeight
@@ -151,30 +151,30 @@ private struct FloatingSystemOverlay: View {
 
     var body: some View {
         let size = FloatingOverlayController.panelSize(
-            answerHeight: appState.agentPhase == .answerReady ? appState.answerCardHeight : nil
+            answerHeight: appState.workflow.agentPhase == .answerReady ? appState.workflow.answerCardHeight : nil
         )
         ZStack(alignment: .bottom) {
             Color.clear
 
-            if appState.agentPhase == .answerReady {
+            if appState.workflow.agentPhase == .answerReady {
                 AgentAnswerCard()
                     .transition(.scale(scale: 0.96, anchor: .bottom).combined(with: .opacity))
-            } else if let error = appState.overlayError {
+            } else if let error = appState.workflow.overlayError {
                 OverlayNotice(message: error)
                     .transition(.scale(scale: 0.94, anchor: .bottom).combined(with: .opacity))
-            } else if appState.agentPhase != .hidden {
+            } else if appState.workflow.agentPhase != .hidden {
                 AgentPill()
                     .transition(.scale(scale: 0.94, anchor: .bottom).combined(with: .opacity))
-            } else if appState.dictationPhase != .idle {
+            } else if appState.workflow.dictationPhase != .idle {
                 DictationPill()
                     .transition(.scale(scale: 0.94, anchor: .bottom).combined(with: .opacity))
             }
         }
         .padding(.bottom, OverlayLayout.contentBottomInset)
         .frame(width: size.width, height: size.height)
-        .animation(Motion.panel, value: appState.agentPhase)
-        .animation(Motion.panel, value: appState.dictationPhase)
-        .animation(Motion.panel, value: appState.overlayError)
+        .animation(Motion.panel, value: appState.workflow.agentPhase)
+        .animation(Motion.panel, value: appState.workflow.dictationPhase)
+        .animation(Motion.panel, value: appState.workflow.overlayError)
         .onChange(of: announcement) { _, announcement in
             if let announcement { AccessibilityNotification.Announcement(announcement).post() }
         }
@@ -184,11 +184,11 @@ private struct FloatingSystemOverlay: View {
     /// Follows the phases rather than live text, so a streaming transcript isn't read out word by word.
     private var announcement: String? {
         // Speech while the mic is open would end up in the recording.
-        if appState.dictationPhase == .listening || appState.agentPhase == .listening { return nil }
-        if appState.agentPhase == .answerReady { return appState.pendingAnswerStatus ?? appState.pendingAnswerText }
-        return appState.overlayError
-            ?? appState.agentPhase.status(appState)
-            ?? appState.dictationPhase.status(appState)
+        if appState.workflow.dictationPhase == .listening || appState.workflow.agentPhase == .listening { return nil }
+        if appState.workflow.agentPhase == .answerReady { return appState.workflow.pendingAnswerStatus ?? appState.workflow.pendingAnswerText }
+        return appState.workflow.overlayError
+            ?? appState.workflow.agentPhase.status(appState.workflow)
+            ?? appState.workflow.dictationPhase.status(appState.workflow)
     }
 }
 
@@ -199,13 +199,13 @@ private struct OverlayNotice: View {
     let message: String
 
     var body: some View {
-        let buttons = appState.overlayButtons
+        let buttons = appState.workflow.overlayButtons
         HStack(spacing: KukuSpacing.md) {
             Label {
                 Text(message)
                     .foregroundStyle(KukuColor.textPrimary)
             } icon: {
-                Image(systemName: appState.overlayErrorSymbol)
+                Image(systemName: appState.workflow.overlayErrorSymbol)
                     .foregroundStyle(KukuColor.textSecondary)
             }
             .lineLimit(2)
@@ -214,7 +214,7 @@ private struct OverlayNotice: View {
             // Counted in `errorWidth`, so the message keeps its full line next to them.
             ForEach(buttons.indices, id: \.self) { index in
                 let isPrimary = index == buttons.count - 1
-                Button(buttons[index].title) { appState.pressOverlayButton(at: index) }
+                Button(buttons[index].title) { appState.workflow.pressOverlayButton(at: index) }
                     .buttonStyle(.plain)
                     .fontWeight(.semibold)
                     .foregroundStyle(isPrimary ? KukuColor.accentText : KukuColor.textSecondary)
@@ -235,7 +235,7 @@ private struct AgentAnswerCard: View {
 
     /// Title, icon, hint and primary button: the card shows an answer or asks before a link, search or shortcut runs.
     private var labels: (title: String, symbol: String, hint: String, primary: String) {
-        switch appState.pendingAction?.action {
+        switch appState.workflow.pendingAction?.action {
         case .openURL:
             (localized("Open this link?"), "link",
              localized("Check the address before you open it"),
@@ -271,10 +271,10 @@ private struct AgentAnswerCard: View {
                 }
                 .font(.kuku(.headline))
                 Spacer()
-                KukuIconButton(symbol: "xmark", label: localized("Close"), action: appState.dismissAnswer)
+                KukuIconButton(symbol: "xmark", label: localized("Close"), action: appState.workflow.dismissAnswer)
             }
             ScrollView {
-                Text(appState.pendingAnswerText)
+                Text(appState.workflow.pendingAnswerText)
                     .font(.kuku(.body))
                     .foregroundStyle(KukuColor.textPrimary)
                     .lineSpacing(KukuTypography.paragraphSpacing)
@@ -283,27 +283,27 @@ private struct AgentAnswerCard: View {
             }
             .frame(maxHeight: .infinity)
             HStack {
-                Text(appState.pendingAnswerStatus ?? labels.hint)
+                Text(appState.workflow.pendingAnswerStatus ?? labels.hint)
                     .font(.kuku(.subheadline))
                     .foregroundStyle(KukuColor.textSecondary)
                     .lineLimit(2)
                 Spacer()
-                Button(localized("Copy"), action: appState.copyAnswer)
+                Button(localized("Copy"), action: appState.workflow.copyAnswer)
                     .buttonStyle(.kukuSecondary)
                 Button(labels.primary) {
-                    if appState.pendingAction == nil {
-                        Task { await appState.insertAnswer() }
+                    if appState.workflow.pendingAction == nil {
+                        Task { await appState.workflow.insertAnswer() }
                     } else {
-                        appState.confirmPendingAction()
+                        appState.workflow.confirmPendingAction()
                     }
                 }
                 .buttonStyle(.kukuPrimary)
-                .disabled(appState.isWriting)
+                .disabled(appState.workflow.isWriting)
             }
         }
         .padding(KukuLayout.cardPadding)
         // Leaves room inside the answer panel (see `panelSize`) for the card shadow.
-        .frame(width: OverlayLayout.answerCardWidth, height: appState.answerCardHeight)
+        .frame(width: OverlayLayout.answerCardWidth, height: appState.workflow.answerCardHeight)
         .kukuGlass(in: RoundedRectangle(cornerRadius: KukuLayout.radiusLarge, style: .continuous))
         .kukuShadow(.card)
     }

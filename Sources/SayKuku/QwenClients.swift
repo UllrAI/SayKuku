@@ -582,7 +582,7 @@ enum AgentTextField: String, Sendable {
     case absent = "none"
 }
 
-/// Request-based Qwen calls as `AppState` uses them; tests pass a fake.
+/// Request-based Qwen calls as `VoiceWorkflow` and `AppState` use them; tests pass a fake.
 protocol Reasoning: Sendable {
     func transcribeAudio(
         apiKey: String,

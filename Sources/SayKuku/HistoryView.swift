@@ -558,7 +558,7 @@ private struct HistoryRow: View {
     private var retryButton: some View {
         if entry.canRetryTranscription {
             Button(localized("Retry Transcription")) {
-                Task { await appState.retryDictation(entry.id) }
+                Task { await appState.workflow.retryDictation(entry.id) }
             }
             .buttonStyle(.kuku(.secondary, size: .small))
         }

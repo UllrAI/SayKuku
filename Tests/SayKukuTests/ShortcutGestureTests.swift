@@ -48,32 +48,32 @@ struct FnGestureRoutingTests {
     @Test("escape cancels only while recording or processing")
     func escapeRouting() {
         let escape = UInt16(kVK_Escape)
-        for phase in [AppState.DictationPhase.listening, .processing] {
+        for phase in [VoiceWorkflow.DictationPhase.listening, .processing] {
             #expect(ShortcutController.shouldCancelForEscape(
                 keyCode: escape,
                 dictationIsCancellable: phase.isCancellable,
-                agentIsCancellable: AppState.AgentPhase.hidden.isCancellable
+                agentIsCancellable: VoiceWorkflow.AgentPhase.hidden.isCancellable
             ))
         }
-        for phase in [AppState.AgentPhase.listening, .transcribing, .processing] {
+        for phase in [VoiceWorkflow.AgentPhase.listening, .transcribing, .processing] {
             #expect(ShortcutController.shouldCancelForEscape(
                 keyCode: escape,
-                dictationIsCancellable: AppState.DictationPhase.idle.isCancellable,
+                dictationIsCancellable: VoiceWorkflow.DictationPhase.idle.isCancellable,
                 agentIsCancellable: phase.isCancellable
             ))
         }
         // Finished states close on their own or from their card; Esc there belongs to the frontmost app.
-        for phase in [AppState.DictationPhase.idle, .success, .copyReady] {
+        for phase in [VoiceWorkflow.DictationPhase.idle, .success, .copyReady] {
             #expect(!ShortcutController.shouldCancelForEscape(
                 keyCode: escape,
                 dictationIsCancellable: phase.isCancellable,
-                agentIsCancellable: AppState.AgentPhase.hidden.isCancellable
+                agentIsCancellable: VoiceWorkflow.AgentPhase.hidden.isCancellable
             ))
         }
-        for phase in [AppState.AgentPhase.hidden, .result, .copyReady, .answerReady] {
+        for phase in [VoiceWorkflow.AgentPhase.hidden, .result, .copyReady, .answerReady] {
             #expect(!ShortcutController.shouldCancelForEscape(
                 keyCode: escape,
-                dictationIsCancellable: AppState.DictationPhase.idle.isCancellable,
+                dictationIsCancellable: VoiceWorkflow.DictationPhase.idle.isCancellable,
                 agentIsCancellable: phase.isCancellable
             ))
         }

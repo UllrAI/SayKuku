@@ -13,13 +13,13 @@ struct VoiceWorkflowTests {
         let state = try makeState(environment, .fake(text: text))
 
         try await startListening(state)
-        state.finishDictation()
-        #expect(state.dictationPhase == .processing)
-        #expect(await eventually { state.dictationPhase == .success })
+        state.workflow.finishDictation()
+        #expect(state.workflow.dictationPhase == .processing)
+        #expect(await eventually { state.workflow.dictationPhase == .success })
         #expect(text.writes == ["Hello world."])
         #expect(state.data.historyEntries.first?.status == .completed)
         #expect(state.data.historyEntries.first?.output == "Hello world.")
-        #expect(state.canUndoLastWrite)
+        #expect(state.workflow.canUndoLastWrite)
     }
 
     @Test("a failed write falls back to the clipboard and still completes History")
@@ -31,12 +31,12 @@ struct VoiceWorkflowTests {
         let state = try makeState(environment, .fake(text: text))
 
         try await startListening(state)
-        state.finishDictation()
-        #expect(await eventually { state.dictationPhase == .copyReady })
-        #expect(state.pendingCopyText == "Hello world.")
+        state.workflow.finishDictation()
+        #expect(await eventually { state.workflow.dictationPhase == .copyReady })
+        #expect(state.workflow.pendingCopyText == "Hello world.")
         #expect(NSPasteboard.general.string(forType: .string) == "Hello world.")
         #expect(state.data.historyEntries.first?.status == .completed)
-        #expect(!state.canUndoLastWrite)
+        #expect(!state.workflow.canUndoLastWrite)
     }
 
     @Test("cancelling while processing records a cancel and writes nothing")
@@ -48,10 +48,10 @@ struct VoiceWorkflowTests {
         let state = try makeState(environment, .fake(reasoning: reasoning, text: text))
 
         try await startListening(state)
-        state.finishDictation()
+        state.workflow.finishDictation()
         try #require(await eventually { reasoning.transcribeCount == 1 })
-        state.cancelDictation()
-        #expect(state.dictationPhase == .idle)
+        state.workflow.cancelDictation()
+        #expect(state.workflow.dictationPhase == .idle)
         #expect(await eventually { state.data.historyEntries.first?.status == .cancelled })
         #expect(text.writes.isEmpty)
     }
@@ -65,14 +65,14 @@ struct VoiceWorkflowTests {
         let state = try makeState(environment, .fake(reasoning: reasoning, text: text))
 
         try await startListening(state)
-        state.finishDictation()
+        state.workflow.finishDictation()
         try #require(await eventually { reasoning.transcribeCount == 1 })
         let first = try #require(state.data.historyEntries.first?.id)
 
         try await startListening(state)
         #expect(await eventually { state.data.historyEntries.first(where: { $0.id == first })?.status == .cancelled })
-        state.finishDictation()
-        #expect(await eventually { state.dictationPhase == .success })
+        state.workflow.finishDictation()
+        #expect(await eventually { state.workflow.dictationPhase == .success })
         #expect(text.writes == ["Second take."])
         #expect(state.data.historyEntries.count == 2)
     }
@@ -83,7 +83,7 @@ struct VoiceWorkflowTests {
             let environment = AppStateTestEnvironment()
             defer { environment.clean() }
             let run = try await dictateOverRealtime(failingWith: .timeout, in: environment)
-            #expect(await eventually { run.state.dictationPhase == .success })
+            #expect(await eventually { run.state.workflow.dictationPhase == .success })
             #expect(await run.realtime.appendCount == 1)
             #expect(await run.realtime.commitCount == 1)
             #expect(run.reasoning.transcribeCount == 1)
@@ -96,7 +96,7 @@ struct VoiceWorkflowTests {
             #expect(await eventually { run.state.data.historyEntries.first?.status == .failed })
             #expect(await run.realtime.commitCount == 1)
             #expect(run.reasoning.transcribeCount == 0)
-            #expect(run.state.dictationPhase == .idle)
+            #expect(run.state.workflow.dictationPhase == .idle)
         }
     }
 
@@ -116,8 +116,8 @@ struct VoiceWorkflowTests {
             state.settings.dictationCleanup = cleanup
 
             try await startListening(state)
-            state.finishDictation()
-            #expect(await eventually { state.dictationPhase == .success })
+            state.workflow.finishDictation()
+            #expect(await eventually { state.workflow.dictationPhase == .success })
             #expect(reasoning.targetApps == [expected])
         }
         do {
@@ -128,8 +128,8 @@ struct VoiceWorkflowTests {
             state.settings.qwenWorkspaceID = "llm-test"
 
             try await startListening(state)
-            state.finishDictation()
-            #expect(await eventually { state.dictationPhase == .success })
+            state.workflow.finishDictation()
+            #expect(await eventually { state.workflow.dictationPhase == .success })
             #expect(await realtime.targetApps == ["Editor (com.example.editor)"])
         }
     }
@@ -145,10 +145,10 @@ struct VoiceWorkflowTests {
         )
 
         try await startListening(state)
-        state.finishDictation()
+        state.workflow.finishDictation()
         #expect(await eventually { state.data.historyEntries.first?.status == .failed })
-        #expect(state.overlayError == QwenError.noSpeech.localizedDescription)
-        #expect(state.dictationPhase == .idle)
+        #expect(state.workflow.overlayError == QwenError.noSpeech.localizedDescription)
+        #expect(state.workflow.dictationPhase == .idle)
         #expect(reasoning.transcribeCount == 0)
         #expect(text.writes.isEmpty)
     }
@@ -162,15 +162,15 @@ struct VoiceWorkflowTests {
         let state = try makeState(environment, .fake(reasoning: FakeReasoning(agentReply: .success(answer)), text: text))
 
         try await startAgentListening(state)
-        state.finishAgentListening()
-        #expect(await eventually { state.agentPhase == .answerReady })
-        #expect(state.pendingAnswerText == "A programming language.")
+        state.workflow.finishAgentListening()
+        #expect(await eventually { state.workflow.agentPhase == .answerReady })
+        #expect(state.workflow.pendingAnswerText == "A programming language.")
         #expect(text.writes.isEmpty)
 
-        await state.insertAnswer()
+        await state.workflow.insertAnswer()
         #expect(text.writes == ["A programming language."])
-        #expect(state.agentPhase == .hidden)
-        #expect(state.pendingAnswerText.isEmpty)
+        #expect(state.workflow.agentPhase == .hidden)
+        #expect(state.workflow.pendingAnswerText.isEmpty)
     }
 
     @Test("a link chosen while selected text is attached waits for confirmation")
@@ -182,10 +182,10 @@ struct VoiceWorkflowTests {
         let state = try makeState(environment, .fake(reasoning: FakeReasoning(agentReply: .success(link)), text: text))
 
         try await startAgentListening(state)
-        state.finishAgentListening()
-        #expect(await eventually { state.agentPhase == .answerReady })
-        #expect(state.pendingAction == link)
-        #expect(state.pendingAnswerText == "https://example.com")
+        state.workflow.finishAgentListening()
+        #expect(await eventually { state.workflow.agentPhase == .answerReady })
+        #expect(state.workflow.pendingAction == link)
+        #expect(state.workflow.pendingAnswerText == "https://example.com")
         #expect(text.writes.isEmpty)
     }
 
@@ -197,35 +197,35 @@ struct VoiceWorkflowTests {
         let text = FakeTextWriting(snapshot: .fake(valueBefore: "", selectedRange: CFRange(location: 0, length: 0)))
         let state = try makeState(environment, .fake(reasoning: FakeReasoning(agentReply: .success(deletion)), text: text))
         try await startListening(state)
-        state.finishDictation()
-        try #require(await eventually { state.dictationPhase == .success })
+        state.workflow.finishDictation()
+        try #require(await eventually { state.workflow.dictationPhase == .success })
 
         // The field still holds exactly what was dictated, so the Agent is offered it.
         text.snapshot = .fake(valueBefore: "Hello world.", selectedRange: CFRange(location: 12, length: 0))
         text.fieldValue = "Hello world."
         try await startAgentListening(state)
-        #expect(state.contextItems.contains { $0.kind == .previousOutput && $0.value == "Hello world." })
-        state.finishAgentListening()
-        #expect(await eventually { state.agentPhase == .result })
+        #expect(state.workflow.contextItems.contains { $0.kind == .previousOutput && $0.value == "Hello world." })
+        state.workflow.finishAgentListening()
+        #expect(await eventually { state.workflow.agentPhase == .result })
         #expect(text.writes == ["Hello world.", ""])
-        #expect(state.resultCanUndo)
+        #expect(state.workflow.resultCanUndo)
         #expect(state.data.historyEntries.map(\.output) == ["Hello world."])
 
         // The next turn sees the deletion in the Session, but not the emptied range as text to revise.
         text.snapshot = .fake(valueBefore: "", selectedRange: CFRange(location: 0, length: 0))
         text.fieldValue = ""
         try await startAgentListening(state)
-        #expect(state.contextItems.contains {
+        #expect(state.workflow.contextItems.contains {
             $0.kind == .session && $0.value == "Action: writeText\nTarget: previous SayKuku output, deleted"
         })
-        #expect(!state.contextItems.contains { $0.kind == .previousOutput })
-        state.dismissAgent()
+        #expect(!state.workflow.contextItems.contains { $0.kind == .previousOutput })
+        state.workflow.dismissAgent()
 
         // Undo writes back the text the deletion replaced.
-        #expect(state.canUndoLastWrite)
-        await state.undoLastWrite()
+        #expect(state.workflow.canUndoLastWrite)
+        await state.workflow.undoLastWrite()
         #expect(text.writes == ["Hello world.", "", "Hello world."])
-        #expect(!state.canUndoLastWrite)
+        #expect(!state.workflow.canUndoLastWrite)
     }
 
     @Test("text on screen is read for the Agent with the setting on, and never for dictation")
@@ -238,15 +238,15 @@ struct VoiceWorkflowTests {
 
         try await startListening(state)
         #expect(text.visibleTextReads == 0)
-        state.cancelDictation()
+        state.workflow.cancelDictation()
 
         try await startAgentListening(state)
-        #expect(state.contextItems.first { $0.kind == .screen }?.value == "周四方便吗")
-        state.dismissAgent()
+        #expect(state.workflow.contextItems.first { $0.kind == .screen }?.value == "周四方便吗")
+        state.workflow.dismissAgent()
 
         state.settings.screenTextAllowed = false
         try await startAgentListening(state)
-        #expect(!state.contextItems.contains { $0.kind == .screen })
+        #expect(!state.workflow.contextItems.contains { $0.kind == .screen })
         #expect(text.visibleTextReads == 1)
     }
 
@@ -257,21 +257,21 @@ struct VoiceWorkflowTests {
         let text = FakeTextWriting()
         let state = try makeState(environment, .fake(text: text))
         try await startListening(state)
-        state.finishDictation()
-        try #require(await eventually { state.dictationPhase == .success })
+        state.workflow.finishDictation()
+        try #require(await eventually { state.workflow.dictationPhase == .success })
 
         text.replacementError = .targetChanged
-        await state.undoLastWrite()
-        #expect(state.canUndoLastWrite)
-        #expect(state.overlayError == localized("Can’t undo. The text changed, or this app doesn’t support it."))
+        await state.workflow.undoLastWrite()
+        #expect(state.workflow.canUndoLastWrite)
+        #expect(state.workflow.overlayError == localized("Can’t undo. The text changed, or this app doesn’t support it."))
         #expect(text.writes == ["Hello world."])
 
         text.replacementError = nil
-        await state.undoLastWrite()
-        #expect(!state.canUndoLastWrite)
-        #expect(state.overlayError == localized("Undone"))
+        await state.workflow.undoLastWrite()
+        #expect(!state.workflow.canUndoLastWrite)
+        #expect(state.workflow.overlayError == localized("Undone"))
         #expect(text.writes == ["Hello world.", ""])
-        #expect(state.dictationPhase == .idle)
+        #expect(state.workflow.dictationPhase == .idle)
     }
 }
 
@@ -297,14 +297,14 @@ private func eventually(_ condition: () -> Bool) async -> Bool {
 /// The pill shows only after the engine start finishes, which happens on a task of its own.
 @MainActor
 private func startListening(_ state: AppState) async throws {
-    state.startDictation()
-    try #require(await eventually { state.dictationPhase == .listening })
+    state.workflow.startDictation()
+    try #require(await eventually { state.workflow.dictationPhase == .listening })
 }
 
 @MainActor
 private func startAgentListening(_ state: AppState) async throws {
-    state.startAgent()
-    try #require(await eventually { state.agentPhase == .listening })
+    state.workflow.startAgent()
+    try #require(await eventually { state.workflow.agentPhase == .listening })
 }
 
 /// Dictates with a workspace ID, so the audio streams to realtime and `commit` fails with `error`.
@@ -317,6 +317,6 @@ private func dictateOverRealtime(
     let state = try makeState(environment, .fake(realtime: realtime, reasoning: reasoning))
     state.settings.qwenWorkspaceID = "llm-test"
     try await startListening(state)
-    state.finishDictation()
+    state.workflow.finishDictation()
     return (state, realtime, reasoning)
 }
