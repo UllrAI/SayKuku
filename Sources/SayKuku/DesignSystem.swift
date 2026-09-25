@@ -168,8 +168,7 @@ struct KukuIconButton: View {
 // MARK: - Brand and live input
 
 struct BrandMark: View {
-    var size: CGFloat = 27
-    var color: Color = KukuColor.coral
+    private static let size: CGFloat = 27
 
     var body: some View {
         Group {
@@ -184,8 +183,8 @@ struct BrandMark: View {
             }
         }
         .scaledToFit()
-        .foregroundStyle(color)
-        .frame(width: size, height: size)
+        .foregroundStyle(KukuColor.coral)
+        .frame(width: Self.size, height: Self.size)
         .accessibilityLabel("SayKuku")
     }
 }
