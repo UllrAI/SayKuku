@@ -229,9 +229,9 @@ struct TextWriteVerificationTests {
         #expect(ContextCollector.pageAddress("https://example.com") == "https://example.com")
     }
 
-    @Test("knowledge context only records that saved knowledge is used")
+    @Test("memory context only records that saved memory is used")
     @MainActor
-    func knowledgeContextItem() {
+    func memoryContextItem() {
         let items = ContextCollector.collect(
             snapshot: target(value: nil, range: nil),
             selectedTextAllowed: false,
@@ -242,13 +242,13 @@ struct TextWriteVerificationTests {
             screenText: "",
             session: nil,
             domains: [],
-            knowledge: [
-                KnowledgeEntity(name: "WorkBuddy", type: .project),
-                KnowledgeEntity(name: "SayKuku", type: .project)
+            memory: [
+                MemoryEntity(name: "WorkBuddy", type: .project),
+                MemoryEntity(name: "SayKuku", type: .project)
             ]
         )
         #expect(items.count == 1)
-        #expect(items.first?.kind == .knowledge)
+        #expect(items.first?.kind == .memory)
         #expect(items.first?.value == "2")
     }
 

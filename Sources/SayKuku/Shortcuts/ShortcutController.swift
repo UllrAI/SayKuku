@@ -420,3 +420,39 @@ final class ShortcutController: @unchecked Sendable {
         appState?.shortcutStatus = Self.status(fnReady: fnMonitorReady, failedHotKeys: failedHotKeys)
     }
 }
+
+extension AppState {
+    enum ShortcutStatus: Equatable {
+        case starting, ready, accessibilityRequired
+        /// Enabled shortcuts that could not be registered, usually because another app owns them.
+        case hotKeyConflict([GlobalShortcutAction])
+        var symbol: String {
+            switch self {
+            case .starting: "clock"
+            case .ready: "checkmark.circle"
+            case .accessibilityRequired, .hotKeyConflict: "exclamationmark.triangle"
+            }
+        }
+        @MainActor func title(_ appState: AppState) -> String {
+            let shortcutsOff = GlobalShortcutAction.allCases.allSatisfy { appState.settings.globalShortcut(for: $0) == nil }
+            switch self {
+            case .starting:
+                return localized("Starting shortcuts…")
+            case .ready:
+                return shortcutsOff
+                    ? localized("Fn ready · Global shortcuts off")
+                    : localized("Fn and global shortcuts ready")
+            case .accessibilityRequired:
+                return shortcutsOff
+                    ? localized("Fn needs Accessibility · Global shortcuts off")
+                    : localized("Global shortcuts ready · Fn needs Accessibility")
+            case .hotKeyConflict(let actions):
+                guard actions.count == 1, let action = actions.first else {
+                    return localized("Both global shortcuts are already in use by other apps. Record new ones.")
+                }
+                let keys = appState.settings.globalShortcut(for: action)?.displayString ?? ""
+                return localized("\(keys) for \(action.title) is already in use by another app. Record a new one.")
+            }
+        }
+    }
+}

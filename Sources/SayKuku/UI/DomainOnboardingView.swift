@@ -4,7 +4,7 @@ struct DomainOnboardingView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.dismiss) private var dismiss
     @State private var selectedDomains: Set<DomainPreset> = []
-    /// Terms typed in this sheet; they go into Knowledge when it's saved.
+    /// Terms typed in this sheet; they go into Memory when it's saved.
     @State private var terms: [String] = []
     @State private var newTerm = ""
     @State private var didLoad = false
@@ -160,8 +160,8 @@ struct DomainOnboardingView: View {
                    ? localized("Save")
                    : appState.setupContinueTitle) {
                 addTerm()
-                // Terms were checked against Knowledge as they were added.
-                for term in terms { _ = appState.data.addKnowledge(name: term, type: .term) }
+                // Terms were checked against Memory as they were added.
+                for term in terms { _ = appState.data.addMemory(name: term, type: .term) }
                 appState.completeDomainOnboarding(domains: selectedDomains)
             }
             .buttonStyle(.kukuPrimary)
@@ -176,10 +176,10 @@ struct DomainOnboardingView: View {
         newTerm.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    /// Why the typed term can't go into Knowledge, checked as it's typed.
-    private var termError: KnowledgeSaveError? {
+    /// Why the typed term can't go into Memory, checked as it's typed.
+    private var termError: MemorySaveError? {
         guard !pendingTerm.isEmpty else { return nil }
-        return appState.data.validateKnowledge(KnowledgeEntity(name: pendingTerm, type: .term))
+        return appState.data.validateMemory(MemoryEntity(name: pendingTerm, type: .term))
     }
 
     private var canAddTerm: Bool {
@@ -195,9 +195,9 @@ struct DomainOnboardingView: View {
     /// Keeps the typed text when it can't be added, so the hint below the field still applies to it.
     private func addTerm() {
         guard canAddTerm else { return }
-        let key = KnowledgeNormalizer.key(pendingTerm)
+        let key = MemoryNormalizer.key(pendingTerm)
         // A term already in the list is visible there, so typing it again just clears the field.
-        if !terms.contains(where: { KnowledgeNormalizer.key($0) == key }) { terms.append(pendingTerm) }
+        if !terms.contains(where: { MemoryNormalizer.key($0) == key }) { terms.append(pendingTerm) }
         newTerm = ""
     }
 }

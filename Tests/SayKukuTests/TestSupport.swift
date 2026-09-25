@@ -132,7 +132,7 @@ actor FakeRealtime: RealtimeTranscribing {
         numberFormat: DictationNumberFormat,
         cleanup: DictationCleanup,
         targetApp: String?,
-        knowledgePrompt: String
+        memoryPrompt: String
     ) async throws {
         targetApps.append(targetApp)
     }
@@ -188,7 +188,7 @@ final class FakeReasoning: Reasoning {
         numberFormat: DictationNumberFormat,
         cleanup: DictationCleanup,
         targetApp: String?,
-        knowledgePrompt: String
+        memoryPrompt: String
     ) async throws -> String {
         let reply = state.withLock { current in
             current.transcribeCount += 1
@@ -214,12 +214,12 @@ final class FakeReasoning: Reasoning {
         sessions: [AgentSession],
         textField: AgentTextField,
         matchAppTone: Bool,
-        knowledgePrompt: String
+        memoryPrompt: String
     ) async throws -> AgentResponse {
         try agentReply.get()
     }
 
-    func extractKnowledge(apiKey: String, configuration: QwenConfiguration, text: String) async throws -> [ProposedEntity] {
+    func extractMemory(apiKey: String, configuration: QwenConfiguration, text: String) async throws -> [ProposedEntity] {
         []
     }
 

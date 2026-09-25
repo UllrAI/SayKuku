@@ -16,7 +16,7 @@ actor LocalStore {
 
         var version = Snapshot.currentVersion
         var history: [HistoryEntry] = []
-        var entities: [KnowledgeEntity] = []
+        var entities: [MemoryEntity] = []
         var corrections: [CorrectionRecord] = []
     }
 

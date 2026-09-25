@@ -6,7 +6,7 @@ import Testing
 struct DictationPromptTests {
     @Test("dictation prompt removes only nonsemantic disfluencies and formats unambiguous numbers")
     func dictationPrompt() {
-        let prompt = QwenRealtimeClient.makeDictationInstructions(knowledgePrompt: "")
+        let prompt = QwenRealtimeClient.makeDictationInstructions(memoryPrompt: "")
         #expect(prompt.contains("You are a voice keyboard"))
         #expect(prompt.contains("Light cleanup"))
         #expect(prompt.contains("not the raw speech trace"))
@@ -23,7 +23,7 @@ struct DictationPromptTests {
 
     @Test("dictation returns nothing when the audio has no speech")
     func noSpeechRule() {
-        let prompt = QwenRealtimeClient.makeDictationInstructions(knowledgePrompt: "")
+        let prompt = QwenRealtimeClient.makeDictationInstructions(memoryPrompt: "")
         #expect(prompt.contains("If you cannot make out any spoken words"))
         #expect(prompt.contains("reply with an empty message: no quotes, placeholder, or note"))
     }
@@ -40,21 +40,21 @@ struct DictationPromptTests {
     }
 
     @Test("dictation prompt leaves out the user context lead-in when there is no context")
-    func emptyKnowledgePrompt() {
-        let prompt = QwenRealtimeClient.makeDictationInstructions(knowledgePrompt: "")
+    func emptyMemoryPrompt() {
+        let prompt = QwenRealtimeClient.makeDictationInstructions(memoryPrompt: "")
         #expect(!prompt.contains("user context"))
         #expect(!prompt.hasSuffix("\n"))
 
-        let knowledge = KnowledgePrompt.render(entities: [], domains: [.aiVibeCoding], purpose: .transcription)
-        let withContext = QwenRealtimeClient.makeDictationInstructions(knowledgePrompt: knowledge)
+        let memory = MemoryPrompt.render(entities: [], domains: [.aiVibeCoding], purpose: .transcription)
+        let withContext = QwenRealtimeClient.makeDictationInstructions(memoryPrompt: memory)
         #expect(withContext.contains("Use the user context below"))
-        #expect(withContext.hasSuffix(knowledge))
+        #expect(withContext.hasSuffix(memory))
     }
 
     @Test("dictation preferences change only their prompt instructions")
     func dictationPreferences() {
         let prompt = QwenRealtimeClient.makeDictationInstructions(
-            knowledgePrompt: "",
+            memoryPrompt: "",
             recognitionLanguage: .chinese,
             numberFormat: .spoken
         )
@@ -65,7 +65,7 @@ struct DictationPromptTests {
         #expect(prompt.contains("keep number words as spoken"))
         #expect(!prompt.contains("Arabic digits"))
 
-        let verbatim = QwenRealtimeClient.makeDictationInstructions(knowledgePrompt: "", cleanup: .verbatim)
+        let verbatim = QwenRealtimeClient.makeDictationInstructions(memoryPrompt: "", cleanup: .verbatim)
         #expect(verbatim.contains("Verbatim: keep fillers, repetitions"))
         #expect(!verbatim.contains("Light cleanup"))
     }
@@ -73,7 +73,7 @@ struct DictationPromptTests {
     @Test("the mixed-language rules are in the dictation prompt for every recognition language")
     func mixedLanguageRules() {
         for language in RecognitionLanguage.allCases {
-            let prompt = QwenRealtimeClient.makeDictationInstructions(knowledgePrompt: "", recognitionLanguage: language)
+            let prompt = QwenRealtimeClient.makeDictationInstructions(memoryPrompt: "", recognitionLanguage: language)
             #expect(prompt.contains(PromptRules.mixedLanguage), "missing for \(language)")
             #expect(prompt.contains("ordinary English words in lowercase inside a Chinese sentence, even at its start"))
         }
@@ -81,12 +81,12 @@ struct DictationPromptTests {
 
     @Test("the tone rule follows the cleanup rule only when a target app is named")
     func toneRule() throws {
-        let prompt = QwenRealtimeClient.makeDictationInstructions(knowledgePrompt: "")
+        let prompt = QwenRealtimeClient.makeDictationInstructions(memoryPrompt: "")
         #expect(!prompt.contains("Tone:"))
 
-        let knowledge = KnowledgePrompt.render(entities: [], domains: [.aiVibeCoding], purpose: .transcription)
+        let memory = MemoryPrompt.render(entities: [], domains: [.aiVibeCoding], purpose: .transcription)
         let toned = QwenRealtimeClient.makeDictationInstructions(
-            knowledgePrompt: knowledge, targetApp: "微信 (com.tencent.xinWeChat)"
+            memoryPrompt: memory, targetApp: "微信 (com.tencent.xinWeChat)"
         )
         #expect(toned.contains("Tone: the text will be inserted into 微信 (com.tencent.xinWeChat)."))
         #expect(toned.contains("no period at the end of a short single-sentence message"))
@@ -94,7 +94,7 @@ struct DictationPromptTests {
         let cleanup = try #require(toned.range(of: "Light cleanup"))
         let tone = try #require(toned.range(of: "Tone:"))
         #expect(cleanup.upperBound < tone.lowerBound)
-        #expect(toned.hasSuffix(knowledge))
+        #expect(toned.hasSuffix(memory))
     }
 
     @Test("light cleanup removes accidental repeats and formats Chinese punctuation")

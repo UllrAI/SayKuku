@@ -1,15 +1,15 @@
 import SwiftUI
 
-struct KnowledgeView: View {
+struct MemoryView: View {
     @Environment(AppState.self) private var appState
     @Binding var search: String
     /// `nil` shows every type.
     @Binding var filter: EntityType?
     @State private var showingImport = false
     @State private var showingAdd = false
-    @State private var editingEntity: KnowledgeEntity?
-    @State private var pendingDeletion: KnowledgeEntity?
-    @State private var selection: KnowledgeEntity.ID?
+    @State private var editingEntity: MemoryEntity?
+    @State private var pendingDeletion: MemoryEntity?
+    @State private var selection: MemoryEntity.ID?
     @FocusState private var searchFocused: Bool
     @FocusState private var listFocused: Bool
 
@@ -23,14 +23,14 @@ struct KnowledgeView: View {
         filter == nil && query.isEmpty && !appState.data.pendingCorrections.isEmpty
     }
 
-    private var filteredEntities: [KnowledgeEntity] {
+    private var filteredEntities: [MemoryEntity] {
         let text = query
-        return appState.data.knowledgeEntities.filter { entity in
+        return appState.data.memoryEntities.filter { entity in
             (filter == nil || entity.type == filter) && (text.isEmpty || Self.entity(entity, matches: text))
         }.sorted { $0.createdAt > $1.createdAt }
     }
 
-    private static func entity(_ entity: KnowledgeEntity, matches text: String) -> Bool {
+    private static func entity(_ entity: MemoryEntity, matches text: String) -> Bool {
         entity.name.localizedCaseInsensitiveContains(text)
             || entity.detail.localizedCaseInsensitiveContains(text)
             || entity.aliases.contains { $0.localizedCaseInsensitiveContains(text) }
@@ -51,13 +51,13 @@ struct KnowledgeView: View {
             }
         }
         .sheet(isPresented: $showingImport) {
-            KnowledgeImportSheet()
+            MemoryImportSheet()
         }
         .sheet(isPresented: $showingAdd) {
-            KnowledgeFormSheet()
+            MemoryFormSheet()
         }
         .sheet(item: $editingEntity) { entity in
-            KnowledgeFormSheet(entity: entity)
+            MemoryFormSheet(entity: entity)
         }
         .confirmationDialog(
             pendingDeletion.map { localized("Delete “\($0.name)”?") } ?? "",
@@ -101,7 +101,7 @@ struct KnowledgeView: View {
     private var entityList: some View {
         let entities = filteredEntities
         return VStack(spacing: 0) {
-            if !appState.data.knowledgeEntities.isEmpty {
+            if !appState.data.memoryEntities.isEmpty {
                 searchBar(count: entities.count)
             }
 
@@ -110,7 +110,7 @@ struct KnowledgeView: View {
                     // Untagged, so the list's selection and keyboard commands skip it.
                     CorrectionSuggestions()
                         .kukuListRow(EdgeInsets(
-                            top: appState.data.knowledgeEntities.isEmpty ? KukuLayout.contentTop : 0,
+                            top: appState.data.memoryEntities.isEmpty ? KukuLayout.contentTop : 0,
                             leading: 0,
                             bottom: KukuLayout.sectionSpacing,
                             trailing: 0
@@ -151,13 +151,13 @@ struct KnowledgeView: View {
         }
     }
 
-    private func selectedEntity(in entities: [KnowledgeEntity]) -> KnowledgeEntity? {
+    private func selectedEntity(in entities: [MemoryEntity]) -> MemoryEntity? {
         entities.first { $0.id == selection }
     }
 
     @ViewBuilder
     private var emptyState: some View {
-        if appState.data.knowledgeEntities.isEmpty {
+        if appState.data.memoryEntities.isEmpty {
             KukuEmptyState(
                 title: localized("Nothing remembered yet"),
                 symbol: "books.vertical",
@@ -211,9 +211,9 @@ struct KnowledgeView: View {
         .padding(.bottom, KukuSpacing.sm)
     }
 
-    private func delete(_ entity: KnowledgeEntity) {
+    private func delete(_ entity: MemoryEntity) {
         if selection == entity.id { selection = filteredEntities.selectionAfterRemoving(entity.id) }
-        appState.data.removeKnowledge(id: entity.id)
+        appState.data.removeMemory(id: entity.id)
     }
 }
 
@@ -282,7 +282,7 @@ private struct CorrectionRow: View {
 }
 
 private struct EntityRow: View {
-    let entity: KnowledgeEntity
+    let entity: MemoryEntity
     let isSelected: Bool
     let onDelete: () -> Void
     let onEdit: () -> Void
@@ -352,17 +352,17 @@ private struct EntityRow: View {
     }
 }
 
-private struct KnowledgeFormSheet: View {
+private struct MemoryFormSheet: View {
     @Environment(AppState.self) private var appState
     @Environment(\.dismiss) private var dismiss
-    let entity: KnowledgeEntity?
+    let entity: MemoryEntity?
     @State private var name: String
     @State private var type: EntityType
     @State private var detail: String
     @State private var aliases: String
     @State private var note: KukuSheetNote?
 
-    init(entity: KnowledgeEntity? = nil) {
+    init(entity: MemoryEntity? = nil) {
         self.entity = entity
         _name = State(initialValue: entity?.name ?? "")
         _type = State(initialValue: entity?.type ?? .term)
@@ -467,11 +467,11 @@ private struct KnowledgeFormSheet: View {
             .split(whereSeparator: { $0 == "," || $0 == "，" || $0 == "、" })
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
-        let error: KnowledgeSaveError?
+        let error: MemorySaveError?
         if let entity {
-            error = appState.data.updateKnowledge(id: entity.id, name: name, type: type, detail: detail, aliases: editedAliases)
+            error = appState.data.updateMemory(id: entity.id, name: name, type: type, detail: detail, aliases: editedAliases)
         } else {
-            error = appState.data.addKnowledge(name: name, type: type, detail: detail, aliases: editedAliases)
+            error = appState.data.addMemory(name: name, type: type, detail: detail, aliases: editedAliases)
         }
         // The sheet covers the toast area, so failures stay in the footer.
         if let error {
@@ -482,13 +482,13 @@ private struct KnowledgeFormSheet: View {
     }
 }
 
-private struct KnowledgeImportSheet: View {
+private struct MemoryImportSheet: View {
     @Environment(AppState.self) private var appState
     @Environment(\.dismiss) private var dismiss
     @State private var reviewing = false
     @State private var source = ""
     @State private var selected = Set<UUID>()
-    @State private var analysis: KnowledgeAnalysis?
+    @State private var analysis: MemoryAnalysis?
     @State private var analysisTask: Task<Void, Never>?
     @State private var errorMessage: String?
     @State private var confirmingDiscard = false
@@ -594,7 +594,7 @@ private struct KnowledgeImportSheet: View {
                         badge: badge(for: candidate),
                         badgeTone: candidate.status.tone,
                         badgeSymbol: candidate.status.symbol,
-                        detail: KnowledgePipeline.displayEvidence(candidate.evidence),
+                        detail: MemoryPipeline.displayEvidence(candidate.evidence),
                         trailing: ignored ? nil : candidate.entity.type.title,
                         isSelected: selected.contains(candidate.id),
                         isIgnored: ignored
@@ -653,7 +653,7 @@ private struct KnowledgeImportSheet: View {
 
     private func badge(for candidate: ImportCandidate) -> String {
         guard candidate.status == .conflict,
-              let match = appState.data.knowledgeEntities.first(where: { $0.id == candidate.matchedEntityID }) else {
+              let match = appState.data.memoryEntities.first(where: { $0.id == candidate.matchedEntityID }) else {
             return candidate.status.title
         }
         return localized("May duplicate “\(match.name)”")
@@ -684,7 +684,7 @@ private struct KnowledgeImportSheet: View {
         errorMessage = nil
         analysisTask = Task {
             do {
-                let value = try await appState.analyzeKnowledge(source)
+                let value = try await appState.analyzeMemory(source)
                 analysis = value
                 selected = Set(value.candidates.filter { $0.status == .new || $0.status == .merge }.map(\.id))
                 withAnimation(Motion.panel) { reviewing = true }
@@ -698,7 +698,7 @@ private struct KnowledgeImportSheet: View {
     private func importSelection() {
         guard let analysis, !selected.isEmpty else { return }
         let count = selected.count
-        appState.data.commitKnowledge(analysis, selectedIDs: selected)
+        appState.data.commitMemory(analysis, selectedIDs: selected)
         appState.showToast(
             localized("Imported \(count) items to Memory"),
             symbol: "checkmark.seal.fill"

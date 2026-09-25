@@ -236,7 +236,7 @@ final class MicrophoneTestController {
             let value = Self.normalizedLevel(from: buffer)
             Task { @MainActor [weak self] in
                 guard let self, self.phase == .running else { return }
-                self.level = (self.level * 0.55) + (value * 0.45)
+                self.level = AudioLevel.smoothed(previous: self.level, next: value)
             }
         }
         input.installTap(onBus: 0, bufferSize: 2_048, format: format, block: levelHandler)
@@ -285,8 +285,6 @@ final class MicrophoneTestController {
             }
         }
 
-        let rms = sqrt(sum / Float(frameCount * channelCount))
-        let decibels = 20 * log10(max(rms, 0.000_001))
-        return Double(min(1, max(0, (decibels + 58) / 58)))
+        return AudioLevel.normalized(rms: Double(sqrt(sum / Float(frameCount * channelCount))))
     }
 }
