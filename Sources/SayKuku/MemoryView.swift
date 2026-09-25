@@ -11,8 +11,8 @@ struct MemoryView: View {
                 eyebrow: appState.text("记忆", "Memory"),
                 title: appState.text("越用越懂你", "Learns as you go"),
                 subtitle: appState.text(
-                    "纠正建议经你确认才会保存，最近对话 30 分钟后自动清除。",
-                    "Corrections are saved only after you approve them. Recent conversations clear after 30 minutes."
+                    "纠正建议经你确认才会进入知识；最近对话 30 分钟后自动清除。",
+                    "Corrections go into Knowledge only after you approve them. Recent conversations clear after 30 minutes."
                 )
             )
 
@@ -36,10 +36,8 @@ struct MemoryView: View {
                                 CorrectionRow(item: item)
                             }
                         }
-                    } else if selectedScope == .shortTerm {
-                        SessionMemoryView()
                     } else {
-                        LongTermMemoryView()
+                        SessionMemoryView()
                     }
                 }
             }
@@ -301,71 +299,13 @@ private struct SessionRow: View {
     }
 }
 
-private struct LongTermMemoryView: View {
-    @Environment(AppState.self) private var appState
-
-    private struct MemoryGroup {
-        let title: String
-        let symbol: String
-        let lines: [String]
-    }
-
-    private var groups: [MemoryGroup] {
-        let names = appState.knowledgeEntities.prefix(8).map(\.name).joined(separator: appState.text("、", ", "))
-        return [
-            MemoryGroup(title: appState.text("已保存的名称", "Saved names"), symbol: "character.cursor.ibeam", lines: names.isEmpty ? [] : [names])
-        ].filter { !$0.lines.isEmpty }
-    }
-
-    var body: some View {
-        let groups = self.groups
-        if groups.isEmpty {
-            KukuEmptyState(
-                title: appState.text("还没有长期记忆", "No long-term memory yet"),
-                symbol: "books.vertical",
-                message: appState.text(
-                    "你在“知识”中添加的名称和接受的纠正建议会显示在这里，识别时也会参考。",
-                    "Names you add to Knowledge and corrections you accept show up here and help recognition."
-                )
-            ) {
-                Button(appState.text("打开“知识”", "Open Knowledge")) { appState.destination = .knowledge }
-                    .buttonStyle(.kukuSecondary)
-            }
-        } else {
-            VStack(spacing: KukuLayout.listSpacing) {
-                ForEach(groups, id: \.title) { group in
-                    HStack(spacing: KukuSpacing.md) {
-                        KukuIconTile(symbol: group.symbol)
-                        VStack(alignment: .leading, spacing: KukuSpacing.xxs) {
-                            Text(group.title)
-                                .font(.kuku(.headline))
-                                .foregroundStyle(KukuColor.textPrimary)
-                            ForEach(Array(group.lines.enumerated()), id: \.offset) { _, line in
-                                Text(line)
-                                    .font(.kuku(.subheadline))
-                                    .foregroundStyle(KukuColor.textSecondary)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                        }
-                        Spacer(minLength: KukuSpacing.md)
-                        Button(appState.text("在“知识”中管理", "Manage in Knowledge")) { appState.destination = .knowledge }
-                            .buttonStyle(.kukuSecondary)
-                    }
-                    .kukuCard()
-                }
-            }
-        }
-    }
-}
-
 enum MemoryScope: String, CaseIterable, Identifiable {
-    case corrections, shortTerm, longTerm
+    case corrections, shortTerm
     var id: String { rawValue }
     @MainActor func title(_ appState: AppState) -> String {
         switch self {
         case .corrections: appState.text("纠正", "Corrections")
         case .shortTerm: appState.text("短期", "Short-Term")
-        case .longTerm: appState.text("长期", "Long-Term")
         }
     }
 }

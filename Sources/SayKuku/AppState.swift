@@ -108,9 +108,6 @@ final class AppState {
     var selectedDomains: Set<DomainPreset> = [] {
         didSet { defaults.set(selectedDomains.map(\.rawValue).sorted(), forKey: Keys.selectedDomains) }
     }
-    var customDomainTerms: [String] = [] {
-        didSet { defaults.set(customDomainTerms, forKey: Keys.customDomainTerms) }
-    }
     var didCompleteOnboarding = false {
         didSet { defaults.set(didCompleteOnboarding, forKey: Keys.didCompleteOnboarding) }
     }
@@ -488,10 +485,17 @@ final class AppState {
 
     /// Returns why the item couldn't be saved, or `nil` once it's added.
     func addKnowledge(name: String, type: EntityType, detail: String? = nil, aliases: [String] = []) -> KnowledgeSaveError? {
-        let candidate = KnowledgeEntity(name: name, detail: detail ?? "", type: type, aliases: aliases)
+        if let error = insertKnowledge(KnowledgeEntity(name: name, detail: detail ?? "", type: type, aliases: aliases)) {
+            return error
+        }
+        showToast(text("已加入知识", "Added to Knowledge"), symbol: "checkmark.circle.fill")
+        return nil
+    }
+
+    /// Adds the item without a toast; returns why it couldn't be added.
+    private func insertKnowledge(_ candidate: KnowledgeEntity) -> KnowledgeSaveError? {
         if let error = validateKnowledge(candidate) { return error }
         knowledgeEntities.insert(candidate, at: 0)
-        showToast(text("已加入知识", "Added to Knowledge"), symbol: "checkmark.circle.fill")
         return nil
     }
 
@@ -522,7 +526,7 @@ final class AppState {
         return nil
     }
 
-    private func validateKnowledge(_ candidate: KnowledgeEntity) -> KnowledgeSaveError? {
+    func validateKnowledge(_ candidate: KnowledgeEntity) -> KnowledgeSaveError? {
         guard !candidate.normalizedKey.isEmpty else { return .emptyName }
         if let existing = knowledgeEntities.first(where: { $0.id != candidate.id && $0.normalizedKey == candidate.normalizedKey }) {
             return .duplicate(existingName: existing.name)
@@ -708,10 +712,9 @@ final class AppState {
         if !systemPermissions.allRequiredPermissionsGranted { presentedSheet = .permissions }
     }
     func showDomainOnboarding() { presentedSheet = .onboarding }
-    func completeDomainOnboarding(domains: Set<DomainPreset>, customTerms: [String]) {
+    func completeDomainOnboarding(domains: Set<DomainPreset>) {
         if !didCompleteOnboarding { pendingSetupSteps = [.permissions, .qwenSetup] }
         selectedDomains = domains
-        customDomainTerms = Self.normalizedDomainTerms(customTerms)
         didCompleteOnboarding = true
         presentedSheet = nil
     }
@@ -870,7 +873,6 @@ final class AppState {
                     browserPageAllowed: browserPageAllowed,
                     session: conversation.last,
                     domains: selectedDomains,
-                    customDomainTerms: customDomainTerms,
                     knowledge: knowledgeEntities,
                     isChineseUI: usesChineseUI
                 )
@@ -1158,14 +1160,13 @@ final class AppState {
         return try SpeechDisfluencyCleaner.dictation(result, mode: dictationCleanup)
     }
 
-    /// Saved knowledge and domain terms for a prompt; the Agent leaves out whichever the user removed from its context.
+    /// Saved knowledge and domain presets for a prompt; the Agent leaves out whichever the user removed from its context.
     private func renderKnowledgePrompt(
         _ purpose: KnowledgePrompt.Purpose, includesKnowledge: Bool = true, includesDomains: Bool = true
     ) -> String {
         KnowledgePrompt.render(
             entities: includesKnowledge ? knowledgeEntities : [],
             domains: includesDomains ? selectedDomains : [],
-            customTerms: includesDomains ? customDomainTerms : [],
             purpose: purpose
         )
     }
@@ -1539,6 +1540,7 @@ final class AppState {
         cleanExpiredHistory()
         // Saving before every array is in place would replace the stored data with part of it.
         isLoaded = true
+        migrateLegacyCustomTerms()
         schedulePersistence()
         if localDataIssue != nil {
             showToast(
@@ -1546,6 +1548,14 @@ final class AppState {
                 symbol: "exclamationmark.triangle.fill"
             )
         }
+    }
+
+    /// Earlier builds kept custom words in defaults; they now live in Knowledge as terms.
+    /// Runs once Knowledge has loaded, so words already saved there are skipped as duplicates.
+    private func migrateLegacyCustomTerms() {
+        guard let terms = defaults.stringArray(forKey: Keys.legacyCustomTerms) else { return }
+        for term in terms { _ = insertKnowledge(KnowledgeEntity(name: term, type: .term)) }
+        defaults.removeObject(forKey: Keys.legacyCustomTerms)
     }
 
     /// Keeps records added while loading; stored records fill in the rest.
@@ -1635,7 +1645,6 @@ final class AppState {
         if let raw = defaults.string(forKey: Keys.dictationCleanup),
            let value = DictationCleanup(rawValue: raw) { dictationCleanup = value }
         selectedDomains = Set((defaults.stringArray(forKey: Keys.selectedDomains) ?? []).compactMap(DomainPreset.init(rawValue:)))
-        customDomainTerms = Self.normalizedDomainTerms(defaults.stringArray(forKey: Keys.customDomainTerms) ?? [])
         didCompleteOnboarding = defaults.bool(forKey: Keys.didCompleteOnboarding)
         if let raw = defaults.string(forKey: Keys.historyRetention), let value = HistoryRetention(rawValue: raw) { historyRetention = value }
         if let raw = defaults.string(forKey: Keys.qwenRegion), let value = QwenRegion(rawValue: raw) { qwenRegion = value }
@@ -1679,7 +1688,7 @@ final class AppState {
         static let inputMode = "inputMode", language = "appLanguage", autoStop = "autoStop"
         static let recognitionLanguage = "dictation.recognitionLanguage", dictationNumberFormat = "dictation.numberFormat"
         static let dictationCleanup = "dictation.cleanup", soundCues = "voice.soundCues"
-        static let selectedDomains = "dictation.selectedDomains", customDomainTerms = "dictation.customDomainTerms"
+        static let selectedDomains = "dictation.selectedDomains", legacyCustomTerms = "dictation.customDomainTerms"
         static let didCompleteOnboarding = "onboarding.completed"
         static let continuousConversation = "continuousConversation", learnCorrections = "learnFromCorrections"
         static let automaticAgentWriteBack = "agent.automaticWriteBack", searchEngine = "agent.searchEngine"
@@ -1702,21 +1711,6 @@ final class AppState {
             setupProgress = SetupProgress(step: 1, total: 1 + laterSteps.count)
             presentedSheet = .onboarding
         }
-    }
-
-    nonisolated static let maxDomainTerms = 20
-    nonisolated static let maxDomainTermLength = 64
-
-    nonisolated static func normalizedDomainTerms(_ terms: [String]) -> [String] {
-        var seen = Set<String>()
-        return terms.compactMap { term in
-            let value = term.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !value.isEmpty, value.count <= maxDomainTermLength else { return nil }
-            // Fixed locale so deduplication does not depend on the system language.
-            let key = value.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))
-            guard seen.insert(key).inserted else { return nil }
-            return value
-        }.prefix(maxDomainTerms).map { $0 }
     }
 }
 

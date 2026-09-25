@@ -62,13 +62,11 @@ enum KnowledgePrompt {
     static func render(
         entities: [KnowledgeEntity],
         domains: Set<DomainPreset> = [],
-        customTerms: [String] = [],
         purpose: Purpose
     ) -> String {
-        let domainLines = DomainPreset.allCases.compactMap { domain -> String? in
-            guard domains.contains(domain) else { return nil }
-            return "- domain: \(domain.promptName); likely terms: \(domain.vocabulary.joined(separator: ", "))"
-        } + customTerms.map { "- user term with preferred spelling: \(quoted($0))" }
+        let domainLines = DomainPreset.allCases.filter(domains.contains).map { domain in
+            "- domain: \(domain.promptName); likely terms: \(domain.vocabulary.joined(separator: ", "))"
+        }
 
         // Size control only selects which entries enter the prompt; each entry keeps its full structure.
         let budget = purpose.budget
@@ -77,7 +75,7 @@ enum KnowledgePrompt {
 
         let domainGuidance = switch purpose {
         case .transcription:
-            "Weak recognition priors: use them only to pick a likely term or spelling when the audio is ambiguous. User terms are preferred spellings when acoustically supported. Never insert an unspoken term, answer the speaker, or rewrite the utterance."
+            "Weak recognition priors: use them only to pick a likely term or spelling when the audio is ambiguous. Never insert an unspoken term, answer the speaker, or rewrite the utterance."
         case .agent:
             "Soft context about the user's usual work, not necessarily the current task. Use it to read ambiguous wording and pick terminology. Never let it override the spoken command, selected text, app context, or explicit constraints, and do not mention it unless relevant."
         }
