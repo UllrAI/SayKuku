@@ -20,12 +20,12 @@ struct KnowledgeView: View {
 
     /// Suggestions sit above the full list only; a search or category narrows the page to saved items.
     private var showsSuggestions: Bool {
-        filter == nil && query.isEmpty && !appState.pendingCorrections.isEmpty
+        filter == nil && query.isEmpty && !appState.data.pendingCorrections.isEmpty
     }
 
     private var filteredEntities: [KnowledgeEntity] {
         let text = query
-        return appState.knowledgeEntities.filter { entity in
+        return appState.data.knowledgeEntities.filter { entity in
             (filter == nil || entity.type == filter) && (text.isEmpty || Self.entity(entity, matches: text))
         }.sorted { $0.createdAt > $1.createdAt }
     }
@@ -101,7 +101,7 @@ struct KnowledgeView: View {
     private var entityList: some View {
         let entities = filteredEntities
         return VStack(spacing: 0) {
-            if !appState.knowledgeEntities.isEmpty {
+            if !appState.data.knowledgeEntities.isEmpty {
                 searchBar(count: entities.count)
             }
 
@@ -110,7 +110,7 @@ struct KnowledgeView: View {
                     // Untagged, so the list's selection and keyboard commands skip it.
                     CorrectionSuggestions()
                         .kukuListRow(EdgeInsets(
-                            top: appState.knowledgeEntities.isEmpty ? KukuLayout.contentTop : 0,
+                            top: appState.data.knowledgeEntities.isEmpty ? KukuLayout.contentTop : 0,
                             leading: 0,
                             bottom: KukuLayout.sectionSpacing,
                             trailing: 0
@@ -157,7 +157,7 @@ struct KnowledgeView: View {
 
     @ViewBuilder
     private var emptyState: some View {
-        if appState.knowledgeEntities.isEmpty {
+        if appState.data.knowledgeEntities.isEmpty {
             KukuEmptyState(
                 title: localized("Nothing remembered yet"),
                 symbol: "books.vertical",
@@ -213,7 +213,7 @@ struct KnowledgeView: View {
 
     private func delete(_ entity: KnowledgeEntity) {
         if selection == entity.id { selection = filteredEntities.selectionAfterRemoving(entity.id) }
-        appState.knowledgeEntities.removeAll { $0.id == entity.id }
+        appState.data.removeKnowledge(id: entity.id)
     }
 }
 
@@ -222,7 +222,7 @@ private struct CorrectionSuggestions: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
-        let pending = appState.pendingCorrections
+        let pending = appState.data.pendingCorrections
         KukuGroup(localized("Suggestions")) {
             ForEach(pending) { item in
                 if item.id != pending.first?.id { KukuDivider() }
@@ -267,12 +267,12 @@ private struct CorrectionRow: View {
             }
             Spacer(minLength: KukuSpacing.md)
             Button(localized("Ignore")) {
-                withAnimation(Motion.snappy) { appState.ignoreCorrection(item.id) }
+                withAnimation(Motion.snappy) { appState.data.ignoreCorrection(item.id) }
                 appState.showToast(localized("Suggestion ignored"), symbol: "xmark.circle")
             }
             .buttonStyle(.kukuSecondary)
             Button(localized("Remember")) {
-                withAnimation(Motion.spring) { appState.acceptCorrection(item.id) }
+                withAnimation(Motion.spring) { appState.data.acceptCorrection(item.id) }
                 appState.showToast(localized("Remembered"), symbol: "checkmark.circle.fill")
             }
             .buttonStyle(.kukuSecondary)
@@ -469,9 +469,9 @@ private struct KnowledgeFormSheet: View {
             .filter { !$0.isEmpty }
         let error: KnowledgeSaveError?
         if let entity {
-            error = appState.updateKnowledge(id: entity.id, name: name, type: type, detail: detail, aliases: editedAliases)
+            error = appState.data.updateKnowledge(id: entity.id, name: name, type: type, detail: detail, aliases: editedAliases)
         } else {
-            error = appState.addKnowledge(name: name, type: type, detail: detail, aliases: editedAliases)
+            error = appState.data.addKnowledge(name: name, type: type, detail: detail, aliases: editedAliases)
         }
         // The sheet covers the toast area, so failures stay in the footer.
         if let error {
@@ -653,7 +653,7 @@ private struct KnowledgeImportSheet: View {
 
     private func badge(for candidate: ImportCandidate) -> String {
         guard candidate.status == .conflict,
-              let match = appState.knowledgeEntities.first(where: { $0.id == candidate.matchedEntityID }) else {
+              let match = appState.data.knowledgeEntities.first(where: { $0.id == candidate.matchedEntityID }) else {
             return candidate.status.title
         }
         return localized("May duplicate “\(match.name)”")
@@ -698,7 +698,7 @@ private struct KnowledgeImportSheet: View {
     private func importSelection() {
         guard let analysis, !selected.isEmpty else { return }
         let count = selected.count
-        appState.commitKnowledge(analysis, selectedIDs: selected)
+        appState.data.commitKnowledge(analysis, selectedIDs: selected)
         appState.showToast(
             localized("Imported \(count) items to Memory"),
             symbol: "checkmark.seal.fill"

@@ -334,18 +334,18 @@ struct PersistenceTests {
         try await LocalStore(root: environment.root).replace(.init(history: [stored]))
         let state = environment.makeState(persistenceDelay: .seconds(60))
 
-        let loading = Task { await state.loadStoredData() }
+        let loading = Task { await state.data.loadStoredData() }
         await Task.yield()
         let recorded = historyEntry("recorded")
         let entity = KnowledgeEntity(name: "SayKuku", type: .project)
-        state.historyEntries.insert(recorded, at: 0)
-        state.knowledgeEntities.append(entity)
+        state.data.historyEntries.insert(recorded, at: 0)
+        state.data.knowledgeEntities.append(entity)
         await loading.value
-        await state.loadStoredData()
-        #expect(Set(state.historyEntries.map(\.id)) == [stored.id, recorded.id])
-        #expect(state.knowledgeEntities.map(\.id) == [entity.id])
+        await state.data.loadStoredData()
+        #expect(Set(state.data.historyEntries.map(\.id)) == [stored.id, recorded.id])
+        #expect(state.data.knowledgeEntities.map(\.id) == [entity.id])
 
-        await state.flushPersistence()
+        await state.data.flushPersistence()
         let saved = try await LocalStore(root: environment.root).load()
         #expect(Set(saved.history.map(\.id)) == [stored.id, recorded.id])
         #expect(saved.entities.map(\.id) == [entity.id])
@@ -358,13 +358,13 @@ struct PersistenceTests {
         defer { environment.clean() }
         let snapshotURL = environment.root.appendingPathComponent("store.json")
         let state = environment.makeState(persistenceDelay: .seconds(60))
-        await state.loadStoredData()
+        await state.data.loadStoredData()
 
-        for text in ["first", "second", "third"] { state.historyEntries.insert(historyEntry(text), at: 0) }
-        state.toggleHistoryStar(state.historyEntries[0].id)
+        for text in ["first", "second", "third"] { state.data.historyEntries.insert(historyEntry(text), at: 0) }
+        state.data.toggleHistoryStar(state.data.historyEntries[0].id)
         #expect(!FileManager.default.fileExists(atPath: snapshotURL.path))
 
-        await state.flushPersistence()
+        await state.data.flushPersistence()
         let saved = try await LocalStore(root: environment.root).load()
         #expect(saved.history.map(\.input) == ["third", "second", "first"])
         #expect(saved.history.first?.isStarred == true)
@@ -377,9 +377,9 @@ struct PersistenceTests {
         defer { environment.clean() }
         let snapshotURL = environment.root.appendingPathComponent("store.json")
         let state = environment.makeState(persistenceDelay: .milliseconds(10))
-        await state.loadStoredData()
+        await state.data.loadStoredData()
 
-        state.historyEntries = [historyEntry("saved later")]
+        state.data.historyEntries = [historyEntry("saved later")]
         #expect(await eventually {
             guard let data = try? Data(contentsOf: snapshotURL) else { return false }
             return String(decoding: data, as: UTF8.self).contains("saved later")
@@ -425,21 +425,21 @@ struct PersistenceTests {
         )
         let starred = HistoryEntry(mode: .agent, app: "Mail", durationSeconds: 1, input: "draft", output: "reply", isStarred: true)
         let plain = HistoryEntry(mode: .dictation, app: "Notes", durationSeconds: 1, input: "plain", output: "plain")
-        state.historyEntries = [recorded, starred, plain]
+        state.data.historyEntries = [recorded, starred, plain]
 
-        state.toggleHistoryStar(plain.id)
-        #expect(state.historyEntries.first(where: { $0.id == plain.id })?.isStarred == true)
-        state.toggleHistoryStar(plain.id)
-        state.toggleHistoryStar(UUID())
+        state.data.toggleHistoryStar(plain.id)
+        #expect(state.data.historyEntries.first(where: { $0.id == plain.id })?.isStarred == true)
+        state.data.toggleHistoryStar(plain.id)
+        state.data.toggleHistoryStar(UUID())
 
-        state.deleteHistoryEntry(recorded.id)
-        #expect(state.historyEntries.map(\.id) == [starred.id, plain.id])
+        state.data.deleteHistoryEntry(recorded.id)
+        #expect(state.data.historyEntries.map(\.id) == [starred.id, plain.id])
         #expect(await eventually { !FileManager.default.fileExists(atPath: audioURL.path) })
 
-        state.clearHistory(keepingStarred: true)
-        #expect(state.historyEntries.map(\.id) == [starred.id])
-        state.clearHistory(keepingStarred: false)
-        #expect(state.historyEntries.isEmpty)
+        state.data.clearHistory(keepingStarred: true)
+        #expect(state.data.historyEntries.map(\.id) == [starred.id])
+        state.data.clearHistory(keepingStarred: false)
+        #expect(state.data.historyEntries.isEmpty)
     }
 
     @Test("legacy history without a status remains readable")
@@ -473,7 +473,7 @@ struct PersistenceTests {
             audioFilename: "a.wav", status: .processing
         )
         let completed = HistoryEntry(mode: .agent, app: "Mail", durationSeconds: 2, input: "a", output: "b")
-        let recovered = AppState.recoveringInterruptedHistory([interrupted, completed], message: "SayKuku quit before this finished")
+        let recovered = LocalData.recoveringInterruptedHistory([interrupted, completed], message: "SayKuku quit before this finished")
 
         #expect(recovered[0].status == .failed)
         #expect(recovered[0].errorMessage == "SayKuku quit before this finished")

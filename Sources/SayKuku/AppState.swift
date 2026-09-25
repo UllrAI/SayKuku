@@ -112,13 +112,6 @@ final class AppState {
     /// Buttons after the overlay message, secondary first and primary last; empty for a plain notice.
     private(set) var overlayButtons: [OverlayButton] = []
     var toast: ToastMessage?
-    var historyEntries: [HistoryEntry] = [] { didSet { schedulePersistence() } }
-    var knowledgeEntities: [KnowledgeEntity] = [] { didSet { schedulePersistence() } }
-    var corrections: [CorrectionRecord] = [] { didSet { schedulePersistence() } }
-    /// Correction suggestions still waiting for an answer.
-    var pendingCorrections: [CorrectionRecord] { corrections.filter { $0.status == .pending } }
-    private(set) var localDataIssue: LocalStore.DataIssue?
-    private(set) var legacyDataURL: URL?
     var shortcutStatus: ShortcutStatus = .starting
     var presentedSheet: AppSheet? {
         // Covers every close path (buttons, Esc, dismiss()) without relying on sheet onDismiss.
@@ -129,10 +122,10 @@ final class AppState {
     var launchAtLogin = false
     var connectionState: ConnectionState = .idle
     let settings: AppSettings
+    let data: LocalData
     let systemPermissions: SystemPermissionController
     let microphoneTest = MicrophoneTestController()
 
-    @ObservationIgnored private let store: LocalStore
     @ObservationIgnored private let audioCapture: any AudioCapturing
     @ObservationIgnored private let realtimeClient: any RealtimeTranscribing
     @ObservationIgnored private let reasoningClient: any Reasoning
@@ -162,11 +155,6 @@ final class AppState {
     @ObservationIgnored private(set) var updater: SPUStandardUpdaterController?
     @ObservationIgnored private var didEvaluateStartupPermissions = false
     @ObservationIgnored private var pendingSetupSteps: [AppSheet] = []
-    @ObservationIgnored private var didStartLoading = false
-    @ObservationIgnored private var isLoaded = false
-    @ObservationIgnored private var persistenceGeneration = 0
-    @ObservationIgnored private let persistenceDelay: Duration
-    @ObservationIgnored private var persistenceTask: Task<Void, Never>?
 
     static let mainWindowID = "main"
     /// Keeps every recording under `QwenReasoningClient.maximumAudioBytes`, so streamed dictation
@@ -202,9 +190,9 @@ final class AppState {
         persistenceDelay: Duration = .milliseconds(500),
         dependencies: Dependencies = .live
     ) {
-        settings = AppSettings(defaults: defaults, keychain: keychain)
-        self.store = store
-        self.persistenceDelay = persistenceDelay
+        let settings = AppSettings(defaults: defaults, keychain: keychain)
+        self.settings = settings
+        data = LocalData(store: store, settings: settings, persistenceDelay: persistenceDelay)
         audioCapture = dependencies.audioCapture
         realtimeClient = dependencies.realtimeClient
         reasoningClient = dependencies.reasoningClient
@@ -213,7 +201,8 @@ final class AppState {
         launchAtLogin = SMAppService.mainApp.status == .enabled
         systemPermissions.accessibilityChangeHandler = { [weak self] in self?.refreshSystemPermissions() }
         settings.qwenConnectionChangeHandler = { [weak self] in self?.invalidateConnectionTest() }
-        settings.historyRetentionChangeHandler = { [weak self] in self?.cleanExpiredHistory() }
+        settings.historyRetentionChangeHandler = { [weak self] in self?.data.cleanExpiredHistory() }
+        data.toastHandler = { [weak self] text, symbol in self?.showToast(text, symbol: symbol) }
         settings.globalShortcutChangeHandler = { [weak self] in self?.shortcutController?.reloadHotKeys() }
     }
 
@@ -240,7 +229,7 @@ final class AppState {
         }
         let recording = stopRecording()
         playSoundCue(.stop)
-        let historyID = beginHistoryEntry(mode: .dictation, recording: recording)
+        let historyID = data.beginHistoryEntry(mode: .dictation, recording: recording, snapshot: targetSnapshot)
         let snapshot = targetSnapshot
         let upload = uploadTask
         let realtimeSession = realtimeSessionID
@@ -271,7 +260,7 @@ final class AppState {
         }
         let recording = stopRecording()
         playSoundCue(.stop)
-        let historyID = beginHistoryEntry(mode: .agent, recording: recording)
+        let historyID = data.beginHistoryEntry(mode: .agent, recording: recording, snapshot: targetSnapshot)
         let snapshot = targetSnapshot
         let context = contextItems
         let conversation = activeAgentSessions
@@ -414,7 +403,7 @@ final class AppState {
         let controller = ShortcutController(appState: self)
         shortcutController = controller
         controller.start()
-        Task { await loadStoredData() }
+        Task { await data.loadStoredData() }
         Task { @MainActor [weak self] in
             await Task.yield()
             self?.presentStartupExperienceIfNeeded()
@@ -427,75 +416,7 @@ final class AppState {
         for chunk in KnowledgePipeline.chunks(redacted.text) {
             entities += try await reasoningClient.extractKnowledge(apiKey: settings.apiKey, configuration: settings.configuration, text: chunk)
         }
-        return KnowledgePipeline.analyze(proposals: entities, existing: knowledgeEntities, ignored: redacted.ignored)
-    }
-
-    func commitKnowledge(_ analysis: KnowledgeAnalysis, selectedIDs: Set<UUID>) {
-        knowledgeEntities = KnowledgePipeline.commit(analysis: analysis, selectedIDs: selectedIDs, existing: knowledgeEntities)
-    }
-
-    /// Returns why the item couldn't be saved, or `nil` once it's added.
-    func addKnowledge(name: String, type: EntityType, detail: String? = nil, aliases: [String] = []) -> KnowledgeSaveError? {
-        if let error = insertKnowledge(KnowledgeEntity(name: name, detail: detail ?? "", type: type, aliases: aliases)) {
-            return error
-        }
-        showToast(localized("Remembered"), symbol: "checkmark.circle.fill")
-        return nil
-    }
-
-    /// Adds the item without a toast; returns why it couldn't be added.
-    private func insertKnowledge(_ candidate: KnowledgeEntity) -> KnowledgeSaveError? {
-        if let error = validateKnowledge(candidate) { return error }
-        knowledgeEntities.insert(candidate, at: 0)
-        return nil
-    }
-
-    /// Returns why the edit couldn't be saved, or `nil` once it's applied.
-    func updateKnowledge(
-        id: UUID,
-        name: String,
-        type: EntityType,
-        detail: String,
-        aliases: [String]
-    ) -> KnowledgeSaveError? {
-        // The item was removed elsewhere; there is nothing left to update.
-        guard let index = knowledgeEntities.firstIndex(where: { $0.id == id }) else { return nil }
-
-        let candidate = KnowledgeEntity(
-            id: id,
-            name: name,
-            detail: detail,
-            type: type,
-            aliases: aliases,
-            source: knowledgeEntities[index].source,
-            createdAt: knowledgeEntities[index].createdAt
-        )
-        if let error = validateKnowledge(candidate) { return error }
-
-        knowledgeEntities[index] = candidate
-        showToast(localized("Memory updated"), symbol: "checkmark.circle.fill")
-        return nil
-    }
-
-    func validateKnowledge(_ candidate: KnowledgeEntity) -> KnowledgeSaveError? {
-        guard !candidate.normalizedKey.isEmpty else { return .emptyName }
-        if let existing = knowledgeEntities.first(where: { $0.id != candidate.id && $0.normalizedKey == candidate.normalizedKey }) {
-            return .duplicate(existingName: existing.name)
-        }
-        return nil
-    }
-
-    func acceptCorrection(_ id: UUID) {
-        guard let index = corrections.firstIndex(where: { $0.id == id }) else { return }
-        corrections[index].status = .accepted
-        let record = corrections[index]
-        knowledgeEntities = KnowledgePipeline.learn(
-            record.raw, as: record.corrected, clue: record.clue, into: knowledgeEntities
-        )
-    }
-
-    func ignoreCorrection(_ id: UUID) {
-        if let index = corrections.firstIndex(where: { $0.id == id }) { corrections[index].status = .ignored }
+        return KnowledgePipeline.analyze(proposals: entities, existing: data.knowledgeEntities, ignored: redacted.ignored)
     }
 
     /// Commits pending edits, then tests the saved credentials.
@@ -567,23 +488,18 @@ final class AppState {
         connectionState = settings.apiKey == key && settings.configuration == tested ? result : .idle
     }
 
-    func playAudio(for entry: HistoryEntry) async throws -> Data {
-        guard let filename = entry.audioFilename else { throw LocalStoreError.invalidAudioFilename }
-        return try await store.audio(named: filename)
-    }
-
     func retryDictation(_ id: UUID) async {
-        guard let index = historyEntries.firstIndex(where: { $0.id == id }),
-              historyEntries[index].canRetryTranscription,
-              let filename = historyEntries[index].audioFilename else { return }
+        guard let index = data.historyEntries.firstIndex(where: { $0.id == id }),
+              data.historyEntries[index].canRetryTranscription else { return }
+        let entry = data.historyEntries[index]
         guard !settings.apiKey.isEmpty else {
             showToast(QwenError.missingConfiguration.localizedDescription, symbol: "key.fill")
             return
         }
-        historyEntries[index].status = .processing
-        historyEntries[index].errorMessage = nil
+        data.historyEntries[index].status = .processing
+        data.historyEntries[index].errorMessage = nil
         do {
-            let wav = try await store.audio(named: filename)
+            let wav = try await data.audio(for: entry)
             let result = try await reasoningClient.transcribeAudio(
                 apiKey: settings.apiKey,
                 configuration: settings.configuration,
@@ -596,10 +512,10 @@ final class AppState {
                 knowledgePrompt: renderKnowledgePrompt(.transcription)
             )
             let cleaned = try SpeechDisfluencyCleaner.dictation(result, mode: settings.dictationCleanup)
-            updateHistory(id, input: cleaned, output: cleaned, status: .completed)
+            data.updateHistory(id, input: cleaned, output: cleaned, status: .completed)
             showToast(localized("Transcribed again"), symbol: "checkmark")
         } catch {
-            updateHistory(id, status: .failed, errorMessage: localizedError(error))
+            data.updateHistory(id, status: .failed, errorMessage: localizedError(error))
         }
     }
 
@@ -608,32 +524,6 @@ final class AppState {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
         showToast(localized("Copied"), symbol: "doc.on.doc")
-    }
-
-    func toggleHistoryStar(_ id: UUID) {
-        guard let index = historyEntries.firstIndex(where: { $0.id == id }) else { return }
-        historyEntries[index].isStarred.toggle()
-    }
-
-    func deleteHistoryEntry(_ id: UUID) {
-        removeHistory { $0.id == id }
-    }
-
-    func clearHistory(keepingStarred: Bool) {
-        removeHistory { !keepingStarred || !$0.isStarred }
-        showToast(
-            keepingStarred
-                ? localized("History cleared. Starred items were kept.")
-                : localized("History cleared"),
-            symbol: "trash"
-        )
-    }
-
-    func dismissLocalDataIssue() { localDataIssue = nil }
-
-    func dismissLegacyDataNotice() {
-        legacyDataURL = nil
-        settings.legacyDataNoticeDismissed = true
     }
 
     func revealInFinder(_ url: URL) {
@@ -883,7 +773,7 @@ final class AppState {
             screenText: settings.screenTextAllowed ? textInteraction.visibleText(in: snapshot) : "",
             session: conversation.last,
             domains: settings.selectedDomains,
-            knowledge: knowledgeEntities
+            knowledge: data.knowledgeEntities
         )
         // After a deletion the last write is kept only for undo; there is nothing left to revise.
         if let lastVerifiedWrite, lastVerifiedWrite.isRecent, !lastVerifiedWrite.text.isEmpty,
@@ -1039,10 +929,10 @@ final class AppState {
             guard !transcript.isEmpty else { throw QwenError.invalidResponse }
             guard let snapshot else { throw TextInteractionError.targetChanged }
             let raw = DictationTextJoiner.join(transcript, to: snapshot)
-            updateHistory(historyID, input: transcript, output: raw)
+            data.updateHistory(historyID, input: transcript, output: raw)
             do {
                 let outcome = try await textInteraction.write(raw, to: snapshot)
-                updateHistory(historyID, status: .completed)
+                data.updateHistory(historyID, status: .completed)
                 try Task.checkCancellation()
                 guard generation == workflowGeneration else { throw CancellationError() }
                 let verifiedWrite = outcome == .verified ? VerifiedWrite(target: snapshot, text: raw) : nil
@@ -1055,7 +945,7 @@ final class AppState {
                 // clipboard or cover a newer recording.
                 try Task.checkCancellation()
                 guard generation == workflowGeneration else { throw CancellationError() }
-                updateHistory(historyID, status: .completed)
+                data.updateHistory(historyID, status: .completed)
                 presentCopyFallback(raw, agent: false)
                 await realtimeClient.cancel(session: realtimeSession)
                 return
@@ -1066,7 +956,7 @@ final class AppState {
                 withAnimation(Motion.snappy) { dictationPhase = .idle }
             }
         } catch is CancellationError {
-            updateHistory(historyID, status: .cancelled)
+            data.updateHistory(historyID, status: .cancelled)
             if generation == workflowGeneration, dictationPhase == .processing { dictationPhase = .idle }
         } catch {
             finishFailedWorkflow(error, historyID: historyID, agent: false, generation: generation)
@@ -1107,8 +997,8 @@ final class AppState {
             let command = SpeechDisfluencyCleaner.clean(transcript, mode: .light)
             guard let snapshot else { throw TextInteractionError.targetChanged }
             // An empty result is not worth keeping; the Session still records the deletion.
-            if response.deletesPrevious, let historyID { deleteHistoryEntry(historyID) }
-            updateHistory(historyID, input: command)
+            if response.deletesPrevious, let historyID { data.deleteHistoryEntry(historyID) }
+            data.updateHistory(historyID, input: command)
             agentCommand = response.intent ?? response.action.title
             withAnimation(Motion.panel) { agentPhase = .processing }
             await executeAgent(
@@ -1116,7 +1006,7 @@ final class AppState {
                 command: command, historyID: historyID, generation: generation
             )
         } catch is CancellationError {
-            updateHistory(historyID, status: .cancelled)
+            data.updateHistory(historyID, status: .cancelled)
             if generation == workflowGeneration, agentPhase == .transcribing || agentPhase == .processing {
                 agentPhase = .hidden
             }
@@ -1180,7 +1070,7 @@ final class AppState {
         _ purpose: KnowledgePrompt.Purpose, includesKnowledge: Bool = true, includesDomains: Bool = true
     ) -> String {
         KnowledgePrompt.render(
-            entities: includesKnowledge ? knowledgeEntities : [],
+            entities: includesKnowledge ? data.knowledgeEntities : [],
             domains: includesDomains ? settings.selectedDomains : [],
             purpose: purpose
         )
@@ -1212,7 +1102,7 @@ final class AppState {
                             writeTarget = snapshot
                         }
                         let outcome = try await textInteraction.write(text, to: writeTarget)
-                        updateHistory(historyID, input: command, output: text, status: .completed)
+                        data.updateHistory(historyID, input: command, output: text, status: .completed)
                         try Task.checkCancellation()
                         guard generation == workflowGeneration else { throw CancellationError() }
                         lastVerifiedWrite = outcome == .verified ? VerifiedWrite(target: writeTarget, text: text) : nil
@@ -1240,14 +1130,14 @@ final class AppState {
                 try await AgentActionExecutor.execute(response, engine: settings.searchEngine)
                 output = response.url ?? response.query ?? response.shortcutName ?? ""
             }
-            updateHistory(historyID, input: command, output: output, status: .completed)
+            data.updateHistory(historyID, input: command, output: output, status: .completed)
             if settings.continuousConversation {
                 sessions = AgentSession.appending(AgentSession(
                     app: snapshot.bundleID,
                     contextSummary: QwenReasoningClient.sessionContextSummary(context: context, response: response),
                     userCommand: command,
                     response: output,
-                    expiresAt: .now.addingTimeInterval(30 * 60)
+                    expiresAt: .now.addingTimeInterval(AgentSession.ttl)
                 ), to: sessions)
             }
             // A write or action can finish after the user dismissed this workflow or started a new one.
@@ -1266,7 +1156,7 @@ final class AppState {
             }
             await showAgentResult(generation: generation)
         } catch is CancellationError {
-            updateHistory(historyID, status: .cancelled)
+            data.updateHistory(historyID, status: .cancelled)
             if generation == workflowGeneration { agentPhase = .hidden }
         } catch {
             finishFailedWorkflow(error, historyID: historyID, agent: true, generation: generation)
@@ -1284,67 +1174,21 @@ final class AppState {
     /// A workflow superseded by a cancel or a new recording is recorded as cancelled, not failed.
     private func finishFailedWorkflow(_ error: Error, historyID: UUID?, agent: Bool, generation: Int) {
         guard generation == workflowGeneration else {
-            updateHistory(historyID, status: .cancelled)
+            data.updateHistory(historyID, status: .cancelled)
             return
         }
-        updateHistory(historyID, status: .failed, errorMessage: localizedError(error))
+        data.updateHistory(historyID, status: .failed, errorMessage: localizedError(error))
         handleWorkflowError(error, agent: agent)
     }
 
-    private func beginHistoryEntry(mode: HistoryMode, recording: AudioCapture.Recording) -> UUID? {
-        guard settings.historyRetention != .off, let snapshot = targetSnapshot, !snapshot.isSensitive else { return nil }
-        let id = UUID()
-        historyEntries.insert(HistoryEntry(
-            id: id, mode: mode, app: snapshot.appName, durationSeconds: recording.duration,
-            input: "", output: "", status: .processing
-        ), at: 0)
-        cleanExpiredHistory()
-        return id
-    }
-
     private func persistHistoryAudio(_ recording: AudioCapture.Recording, historyID: UUID?) async {
-        guard let historyID else { return }
-        var saveFailed = false
-        if settings.storeVoiceAudio, !recording.wav.isEmpty {
-            do {
-                let filename = try await store.saveAudio(recording.wav, id: historyID)
-                if historyEntries.contains(where: { $0.id == historyID }) {
-                    updateHistory(historyID, audioFilename: filename)
-                } else {
-                    // The entry was deleted while its recording was being saved.
-                    try? await store.removeAudio(named: filename)
-                }
-            } catch {
-                saveFailed = true
-            }
-        }
-        do {
-            try await persistCurrentState()
-        } catch {
-            saveFailed = true
-        }
+        let saved = await data.persistHistoryAudio(recording, historyID: historyID)
         // The user is usually in another app, where only the overlay is visible.
-        if saveFailed {
+        if !saved {
             showOverlayFeedback(
                 localized("Couldn’t save this to History. Transcription will continue."),
                 symbol: "exclamationmark.triangle"
             )
-        }
-    }
-
-    private func updateHistory(
-        _ id: UUID?, input: String? = nil, output: String? = nil,
-        audioFilename: String? = nil, status: HistoryStatus? = nil, errorMessage: String? = nil
-    ) {
-        guard let id, let index = historyEntries.firstIndex(where: { $0.id == id }) else { return }
-        if let input { historyEntries[index].input = input }
-        if let output { historyEntries[index].output = output }
-        if let audioFilename { historyEntries[index].audioFilename = audioFilename }
-        if let status, historyEntries[index].status == .processing {
-            historyEntries[index].status = status
-            historyEntries[index].errorMessage = errorMessage
-        } else if let errorMessage {
-            historyEntries[index].errorMessage = errorMessage
         }
     }
 
@@ -1456,26 +1300,11 @@ final class AppState {
     /// Counts a correction the user just made and, until it has been asked about twice, offers to
     /// remember it on the overlay, where the user can see it from any app.
     func noteCorrection(_ change: CorrectionCandidate, app: String, windowTitle: String) {
-        // The clue goes to Qwen with later prompts, so it follows the Window Title privacy setting.
-        let title = settings.windowTitleAllowed ? windowTitle.trimmingCharacters(in: .whitespacesAndNewlines) : ""
-        let index: Int
-        if let existing = corrections.firstIndex(where: { $0.raw == change.before && $0.corrected == change.after }) {
-            index = existing
-            corrections[index].count += 1
-            corrections[index].lastSeenAt = .now
-            corrections[index].lastApp = app
-            corrections[index].lastWindowTitle = title
-        } else {
-            corrections.append(CorrectionRecord(
-                raw: change.before, corrected: change.after, lastApp: app, lastWindowTitle: title
-            ))
-            index = corrections.index(before: corrections.endIndex)
-        }
         // The message would cover a recording that started since the write; the suggestion waits in Memory.
         let isBusy = dictationPhase != .idle || agentPhase != .hidden || startingWorkflow != nil
-        guard corrections[index].shouldPrompt, !isBusy else { return }
-        corrections[index].promptCount += 1
-        let record = corrections[index]
+        guard let record = data.recordCorrection(change, app: app, windowTitle: windowTitle, canPrompt: !isBusy) else {
+            return
+        }
         showOverlayFeedback(
             localized("Remember “\(record.raw)” as “\(record.corrected)”?"),
             symbol: "brain",
@@ -1483,7 +1312,7 @@ final class AppState {
             buttons: [
                 OverlayButton(title: localized("Not Now")),
                 OverlayButton(title: localized("Remember")) { [weak self] in
-                    self?.acceptCorrection(record.id)
+                    self?.data.acceptCorrection(record.id)
                     self?.showOverlayFeedback(localized("Remembered"), symbol: "checkmark")
                 }
             ]
@@ -1511,133 +1340,6 @@ final class AppState {
         if let description = (error as? LocalizedError)?.errorDescription { return description }
         if error is URLError { return localized("Couldn’t connect. Check your network and try again.") }
         return localized("Something went wrong. Try again.")
-    }
-
-    /// Earlier builds saved these placeholders as detail; clear them so they stay out of the UI and prompts.
-    private static let legacyPlaceholderDetails: Set<String> = ["手动添加", "Added manually", "来自纠正记忆", "From correction memory"]
-
-    func loadStoredData() async {
-        guard !didStartLoading else { return }
-        didStartLoading = true
-        localDataIssue = await store.dataIssue
-        if !settings.legacyDataNoticeDismissed {
-            legacyDataURL = await store.legacyEncryptedDataURL()
-        }
-        let snapshot: LocalStore.Snapshot
-        do {
-            snapshot = try await store.load()
-        } catch {
-            showToast(
-                localized("Couldn’t read local data, so new changes won’t be saved. See History for details."),
-                symbol: "exclamationmark.triangle.fill"
-            )
-            return
-        }
-        historyEntries = Self.merging(historyEntries, Self.recoveringInterruptedHistory(
-            snapshot.history,
-            message: localized("SayKuku quit before this finished")
-        )).sorted { $0.createdAt > $1.createdAt }
-        knowledgeEntities = Self.merging(knowledgeEntities, snapshot.entities.map { entity in
-            var entity = entity
-            if Self.legacyPlaceholderDetails.contains(entity.detail) { entity.detail = "" }
-            return entity
-        })
-        corrections = Self.merging(corrections, snapshot.corrections)
-        cleanExpiredHistory()
-        // Saving before every array is in place would replace the stored data with part of it.
-        isLoaded = true
-        migrateLegacyCustomTerms()
-        schedulePersistence()
-        if localDataIssue != nil {
-            showToast(
-                localized("There was a problem reading local data. The original file was backed up. See History for details."),
-                symbol: "exclamationmark.triangle.fill"
-            )
-        }
-    }
-
-    /// Earlier builds kept custom words in defaults; they now live in Knowledge as terms.
-    /// Runs once Knowledge has loaded, so words already saved there are skipped as duplicates.
-    private func migrateLegacyCustomTerms() {
-        guard let terms = settings.takeLegacyCustomTerms() else { return }
-        for term in terms { _ = insertKnowledge(KnowledgeEntity(name: term, type: .term)) }
-    }
-
-    /// Keeps records added while loading; stored records fill in the rest.
-    private static func merging<Record: Identifiable>(_ current: [Record], _ stored: [Record]) -> [Record] {
-        let currentIDs = Set(current.map(\.id))
-        return current + stored.filter { !currentIDs.contains($0.id) }
-    }
-
-    /// Entries still processing at launch were cut off by a quit or crash; keep their audio so they can be retried.
-    nonisolated static func recoveringInterruptedHistory(_ entries: [HistoryEntry], message: String) -> [HistoryEntry] {
-        entries.map { entry in
-            guard entry.status == .processing else { return entry }
-            var recovered = entry
-            recovered.status = .failed
-            recovered.errorMessage = message
-            return recovered
-        }
-    }
-
-    private func cleanExpiredHistory() {
-        guard let days = settings.historyRetention.days,
-              let cutoff = Calendar.current.date(byAdding: .day, value: -days, to: .now) else { return }
-        removeHistory { !$0.isStarred && $0.createdAt < cutoff }
-    }
-
-    /// Removes matching entries and deletes their recordings.
-    private func removeHistory(where shouldRemove: (HistoryEntry) -> Bool) {
-        let removed = historyEntries.filter(shouldRemove)
-        guard !removed.isEmpty else { return }
-        historyEntries.removeAll(where: shouldRemove)
-        let filenames = removed.compactMap(\.audioFilename)
-        guard !filenames.isEmpty else { return }
-        Task { [store] in
-            for filename in filenames { try? await store.removeAudio(named: filename) }
-        }
-    }
-
-    /// Coalesces a burst of changes, such as the several updates one dictation makes, into one write.
-    private func schedulePersistence() {
-        guard isLoaded else { return }
-        persistenceTask?.cancel()
-        persistenceTask = Task { [weak self, persistenceDelay] in
-            do { try await Task.sleep(for: persistenceDelay) } catch { return }
-            await self?.flushPersistence()
-        }
-    }
-
-    /// Writes pending changes now and reports whether they were saved. Quitting waits for this.
-    @discardableResult
-    func flushPersistence() async -> Bool {
-        do {
-            try await persistCurrentState()
-            return true
-        } catch {
-            showToast(
-                localized("Couldn’t save your data, so recent changes may be lost. Check your available storage."),
-                symbol: "exclamationmark.triangle.fill"
-            )
-            return false
-        }
-    }
-
-    private func persistCurrentState() async throws {
-        persistenceTask?.cancel()
-        persistenceTask = nil
-        guard let snapshot = nextPersistedSnapshot() else { return }
-        try await store.replace(snapshot.value, generation: snapshot.generation)
-    }
-
-    /// The state to save, numbered so an older write never replaces a newer one; nil until stored data has loaded.
-    private func nextPersistedSnapshot() -> (value: LocalStore.Snapshot, generation: Int)? {
-        guard isLoaded else { return nil }
-        persistenceGeneration += 1
-        let value = LocalStore.Snapshot(
-            history: historyEntries, entities: knowledgeEntities, corrections: corrections
-        )
-        return (value, persistenceGeneration)
     }
 
     private func presentStartupExperienceIfNeeded() {
