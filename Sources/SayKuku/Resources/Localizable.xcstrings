@@ -706,6 +706,17 @@
         }
       }
     },
+    "Casual in chat, complete sentences in email and documents, no trailing punctuation in code. Sends the current app’s name along with your speech." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "聊天里更口语，邮件和文档里更完整，代码里不加句尾标点。会把当前 App 的名字一并发给模型。"
+          }
+        }
+      }
+    },
     "Category" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2696,6 +2707,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "市场与增长"
+          }
+        }
+      }
+    },
+    "Match the app’s tone" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按当前 App 调整语气"
           }
         }
       }

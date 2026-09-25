@@ -110,6 +110,7 @@ final class FakeAudioCapturing: AudioCapturing {
 actor FakeRealtime: RealtimeTranscribing {
     private let transcript: String
     private let commitError: QwenError?
+    private(set) var targetApps: [String?] = []
     private(set) var appendCount = 0
     private(set) var commitCount = 0
 
@@ -128,8 +129,11 @@ actor FakeRealtime: RealtimeTranscribing {
         recognitionLanguage: RecognitionLanguage,
         numberFormat: DictationNumberFormat,
         cleanup: DictationCleanup,
+        targetApp: String?,
         knowledgePrompt: String
-    ) async throws {}
+    ) async throws {
+        targetApps.append(targetApp)
+    }
 
     func append(_ pcm16: Data, session: UUID) async throws {
         appendCount += 1
@@ -156,6 +160,7 @@ final class FakeReasoning: Reasoning {
     private struct State {
         var transcriptions: [Transcription]
         var transcribeCount = 0
+        var targetApps: [String?] = []
     }
 
     private let state: Mutex<State>
@@ -171,6 +176,7 @@ final class FakeReasoning: Reasoning {
     }
 
     var transcribeCount: Int { state.withLock { $0.transcribeCount } }
+    var targetApps: [String?] { state.withLock { $0.targetApps } }
 
     func transcribeAudio(
         apiKey: String,
@@ -179,10 +185,12 @@ final class FakeReasoning: Reasoning {
         recognitionLanguage: RecognitionLanguage,
         numberFormat: DictationNumberFormat,
         cleanup: DictationCleanup,
+        targetApp: String?,
         knowledgePrompt: String
     ) async throws -> String {
         let reply = state.withLock { current in
             current.transcribeCount += 1
+            current.targetApps.append(targetApp)
             return current.transcriptions.count > 1 ? current.transcriptions.removeFirst() : current.transcriptions[0]
         }
         switch reply {
@@ -203,6 +211,7 @@ final class FakeReasoning: Reasoning {
         context: [ContextItem],
         sessions: [AgentSession],
         textField: AgentTextField,
+        matchAppTone: Bool,
         knowledgePrompt: String
     ) async throws -> AgentResponse {
         try agentReply.get()
