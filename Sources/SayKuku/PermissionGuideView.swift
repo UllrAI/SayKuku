@@ -150,7 +150,7 @@ struct PermissionActionRow: View {
         case .notDetermined:
             return appState.text("开启", "Enable")
         case .denied, .restricted:
-            return kind == .microphone
+            return kind == .microphone || appState.systemPermissions.hasPromptedForAccessibility
                 ? appState.text("打开系统设置", "Open System Settings")
                 : appState.text("开启", "Enable")
         case .authorized:

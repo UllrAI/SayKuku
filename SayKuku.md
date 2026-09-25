@@ -102,7 +102,7 @@ Knowledge 与 Memory 是一级侧栏页面，不再重复出现在 Settings 内�
 
 权限引导与 Settings 使用同一个实时状态源。App 重新获得焦点时必须复查状态；设置页提供权限状态、快捷开启入口和重新打开完整引导的按钮。
 
-辅助功能请求不得用轮询锁住按钮。发起系统提示后立即结束按钮忙碌态；回到 App 时只以 `AXIsProcessTrusted()` 的实际结果复查，不猜测“需要重开”。开发包使用本机 Apple Development 证书形成稳定、带 Team ID 的 designated requirement；没有稳定证书时打包脚本直接失败，不生成会污染 TCC 或 Keychain 身份的 ad-hoc App。发布包必须使用 Developer ID Application 签名。
+辅助功能请求不得用轮询锁住按钮。发起系统提示后立即结束按钮忙碌态；系统提示每个进程只弹一次，之后按钮改为“打开系统设置”，直接跳到辅助功能页。App 订阅系统的辅助功能变更通知（通知可能早于状态翻转，仍未授权时 1 秒后再查一次），回到 App 时也会复查，两处都只以 `AXIsProcessTrusted()` 的实际结果为准，不轮询，也不猜测“需要重开”。开发包使用本机 Apple Development 证书形成稳定、带 Team ID 的 designated requirement；没有稳定证书时打包脚本直接失败，不生成会污染 TCC 或 Keychain 身份的 ad-hoc App。发布包必须使用 Developer ID Application 签名。
 
 麦克风测试使用系统默认输入设备，只计算实时 RMS 输入电平和峰值。测试声音不保存、不上传、不回放；页面或引导关闭时立即停止音频引擎。
 

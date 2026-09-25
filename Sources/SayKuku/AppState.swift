@@ -241,6 +241,7 @@ final class AppState {
         loadSettings()
         launchAtLogin = SMAppService.mainApp.status == .enabled
         apiKey = (try? keychain.string(for: Keys.apiKey)) ?? ""
+        systemPermissions.accessibilityChangeHandler = { [weak self] in self?.refreshSystemPermissions() }
     }
 
     var usesChineseUI: Bool {
