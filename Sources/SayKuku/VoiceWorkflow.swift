@@ -539,7 +539,7 @@ final class VoiceWorkflow {
             onLevel: { [weak self] level in
                 Task { @MainActor [weak self] in
                     guard let self else { return }
-                    self.inputLevel = (self.inputLevel * 0.55) + (level * 0.45)
+                    self.inputLevel = AudioLevel.smoothed(previous: self.inputLevel, next: level)
                 }
             },
             onChunk: onChunk,
