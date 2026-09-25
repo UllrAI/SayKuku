@@ -37,7 +37,7 @@ final class AudioCapture: @unchecked Sendable {
         interleaved: false
     )!
 
-    /// `onInterruption` fires once, on an arbitrary thread, when an input device change stops the engine.
+    /// `onInterruption` fires once, on an arbitrary thread, when an audio device change stops the engine.
     func start(
         onLevel: @escaping @Sendable (Double) -> Void,
         onChunk: @escaping @Sendable (Data) -> Void,
@@ -76,7 +76,7 @@ final class AudioCapture: @unchecked Sendable {
             stopEngine()
             throw error
         }
-        // The engine stops itself when the input hardware changes, so the tap goes quiet.
+        // The engine stops itself when the audio hardware changes, so the tap goes quiet.
         configurationObserver = NotificationCenter.default.addObserver(
             forName: .AVAudioEngineConfigurationChange, object: engine, queue: nil
         ) { [weak self] _ in
@@ -130,7 +130,6 @@ final class AudioCapture: @unchecked Sendable {
 
     private func interrupt() {
         let handler = lock.withLock { () -> (@Sendable () -> Void)? in
-            guard running else { return nil }
             defer { interruptionHandler = nil }
             return interruptionHandler
         }
