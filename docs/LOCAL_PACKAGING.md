@@ -158,7 +158,7 @@ CFBundleIdentifier = com.saykuku.dev
 CFBundleDisplayName = SayKuku Dev
 ```
 
-开发版同样启用 Hardened Runtime，`flags` 中应包含 `runtime`。这样 entitlement 缺失之类的问题在开发阶段就会暴露，不必等到正式包。开发版只构建本机架构。
+开发版同样启用 Hardened Runtime，`flags` 中应包含 `runtime`。这样 entitlement 缺失之类的问题在开发阶段就会暴露，不必等到正式包。脚本会为开发版额外加上 `com.apple.security.get-task-allow`（写入临时文件 `Build/SayKuku.debug.entitlements`），以便 lldb 和 Instruments 附加调试；正式版不能带这项 entitlement，否则公证会失败。开发版只构建本机架构。
 
 ## 4. 正式版本地构建与签名
 

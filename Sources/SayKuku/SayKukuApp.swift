@@ -71,6 +71,15 @@ struct SayKukuApp: App {
     }
 }
 
+extension Bundle {
+    /// SwiftPM's `Bundle.module` only looks next to the `.app` and in the
+    /// build-time `.build` path, and traps when neither exists. A packaged app
+    /// keeps the resource bundle in `Contents/Resources`, so look there first.
+    static let appResources: Bundle = Bundle.main
+        .url(forResource: "SayKuku_SayKuku", withExtension: "bundle")
+        .flatMap(Bundle.init(url:)) ?? .module
+}
+
 private struct MenuBarIcon: View {
     private static let image: NSImage? = {
         guard let url = Bundle.appResources.url(forResource: "MenuBarIcon", withExtension: "svg"),
