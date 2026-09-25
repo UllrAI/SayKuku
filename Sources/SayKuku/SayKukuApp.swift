@@ -26,19 +26,13 @@ struct SayKukuApp: App {
                         appDelegate.observeMainWindow(window)
                     }
                 }
-                .modifier(MainWindowOpenerRegistration(appState: appState))
+                .modifier(WindowOpenerRegistration(appState: appState))
         }
         .defaultSize(width: 1_000, height: 660)
         .windowStyle(.hiddenTitleBar)
         .commands {
             CommandGroup(after: .appInfo) {
                 CheckForUpdatesItem(appState: appState)
-            }
-            CommandGroup(replacing: .appSettings) {
-                Button(appState.text("设置…", "Settings…")) {
-                    appState.showMainWindow(destination: .settings)
-                }
-                .keyboardShortcut(",", modifiers: .command)
             }
             CommandGroup(replacing: .newItem) { }
             CommandGroup(before: .sidebar) {
@@ -57,6 +51,18 @@ struct SayKukuApp: App {
             }
         }
 
+        // The system adds the ⌘, item to the app menu for this scene.
+        Settings {
+            SettingsView()
+                .environment(appState)
+                .frame(width: 640)
+                .frame(minHeight: 480, idealHeight: 640)
+                .background(KukuColor.canvas)
+                .tint(KukuColor.coral)
+        }
+        .defaultSize(width: 640, height: 640)
+        .windowResizability(.contentSize)
+
         MenuBarExtra(isInserted: Binding(
             get: { appState.showInMenuBar },
             set: { setMenuBarVisibility($0) }
@@ -64,9 +70,9 @@ struct SayKukuApp: App {
             MenuBarContent()
                 .environment(appState)
         } label: {
-            // The status item appears at launch, so the opener is available even if the window never was.
+            // The status item appears at launch, so the openers are available even if the window never was.
             MenuBarIcon()
-                .modifier(MainWindowOpenerRegistration(appState: appState))
+                .modifier(WindowOpenerRegistration(appState: appState))
         }
         .menuBarExtraStyle(.menu)
     }
@@ -134,6 +140,11 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         appState.startSystemServices()
         // Start scheduled checks even if no menu has touched the updater yet.
         _ = Self.updater
+    }
+
+    /// Covers every window, including Settings when the main window is closed.
+    func applicationDidBecomeActive(_ notification: Notification) {
+        appState.refreshSystemPermissions()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -250,19 +261,24 @@ private final class WindowReaderView: NSView {
     }
 }
 
-/// Hands SwiftUI's window opener to AppState so shortcuts can reopen a closed main window.
-private struct MainWindowOpenerRegistration: ViewModifier {
+/// Hands SwiftUI's window openers to AppState so shortcuts and alerts can open the main or Settings window.
+private struct WindowOpenerRegistration: ViewModifier {
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.openSettings) private var openSettings
     let appState: AppState
 
     func body(content: Content) -> some View {
-        content.onAppear { appState.registerMainWindowOpener(openWindow) }
+        content.onAppear {
+            appState.registerMainWindowOpener(openWindow)
+            appState.registerSettingsOpener(openSettings)
+        }
     }
 }
 
 private struct MenuBarContent: View {
     @Environment(AppState.self) private var appState
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         VoiceMenuItems(appState: appState)
@@ -274,7 +290,7 @@ private struct MenuBarContent: View {
         }
 
         Button(appState.text("设置…", "Settings…")) {
-            showWindow(destination: .settings)
+            showSettings()
         }
         .keyboardShortcut(",", modifiers: .command)
 
@@ -302,8 +318,7 @@ private struct MenuBarContent: View {
             label.disabled(true)
         case .accessibilityRequired, .hotKeyConflict:
             Button {
-                appState.settingsSection = .general
-                showWindow(destination: .settings)
+                showSettings(section: .general)
             } label: {
                 label
             }
@@ -313,6 +328,11 @@ private struct MenuBarContent: View {
     private func showWindow(destination: AppState.Destination) {
         appState.registerMainWindowOpener(openWindow)
         appState.showMainWindow(destination: destination)
+    }
+
+    private func showSettings(section: SettingsSection? = nil) {
+        appState.registerSettingsOpener(openSettings)
+        appState.showSettings(section: section)
     }
 }
 

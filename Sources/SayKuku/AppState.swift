@@ -8,7 +8,7 @@ import SwiftUI
 @Observable
 final class AppState {
     enum Destination: String, CaseIterable, Identifiable {
-        case home = "Home", history = "History", knowledge = "Knowledge", memory = "Memory", settings = "Settings"
+        case home = "Home", history = "History", knowledge = "Knowledge", memory = "Memory"
         var id: String { rawValue }
         var symbol: String {
             switch self {
@@ -16,7 +16,6 @@ final class AppState {
             case .history: "clock.arrow.circlepath"
             case .knowledge: "books.vertical"
             case .memory: "sparkles.rectangle.stack"
-            case .settings: "gearshape"
             }
         }
         @MainActor func title(_ appState: AppState) -> String {
@@ -25,7 +24,6 @@ final class AppState {
             case .history: appState.text("历史", "History")
             case .knowledge: appState.text("知识", "Knowledge")
             case .memory: appState.text("记忆", "Memory")
-            case .settings: appState.text("设置", "Settings")
             }
         }
     }
@@ -226,6 +224,7 @@ final class AppState {
     @ObservationIgnored private var recordingLimitTask: Task<Void, Never>?
     @ObservationIgnored private var overlayFeedbackGeneration = 0
     @ObservationIgnored private var mainWindowOpener: OpenWindowAction?
+    @ObservationIgnored private var settingsOpener: OpenSettingsAction?
     @ObservationIgnored private var didEvaluateStartupPermissions = false
     @ObservationIgnored private var pendingSetupSteps: [AppSheet] = []
     @ObservationIgnored private var didStartLoading = false
@@ -817,9 +816,15 @@ final class AppState {
         NSApplication.shared.activate()
     }
 
-    private func showQwenSettings() {
-        settingsSection = .qwen
-        showMainWindow(destination: .settings)
+    func registerSettingsOpener(_ openSettings: OpenSettingsAction) {
+        settingsOpener = openSettings
+    }
+
+    /// Opens the Settings window on its own; a hidden Dock icon stays hidden.
+    func showSettings(section: SettingsSection? = nil) {
+        if let section { settingsSection = section }
+        NSApplication.shared.activate()
+        settingsOpener?.callAsFunction()
     }
 
     private enum VoiceWorkflowMode: Sendable { case dictation, agent }
@@ -838,7 +843,7 @@ final class AppState {
         guard !apiKey.isEmpty else {
             let message = localizedError(QwenError.missingConfiguration)
             showOverlayFeedback(message, symbol: "key.fill", duration: .seconds(4))
-            showQwenSettings()
+            showSettings(section: .qwen)
             showToast(message, symbol: "key.fill")
             return
         }
@@ -1375,7 +1380,7 @@ final class AppState {
         // The overlay is the only surface visible from other apps; the toast only helps inside SayKuku.
         showOverlayFeedback(message, symbol: "exclamationmark", duration: .seconds(4))
         if Self.needsSettings(error) {
-            showQwenSettings()
+            showSettings(section: .qwen)
             // The overlay already says what went wrong; the toast explains why Settings opened.
             showToast(text("已打开“设置 › Qwen 连接”", "Opened Settings › Qwen Connection"), symbol: "gearshape")
         } else if NSApplication.shared.isActive {
