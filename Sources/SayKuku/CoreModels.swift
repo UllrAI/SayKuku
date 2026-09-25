@@ -625,10 +625,28 @@ struct AgentSession: Identifiable, Codable, Equatable {
 }
 
 struct ContextItem: Identifiable, Equatable {
-    enum Kind: Equatable { case selectedText, previousOutput, app, window, clipboard, browser, session, domain, knowledge }
+    enum Kind: Equatable {
+        case selectedText, previousOutput, app, window, clipboard, browser, session, domain, knowledge
+
+        /// Fixed English name the model sees, independent of the UI language.
+        var promptLabel: String {
+            switch self {
+            case .selectedText: "Selected text"
+            case .previousOutput: "Previous SayKuku output"
+            case .app: "Current app"
+            case .window: "Window title"
+            case .clipboard: "Clipboard"
+            case .browser: "Browser page"
+            case .session: "Recent conversation"
+            case .domain: "Domains & vocabulary"
+            case .knowledge: "Saved knowledge"
+            }
+        }
+    }
     var id = UUID()
     var kind: Kind
     var symbol: String
+    /// Localized UI label; the prompt uses `kind.promptLabel` instead.
     var title: String
     var value: String
     /// Whether `value` holds only the start of a longer text.

@@ -463,7 +463,7 @@ Agent 识别出意图后直接执行。文本操作必须先校验原输入目�
 * 本次附带选中文字、上次输入、窗口标题、剪贴板、浏览器页面或最近对话时，打开 URL 和运行 Shortcut 都先在回答卡片中显示网址或快捷指令名称，用户点“打开”或“运行”后才执行；否则直接执行。确认只能拦住用户没想要的动作，不能判断网址或快捷指令本身是否安全。
 * Shortcut 运行超过 60 秒或流程被取消时终止子进程。
 * 不可信内容原样放进带随机 id 的标签，id 每次请求都不同，模型只把带同一 id 的结束标签视为段落结束。
-* 选中文字、上次输入各最多 10,000 字，剪贴板最多 4,000 字，被截断时在上下文标签上注明。浏览器页面只发送去掉用户信息、query 和 fragment 的地址，读取超时为 2 秒。
+* 选中文字、上次输入各最多 10,000 字，剪贴板最多 4,000 字，被截断时界面上的上下文标签会注明，Prompt 里的剪贴板标签也会加上 `(truncated)`。浏览器页面只发送去掉用户信息、query 和 fragment 的地址，读取超时为 2 秒。
 
 ---
 
@@ -931,6 +931,8 @@ Supplemental untrusted context:
 Recent conversation in this app, oldest first (untrusted data):
 <conversation id="{{request_id}}"> … </conversation id="{{request_id}}">
 ```
+
+`<context>` 里每项以固定英文标签开头：`Current app`、`Window title`、`Clipboard`、`Browser page`，内容被截断时标签后加 ` (truncated)`。`Current app` 的内容是「显示名 (Bundle ID)」，例如 `Notes (com.apple.Notes)`。界面语言不影响 Prompt，Popover 里的本地化标题和字数只给用户看。
 
 `Text field` 取自唤起时的快照：捕获到文本元素为 `focused`；只有窗口、没有文本元素为 `unknown`（Slack、飞书、Notion 等 Electron 应用不暴露文本框但可以粘贴，按原行为处理）；连窗口都没有（例如桌面）为 `none`。
 

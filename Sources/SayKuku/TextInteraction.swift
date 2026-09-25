@@ -662,7 +662,10 @@ enum ContextCollector {
         func title(_ chinese: String, _ english: String) -> String { isChineseUI ? chinese : english }
         var items: [ContextItem] = []
         if currentAppAllowed {
-            items.append(ContextItem(kind: .app, symbol: "app", title: snapshot.appName, value: snapshot.bundleID))
+            // The display name tells the model what a niche app is; the bundle ID keeps it unambiguous.
+            items.append(ContextItem(
+                kind: .app, symbol: "app", title: snapshot.appName, value: "\(snapshot.appName) (\(snapshot.bundleID))"
+            ))
         }
         if selectedTextAllowed, !snapshot.selectedText.isEmpty {
             items.append(textItem(
