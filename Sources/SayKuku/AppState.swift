@@ -122,6 +122,8 @@ final class AppState {
     private(set) var hasCopiedPendingText = false
     var pendingAnswerText = ""
     var pendingAnswerStatus: String?
+    /// A link the answer card asks about before opening, because the model chose it while reading untrusted context.
+    var pendingURL: URL?
     var resultCanUndo = false
     /// Set while Insert or Undo is writing, so a double click can't paste the same text twice.
     private(set) var isWriting = false
@@ -365,6 +367,7 @@ final class AppState {
         pendingAnswerText = ""
         pendingAnswerStatus = nil
         pendingAnswerTarget = nil
+        pendingURL = nil
         agentPhase = .hidden
     }
 
@@ -372,7 +375,13 @@ final class AppState {
         guard !pendingAnswerText.isEmpty else { return }
         pendingCopyText = pendingAnswerText
         copyPendingText()
-        pendingAnswerStatus = text("已复制回答", "Answer copied")
+        pendingAnswerStatus = pendingURL == nil ? text("已复制回答", "Answer copied") : text("已复制网址", "Link copied")
+    }
+
+    func openPendingURL() {
+        guard let pendingURL else { return }
+        NSWorkspace.shared.open(pendingURL)
+        dismissAnswer()
     }
 
     func insertAnswer() async {
@@ -833,12 +842,13 @@ final class AppState {
                    let expected = lastVerifiedWrite.expectedValue,
                    snapshot.valueBefore == expected,
                    textInteraction.currentValue(of: lastVerifiedWrite.target) == expected {
-                    contextItems.append(ContextItem(
+                    contextItems.append(ContextCollector.textItem(
                         kind: .previousOutput,
                         symbol: "arrow.uturn.backward",
-                        title: text("上次输入", "Last insertion")
-                            + " · " + ContextCollector.characterCount(lastVerifiedWrite.text.count, isChineseUI: usesChineseUI),
-                        value: lastVerifiedWrite.text
+                        title: text("上次输入", "Last insertion"),
+                        value: lastVerifiedWrite.text,
+                        limit: ContextCollector.textLimit,
+                        isChineseUI: usesChineseUI
                     ))
                 }
                 agentCommand = text("正在听…", "Listening…")
@@ -1041,7 +1051,7 @@ final class AppState {
             let command = SpeechDisfluencyCleaner.clean(transcript, mode: .light)
             guard let snapshot else { throw TextInteractionError.targetChanged }
             updateHistory(historyID, input: command)
-            agentCommand = response.intent
+            agentCommand = response.intent ?? response.action.title(isChineseUI: usesChineseUI)
             withAnimation(Motion.panel) { agentPhase = .processing }
             await executeAgent(
                 response, snapshot: snapshot, context: context,
@@ -1123,10 +1133,14 @@ final class AppState {
             guard generation == workflowGeneration else { throw CancellationError() }
             let output: String
             var needsCopyFallback = false
+            var urlToConfirm: URL?
             if response.action == .writeText {
                 // Generated text is final prose, not a speech trace; cleaning it could alter names or code.
                 guard let text = response.output, !text.isEmpty else { throw QwenError.invalidResponse }
-                if automaticAgentWriteBack {
+                let sourceKind: ContextItem.Kind = response.target == .previous ? .previousOutput : .selectedText
+                // Replacing text the model saw only part of would drop the rest, so offer a copy instead.
+                let sourceWasClipped = context.contains { $0.kind == sourceKind && $0.isClipped }
+                if automaticAgentWriteBack, !sourceWasClipped {
                     do {
                         let writeTarget: TextTargetSnapshot
                         if response.target == .previous {
@@ -1152,10 +1166,14 @@ final class AppState {
             } else if response.action == .answer {
                 guard let text = response.output, !text.isEmpty else { throw QwenError.invalidResponse }
                 output = text
+            } else if AgentActionExecutor.needsConfirmation(response, context: context) {
+                guard let url = AgentActionExecutor.webURL(response.url) else { throw QwenError.invalidResponse }
+                urlToConfirm = url
+                output = url.absoluteString
             } else {
                 resultCanUndo = false
-                try await AgentActionExecutor.execute(response)
-                output = response.url ?? response.query ?? response.shortcutName ?? response.intent
+                try await AgentActionExecutor.execute(response, region: configuration.region)
+                output = response.url ?? response.query ?? response.shortcutName ?? ""
             }
             updateHistory(historyID, input: command, output: output, status: .completed)
             if continuousConversation {
@@ -1173,9 +1191,10 @@ final class AppState {
                 presentCopyFallback(output, agent: true, copyImmediately: automaticAgentWriteBack)
                 return
             }
-            if response.action == .answer {
+            if response.action == .answer || urlToConfirm != nil {
                 pendingAnswerText = output
                 pendingAnswerTarget = snapshot
+                pendingURL = urlToConfirm
                 withAnimation(Motion.panel) { agentPhase = .answerReady }
                 return
             }
@@ -1280,6 +1299,7 @@ final class AppState {
         pendingAnswerText = ""
         pendingAnswerStatus = nil
         pendingAnswerTarget = nil
+        pendingURL = nil
         resultCanUndo = false
         overlayError = nil
     }
@@ -1425,8 +1445,13 @@ final class AppState {
         if error is URLError {
             return text("无法连接网络，请检查网络后重试", "Couldn’t connect. Check your network and try again.")
         }
-        if error is AgentActionError {
-            return text("快捷指令运行失败，请在“快捷指令”App 中检查", "Couldn’t run the shortcut. Check it in the Shortcuts app.")
+        if let actionError = error as? AgentActionError {
+            switch actionError {
+            case .shortcutFailed:
+                return text("快捷指令运行失败，请在“快捷指令”App 中检查", "Couldn’t run the shortcut. Check it in the Shortcuts app.")
+            case .shortcutNotSpoken:
+                return text("要运行快捷指令，请说出它的名字", "To run a shortcut, say its name.")
+            }
         }
         return text("出了点问题，请重试", "Something went wrong. Try again.")
     }

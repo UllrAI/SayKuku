@@ -619,15 +619,30 @@ struct ContextItem: Identifiable, Equatable {
     var symbol: String
     var title: String
     var value: String
+    /// Whether `value` holds only the start of a longer text.
+    var isClipped = false
 }
 
 struct AgentResponse: Codable, Equatable {
-    enum Action: String, Codable { case writeText, answer, openURL, webSearch, runShortcut }
+    enum Action: String, Codable {
+        case writeText, answer, openURL, webSearch, runShortcut
+
+        func title(isChineseUI: Bool) -> String {
+            switch self {
+            case .writeText: isChineseUI ? "写入文字" : "Write text"
+            case .answer: isChineseUI ? "回答" : "Answer"
+            case .openURL: isChineseUI ? "打开网址" : "Open link"
+            case .webSearch: isChineseUI ? "网页搜索" : "Search the web"
+            case .runShortcut: isChineseUI ? "运行快捷指令" : "Run shortcut"
+            }
+        }
+    }
     enum Target: String, Codable { case current, previous }
     var transcript: String?
     var action: Action
     var target: Target?
-    var intent: String
+    /// Display label only, so a reply without it still decodes.
+    var intent: String?
     var output: String?
     var url: String?
     var query: String?

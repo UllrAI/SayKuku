@@ -116,14 +116,17 @@ private struct FloatingSystemOverlay: View {
 private struct AgentAnswerCard: View {
     @Environment(AppState.self) private var appState
 
+    /// The card either shows an answer or asks before opening a link.
+    private var isLink: Bool { appState.pendingURL != nil }
+
     var body: some View {
         VStack(alignment: .leading, spacing: KukuSpacing.md) {
             HStack {
                 Label {
-                    Text(appState.text("回答", "Answer"))
+                    Text(isLink ? appState.text("打开这个网址？", "Open this link?") : appState.text("回答", "Answer"))
                         .foregroundStyle(KukuColor.textPrimary)
                 } icon: {
-                    Image(systemName: "sparkles")
+                    Image(systemName: isLink ? "link" : "sparkles")
                         .foregroundStyle(KukuColor.textSecondary)
                 }
                 .font(.kuku(.headline))
@@ -140,18 +143,25 @@ private struct AgentAnswerCard: View {
             }
             .frame(maxHeight: .infinity)
             HStack {
-                Text(appState.pendingAnswerStatus ?? appState.text("可复制，或写入刚才的输入位置", "Copy it, or insert it where you were typing"))
+                Text(appState.pendingAnswerStatus ?? (isLink
+                    ? appState.text("先核对网址，再决定是否打开", "Check the address before you open it")
+                    : appState.text("可复制，或写入刚才的输入位置", "Copy it, or insert it where you were typing")))
                     .font(.kuku(.subheadline))
                     .foregroundStyle(KukuColor.textSecondary)
                     .lineLimit(2)
                 Spacer()
                 Button(appState.text("复制", "Copy"), action: appState.copyAnswer)
                     .buttonStyle(.kukuSecondary)
-                Button(appState.text("写入", "Insert")) {
-                    Task { await appState.insertAnswer() }
+                if isLink {
+                    Button(appState.text("打开", "Open"), action: appState.openPendingURL)
+                        .buttonStyle(.kukuPrimary)
+                } else {
+                    Button(appState.text("写入", "Insert")) {
+                        Task { await appState.insertAnswer() }
+                    }
+                    .buttonStyle(.kukuPrimary)
+                    .disabled(appState.isWriting)
                 }
-                .buttonStyle(.kukuPrimary)
-                .disabled(appState.isWriting)
             }
         }
         .padding(KukuLayout.cardPadding)
