@@ -740,6 +740,9 @@ struct AgentResponse: Codable, Equatable {
     var url: String?
     var query: String?
     var shortcutName: String?
+
+    /// An empty writeText to the previous output deletes that output.
+    var deletesPrevious: Bool { action == .writeText && target == .previous && output?.isEmpty == true }
 }
 
 enum KnowledgeNormalizer {

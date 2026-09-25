@@ -13,6 +13,12 @@ struct TextWriteVerificationTests {
         #expect(TextInteraction.expectedValue(afterWriting: "，", to: snapshot) == "你好，世界")
     }
 
+    @Test("deleting the previous output replaces its range with nothing")
+    func deletion() {
+        let snapshot = target(value: "会议改到周四，方案带上。", range: CFRange(location: 7, length: 5))
+        #expect(TextInteraction.expectedValue(afterWriting: "", to: snapshot) == "会议改到周四，")
+    }
+
     @Test("selection replacement uses UTF-16 accessibility ranges")
     func replacement() {
         let snapshot = target(value: "A😀BC", range: CFRange(location: 1, length: 2))
@@ -176,9 +182,26 @@ struct TextWriteVerificationTests {
         let whole = ContextItem(kind: .previousOutput, symbol: "", title: "", value: "done")
         let rewrite = AgentResponse(transcript: "翻译", action: .writeText, target: .current, output: "x")
         let revision = AgentResponse(transcript: "再短一点", action: .writeText, target: .previous, output: "x")
+        let deletion = AgentResponse(transcript: "删掉刚才那段", action: .writeText, target: .previous, output: "")
+        let clippedPrevious = ContextItem(kind: .previousOutput, symbol: "", title: "", value: "…", isClipped: true)
         #expect(AgentActionExecutor.replacesClippedText(rewrite, context: [clipped, whole]))
         #expect(!AgentActionExecutor.replacesClippedText(revision, context: [clipped, whole]))
         #expect(!AgentActionExecutor.replacesClippedText(rewrite, context: [whole]))
+        #expect(AgentActionExecutor.replacesClippedText(revision, context: [clippedPrevious]))
+        // Deleting drops the whole output, so seeing only its start is enough.
+        #expect(!AgentActionExecutor.replacesClippedText(deletion, context: [clippedPrevious]))
+    }
+
+    @Test("the previous output is titled with its first words")
+    func previousOutputItem() {
+        let long = ContextCollector.previousOutputItem("周四下午三点开会，\n把方案带上，记得提前十分钟到。")
+        #expect(long.kind == .previousOutput)
+        #expect(long.title == localized("Just wrote: \("周四下午三点开会， 把方案带上，记得提前…")"))
+        #expect(long.value == "周四下午三点开会，\n把方案带上，记得提前十分钟到。")
+        #expect(!long.isClipped)
+
+        let short = ContextCollector.previousOutputItem("好的")
+        #expect(short.title == localized("Just wrote: \("好的")"))
     }
 
     @Test("long context is clipped and labeled")
