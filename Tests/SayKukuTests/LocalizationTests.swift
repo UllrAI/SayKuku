@@ -4,8 +4,9 @@ import Testing
 
 @Suite("Localization")
 struct LocalizationTests {
-    /// SwiftPM compiles the catalog into `.strings` files, and this test target has no resource bundle,
-    /// so read the source catalog from the repository, three levels up from this file.
+    /// SwiftPM compiles the catalog into `.strings` files inside the app target's resource bundle,
+    /// which `localized()` reads through `Bundle.module` under `swift test`; the raw `.xcstrings` is not
+    /// shipped, so read the source catalog from the repository, three levels up from this file.
     private static let catalogURL = URL(fileURLWithPath: #filePath)
         .deletingLastPathComponent()
         .deletingLastPathComponent()
