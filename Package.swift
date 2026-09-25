@@ -24,7 +24,9 @@ let package = Package(
         .testTarget(
             name: "SayKukuTests",
             dependencies: ["SayKuku"],
-            path: "Tests/SayKukuTests"
+            path: "Tests/SayKukuTests",
+            // Read from the source tree through #filePath, not bundled.
+            exclude: ["Fixtures"]
         )
     ]
 )
