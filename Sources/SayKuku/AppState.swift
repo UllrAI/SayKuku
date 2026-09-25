@@ -291,6 +291,9 @@ final class AppState {
         let snapshot = targetSnapshot
         let context = contextItems
         let conversation = activeAgentSessions
+        // Settings can change while the recording is saved; the request uses the ones it started with.
+        let key = apiKey
+        let requestConfiguration = configuration
         targetSnapshot = nil
         activeAgentSessions = []
         let generation = workflowGeneration
@@ -298,7 +301,8 @@ final class AppState {
         workflowTask = Task { [weak self] in
             await self?.processAgentRecording(
                 recording, historyID: historyID, snapshot: snapshot,
-                context: context, conversation: conversation, generation: generation
+                context: context, conversation: conversation,
+                apiKey: key, configuration: requestConfiguration, generation: generation
             )
         }
     }
@@ -586,8 +590,7 @@ final class AppState {
 
     func retryDictation(_ id: UUID) async {
         guard let index = historyEntries.firstIndex(where: { $0.id == id }),
-              historyEntries[index].mode == .dictation,
-              historyEntries[index].status == .failed,
+              historyEntries[index].canRetryTranscription,
               let filename = historyEntries[index].audioFilename else { return }
         guard !apiKey.isEmpty else {
             showToast(localizedError(QwenError.missingConfiguration), symbol: "key.fill")
@@ -1000,7 +1003,8 @@ final class AppState {
     private func processAgentRecording(
         _ recording: AudioCapture.Recording, historyID: UUID?,
         snapshot: TextTargetSnapshot?, context: [ContextItem],
-        conversation: [AgentSession], generation: Int
+        conversation: [AgentSession], apiKey: String,
+        configuration: QwenConfiguration, generation: Int
     ) async {
         await persistHistoryAudio(recording, historyID: historyID)
         do {

@@ -403,6 +403,11 @@ struct HistoryEntry: Identifiable, Codable, Equatable {
 
     var hasAudio: Bool { audioFilename != nil }
 
+    /// A cancelled dictation kept its recording too, so it can be transcribed again like a failed one.
+    var canRetryTranscription: Bool {
+        mode == .dictation && hasAudio && (status == .failed || status == .cancelled)
+    }
+
     private enum CodingKeys: String, CodingKey {
         case id, mode, app, createdAt, durationSeconds, input, output, audioFilename, isStarred, status, errorMessage
     }
