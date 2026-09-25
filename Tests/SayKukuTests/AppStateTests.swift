@@ -123,6 +123,30 @@ struct AppStateTests {
         }
     }
 
+    @Test("custom words from earlier builds move into Knowledge once it loads")
+    @MainActor
+    func legacyCustomTermsMigration() async throws {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let legacyKey = "dictation.customDomainTerms"
+        let saved = KnowledgeEntity(name: "SayKuku", type: .project)
+        try await LocalStore(root: environment.root).replace(.init(entities: [saved]))
+        environment.defaults.set(["Vibe Coding", "saykuku", "MCP"], forKey: legacyKey)
+
+        let state = environment.makeState(persistenceDelay: .seconds(60))
+        await state.loadStoredData()
+
+        #expect(Set(state.knowledgeEntities.map(\.name)) == ["SayKuku", "Vibe Coding", "MCP"])
+        #expect(state.knowledgeEntities.first { $0.id == saved.id }?.type == .project)
+        #expect(state.knowledgeEntities.filter { $0.id != saved.id }.allSatisfy { $0.type == .term && $0.source == .manual })
+        #expect(environment.defaults.object(forKey: legacyKey) == nil)
+        #expect(state.toast == nil)
+
+        await state.flushPersistence()
+        let reloaded = try await LocalStore(root: environment.root).load()
+        #expect(reloaded.entities.count == 3)
+    }
+
     @Test("toasts with the same copy are still distinct")
     func toastIdentity() {
         #expect(ToastMessage(text: "已复制", symbol: "doc.on.doc") != ToastMessage(text: "已复制", symbol: "doc.on.doc"))

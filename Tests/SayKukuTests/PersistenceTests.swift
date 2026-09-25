@@ -60,7 +60,6 @@ struct PersistenceTests {
         state.dictationNumberFormat = .spoken
         state.dictationCleanup = .verbatim
         state.selectedDomains = [.aiVibeCoding, .softwareDevelopment]
-        state.customDomainTerms = ["SayKuku", "Vibe Coding"]
         state.didCompleteOnboarding = true
         state.automaticAgentWriteBack = false
 
@@ -69,7 +68,6 @@ struct PersistenceTests {
         #expect(reloaded.dictationNumberFormat == .spoken)
         #expect(reloaded.dictationCleanup == .verbatim)
         #expect(reloaded.selectedDomains == [.aiVibeCoding, .softwareDevelopment])
-        #expect(reloaded.customDomainTerms == ["SayKuku", "Vibe Coding"])
         #expect(reloaded.didCompleteOnboarding)
         #expect(!reloaded.automaticAgentWriteBack)
     }
