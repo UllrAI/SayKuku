@@ -461,10 +461,12 @@ private struct KnowledgeImportSheet: View {
     @State private var source = ""
     @State private var selected = Set<UUID>()
     @State private var analysis: KnowledgeAnalysis?
-    @State private var analyzing = false
+    @State private var analysisTask: Task<Void, Never>?
     @State private var errorMessage: String?
     @State private var confirmingDiscard = false
     @FocusState private var sourceFocused: Bool
+
+    private var analyzing: Bool { analysisTask != nil }
 
     /// Whether the analysis produced anything the user can import.
     private var hasResults: Bool {
@@ -501,6 +503,18 @@ private struct KnowledgeImportSheet: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // Covers only the content so Cancel in the footer still works while waiting.
+            .overlay {
+                if analyzing {
+                    ZStack {
+                        KukuColor.fill
+                        ProgressView(appState.text("正在分析…", "Analyzing…"))
+                            .padding(KukuSpacing.lg)
+                            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: KukuLayout.radiusMedium, style: .continuous))
+                            .kukuShadow(.floating)
+                    }
+                }
+            }
 
             KukuDivider(inset: 0)
 
@@ -508,18 +522,8 @@ private struct KnowledgeImportSheet: View {
         }
         .frame(width: KukuLayout.sheetWideWidth, height: KukuLayout.sheetHeight)
         .background(KukuColor.canvas)
-        .overlay {
-            if analyzing {
-                ZStack {
-                    KukuColor.fill
-                    ProgressView(appState.text("正在分析…", "Analyzing…"))
-                        .padding(KukuSpacing.lg)
-                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: KukuLayout.radiusMedium, style: .continuous))
-                        .kukuShadow(.floating)
-                }
-            }
-        }
         .onChange(of: source) { errorMessage = nil }
+        .onDisappear { analysisTask?.cancel() }
         .confirmationDialog(
             appState.text("放弃这次导入？", "Discard this import?"),
             isPresented: $confirmingDiscard,
@@ -671,9 +675,8 @@ private struct KnowledgeImportSheet: View {
     }
 
     private func analyze() {
-        analyzing = true
         errorMessage = nil
-        Task {
+        analysisTask = Task {
             do {
                 let value = try await appState.analyzeKnowledge(source)
                 analysis = value
@@ -683,7 +686,7 @@ private struct KnowledgeImportSheet: View {
             } catch {
                 errorMessage = appState.localizedError(error)
             }
-            analyzing = false
+            analysisTask = nil
         }
     }
 

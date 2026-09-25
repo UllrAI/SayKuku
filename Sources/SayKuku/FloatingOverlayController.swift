@@ -110,6 +110,20 @@ private struct FloatingSystemOverlay: View {
         .animation(Motion.panel, value: appState.agentPhase)
         .animation(Motion.panel, value: appState.dictationPhase)
         .animation(Motion.panel, value: appState.overlayError)
+        .onChange(of: announcement) { _, announcement in
+            if let announcement { AccessibilityNotification.Announcement(announcement).post() }
+        }
+    }
+
+    /// The panel never takes focus, so VoiceOver only learns about a change through an announcement.
+    /// Follows the phases rather than live text, so a streaming transcript isn't read out word by word.
+    private var announcement: String? {
+        // Speech while the mic is open would end up in the recording.
+        if appState.dictationPhase == .listening || appState.agentPhase == .listening { return nil }
+        if appState.agentPhase == .answerReady { return appState.pendingAnswerStatus ?? appState.pendingAnswerText }
+        return appState.overlayError
+            ?? appState.agentPhase.status(appState)
+            ?? appState.dictationPhase.status(appState)
     }
 }
 
