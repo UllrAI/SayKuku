@@ -26,9 +26,31 @@ final class SystemPermissionController {
     private(set) var microphoneStatus: SystemPermissionStatus = .notDetermined
     private(set) var accessibilityStatus: SystemPermissionStatus = .notDetermined
     private(set) var requesting: SystemPermissionKind?
+    /// macOS shows the Accessibility prompt only once per app, so later requests open System Settings.
+    private(set) var hasPromptedForAccessibility = false
+    /// Runs in place of `refresh()` when the system reports an Accessibility change,
+    /// so the owner can react to the new status.
+    @ObservationIgnored var accessibilityChangeHandler: (@MainActor () -> Void)?
+
+    @ObservationIgnored private nonisolated(unsafe) var accessibilityObserver: (any NSObjectProtocol)?
+    @ObservationIgnored private var accessibilityRetryTask: Task<Void, Never>?
 
     init() {
         refresh()
+        // Posted when any app's Accessibility trust changes, so a grant is seen without reactivating SayKuku.
+        accessibilityObserver = DistributedNotificationCenter.default().addObserver(
+            forName: NSNotification.Name("com.apple.accessibility.api"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.accessibilityDidChange() }
+        }
+    }
+
+    deinit {
+        if let accessibilityObserver {
+            DistributedNotificationCenter.default().removeObserver(accessibilityObserver)
+        }
     }
 
     var allRequiredPermissionsGranted: Bool {
@@ -58,6 +80,26 @@ final class SystemPermissionController {
             accessibilityStatus = .authorized
         } else {
             accessibilityStatus = .denied
+        }
+    }
+
+    private func accessibilityDidChange() {
+        refreshAfterAccessibilityChange()
+        accessibilityRetryTask?.cancel()
+        guard !accessibilityStatus.isAuthorized else { return }
+        // The notification can arrive before AXIsProcessTrusted() flips, so check once more.
+        accessibilityRetryTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(1))
+            guard !Task.isCancelled else { return }
+            self?.refreshAfterAccessibilityChange()
+        }
+    }
+
+    private func refreshAfterAccessibilityChange() {
+        if let accessibilityChangeHandler {
+            accessibilityChangeHandler()
+        } else {
+            refresh()
         }
     }
 
@@ -112,6 +154,12 @@ final class SystemPermissionController {
             return true
         }
 
+        guard !hasPromptedForAccessibility else {
+            openSystemSettings(for: .accessibility)
+            return false
+        }
+
+        hasPromptedForAccessibility = true
         let options = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
         _ = AXIsProcessTrustedWithOptions(options)
         refresh()
