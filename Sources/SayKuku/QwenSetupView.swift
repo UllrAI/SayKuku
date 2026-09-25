@@ -4,7 +4,6 @@ struct QwenSetupView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.dismiss) private var dismiss
     @State private var draft = QwenCredentialsDraft()
-    @State private var isConfirmingLeave = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -26,7 +25,6 @@ struct QwenSetupView: View {
                         steps
                     }
                     VStack(alignment: .leading, spacing: KukuSpacing.md) {
-                        // The footer button is the only save action during setup.
                         KukuGroup(appState.text("连接信息", "Connection details")) {
                             QwenConnectionForm(draft: $draft)
                         }
@@ -44,19 +42,6 @@ struct QwenSetupView: View {
         // Same size as the other setup steps, so the flow doesn't jump between sheets.
         .frame(width: KukuLayout.sheetWideWidth, height: KukuLayout.sheetHeight)
         .background(KukuColor.canvas)
-        .confirmationDialog(
-            appState.text("保存刚才的修改？", "Save your changes?"),
-            isPresented: $isConfirmingLeave,
-            titleVisibility: .visible
-        ) {
-            Button(appState.text("保存", "Save")) {
-                if appState.commitQwenCredentials(draft) { dismiss() }
-            }
-            Button(appState.text("不保存", "Don’t Save"), role: .destructive) { dismiss() }
-            Button(appState.text("取消", "Cancel"), role: .cancel) {}
-        } message: {
-            Text(appState.text("不保存的话，这些修改不会生效。", "If you don’t save, these changes won’t take effect."))
-        }
     }
 
     private var steps: some View {
@@ -91,30 +76,22 @@ struct QwenSetupView: View {
                     .buttonStyle(.kukuPrimary)
                     .keyboardShortcut(.defaultAction)
             } else {
-                // A saved key is enough to move on; testing it is recommended, not required.
-                Button(appState.apiKey.isEmpty ? appState.setupSkipTitle : appState.setupContinueTitle, action: leave)
+                // The form commits what was typed as the sheet closes, so a key is enough to move on;
+                // testing it is recommended, not required.
+                Button(draft.hasKey ? appState.setupContinueTitle : appState.setupSkipTitle) { dismiss() }
                     .buttonStyle(.kukuSecondary)
                     .keyboardShortcut(.cancelAction)
-                // Applies to the Button inside, so Return saves and tests.
+                // Applies to the Button inside, so Return tests the connection.
                 QwenConnectionButton(draft: draft)
                     .keyboardShortcut(.defaultAction)
             }
         }
     }
 
-    /// Connected with nothing left unsaved, so the only thing left is to finish.
+    /// Connected, and nothing edited since, so the only thing left is to finish.
     private var isConnected: Bool {
         guard case .connected = appState.connectionState else { return false }
-        return !hasUnsavedChanges
-    }
-
-    private var hasUnsavedChanges: Bool {
-        draft.action(savedKey: appState.apiKey, savedWorkspaceID: appState.qwenWorkspaceID).hasChanges
-    }
-
-    /// Skip or Done: asks before dropping what was typed but not saved.
-    private func leave() {
-        if hasUnsavedChanges { isConfirmingLeave = true } else { dismiss() }
+        return draft.matches(apiKey: appState.apiKey, workspaceID: appState.qwenWorkspaceID)
     }
 }
 
