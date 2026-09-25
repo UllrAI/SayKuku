@@ -164,7 +164,7 @@ final class AppState {
     var reasoningModel = QwenModelCatalog.defaultReasoningModel {
         didSet { defaults.set(reasoningModel, forKey: Keys.reasoningModel); invalidateConnectionTest() }
     }
-    /// The saved key; edits stay in a view draft until `saveQwenCredentials` runs.
+    /// The saved key; edits stay in a view draft until `commitQwenCredentials` runs.
     private(set) var apiKey = ""
     var connectionState: ConnectionState = .idle
     let systemPermissions = SystemPermissionController()
@@ -504,19 +504,21 @@ final class AppState {
         contextItems.removeAll { $0.kind == .session }
     }
 
-    /// Runs the connection button's action for the draft: save, save and test, or test.
-    func submitQwenCredentials(_ draft: QwenCredentialsDraft) async {
-        guard connectionState != .testing else { return }
-        let action = draft.action(savedKey: apiKey, savedWorkspaceID: qwenWorkspaceID)
-        guard action != .unavailable, commitQwenCredentials(draft) else { return }
-        if action != .save { await testQwenConnection() }
+    /// Commits pending edits, then tests the saved credentials.
+    func testQwenConnection(_ draft: QwenCredentialsDraft) async {
+        guard connectionState != .testing, commitQwenCredentials(draft), !apiKey.isEmpty else { return }
+        await runConnectionTest()
     }
 
-    /// Saves the draft and reports a Keychain failure in the connection status.
+    /// Saves whatever changed in the typed credentials. A Keychain failure shows in the connection status.
     @discardableResult
     func commitQwenCredentials(_ draft: QwenCredentialsDraft) -> Bool {
+        let workspaceID = draft.workspaceID.trimmingCharacters(in: .whitespacesAndNewlines)
+        if workspaceID != qwenWorkspaceID { qwenWorkspaceID = workspaceID }
+        let key = draft.apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard key != apiKey else { return true }
         do {
-            try saveQwenCredentials(draft)
+            try saveAPIKey(key)
             return true
         } catch {
             connectionState = .failed(localizedError(error))
@@ -524,13 +526,7 @@ final class AppState {
         }
     }
 
-    func saveQwenCredentials(_ draft: QwenCredentialsDraft) throws {
-        if draft.keyState(saved: apiKey).hasChanges { try saveAPIKey(draft.apiKey) }
-        let workspaceID = draft.workspaceID.trimmingCharacters(in: .whitespacesAndNewlines)
-        if workspaceID != qwenWorkspaceID { qwenWorkspaceID = workspaceID }
-    }
-
-    private func testQwenConnection() async {
+    private func runConnectionTest() async {
         let key = apiKey
         let tested = configuration
         connectionState = .testing

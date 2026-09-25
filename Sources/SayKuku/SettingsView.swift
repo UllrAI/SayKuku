@@ -230,10 +230,14 @@ private struct QwenSettings: View {
 }
 
 /// Region, API Key, and Workspace ID rows shared by Settings and the first-run setup sheet.
-/// The region applies at once; the key and Workspace ID wait for `QwenConnectionButton`.
+/// Like any macOS settings field, the key and Workspace ID apply when editing ends:
+/// on Return, when focus moves on, or when the form goes away. There is no unsaved state to lose.
 struct QwenConnectionForm: View {
+    private enum Field { case apiKey, workspaceID }
+
     @Environment(AppState.self) private var appState
     @Binding var draft: QwenCredentialsDraft
+    @FocusState private var focusedField: Field?
 
     var body: some View {
         @Bindable var appState = appState
@@ -257,6 +261,7 @@ struct QwenConnectionForm: View {
                 link: helpLink(appState.text("获取 API Key", "Get an API Key"), page: "get-api-key")
             ) {
                 SecureField("sk-…", text: $draft.apiKey)
+                    .focused($focusedField, equals: .apiKey)
             }
             KukuDivider()
             credentialRow(
@@ -268,17 +273,20 @@ struct QwenConnectionForm: View {
                 link: helpLink(appState.text("查看业务空间 ID", "Find Your Workspace ID"), page: "obtain-the-app-id-and-workspace-id")
             ) {
                 TextField("llm-…", text: $draft.workspaceID)
+                    .focused($focusedField, equals: .workspaceID)
             }
         }
         .onChange(of: appState.apiKey, initial: true) { _, saved in draft.apiKey = saved }
         .onChange(of: appState.qwenWorkspaceID, initial: true) { _, saved in draft.workspaceID = saved }
+        .onChange(of: focusedField) { commit() }
+        .onDisappear(perform: commit)
     }
 
-    private func credentialRow<Field: View>(
+    private func credentialRow<Input: View>(
         title: String,
         caption: String,
         link: KukuExternalLink,
-        @ViewBuilder field: () -> Field
+        @ViewBuilder field: () -> Input
     ) -> some View {
         HStack(spacing: KukuSpacing.md) {
             VStack(alignment: .leading, spacing: KukuSpacing.xxs) {
@@ -290,7 +298,7 @@ struct QwenConnectionForm: View {
                 .textFieldStyle(.roundedBorder)
                 .frame(width: KukuLayout.pickerWidth)
                 .accessibilityLabel(title)
-                .onSubmit(submit)
+                .onSubmit(commit)
         }
         .kukuRowFrame()
     }
@@ -307,13 +315,12 @@ struct QwenConnectionForm: View {
             : "https://www.alibabacloud.com/help/en/model-studio/\(page)")!)
     }
 
-    /// Return in either field does what the connection button would.
-    private func submit() {
-        Task { await appState.submitQwenCredentials(draft) }
+    private func commit() {
+        appState.commitQwenCredentials(draft)
     }
 }
 
-/// Unsaved edits first, then the result of the last connection test.
+/// The result of the last connection test, or a hint when there is nothing to test yet.
 struct QwenConnectionStatus: View {
     @Environment(AppState.self) private var appState
     let draft: QwenCredentialsDraft
@@ -321,29 +328,22 @@ struct QwenConnectionStatus: View {
     private var font: Font { .kuku(.subheadline, weight: .medium) }
 
     var body: some View {
-        Group {
-            if draft.keyState(saved: appState.apiKey) == .cleared {
-                KukuStatusLabel(text: appState.text("保存后将移除 API Key", "Saving will remove your API Key"), tone: .warning, font: font)
-            } else if action.hasChanges {
-                KukuStatusLabel(text: appState.text("有未保存的更改", "Unsaved changes"), tone: .warning, font: font)
-            } else {
-                testResult
-            }
-        }
-        .lineLimit(2)
+        testResult
+            .lineLimit(2)
     }
 
     @ViewBuilder
     private var testResult: some View {
         switch appState.connectionState {
-        case .connected(let realtime, let chat):
+        // A success only counts for the values it tested; edits since then need a new test.
+        case .connected(let realtime, let chat) where draft.matches(apiKey: appState.apiKey, workspaceID: appState.qwenWorkspaceID):
             KukuStatusLabel(text: connectedMessage(realtime: realtime, chat: chat), tone: .success, font: font)
         case .failed(let message):
             KukuStatusLabel(text: message, tone: .danger, font: font)
         case .testing:
             hint(appState.text("正在连接 Qwen…", "Connecting to Qwen…"))
-        case .idle:
-            if appState.apiKey.isEmpty {
+        case .connected, .idle:
+            if !draft.hasKey {
                 hint(appState.text("填入 API Key 后即可测试连接", "Add an API Key to test the connection"))
             }
         }
@@ -353,10 +353,6 @@ struct QwenConnectionStatus: View {
         Text(text)
             .font(font)
             .foregroundStyle(KukuColor.textSecondary)
-    }
-
-    private var action: QwenCredentialsAction {
-        draft.action(savedKey: appState.apiKey, savedWorkspaceID: appState.qwenWorkspaceID)
     }
 
     private func connectedMessage(realtime: Int?, chat: Int) -> String {
@@ -373,28 +369,18 @@ struct QwenConnectionStatus: View {
     }
 }
 
-/// The one button that applies the draft: Save & Test, Test Connection, or Save.
+/// Tests the connection, committing anything still being edited first.
 struct QwenConnectionButton: View {
     @Environment(AppState.self) private var appState
     let draft: QwenCredentialsDraft
 
     var body: some View {
-        let action = draft.action(savedKey: appState.apiKey, savedWorkspaceID: appState.qwenWorkspaceID)
         let isTesting = appState.connectionState == .testing
-        Button(title(for: action, isTesting: isTesting)) {
-            Task { await appState.submitQwenCredentials(draft) }
+        Button(isTesting ? appState.text("正在测试…", "Testing…") : appState.text("测试连接", "Test Connection")) {
+            Task { await appState.testQwenConnection(draft) }
         }
         .buttonStyle(.kukuPrimary)
-        .disabled(isTesting || action == .unavailable)
-    }
-
-    private func title(for action: QwenCredentialsAction, isTesting: Bool) -> String {
-        if isTesting { return appState.text("正在测试…", "Testing…") }
-        switch action {
-        case .save: return appState.text("保存", "Save")
-        case .test: return appState.text("测试连接", "Test Connection")
-        case .saveAndTest, .unavailable: return appState.text("保存并测试", "Save & Test")
-        }
+        .disabled(isTesting || !draft.hasKey)
     }
 }
 
@@ -419,6 +405,8 @@ private struct ModelPickerRow: View {
                 .frame(width: KukuLayout.pickerWidth)
                 .onSubmit(applyCustomModel)
                 .onExitCommand { customDraft = nil }
+                // Leaving the page applies the typed ID, as with the other settings fields.
+                .onDisappear(perform: applyCustomModel)
                 Button(appState.text("使用", "Use"), action: applyCustomModel)
                     .buttonStyle(.kukuSecondary)
             } else {

@@ -65,52 +65,18 @@ enum QwenModelCatalog {
     }
 }
 
-enum APIKeyDraftState: Equatable {
-    case empty, saved, modified, cleared
-
-    init(draft: String, saved: String) {
-        let value = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        if value == saved { self = saved.isEmpty ? .empty : .saved }
-        else { self = value.isEmpty ? .cleared : .modified }
-    }
-
-    var hasChanges: Bool { self == .modified || self == .cleared }
-}
-
-/// Unsaved API Key and Workspace ID edits. Both are applied together by one button.
+/// API Key and Workspace ID as typed, committed when editing ends.
 struct QwenCredentialsDraft: Equatable {
     var apiKey = ""
     var workspaceID = ""
 
-    func keyState(saved: String) -> APIKeyDraftState {
-        APIKeyDraftState(draft: apiKey, saved: saved)
+    var hasKey: Bool { !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+
+    /// True once every edit has been committed, so a test result still describes what's on screen.
+    func matches(apiKey savedKey: String, workspaceID savedWorkspaceID: String) -> Bool {
+        apiKey.trimmingCharacters(in: .whitespacesAndNewlines) == savedKey
+            && workspaceID.trimmingCharacters(in: .whitespacesAndNewlines) == savedWorkspaceID
     }
-
-    func workspaceChanged(saved: String) -> Bool {
-        workspaceID.trimmingCharacters(in: .whitespacesAndNewlines) != saved.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    func action(savedKey: String, savedWorkspaceID: String) -> QwenCredentialsAction {
-        let workspaceChanged = workspaceChanged(saved: savedWorkspaceID)
-        switch keyState(saved: savedKey) {
-        case .empty: return workspaceChanged ? .save : .unavailable
-        case .cleared: return .save
-        case .modified: return .saveAndTest
-        case .saved: return workspaceChanged ? .saveAndTest : .test
-        }
-    }
-}
-
-/// What the connection button does for the current draft.
-enum QwenCredentialsAction: Equatable {
-    /// Nothing to save and no key to test.
-    case unavailable
-    /// Saves without testing: the key was cleared, or there is no key yet.
-    case save
-    case saveAndTest
-    case test
-
-    var hasChanges: Bool { self == .save || self == .saveAndTest }
 }
 
 struct QwenConfiguration: Equatable {
