@@ -35,6 +35,7 @@ struct SayKukuApp: App {
                 CheckForUpdatesItem(appState: appState)
             }
             CommandGroup(replacing: .newItem) { }
+            FindCommands(appState: appState)
             CommandGroup(before: .sidebar) {
                 PageMenuItems(appState: appState)
             }
@@ -345,6 +346,22 @@ private struct CheckForUpdatesItem: View {
             Button(appState.text("检查更新…", "Check for Updates…")) {
                 updater.checkForUpdates(nil)
             }
+        }
+    }
+}
+
+/// Find (⌘F) moves focus to the search field of the page in front; disabled on pages without one.
+private struct FindCommands: Commands {
+    let appState: AppState
+    @FocusedValue(\.searchFieldFocus) private var searchFieldFocus: FocusState<Bool>.Binding?
+
+    var body: some Commands {
+        CommandGroup(after: .textEditing) {
+            Button(appState.text("查找…", "Find…")) {
+                if let searchFieldFocus { searchFieldFocus.wrappedValue = true }
+            }
+            .keyboardShortcut("f", modifiers: .command)
+            .disabled(searchFieldFocus == nil)
         }
     }
 }
