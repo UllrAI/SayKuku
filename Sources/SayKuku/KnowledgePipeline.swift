@@ -113,7 +113,12 @@ enum KnowledgePipeline {
             if let match = existing.first(where: { exactMatch(entity, $0) }) {
                 return ImportCandidate(entity: entity, status: .merge, evidence: proposal.evidence, matchedEntityID: match.id)
             }
-            if let match = existing.first(where: { similarity(entity.normalizedKey, $0.normalizedKey) >= 0.82 }) {
+            // Short Chinese names differ by one homophone, which the edit ratio cannot catch.
+            let pinyin = KnowledgeNormalizer.pinyinKey(entity.name)
+            if let match = existing.first(where: {
+                similarity(entity.normalizedKey, $0.normalizedKey) >= 0.82
+                    || (pinyin != nil && pinyin == KnowledgeNormalizer.pinyinKey($0.name))
+            }) {
                 return ImportCandidate(entity: entity, status: .conflict, evidence: proposal.evidence, matchedEntityID: match.id)
             }
             return ImportCandidate(entity: entity, status: .new, evidence: proposal.evidence)
