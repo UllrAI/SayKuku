@@ -159,7 +159,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         alert.messageText = localized("Couldn’t save your latest changes")
         alert.addButton(withTitle: localized("Quit Anyway"))
         alert.addButton(withTitle: localized("Cancel"))
-        return alert.runModal() == .alertFirstButtonReturn
+        return alert.runModalInFront() == .alertFirstButtonReturn
     }
 
     func observeMainWindow(_ window: NSWindow?) {
@@ -288,8 +288,6 @@ private struct MenuBarContent: View {
         }
         .keyboardShortcut(",", modifiers: .command)
 
-        CheckForUpdatesItem(appState: appState)
-
         Divider()
 
         shortcutStatusItem
@@ -330,7 +328,7 @@ private struct MenuBarContent: View {
     }
 }
 
-/// Manual update check for the app menu and the menu bar menu; hidden in dev builds.
+/// Manual update check for the app menu; hidden in dev builds.
 private struct CheckForUpdatesItem: View {
     let appState: AppState
 

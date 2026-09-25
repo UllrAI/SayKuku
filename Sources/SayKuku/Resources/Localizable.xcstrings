@@ -750,17 +750,6 @@
         }
       }
     },
-    "Check your connection and try again." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "请检查网络后再试。"
-          }
-        }
-      }
-    },
     "Checks at launch, then once a day" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5135,6 +5124,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "换个关键词试试。"
+          }
+        }
+      }
+    },
+    "Try again later." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请稍后再试。"
           }
         }
       }
