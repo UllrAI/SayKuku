@@ -50,7 +50,8 @@ struct GlobalShortcut: Hashable, Sendable {
     )
 
     enum RecordingIssue: Equatable, Sendable {
-        case needsModifier, unsupportedKey, reserved, duplicate
+        /// `reserved`: ⌘ or ⇧⌘ alone; `system`: a combination macOS itself uses.
+        case needsModifier, unsupportedKey, reserved, system, duplicate
     }
 
     enum RecordingResult: Equatable, Sendable {
@@ -115,7 +116,8 @@ struct GlobalShortcut: Hashable, Sendable {
     static func restored(from storageValue: String, fallback: GlobalShortcut) -> GlobalShortcut? {
         guard !storageValue.isEmpty else { return nil }
         guard let shortcut = GlobalShortcut(storageValue: storageValue),
-              !reserved.contains(shortcut) else { return fallback }
+              !shortcut.isAppReserved,
+              !systemShortcuts.contains(shortcut) else { return fallback }
         return shortcut
     }
 
@@ -137,7 +139,8 @@ struct GlobalShortcut: Hashable, Sendable {
         let shortcut = GlobalShortcut(keyCode: UInt32(keyCode), carbonModifiers: carbonModifiers)
         guard carbonModifiers & requiredModifiers != 0 else { return .reject(.needsModifier) }
         guard shortcut.isValid else { return .reject(.unsupportedKey) }
-        guard !reserved.contains(shortcut) else { return .reject(.reserved) }
+        guard !shortcut.isAppReserved else { return .reject(.reserved) }
+        guard !systemShortcuts.contains(shortcut) else { return .reject(.system) }
         guard shortcut != otherShortcut else { return .reject(.duplicate) }
         return .record(shortcut)
     }
@@ -147,18 +150,26 @@ struct GlobalShortcut: Hashable, Sendable {
     private static let requiredModifiers = UInt32(cmdKey | controlKey)
     private static let supportedModifiers = UInt32(cmdKey | optionKey | controlKey | shiftKey)
 
-    // A hot key swallows its combination system-wide, and SayKuku pastes with a
-    // synthesized ⌘V, so these standard macOS shortcuts can't be taken over.
-    private static let reserved: Set<GlobalShortcut> = {
-        let commandKeys = [
-            kVK_ANSI_V, kVK_ANSI_C, kVK_ANSI_X, kVK_ANSI_Z, kVK_ANSI_A, kVK_ANSI_Q,
-            kVK_ANSI_W, kVK_ANSI_H, kVK_ANSI_M, kVK_Tab, kVK_Space, kVK_ANSI_Comma
+    // A hot key swallows its combination system-wide, and registering one no
+    // app has claimed as a hot key still succeeds. ⌘ and ⇧⌘ are where every
+    // app puts its menu shortcuts (and SayKuku pastes with a synthesized ⌘V),
+    // so that whole space is off limits rather than listed key by key.
+    private var isAppReserved: Bool {
+        carbonModifiers == UInt32(cmdKey) || carbonModifiers == UInt32(shiftKey | cmdKey)
+    }
+
+    // Combinations macOS itself uses outside ⌘ and ⇧⌘. ⌥⌘Esc (Force Quit) is
+    // covered already because Esc is never recordable.
+    private static let systemShortcuts: Set<GlobalShortcut> = {
+        let groups: [(modifiers: Int, keys: [Int])] = [
+            (optionKey | cmdKey, [kVK_ANSI_D, kVK_ANSI_H, kVK_ANSI_M, kVK_ANSI_W, kVK_ANSI_I, kVK_Space]),
+            (controlKey | cmdKey, [kVK_ANSI_Q, kVK_Space, kVK_ANSI_F, kVK_ANSI_D]),
+            (controlKey | optionKey, [kVK_Space]),
+            (controlKey, [kVK_Space])
         ]
-        var reserved = Set(commandKeys.map {
-            GlobalShortcut(keyCode: UInt32($0), carbonModifiers: UInt32(cmdKey))
+        return Set(groups.flatMap { group in
+            group.keys.map { GlobalShortcut(keyCode: UInt32($0), carbonModifiers: UInt32(group.modifiers)) }
         })
-        reserved.insert(GlobalShortcut(keyCode: UInt32(kVK_ANSI_Z), carbonModifiers: UInt32(shiftKey | cmdKey)))
-        return reserved
     }()
 
     // Apple's canonical order: Control, Option, Shift, Command.
