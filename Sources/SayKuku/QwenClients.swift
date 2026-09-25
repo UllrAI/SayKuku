@@ -162,7 +162,26 @@ enum PromptRules {
     }
 }
 
-actor QwenRealtimeClient {
+/// Streamed dictation as the voice workflows use it; tests pass a fake.
+protocol RealtimeTranscribing: Actor {
+    func connect(
+        session: UUID,
+        apiKey: String,
+        configuration: QwenConfiguration,
+        autoStop: Bool,
+        onSpeechStopped: @escaping @Sendable () -> Void,
+        onDelta: @escaping @Sendable (String) -> Void,
+        recognitionLanguage: RecognitionLanguage,
+        numberFormat: DictationNumberFormat,
+        cleanup: DictationCleanup,
+        knowledgePrompt: String
+    ) async throws
+    func append(_ pcm16: Data, session: UUID) async throws
+    func commit(session: UUID, timeout: Duration) async throws -> String
+    func cancel(session: UUID)
+}
+
+actor QwenRealtimeClient: RealtimeTranscribing {
     nonisolated static func makeDictationInstructions(
         knowledgePrompt: String,
         recognitionLanguage: RecognitionLanguage = .automatic,
@@ -514,7 +533,31 @@ enum AgentTextField: String, Sendable {
     case absent = "none"
 }
 
-struct QwenReasoningClient: Sendable {
+/// Request-based Qwen calls as `AppState` uses them; tests pass a fake.
+protocol Reasoning: Sendable {
+    func transcribeAudio(
+        apiKey: String,
+        configuration: QwenConfiguration,
+        wav: Data,
+        recognitionLanguage: RecognitionLanguage,
+        numberFormat: DictationNumberFormat,
+        cleanup: DictationCleanup,
+        knowledgePrompt: String
+    ) async throws -> String
+    func respondToAudio(
+        apiKey: String,
+        configuration: QwenConfiguration,
+        wav: Data,
+        context: [ContextItem],
+        sessions: [AgentSession],
+        textField: AgentTextField,
+        knowledgePrompt: String
+    ) async throws -> AgentResponse
+    func extractKnowledge(apiKey: String, configuration: QwenConfiguration, text: String) async throws -> [ProposedEntity]
+    func testConnection(apiKey: String, configuration: QwenConfiguration) async throws -> Duration
+}
+
+struct QwenReasoningClient: Reasoning {
     private static let retryableStatusCodes = Set([408, 429, 500, 502, 503, 504])
     /// Inline audio cap; 16 kHz mono PCM16 WAV reaches it after about 3.9 minutes.
     static let maximumAudioBytes = 7_500_000
