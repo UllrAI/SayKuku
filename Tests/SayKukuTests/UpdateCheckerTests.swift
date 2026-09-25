@@ -38,7 +38,7 @@ struct UpdateCheckerTests {
         await checker.checkAutomatically()
         await checker.checkAutomatically()
         #expect(recorder.offers == ["1.2.0"])
-        #expect(recorder.toasts.isEmpty)
+        #expect(recorder.results.isEmpty)
         await checker.checkManually()
         #expect(recorder.offers == ["1.2.0", "1.2.0"])
     }
@@ -49,10 +49,10 @@ struct UpdateCheckerTests {
         defer { environment.clean() }
         let (checker, recorder) = try makeChecker(environment, serving: "1.1")
         await checker.checkAutomatically()
-        #expect(recorder.toasts.isEmpty)
+        #expect(recorder.results.isEmpty)
         await checker.checkManually()
         #expect(recorder.offers.isEmpty)
-        #expect(recorder.toasts == [localized("You’re up to date")])
+        #expect(recorder.results == [.upToDate])
     }
 
     @Test("a failed check is silent when automatic and reported when manual")
@@ -61,14 +61,14 @@ struct UpdateCheckerTests {
         defer { environment.clean() }
         let (checker, recorder) = try makeChecker(environment) { _ in throw URLError(.timedOut) }
         await checker.checkAutomatically()
-        #expect(recorder.toasts.isEmpty)
+        #expect(recorder.results.isEmpty)
         await checker.checkManually()
-        #expect(recorder.toasts == [localized("Couldn’t check for updates. Try again later.")])
+        #expect(recorder.results == [.failed])
 
         let (unreadable, unreadableRecorder) = try makeChecker(environment, serving: "latest")
         await unreadable.checkManually()
         #expect(unreadableRecorder.offers.isEmpty)
-        #expect(unreadableRecorder.toasts == [localized("Couldn’t check for updates. Try again later.")])
+        #expect(unreadableRecorder.results == [.failed])
     }
 
     @Test("a skipped version stays quiet in automatic checks, even after relaunch")
@@ -134,7 +134,7 @@ struct UpdateCheckerTests {
             recorder.offers.append(feed.version)
             return response
         }
-        checker.toastHandler = { text, _ in recorder.toasts.append(text) }
+        checker.resultHandler = { recorder.results.append($0) }
         return (checker, recorder)
     }
 }
@@ -142,5 +142,5 @@ struct UpdateCheckerTests {
 @MainActor
 private final class Recorder {
     var offers: [String] = []
-    var toasts: [String] = []
+    var results: [UpdateChecker.Decision] = []
 }

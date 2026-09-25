@@ -750,6 +750,17 @@
         }
       }
     },
+    "Check your connection and try again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请检查网络后再试。"
+          }
+        }
+      }
+    },
     "Checks at launch, then once a day" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1171,13 +1182,13 @@
         }
       }
     },
-    "Couldn’t check for updates. Try again later." : {
+    "Couldn’t check for updates" : {
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "无法检查更新，请稍后再试"
+            "value" : "无法检查更新"
           }
         }
       }
@@ -2968,6 +2979,17 @@
         }
       }
     },
+    "OK" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "好"
+          }
+        }
+      }
+    },
     "Off" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4033,6 +4055,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "SayKuku %@ 已发布"
+          }
+        }
+      }
+    },
+    "SayKuku %@ is the latest version." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SayKuku %@ 是当前最新版本。"
           }
         }
       }
