@@ -764,7 +764,7 @@ final class AppState {
         if let destination { self.destination = destination }
         NSApplication.shared.setActivationPolicy(.regular)
         mainWindowOpener?.callAsFunction(id: Self.mainWindowID)
-        NSApplication.shared.activate(ignoringOtherApps: true)
+        NSApplication.shared.activate()
     }
 
     private func showQwenSettings() {
