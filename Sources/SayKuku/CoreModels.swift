@@ -329,20 +329,22 @@ enum DomainPreset: String, CaseIterable, Identifiable, Sendable {
 }
 
 enum HistoryRetention: String, Codable, CaseIterable, Identifiable {
-    case day1, days7, days30, days90, forever
+    case off, day1, days7, days30, days90, forever
 
     var id: String { rawValue }
+    /// Nil means nothing expires: `.off` stops recording new entries but leaves existing ones alone.
     var days: Int? {
         switch self {
+        case .off, .forever: nil
         case .day1: 1
         case .days7: 7
         case .days30: 30
         case .days90: 90
-        case .forever: nil
         }
     }
     var chineseTitle: String {
         switch self {
+        case .off: "不保存"
         case .day1: "1 天"
         case .days7: "7 天"
         case .days30: "30 天"
@@ -352,6 +354,7 @@ enum HistoryRetention: String, Codable, CaseIterable, Identifiable {
     }
     var englishTitle: String {
         switch self {
+        case .off: "Don’t keep"
         case .day1: "1 day"
         case .days7: "7 days"
         case .days30: "30 days"

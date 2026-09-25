@@ -81,13 +81,17 @@ struct HistoryView: View {
     }
 
     private var retentionSubtitle: String {
-        guard appState.historyRetention != .forever else {
-            return appState.text("历史记录会一直保留，直到你手动删除。", "History is kept until you delete it.")
+        switch appState.historyRetention {
+        case .off:
+            appState.text("已停止记录新内容，已有记录会保留到你手动清空。", "New items aren’t being saved. Existing ones stay until you clear them.")
+        case .forever:
+            appState.text("历史记录会一直保留，直到你手动删除。", "History is kept until you delete it.")
+        default:
+            appState.text(
+                "保留 \(appState.historyRetention.chineseTitle)，星标记录不会自动删除。",
+                "Kept for \(appState.historyRetention.englishTitle). Starred items are never deleted automatically."
+            )
         }
-        return appState.text(
-            "保留 \(appState.historyRetention.chineseTitle)，星标记录不会自动删除。",
-            "Kept for \(appState.historyRetention.englishTitle). Starred items are never deleted automatically."
-        )
     }
 
     @ViewBuilder
