@@ -113,7 +113,7 @@ struct VoiceWorkflowTests {
         try await startListening(state)
         state.finishDictation()
         #expect(await eventually { state.historyEntries.first?.status == .failed })
-        #expect(state.overlayError == localized("Didn’t catch that. Try again."))
+        #expect(state.overlayError == QwenError.noSpeech.localizedDescription)
         #expect(state.dictationPhase == .idle)
         #expect(reasoning.transcribeCount == 0)
         #expect(text.writes.isEmpty)

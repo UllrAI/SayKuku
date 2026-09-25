@@ -13,15 +13,35 @@ enum QwenError: LocalizedError, Equatable {
 
     var errorDescription: String? {
         switch self {
-        case .missingConfiguration: "Enter a Qwen API Key first"
-        case .invalidEndpoint: "The Qwen endpoint is invalid"
-        case .invalidResponse: "Qwen returned an invalid response"
-        case .noSpeech: "No speech was detected"
-        case .server(let status, let message): "Qwen request failed (\(status)): \(message)"
-        case .protocolError(let message): message
-        case .timeout: "Qwen did not respond in time"
-        case .recordingTooLong: "The recording is too long"
+        case .missingConfiguration:
+            localized("Add your Qwen API Key first")
+        case .invalidEndpoint:
+            localized("Couldn’t reach Qwen. Check the Region and Workspace ID in Settings › Qwen Connection.")
+        case .invalidResponse:
+            localized("Couldn’t get a result. Try again.")
+        case .noSpeech:
+            localized("Didn’t catch that. Try again.")
+        case .server(401, _), .server(403, _):
+            localized("Your API Key was rejected. Check Settings › Qwen Connection.")
+        case .server(429, _):
+            localized("Too many requests. Try again in a moment.")
+        case .server(400, _):
+            // Often content inspection or unreadable audio, so Settings is only the last resort.
+            localized("Qwen rejected this request. Try again, or check the model in Settings › Qwen Connection.")
+        case .server:
+            localized("Qwen couldn’t handle the request. Try again.")
+        case .protocolError:
+            localized("Lost connection to Qwen. Try again.")
+        case .timeout:
+            localized("Qwen took too long to respond. Try again.")
+        case .recordingTooLong:
+            localized("That recording is too long. Try shorter parts.")
         }
+    }
+
+    /// The overlay icon: silence is not a failure, so it gets its own.
+    var symbol: String {
+        self == .noSpeech ? "waveform.slash" : "exclamationmark"
     }
 
     /// Realtime failures that a batch request may still recover from. Configuration errors are final.

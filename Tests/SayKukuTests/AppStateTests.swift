@@ -11,6 +11,26 @@ struct AppStateTests {
         #expect(HistoryMode.agent.title == localized("Voice Agent"))
     }
 
+    @Test("every user-facing error describes itself")
+    func errorDescriptions() {
+        let errors: [any LocalizedError] = [
+            QwenError.missingConfiguration, QwenError.invalidEndpoint, QwenError.invalidResponse, QwenError.noSpeech,
+            QwenError.server(status: 400, message: ""), QwenError.server(status: 401, message: ""),
+            QwenError.server(status: 403, message: ""), QwenError.server(status: 429, message: ""),
+            QwenError.server(status: 500, message: ""), QwenError.protocolError(""), QwenError.timeout,
+            QwenError.recordingTooLong,
+            TextInteractionError.accessibilityRequired, TextInteractionError.noFocusedElement,
+            TextInteractionError.sensitiveTarget, TextInteractionError.targetChanged, TextInteractionError.writeFailed,
+            AudioCaptureError.microphoneUnavailable, AudioCaptureError.unsupportedFormat,
+            AgentActionError.shortcutFailed, AgentActionError.shortcutTimedOut,
+            LocalStoreError.unreadableSnapshot, LocalStoreError.invalidAudioFilename,
+            SecureStorageError.keychain(-25300), SecureStorageError.invalidData
+        ]
+        for error in errors {
+            #expect(error.errorDescription?.isEmpty == false, "\(error) has no description")
+        }
+    }
+
     @Test("the interface language maps to and from AppleLanguages")
     func appLanguageOverride() {
         #expect(AppLanguage(appleLanguages: nil) == .system)

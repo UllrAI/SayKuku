@@ -7,10 +7,7 @@ enum AudioCaptureError: LocalizedError {
     case unsupportedFormat
 
     var errorDescription: String? {
-        switch self {
-        case .microphoneUnavailable: "No microphone is available"
-        case .unsupportedFormat: "The microphone audio format is unsupported"
-        }
+        localized("Couldn’t use the microphone. Check your input device and microphone access.")
     }
 }
 
