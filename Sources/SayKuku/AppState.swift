@@ -830,6 +830,8 @@ final class AppState {
     }
     /// Opens a new instance, then quits this one, so a new `appLanguage` takes effect.
     func relaunch() {
+        // Release the global shortcuts first: the new instance registers them before this one quits.
+        setGlobalShortcutsPaused(true)
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.createsNewApplicationInstance = true
         NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: configuration) { @Sendable _, error in
@@ -838,6 +840,7 @@ final class AppState {
                     NSApplication.shared.terminate(nil)
                     return
                 }
+                self.setGlobalShortcutsPaused(false)
                 Log.workflow.error("Relaunch failed: \(Log.describe(error), privacy: .public)")
                 self.showToast(
                     localized("Couldn’t reopen SayKuku. Quit and open it again."),
@@ -1741,8 +1744,11 @@ final class AppState {
            let value = InputMode(rawValue: raw) ?? InputMode.legacyRawValues[raw] { inputMode = value }
         if let raw = defaults.string(forKey: Keys.overlayPlacement),
            let value = OverlayPlacement(rawValue: raw) { overlayPlacement = value }
-        // The language now lives in `AppleLanguages`; the old in-app setting is dropped.
-        defaults.removeObject(forKey: Keys.legacyLanguage)
+        // The language now lives in `AppleLanguages`; carry an explicit old choice over once.
+        if let raw = defaults.string(forKey: Keys.legacyLanguage) {
+            if appLanguage == .system, let language = AppLanguage(rawValue: raw) { appLanguage = language }
+            defaults.removeObject(forKey: Keys.legacyLanguage)
+        }
         if let raw = defaults.string(forKey: Keys.recognitionLanguage),
            let value = RecognitionLanguage(rawValue: raw) { recognitionLanguage = value }
         if let raw = defaults.string(forKey: Keys.dictationNumberFormat),

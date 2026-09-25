@@ -40,7 +40,7 @@ SAYKUKU_SIGNING_IDENTITY='Developer ID Application: Name (TEAMID)' \
 
 - 优先复用现有模型、主题、双语文案和交互模式；不做无关重构。
 - SwiftUI 状态继续使用项目现有 Observation 体系；涉及 AppKit、Accessibility、Carbon 或音频时保持主线程边界清晰。
-- 用户可见文案同时提供自然的中英文版本，符合当前 `appState.text(...)` 约定。
+- 用户可见文案一律用 `localized("…")` 取 String Catalog，英文为源语言 key，在 `Sources/SayKuku/Resources/Localizable.xcstrings` 里补上自然的简体中文翻译；数量相关文案用复数变体；发给模型的 Prompt 不本地化。
 - 修改后检查相关调用点和测试，不引入新警告。
 
 ## Keychain、权限与签名

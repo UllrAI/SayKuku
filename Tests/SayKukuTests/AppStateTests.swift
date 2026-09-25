@@ -29,7 +29,8 @@ struct AppStateTests {
         let environment = AppStateTestEnvironment()
         defer { environment.clean() }
         environment.defaults.set("单击 Fn", forKey: "inputMode")
-        environment.defaults.set("english", forKey: "appLanguage")
+        // Unmapped, so the migration only deletes the key and never writes the test runner's AppleLanguages.
+        environment.defaults.set("unknown", forKey: "appLanguage")
         let state = environment.makeState()
         #expect(state.inputMode == .tap)
         #expect(environment.defaults.string(forKey: "inputMode") == "tap")
