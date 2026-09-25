@@ -39,6 +39,10 @@ struct TextTargetSnapshot: @unchecked Sendable {
     let selectedText: String
     let valueBefore: String?
     let isSensitive: Bool
+    /// Screen rectangles in AppKit coordinates, for placing the overlay. The window frame is
+    /// only read when the caret's isn't available.
+    let caretFrame: CGRect?
+    let windowFrame: CGRect?
 }
 
 extension TextTargetSnapshot {
@@ -115,6 +119,8 @@ final class TextInteraction {
         let value = element.flatMap { normalizedValue(of: $0, selectedRange: range) }
         let selection = element.map { self.selectedText(of: $0, value: value, range: range) } ?? ""
         let sensitive = isSensitive(element: element, bundleID: bundleID)
+        let caret = element.flatMap { element in range.flatMap { caretFrame(of: element, at: $0) } }
+        let windowFrame = caret == nil ? window.flatMap(frame(of:)) : nil
 
         Self.logger.info(
             "Captured target bundle=\(bundleID, privacy: .public) role=\(element.map(self.role(of:)) ?? "unavailable", privacy: .public) readable=\(value != nil, privacy: .public)"
@@ -129,7 +135,9 @@ final class TextInteraction {
             selectedRange: range,
             selectedText: selection,
             valueBefore: value,
-            isSensitive: sensitive
+            isSensitive: sensitive,
+            caretFrame: caret,
+            windowFrame: windowFrame
         )
     }
 
@@ -394,6 +402,36 @@ final class TextInteraction {
         return AXValueGetValue(value, .cfRange, &range) ? range : nil
     }
 
+    /// The screen rectangle of the selection start, which is the caret when nothing is selected.
+    private func caretFrame(of element: AXUIElement, at range: CFRange) -> CGRect? {
+        var start = CFRange(location: range.location, length: 0)
+        guard let parameter = AXValueCreate(.cfRange, &start),
+              let value: AXValue = copyParameterizedAttribute(element, kAXBoundsForRangeParameterizedAttribute, parameter),
+              AXValueGetType(value) == .cgRect else { return nil }
+        var rect = CGRect.zero
+        // Some apps answer with an empty rectangle at the screen origin instead of failing.
+        guard AXValueGetValue(value, .cgRect, &rect), rect.height > 0 else { return nil }
+        return appKitFrame(fromAX: rect)
+    }
+
+    private func frame(of window: AXUIElement) -> CGRect? {
+        guard let positionValue: AXValue = copyAttribute(window, kAXPositionAttribute),
+              let sizeValue: AXValue = copyAttribute(window, kAXSizeAttribute),
+              AXValueGetType(positionValue) == .cgPoint,
+              AXValueGetType(sizeValue) == .cgSize else { return nil }
+        var position = CGPoint.zero
+        var size = CGSize.zero
+        guard AXValueGetValue(positionValue, .cgPoint, &position),
+              AXValueGetValue(sizeValue, .cgSize, &size) else { return nil }
+        return appKitFrame(fromAX: CGRect(origin: position, size: size))
+    }
+
+    /// Accessibility measures down from the top of the primary screen; AppKit measures up from its bottom.
+    private func appKitFrame(fromAX rect: CGRect) -> CGRect? {
+        guard let primaryScreenHeight = NSScreen.screens.first?.frame.height else { return nil }
+        return CGRect(x: rect.minX, y: primaryScreenHeight - rect.maxY, width: rect.width, height: rect.height)
+    }
+
     private func focusedElement(for expectedPID: pid_t) -> AXUIElement? {
         let systemWide = AXUIElementCreateSystemWide()
         // Setting the timeout on the system-wide element makes it the default for every AX call.
@@ -548,6 +586,14 @@ final class TextInteraction {
     private func copyAttribute<T>(_ element: AXUIElement, _ attribute: String) -> T? {
         var value: CFTypeRef?
         guard AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success else { return nil }
+        return value as? T
+    }
+
+    private func copyParameterizedAttribute<T>(_ element: AXUIElement, _ attribute: String, _ parameter: CFTypeRef) -> T? {
+        var value: CFTypeRef?
+        guard AXUIElementCopyParameterizedAttributeValue(
+            element, attribute as CFString, parameter, &value
+        ) == .success else { return nil }
         return value as? T
     }
 }

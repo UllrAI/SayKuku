@@ -5,12 +5,17 @@ import SwiftUI
 final class FloatingOverlayController {
     private let panel: NSPanel
     private weak var appState: AppState?
+    /// Where the target was when the current workflow began. The overlay stays there until the
+    /// next workflow, even if the mouse moves to another screen.
+    private var caretFrame: CGRect?
+    private var windowFrame: CGRect?
+    private var visibleFrame: CGRect?
 
     init(appState: AppState) {
         self.appState = appState
 
         panel = NSPanel(
-            contentRect: NSRect(origin: .zero, size: Self.panelSize(answerVisible: false)),
+            contentRect: NSRect(origin: .zero, size: Self.panelSize(answerHeight: nil)),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -31,39 +36,96 @@ final class FloatingOverlayController {
     }
 
     /// Shared by the panel and its SwiftUI root so both always agree on the overlay bounds.
-    nonisolated static func panelSize(answerVisible: Bool) -> NSSize {
-        answerVisible ? NSSize(width: 460, height: 300) : NSSize(width: 380, height: 92)
+    /// `answerHeight` is the answer card's height, or nil while a pill shows. The answer panel
+    /// leaves room around the card for its shadow.
+    nonisolated static func panelSize(answerHeight: CGFloat?) -> NSSize {
+        guard let answerHeight else { return NSSize(width: 380, height: 92) }
+        return NSSize(width: OverlayLayout.answerCardWidth + 20, height: answerHeight + 30)
+    }
+
+    /// Called once per workflow, when its target is captured. Errors before that reuse the last anchor.
+    func anchor(to snapshot: TextTargetSnapshot) {
+        caretFrame = snapshot.caretFrame
+        windowFrame = snapshot.windowFrame
+        let screen = (caretFrame ?? windowFrame).flatMap { target in
+            NSScreen.screens.first { $0.frame.contains(CGPoint(x: target.midX, y: target.midY)) }
+        } ?? NSScreen.main
+        visibleFrame = screen?.visibleFrame
     }
 
     func refresh() {
         guard let appState else { return }
         // Set here so the label follows the current UI language.
         panel.setAccessibilityLabel(appState.text("SayKuku 语音浮层", "SayKuku voice overlay"))
-        panel.setContentSize(Self.panelSize(answerVisible: appState.agentPhase == .answerReady))
         let shouldShow = appState.overlayError != nil
             || appState.dictationPhase != .idle
             || appState.agentPhase != .hidden
 
         if shouldShow {
-            positionOnActiveScreen()
+            let answerHeight = appState.agentPhase == .answerReady ? appState.answerCardHeight : nil
+            place(size: Self.panelSize(answerHeight: answerHeight))
             panel.orderFrontRegardless()
         } else {
             panel.orderOut(nil)
         }
     }
 
-    private func positionOnActiveScreen() {
-        let mouseLocation = NSEvent.mouseLocation
-        let screen = NSScreen.screens.first { NSMouseInRect(mouseLocation, $0.frame, false) }
-            ?? NSScreen.main
-            ?? NSScreen.screens.first
-        guard let visibleFrame = screen?.visibleFrame else { return }
-
-        let origin = NSPoint(
-            x: visibleFrame.midX - panel.frame.width / 2,
-            y: visibleFrame.minY + 8
+    /// Sizes the panel and keeps it on the anchor; resizing alone would grow it from its bottom-left corner.
+    private func place(size: NSSize) {
+        // Before the first workflow there is no anchor yet.
+        guard let visibleFrame = visibleFrame ?? NSScreen.main?.visibleFrame else { return }
+        let origin = OverlayLayout.origin(
+            caretFrame: caretFrame, windowFrame: windowFrame, visibleFrame: visibleFrame, panelSize: size
         )
-        panel.setFrameOrigin(origin)
+        panel.setFrame(NSRect(origin: origin, size: size), display: true)
+    }
+}
+
+/// Overlay geometry in AppKit screen coordinates, where y grows upward.
+enum OverlayLayout {
+    /// Space between the caret and the panel.
+    static let caretGap: CGFloat = 12
+    /// Space between the panel and the bottom of the window or screen it sits on.
+    static let bottomInset: CGFloat = 8
+    static let answerCardWidth: CGFloat = 440
+    static let answerCardHeights: ClosedRange<CGFloat> = 160...420
+    /// Everything in the answer card besides the answer text: padding above and below, the header
+    /// row (its close button is the tallest item), the footer row (its buttons are the tallest) and
+    /// the stack spacing on either side of the text.
+    static let answerCardChrome: CGFloat = KukuLayout.cardPadding * 2 + KukuLayout.iconButton
+        + KukuLayout.controlHeight + KukuSpacing.md * 2
+
+    /// Below the caret, centered on it, or above it when there's no room below. Without a caret,
+    /// the bottom center of the target window, then of the screen. Always kept inside `visibleFrame`.
+    static func origin(caretFrame: CGRect?, windowFrame: CGRect?, visibleFrame: CGRect, panelSize: CGSize) -> CGPoint {
+        var origin: CGPoint
+        if let caret = caretFrame {
+            origin = CGPoint(x: caret.midX - panelSize.width / 2, y: caret.minY - caretGap - panelSize.height)
+            if origin.y < visibleFrame.minY { origin.y = caret.maxY + caretGap }
+        } else {
+            let base = windowFrame ?? visibleFrame
+            origin = CGPoint(x: base.midX - panelSize.width / 2, y: base.minY + bottomInset)
+        }
+        origin.x = min(max(origin.x, visibleFrame.minX), visibleFrame.maxX - panelSize.width)
+        origin.y = min(max(origin.y, visibleFrame.minY), visibleFrame.maxY - panelSize.height)
+        return origin
+    }
+
+    /// Fits the card to the answer, scrolling only past the maximum height.
+    /// `font` matches the card's `.kuku(.body)` text and follows the Text Size setting.
+    static func answerCardHeight(
+        for text: String, font: NSFont = .preferredFont(forTextStyle: .body)
+    ) -> CGFloat {
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.lineSpacing = KukuTypography.paragraphSpacing
+        let textBounds = NSAttributedString(string: text, attributes: [.font: font, .paragraphStyle: paragraph])
+            .boundingRect(
+                with: NSSize(width: answerCardWidth - KukuLayout.cardPadding * 2, height: .greatestFiniteMagnitude),
+                options: [.usesLineFragmentOrigin, .usesFontLeading],
+                context: nil
+            )
+        let height = ceil(textBounds.height) + answerCardChrome
+        return min(max(height, answerCardHeights.lowerBound), answerCardHeights.upperBound)
     }
 }
 
@@ -71,7 +133,9 @@ private struct FloatingSystemOverlay: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
-        let size = FloatingOverlayController.panelSize(answerVisible: appState.agentPhase == .answerReady)
+        let size = FloatingOverlayController.panelSize(
+            answerHeight: appState.agentPhase == .answerReady ? appState.answerCardHeight : nil
+        )
         ZStack(alignment: .bottom) {
             Color.clear
 
@@ -192,7 +256,7 @@ private struct AgentAnswerCard: View {
         }
         .padding(KukuLayout.cardPadding)
         // Leaves room inside the answer panel (see `panelSize`) for the card shadow.
-        .frame(width: 440, height: 270)
+        .frame(width: OverlayLayout.answerCardWidth, height: appState.answerCardHeight)
         .kukuSurface(radius: KukuLayout.radiusLarge, elevated: true, fill: KukuColor.overlaySurface)
     }
 }
