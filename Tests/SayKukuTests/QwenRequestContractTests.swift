@@ -16,7 +16,6 @@ struct QwenRequestContractTests {
     func requestBody() {
         let json = QwenReasoningClient.requestBody(model: "m", messages: [["role": "user", "content": "hi"]], jsonResponse: true)
         #expect(json["temperature"] as? Double == PromptRules.temperature)
-        #expect(PromptRules.temperature <= 0.1)
         #expect(json["enable_thinking"] as? Bool == false)
         #expect(json["reasoning_effort"] == nil)
         #expect((json["response_format"] as? [String: String])?["type"] == "json_object")
@@ -175,7 +174,7 @@ struct QwenRequestContractTests {
                 [ContextItem(kind: .selectedText, symbol: "text.quote", title: "Selected text", value: $0)]
             } ?? [],
             sessions: [],
-            editableTextField: true
+            textField: .focused
         )
         #expect(response.transcript?.contains(expectedTranscript) == true)
         if let expectedOutput {

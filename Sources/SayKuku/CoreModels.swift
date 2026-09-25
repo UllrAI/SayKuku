@@ -178,7 +178,7 @@ enum DictationCleanup: String, CaseIterable, Identifiable, Sendable {
             - Remove meaningless fillers (嗯、呃、啊、额、那个、就是、然后、uh、um、you know), accidental repeats, and abandoned starts, even though they were clearly spoken.
             - For a clear self-correction, keep only the final wording.
             - Keep deliberate repetition, quoted speech, expressed uncertainty, and every word that carries meaning. If unsure whether a word is filler, keep it.
-            - Examples: "这个这个新版本" → "这个新版本"; "嗯，我觉得，呃，可以" → "我觉得可以。"; "周三，不对，周四见" → "周四见。"; "那个方案写完然后提交" stays unchanged because 那个 and 然后 carry meaning there.
+            - Examples: "这个这个新版本" → "这个新版本"; "嗯，我觉得，呃，可以" → "我觉得可以。"; "周三，不对，周四见" → "周四见。"; "那个方案写完然后提交" keeps 那个 and 然后.
             """
         case .verbatim:
             "Verbatim: keep fillers, repetitions, false starts, and self-corrections as spoken. Only add punctuation."
@@ -187,6 +187,16 @@ enum DictationCleanup: String, CaseIterable, Identifiable, Sendable {
 }
 
 enum SpeechDisfluencyCleaner {
+    private static let nonSpeech = CharacterSet.whitespacesAndNewlines.union(.punctuationCharacters).union(.symbols)
+
+    /// Cleans a dictation reply. One with only whitespace, punctuation or symbols (a stray "。" or `""`)
+    /// means nothing was said.
+    static func dictation(_ reply: String, mode: DictationCleanup) throws -> String {
+        let text = reply.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.trimmingCharacters(in: nonSpeech).isEmpty else { throw QwenError.noSpeech }
+        return clean(text, mode: mode)
+    }
+
     private static let repeatedLeadIn = try! NSRegularExpression(
         pattern: #"(这个|那个|就是|然后|其实|所以|我)(?:[ \t，,、]*\1)+"#
     )
