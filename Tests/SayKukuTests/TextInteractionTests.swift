@@ -147,7 +147,8 @@ struct TextWriteVerificationTests {
         let app = ContextItem(kind: .app, symbol: "app", title: "Notes", value: "com.apple.Notes")
         let domain = ContextItem(kind: .domain, symbol: "text.bubble", title: "Domains", value: "Swift")
         #expect(!AgentActionExecutor.needsConfirmation(open, context: [app, domain]))
-        #expect(!AgentActionExecutor.needsConfirmation(shortcut, context: [app, domain]))
+        #expect(AgentActionExecutor.needsConfirmation(shortcut, context: [app, domain]))
+        #expect(AgentActionExecutor.needsConfirmation(shortcut, context: []))
         #expect(!AgentActionExecutor.needsConfirmation(search, context: [app, domain]))
         #expect(!AgentActionExecutor.needsConfirmation(search, context: []))
         for kind: ContextItem.Kind in [.selectedText, .previousOutput, .window, .clipboard, .browser, .screen, .session] {
@@ -155,6 +156,15 @@ struct TextWriteVerificationTests {
             #expect(AgentActionExecutor.needsConfirmation(open, context: [app, untrusted]))
             #expect(AgentActionExecutor.needsConfirmation(shortcut, context: [app, untrusted]))
             #expect(AgentActionExecutor.needsConfirmation(search, context: [untrusted]))
+        }
+    }
+
+    @Test("a failed workspace open reports an action failure")
+    @MainActor
+    func failedWorkspaceOpen() async throws {
+        let link = AgentResponse(transcript: "打开", action: .openURL, url: "https://example.com")
+        await #expect(throws: AgentActionError.self) {
+            try await AgentActionExecutor.execute(link, engine: .google, openURL: { _ in false })
         }
     }
 
