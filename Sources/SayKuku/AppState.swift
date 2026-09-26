@@ -69,6 +69,9 @@ final class AppState {
         var reasoningClient: any Reasoning
         var textInteraction: any TextWriting
         var systemPermissions: SystemPermissionController
+        var actionExecutor: @MainActor (AgentResponse, SearchEngine) async throws -> Void = {
+            try await AgentActionExecutor.execute($0, engine: $1)
+        }
 
         /// New instances on every call, so no two states share an engine or a socket.
         @MainActor static var live: Dependencies {
