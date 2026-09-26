@@ -618,6 +618,17 @@
         }
       }
     },
+    "By default, Voice Agent can read the current app name, selected text, window title, and text visible in the focused window. Its recording and this context are sent to Qwen for your request." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "默认情况下，语音 Agent 可以读取当前 App 名称、选中文字、窗口标题和当前窗口内可见的文字。录音和这些内容会随请求发送给千问。"
+          }
+        }
+      }
+    },
     "Cancel" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -691,6 +702,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "类别"
+          }
+        }
+      }
+    },
+    "Change these sources in Settings › Privacy. Before sending, you can review the full context and remove individual items from the recording overlay." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你可以在“设置 › 隐私”中调整这些内容；发送前，也可以在录音浮层查看完整内容并逐项移除。"
           }
         }
       }
@@ -5454,6 +5476,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "语音 Agent"
+          }
+        }
+      }
+    },
+    "Voice Agent context" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "语音 Agent 使用的内容"
           }
         }
       }

@@ -239,7 +239,7 @@ struct TextWriteVerificationTests {
         #expect(ContextCollector.pageAddress("https://example.com") == "https://example.com")
     }
 
-    @Test("memory context only records that saved memory is used")
+    @Test("memory context previews the exact saved entries sent to the Agent")
     @MainActor
     func memoryContextItem() {
         let items = ContextCollector.collect(
@@ -250,7 +250,7 @@ struct TextWriteVerificationTests {
             clipboardAllowed: false,
             browserPage: nil,
             screenText: "",
-            session: nil,
+            sessions: [],
             domains: [],
             memory: [
                 MemoryEntity(name: "WorkBuddy", type: .project),
@@ -259,7 +259,8 @@ struct TextWriteVerificationTests {
         )
         #expect(items.count == 1)
         #expect(items.first?.kind == .memory)
-        #expect(items.first?.value == "2")
+        #expect(items.first?.value.contains("WorkBuddy") == true)
+        #expect(items.first?.value.contains("SayKuku") == true)
     }
 
     private func target(

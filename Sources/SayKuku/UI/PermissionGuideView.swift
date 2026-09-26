@@ -25,6 +25,17 @@ struct PermissionGuideView: View {
                         PermissionActionRow(kind: .accessibility)
                     }
 
+                    KukuGroup(localized("Voice Agent context")) {
+                        VStack(alignment: .leading, spacing: KukuSpacing.sm) {
+                            Text(localized("By default, Voice Agent can read the current app name, selected text, window title, and text visible in the focused window. Its recording and this context are sent to Qwen for your request."))
+                            Text(localized("Change these sources in Settings › Privacy. Before sending, you can review the full context and remove individual items from the recording overlay."))
+                        }
+                        .font(.kuku(.subheadline))
+                        .foregroundStyle(KukuColor.textSecondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(KukuLayout.rowPadding)
+                    }
+
                     KukuGroup(localized("Microphone test")) {
                         MicrophoneTestPanel()
                     }

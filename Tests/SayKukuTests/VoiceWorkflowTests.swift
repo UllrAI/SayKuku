@@ -5,6 +5,27 @@ import Testing
 @Suite("Voice workflow")
 @MainActor
 struct VoiceWorkflowTests {
+    @Test("a secure text target never starts the microphone")
+    func sensitiveTargetBlocksAudio() throws {
+        for agent in [false, true] {
+            for throwsDuringCapture in [false, true] {
+                let environment = AppStateTestEnvironment()
+                defer { environment.clean() }
+                let audio = FakeAudioCapturing()
+                let text = FakeTextWriting(snapshot: .fake(isSensitive: true))
+                if throwsDuringCapture { text.captureError = .sensitiveTarget }
+                let state = try makeState(environment, .fake(audio: audio, text: text))
+
+                if agent { state.workflow.startAgent() }
+                else { state.workflow.startDictation() }
+
+                #expect(audio.startCount == 0)
+                #expect(!state.workflow.isRecording)
+                #expect(state.workflow.overlayError == TextInteractionError.sensitiveTarget.localizedDescription)
+            }
+        }
+    }
+
     @Test("a verified write ends in success, completes History, and can be undone")
     func dictationSucceeds() async throws {
         let environment = AppStateTestEnvironment()
@@ -301,7 +322,7 @@ struct VoiceWorkflowTests {
         text.fieldValue = ""
         try await startAgentListening(state)
         #expect(state.workflow.contextItems.contains {
-            $0.kind == .session && $0.value == "Action: writeText\nTarget: previous SayKuku output, deleted"
+            $0.kind == .session && $0.value.contains("Action: writeText\nTarget: previous SayKuku output, deleted")
         })
         #expect(!state.workflow.contextItems.contains { $0.kind == .previousOutput })
         state.workflow.dismissAgent()
@@ -333,6 +354,32 @@ struct VoiceWorkflowTests {
         try await startAgentListening(state)
         #expect(!state.workflow.contextItems.contains { $0.kind == .screen })
         #expect(text.visibleTextReads == 1)
+    }
+
+    @Test("the Agent receives only context left in the full preview")
+    func agentContextPreviewMatchesRequest() async throws {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let selectedText = String(repeating: "A", count: 300)
+        let text = FakeTextWriting(snapshot: .fake(selectedText: selectedText))
+        let answer = AgentResponse(transcript: "Summarize", action: .answer, intent: "Summarize", output: "Done")
+        let reasoning = FakeReasoning(agentReply: .success(answer))
+        let state = try makeState(environment, .fake(reasoning: reasoning, text: text))
+        state.settings.selectedDomains = [.aiVibeCoding]
+        #expect(state.data.addMemory(name: "Private project", type: .project) == nil)
+
+        try await startAgentListening(state)
+        #expect(state.workflow.contextItems.first(where: { $0.kind == .selectedText })?.value == selectedText)
+        let memory = try #require(state.workflow.contextItems.first { $0.kind == .memory })
+        let domain = try #require(state.workflow.contextItems.first { $0.kind == .domain })
+        #expect(memory.value.contains("Private project"))
+        #expect(domain.value.contains("domain_profile"))
+
+        state.workflow.contextItems.removeAll { $0.kind == .selectedText || $0.kind == .memory }
+        state.workflow.finishAgentListening()
+        #expect(await eventually { reasoning.agentContexts.count == 1 })
+        #expect(!reasoning.agentContexts[0].contains { $0.kind == .selectedText || $0.kind == .memory })
+        #expect(reasoning.agentMemoryPrompts == [domain.value])
     }
 
     @Test("undo clears the last write once it lands, and keeps it when the field changed")
