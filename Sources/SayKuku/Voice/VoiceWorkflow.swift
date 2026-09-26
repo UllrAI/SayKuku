@@ -3,6 +3,12 @@ import Observation
 import os
 import SwiftUI
 
+private struct PendingExternalAction {
+    let response: AgentResponse
+    let historyID: UUID?
+    let session: AgentSession?
+}
+
 /// Voice Input and Voice Agent: recording, transcription, the Agent's actions, writing into the focused
 /// app, and the overlay that shows them. What only the main window can do goes through the handlers,
 /// which `AppState` sets.
@@ -42,8 +48,8 @@ final class VoiceWorkflow {
     /// Measured from `pendingAnswerText` before the answer card shows.
     private(set) var answerCardHeight = OverlayLayout.answerCardHeights.lowerBound
     var pendingAnswerStatus: String?
-    /// A link or shortcut the answer card asks about first, because the model chose it while reading untrusted context.
-    var pendingAction: AgentResponse?
+    /// An external action waiting on the answer card for the user's approval.
+    var pendingAction: AgentResponse? { pendingExternalAction?.response }
     var resultCanUndo = false
     /// Set while Insert or Undo is writing, so a double click can't paste the same text twice.
     private(set) var isWriting = false
@@ -66,6 +72,7 @@ final class VoiceWorkflow {
     @ObservationIgnored private let realtimeClient: any RealtimeTranscribing
     @ObservationIgnored private let reasoningClient: any Reasoning
     @ObservationIgnored private let textInteraction: any TextWriting
+    @ObservationIgnored private let actionExecutor: @MainActor (AgentResponse, SearchEngine) async throws -> Void
     @ObservationIgnored private let soundCues = SoundCues()
     @ObservationIgnored private let signposter = OSSignposter.performance
     /// The workflow whose microphone is starting; nil once it listens or is cancelled.
@@ -79,6 +86,8 @@ final class VoiceWorkflow {
     @ObservationIgnored private var activeAgentSessions: [AgentSession] = []
     @ObservationIgnored private var lastVerifiedWrite: VerifiedWrite?
     @ObservationIgnored private var pendingAnswerTarget: TextTargetSnapshot?
+    private var pendingExternalAction: PendingExternalAction?
+    @ObservationIgnored private var executingActionHistoryID: UUID?
     @ObservationIgnored private var workflowGeneration = 0
     @ObservationIgnored private var realtimeSessionID = UUID()
     @ObservationIgnored private var recordingLimitTask: Task<Void, Never>?
@@ -97,6 +106,7 @@ final class VoiceWorkflow {
         realtimeClient = dependencies.realtimeClient
         reasoningClient = dependencies.reasoningClient
         textInteraction = dependencies.textInteraction
+        actionExecutor = dependencies.actionExecutor
         systemPermissions = dependencies.systemPermissions
     }
 
@@ -229,10 +239,15 @@ final class VoiceWorkflow {
     }
 
     func dismissAnswer() {
+        if let pendingExternalAction { data.updateHistory(pendingExternalAction.historyID, status: .cancelled) }
+        clearAnswer()
+    }
+
+    private func clearAnswer() {
         pendingAnswerText = ""
         pendingAnswerStatus = nil
         pendingAnswerTarget = nil
-        pendingAction = nil
+        pendingExternalAction = nil
         agentPhase = .hidden
     }
 
@@ -244,22 +259,32 @@ final class VoiceWorkflow {
     }
 
     func confirmPendingAction() {
-        guard let action = pendingAction else { return }
-        dismissAnswer()
+        guard let pendingExternalAction else { return }
+        let action = pendingExternalAction.response
+        let historyID = pendingExternalAction.historyID
+        let session = pendingExternalAction.session
+        clearAnswer()
+        data.updateHistory(historyID, status: .processing)
+        executingActionHistoryID = historyID
         let generation = workflowGeneration
         let engine = settings.searchEngine
         agentCommand = action.intent ?? action.action.title
         withAnimation(Motion.panel) { agentPhase = .processing }
         // Stored as the workflow so the pill's cancel button stops a running shortcut.
         workflowTask = Task { [weak self] in
+            guard let self else { return }
             do {
-                try await AgentActionExecutor.execute(action, engine: engine)
-                guard let self, generation == self.workflowGeneration else { return }
+                try await self.actionExecutor(action, engine)
+                guard generation == self.workflowGeneration else { return }
+                self.data.updateHistory(historyID, status: .completed)
+                if let session { self.sessions = AgentSession.appending(session, to: self.sessions) }
+                self.executingActionHistoryID = nil
                 await self.showAgentResult(generation: generation)
             } catch {
                 // A cancel bumps the generation first, so only real failures get past this guard.
-                guard let self, generation == self.workflowGeneration else { return }
-                self.handleWorkflowError(error, agent: true)
+                guard generation == self.workflowGeneration else { return }
+                self.executingActionHistoryID = nil
+                self.finishFailedWorkflow(error, historyID: historyID, agent: true, generation: generation)
             }
         }
     }
@@ -747,7 +772,6 @@ final class VoiceWorkflow {
                             writeTarget = snapshot
                         }
                         let outcome = try await textInteraction.write(text, to: writeTarget)
-                        data.updateHistory(historyID, input: command, output: text, status: .completed)
                         try Task.checkCancellation()
                         guard generation == workflowGeneration else { throw CancellationError() }
                         lastVerifiedWrite = outcome == .verified ? VerifiedWrite(target: writeTarget, text: text) : nil
@@ -772,21 +796,24 @@ final class VoiceWorkflow {
                 output = response.url ?? response.query ?? response.shortcutName ?? ""
             } else {
                 resultCanUndo = false
-                try await AgentActionExecutor.execute(response, engine: settings.searchEngine)
+                try await actionExecutor(response, settings.searchEngine)
                 output = response.url ?? response.query ?? response.shortcutName ?? ""
             }
-            data.updateHistory(historyID, input: command, output: output, status: .completed)
-            if settings.continuousConversation {
-                sessions = AgentSession.appending(AgentSession(
+            try Task.checkCancellation()
+            guard generation == workflowGeneration else { throw CancellationError() }
+            let session: AgentSession? = settings.continuousConversation
+                ? AgentSession(
                     app: snapshot.bundleID,
                     contextSummary: QwenReasoningClient.sessionContextSummary(context: context, response: response),
                     userCommand: command,
                     response: output,
                     expiresAt: .now.addingTimeInterval(AgentSession.ttl)
-                ), to: sessions)
-            }
-            // A write or action can finish after the user dismissed this workflow or started a new one.
-            guard generation == workflowGeneration else { return }
+                ) : nil
+            data.updateHistory(
+                historyID, input: command, output: output,
+                status: actionToConfirm == nil ? .completed : .awaitingConfirmation
+            )
+            if actionToConfirm == nil, let session { sessions = AgentSession.appending(session, to: sessions) }
             if needsCopyFallback {
                 presentCopyFallback(output, agent: true, copyImmediately: settings.automaticAgentWriteBack)
                 return
@@ -795,7 +822,9 @@ final class VoiceWorkflow {
                 pendingAnswerText = output
                 answerCardHeight = OverlayLayout.answerCardHeight(for: output)
                 pendingAnswerTarget = snapshot
-                pendingAction = actionToConfirm
+                pendingExternalAction = actionToConfirm.map {
+                    PendingExternalAction(response: $0, historyID: historyID, session: session)
+                }
                 withAnimation(Motion.panel) { agentPhase = .answerReady }
                 return
             }
@@ -839,6 +868,9 @@ final class VoiceWorkflow {
 
     private func cancelWorkflow() {
         workflowGeneration += 1
+        if let pendingExternalAction { data.updateHistory(pendingExternalAction.historyID, status: .cancelled) }
+        data.updateHistory(executingActionHistoryID, status: .cancelled)
+        executingActionHistoryID = nil
         startingWorkflow = nil
         workflowTask?.cancel()
         workflowTask = nil
@@ -859,7 +891,7 @@ final class VoiceWorkflow {
         pendingAnswerText = ""
         pendingAnswerStatus = nil
         pendingAnswerTarget = nil
-        pendingAction = nil
+        pendingExternalAction = nil
         resultCanUndo = false
         overlayButtons = []
         overlayError = nil
