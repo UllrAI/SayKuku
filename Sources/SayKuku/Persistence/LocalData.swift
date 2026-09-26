@@ -7,6 +7,7 @@ import Observation
 @Observable
 final class LocalData {
     var historyEntries: [HistoryEntry] = [] { didSet { schedulePersistence() } }
+    private(set) var pendingHistoryDeletion: HistoryEntry?
     var memoryEntities: [MemoryEntity] = [] { didSet { schedulePersistence() } }
     var corrections: [CorrectionRecord] = [] { didSet { schedulePersistence() } }
     /// Correction suggestions still waiting for an answer.
@@ -24,6 +25,7 @@ final class LocalData {
     @ObservationIgnored private var persistenceGeneration = 0
     @ObservationIgnored private let persistenceDelay: Duration
     @ObservationIgnored private var persistenceTask: Task<Void, Never>?
+    @ObservationIgnored private var pendingHistoryDeletionTask: Task<Void, Never>?
 
     init(store: LocalStore, settings: AppSettings, persistenceDelay: Duration) {
         self.store = store
@@ -140,10 +142,30 @@ final class LocalData {
     }
 
     func deleteHistoryEntry(_ id: UUID) {
+        if pendingHistoryDeletion?.id == id { cancelPendingHistoryDeletion() }
         removeHistory { $0.id == id }
     }
 
+    /// Keeps the entry and its recording intact until the Undo window closes.
+    func stageHistoryDeletion(_ id: UUID, undoInterval: Duration = .seconds(5)) {
+        guard pendingHistoryDeletion?.id != id,
+              let entry = historyEntries.first(where: { $0.id == id && !$0.isStarred }) else { return }
+        commitPendingHistoryDeletion()
+        pendingHistoryDeletion = entry
+        pendingHistoryDeletionTask = Task { [weak self] in
+            do { try await Task.sleep(for: undoInterval) } catch { return }
+            self?.commitPendingHistoryDeletion()
+        }
+    }
+
+    func undoHistoryDeletion() {
+        cancelPendingHistoryDeletion()
+    }
+
     func clearHistory(keepingStarred: Bool) {
+        if let pendingHistoryDeletion, !keepingStarred || !pendingHistoryDeletion.isStarred {
+            commitPendingHistoryDeletion()
+        }
         removeHistory { !keepingStarred || !$0.isStarred }
         showToast(
             keepingStarred
@@ -243,9 +265,9 @@ final class LocalData {
             return entity
         })
         corrections = Self.merging(corrections, snapshot.corrections)
-        cleanExpiredHistory()
         // Saving before every array is in place would replace the stored data with part of it.
         isLoaded = true
+        cleanExpiredHistory()
         migrateLegacyCustomTerms()
         schedulePersistence()
         if localDataIssue != nil {
@@ -286,15 +308,30 @@ final class LocalData {
         removeHistory { !$0.isStarred && $0.createdAt < cutoff }
     }
 
-    /// Removes matching entries and deletes their recordings.
+    private func cancelPendingHistoryDeletion() {
+        pendingHistoryDeletionTask?.cancel()
+        pendingHistoryDeletionTask = nil
+        pendingHistoryDeletion = nil
+    }
+
+    private func commitPendingHistoryDeletion() {
+        guard let id = pendingHistoryDeletion?.id else { return }
+        cancelPendingHistoryDeletion()
+        deleteHistoryEntry(id)
+    }
+
+    /// Removes matching entries, then deletes recordings only after the index is durably saved.
     private func removeHistory(where shouldRemove: (HistoryEntry) -> Bool) {
         let removed = historyEntries.filter(shouldRemove)
         guard !removed.isEmpty else { return }
         historyEntries.removeAll(where: shouldRemove)
         let filenames = removed.compactMap(\.audioFilename)
-        guard !filenames.isEmpty else { return }
-        Task { [store] in
-            for filename in filenames { try? await store.removeAudio(named: filename) }
+        guard isLoaded, !filenames.isEmpty else { return }
+        Task { [weak self, store] in
+            guard let self, await self.flushPersistence() else { return }
+            for filename in filenames where !self.historyEntries.contains(where: { $0.audioFilename == filename }) {
+                try? await store.removeAudio(named: filename)
+            }
         }
     }
 

@@ -1492,6 +1492,17 @@
         }
       }
     },
+    "Deleted. Undo is available." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已删除，可以撤销。"
+          }
+        }
+      }
+    },
     "Delete…" : {
       "generatesSymbol" : false,
       "extractionState" : "manual",
@@ -3890,6 +3901,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "结果"
+          }
+        }
+      }
+    },
+    "Restore the deleted history item" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "恢复刚删除的历史记录"
           }
         }
       }
