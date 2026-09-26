@@ -132,7 +132,7 @@ struct AgentPromptTests {
             clipboardAllowed: false,
             browserPage: nil,
             screenText: "",
-            session: nil,
+            sessions: [],
             domains: [],
             memory: []
         )

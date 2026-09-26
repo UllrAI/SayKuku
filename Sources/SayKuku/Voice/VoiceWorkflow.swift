@@ -350,6 +350,20 @@ final class VoiceWorkflow {
         }
         let generation = workflowGeneration
         let pillInterval = signposter.beginInterval("Fn to Pill", id: signposter.makeSignpostID())
+        do {
+            let snapshot = try signposter.withIntervalSignpost("captureTarget") {
+                try textInteraction.captureTarget(
+                    requiringWindow: mode == .dictation, includingCaretFrame: settings.overlayPlacement == .caret
+                )
+            }
+            guard !snapshot.isSensitive else { throw TextInteractionError.sensitiveTarget }
+            overlayController?.anchor(to: snapshot)
+            prepareWorkflow(mode: mode, snapshot: snapshot)
+        } catch {
+            signposter.endInterval("Fn to Pill", pillInterval)
+            handleWorkflowError(error, agent: mode == .agent)
+            return
+        }
         // Realtime needs a workspace ID; without one the full recording goes to batch recognition.
         let chunks: AsyncStream<Data>?
         let onChunk: @Sendable (Data) -> Void
@@ -363,32 +377,22 @@ final class VoiceWorkflow {
             chunks = nil
             onChunk = { _ in }
         }
-        // The engine starts on its own queue while this thread reads the target app.
+        // Capture the focused target before starting the engine, including the secure-field check.
         let engineStart = startAudioCapture(for: mode, onChunk: onChunk)
         startingWorkflow = mode
-        do {
-            let snapshot = try signposter.withIntervalSignpost("captureTarget") {
-                try textInteraction.captureTarget(
-                    requiringWindow: mode == .dictation, includingCaretFrame: settings.overlayPlacement == .caret
-                )
-            }
-            overlayController?.anchor(to: snapshot)
-            guard !snapshot.isSensitive else { throw TextInteractionError.sensitiveTarget }
-            prepareWorkflow(mode: mode, snapshot: snapshot)
-        } catch {
-            startingWorkflow = nil
-            // `AudioCapture.cancel` runs after the pending start, so this also stops that engine.
-            handleWorkflowError(error, agent: mode == .agent)
-            return
-        }
         Task { [weak self] in
             let started = await engineStart.result
             // Whatever bumped the generation also cancelled the capture, which stopped this engine.
-            guard let self, generation == self.workflowGeneration else { return }
+            guard let self else { return }
+            guard generation == self.workflowGeneration else {
+                self.signposter.endInterval("Fn to Pill", pillInterval)
+                return
+            }
             self.startingWorkflow = nil
             do {
                 try started.get()
             } catch {
+                self.signposter.endInterval("Fn to Pill", pillInterval)
                 self.handleWorkflowError(error, agent: mode == .agent)
                 return
             }
@@ -416,7 +420,7 @@ final class VoiceWorkflow {
             clipboardAllowed: settings.clipboardAllowed,
             browserPage: settings.browserPageAllowed ? textInteraction.browserPageAddress(in: snapshot) : nil,
             screenText: settings.screenTextAllowed ? textInteraction.visibleText(in: snapshot) : "",
-            session: conversation.last,
+            sessions: conversation,
             domains: settings.selectedDomains,
             memory: data.memoryEntities
         )
@@ -620,11 +624,10 @@ final class VoiceWorkflow {
             try Task.checkCancellation()
             guard generation == workflowGeneration else { throw CancellationError() }
             guard recording.hasSpeech else { throw QwenError.noSpeech }
-            let memoryPrompt = renderMemoryPrompt(
-                .agent,
-                includesMemory: context.contains { $0.kind == .memory },
-                includesDomains: context.contains { $0.kind == .domain }
-            )
+            let memoryPrompt = context
+                .filter { $0.kind == .memory || $0.kind == .domain }
+                .map(\.value)
+                .joined(separator: "\n")
             let response = try await reasoningClient.respondToAudio(
                 apiKey: apiKey,
                 configuration: configuration,
@@ -710,13 +713,11 @@ final class VoiceWorkflow {
         return snapshot.promptAppName
     }
 
-    /// Saved memory and domain presets for a prompt; the Agent leaves out whichever the user removed from its context.
-    private func renderMemoryPrompt(
-        _ purpose: MemoryPrompt.Purpose, includesMemory: Bool = true, includesDomains: Bool = true
-    ) -> String {
+    /// Saved memory and domain presets for dictation.
+    private func renderMemoryPrompt(_ purpose: MemoryPrompt.Purpose) -> String {
         MemoryPrompt.render(
-            entities: includesMemory ? data.memoryEntities : [],
-            domains: includesDomains ? settings.selectedDomains : [],
+            entities: data.memoryEntities,
+            domains: settings.selectedDomains,
             purpose: purpose
         )
     }

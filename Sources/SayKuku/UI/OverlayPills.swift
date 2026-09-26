@@ -244,51 +244,50 @@ private struct AgentContextPopover: View {
                 .font(.kuku(.subheadline, weight: .semibold))
                 .foregroundStyle(KukuColor.textSecondary)
 
-            if appState.workflow.contextItems.isEmpty {
-                Text(localized("Only your voice will be sent"))
-                    .font(.kuku(.callout))
-                    .foregroundStyle(KukuColor.textSecondary)
-            }
+            ScrollView {
+                VStack(alignment: .leading, spacing: KukuSpacing.md) {
+                    if appState.workflow.contextItems.isEmpty {
+                        Text(localized("Only your voice will be sent"))
+                            .font(.kuku(.callout))
+                            .foregroundStyle(KukuColor.textSecondary)
+                    }
 
-            ForEach(appState.workflow.contextItems) { item in
-                HStack(spacing: KukuSpacing.sm) {
-                    Image(systemName: item.symbol)
-                        .font(.kukuIcon(.regular))
-                        .foregroundStyle(KukuColor.textSecondary)
-                        // Fixed icon column so titles line up.
-                        .frame(width: 16)
-                    Text(item.title)
-                        .font(.kuku(.callout, weight: .medium))
-                        .foregroundStyle(KukuColor.textPrimary)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                    Spacer()
-                    if appState.workflow.agentPhase == .listening {
-                        KukuIconButton(
-                            symbol: "xmark",
-                            label: localized("Remove \(item.title)"),
-                            size: .small
-                        ) {
-                            appState.workflow.contextItems.removeAll { $0.id == item.id }
+                    ForEach(appState.workflow.contextItems) { item in
+                        VStack(alignment: .leading, spacing: KukuSpacing.xs) {
+                            HStack(spacing: KukuSpacing.sm) {
+                                Image(systemName: item.symbol)
+                                    .font(.kukuIcon(.regular))
+                                    .foregroundStyle(KukuColor.textSecondary)
+                                    .frame(width: 16)
+                                    .accessibilityHidden(true)
+                                Text(item.title)
+                                    .font(.kuku(.callout, weight: .medium))
+                                    .foregroundStyle(KukuColor.textPrimary)
+                                Spacer(minLength: 0)
+                                if appState.workflow.agentPhase == .listening {
+                                    KukuIconButton(
+                                        symbol: "xmark",
+                                        label: localized("Remove \(item.title)"),
+                                        size: .small
+                                    ) {
+                                        appState.workflow.contextItems.removeAll { $0.id == item.id }
+                                    }
+                                }
+                            }
+                            Text(item.value)
+                                .font(.kuku(.subheadline))
+                                .foregroundStyle(KukuColor.textSecondary)
+                                .textSelection(.enabled)
+                                .frame(maxWidth: .infinity, alignment: .leading)
                         }
                     }
                 }
-                .help(Self.preview(of: item) ?? "")
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .frame(maxHeight: 400)
         }
         .padding(KukuSpacing.md)
-        // Narrow enough to sit above the pill; long titles truncate.
-        .frame(width: 230)
-    }
-
-    /// Lets people check the actual text; app, memory and conversation values are internal summaries.
-    private static func preview(of item: ContextItem) -> String? {
-        switch item.kind {
-        case .selectedText, .previousOutput, .window, .clipboard, .browser, .screen, .domain:
-            return item.value.count > 200 ? "\(item.value.prefix(200))…" : item.value
-        case .app, .session, .memory:
-            return nil
-        }
+        .frame(width: 420)
     }
 }
 

@@ -35,7 +35,7 @@ enum ContextCollector {
         clipboardAllowed: Bool,
         browserPage: String?,
         screenText: String,
-        session: AgentSession?,
+        sessions: [AgentSession],
         domains: Set<DomainPreset>,
         memory: [MemoryEntity]
     ) -> [ContextItem] {
@@ -78,24 +78,26 @@ enum ContextCollector {
                 limit: ScreenText.characterLimit
             ))
         }
-        if let session, session.expiresAt > .now {
-            items.append(ContextItem(kind: .session, symbol: "bubble.left.and.bubble.right", title: localized("Recent conversation"), value: session.contextSummary))
+        if !sessions.isEmpty {
+            items.append(ContextItem(
+                kind: .session, symbol: "bubble.left.and.bubble.right", title: localized("Recent conversation"),
+                value: QwenReasoningClient.agentSessionText(sessions)
+            ))
         }
         if !domains.isEmpty {
             items.append(ContextItem(
                 kind: .domain,
                 symbol: "text.bubble",
                 title: localized("Domains"),
-                value: DomainPreset.allCases.filter(domains.contains).map(\.promptName).joined(separator: ", ")
+                value: MemoryPrompt.render(entities: [], domains: domains, purpose: .agent)
             ))
         }
         if !memory.isEmpty {
-            // Only marks memory as enabled for this run; the prompt is rendered from LocalData's entities.
             items.append(ContextItem(
                 kind: .memory,
                 symbol: "books.vertical",
                 title: localized("Memory"),
-                value: "\(memory.count)"
+                value: MemoryPrompt.render(entities: memory, purpose: .agent)
             ))
         }
         return items
