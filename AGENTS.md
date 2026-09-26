@@ -29,6 +29,8 @@ open Build/SayKuku.app
 
 不要用 `swift run` 判断 TCC、签名、Keychain ACL 或 App Bundle 资源行为。
 
+不要新增或启用 GitHub Actions 的 macOS CI 工作流；测试、打包和发布按上述本机流程执行。
+
 ## 实现约束
 
 - 优先复用现有模型、主题、双语文案和交互模式；不做无关重构。
