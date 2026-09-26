@@ -1,12 +1,16 @@
 import Foundation
 import Security
 
-enum SecureStorageError: LocalizedError {
+enum SecureStorageError: LocalizedError, Equatable {
     case keychain(OSStatus)
     case invalidData
+    case readUnavailable
 
     var errorDescription: String? {
-        localized("Couldn’t save the API Key. Check Keychain on this Mac.")
+        switch self {
+        case .keychain, .invalidData: localized("Couldn’t save the API Key. Check Keychain on this Mac.")
+        case .readUnavailable: localized("Couldn’t read the API Key from this Mac’s Keychain. Try again before editing it.")
+        }
     }
 }
 
