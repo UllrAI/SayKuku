@@ -415,7 +415,6 @@ struct PersistenceTests {
         let environment = AppStateTestEnvironment()
         defer { environment.clean() }
         let store = LocalStore(root: environment.root)
-        let state = environment.makeState(store: store)
         let recordedID = UUID()
         let filename = try await store.saveAudio(Data("audio".utf8), id: recordedID)
         let audioURL = environment.root.appendingPathComponent("Audio").appendingPathComponent(filename)
@@ -425,7 +424,9 @@ struct PersistenceTests {
         )
         let starred = HistoryEntry(mode: .agent, app: "Mail", durationSeconds: 1, input: "draft", output: "reply", isStarred: true)
         let plain = HistoryEntry(mode: .dictation, app: "Notes", durationSeconds: 1, input: "plain", output: "plain")
-        state.data.historyEntries = [recorded, starred, plain]
+        try await store.replace(.init(history: [recorded, starred, plain]))
+        let state = environment.makeState(store: store, persistenceDelay: .seconds(60))
+        await state.data.loadStoredData()
 
         state.data.toggleHistoryStar(plain.id)
         #expect(state.data.historyEntries.first(where: { $0.id == plain.id })?.isStarred == true)
@@ -433,13 +434,115 @@ struct PersistenceTests {
         state.data.toggleHistoryStar(UUID())
 
         state.data.deleteHistoryEntry(recorded.id)
-        #expect(state.data.historyEntries.map(\.id) == [starred.id, plain.id])
+        #expect(Set(state.data.historyEntries.map(\.id)) == [starred.id, plain.id])
         #expect(await eventually { !FileManager.default.fileExists(atPath: audioURL.path) })
 
         state.data.clearHistory(keepingStarred: true)
         #expect(state.data.historyEntries.map(\.id) == [starred.id])
         state.data.clearHistory(keepingStarred: false)
         #expect(state.data.historyEntries.isEmpty)
+    }
+
+    @Test("a pending History deletion can be undone before its recording or index changes")
+    @MainActor
+    func undoHistoryDeletion() async throws {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let store = LocalStore(root: environment.root)
+        let id = UUID()
+        let filename = try await store.saveAudio(Data("audio".utf8), id: id)
+        let entry = HistoryEntry(
+            id: id, mode: .dictation, app: "Notes", durationSeconds: 1,
+            input: "hello", output: "hello", audioFilename: filename
+        )
+        try await store.replace(.init(history: [entry]))
+        let state = environment.makeState(store: store, persistenceDelay: .seconds(60))
+        await state.data.loadStoredData()
+
+        state.data.stageHistoryDeletion(id, undoInterval: .milliseconds(50))
+        #expect(state.data.pendingHistoryDeletion?.id == id)
+        #expect(state.data.historyEntries == [entry])
+        #expect(try await store.load().history == [entry])
+        state.data.undoHistoryDeletion()
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(state.data.pendingHistoryDeletion == nil)
+        #expect(state.data.historyEntries == [entry])
+        #expect(try await store.audio(named: filename) == Data("audio".utf8))
+
+        state.data.stageHistoryDeletion(id, undoInterval: .milliseconds(10))
+        #expect(await eventually { state.data.historyEntries.isEmpty })
+        #expect(await eventually {
+            !FileManager.default.fileExists(atPath: environment.root.appendingPathComponent("Audio").appendingPathComponent(filename).path)
+        })
+        #expect(try await store.load().history.isEmpty)
+    }
+
+    @Test("a failed History index save retains its recording")
+    @MainActor
+    func failedHistoryDeletionSave() async throws {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let store = LocalStore(root: environment.root)
+        let id = UUID()
+        let filename = try await store.saveAudio(Data("audio".utf8), id: id)
+        let entry = HistoryEntry(
+            id: id, mode: .dictation, app: "Notes", durationSeconds: 1,
+            input: "hello", output: "hello", audioFilename: filename
+        )
+        try await store.replace(.init(history: [entry]))
+        let state = environment.makeState(store: store, persistenceDelay: .seconds(60))
+        await state.data.loadStoredData()
+
+        let snapshotURL = environment.root.appendingPathComponent("store.json")
+        try FileManager.default.removeItem(at: snapshotURL)
+        try FileManager.default.createDirectory(at: snapshotURL, withIntermediateDirectories: false)
+        state.data.deleteHistoryEntry(id)
+        #expect(await eventually {
+            state.toast?.text == localized("Couldn’t save your data, so recent changes may be lost. Check your available storage.")
+        })
+        #expect(try await store.audio(named: filename) == Data("audio".utf8))
+    }
+
+    @Test("expired History recordings are removed after the loaded index is saved")
+    @MainActor
+    func expiredHistoryAudio() async throws {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let store = LocalStore(root: environment.root)
+        let id = UUID()
+        let filename = try await store.saveAudio(Data("audio".utf8), id: id)
+        let entry = HistoryEntry(
+            id: id, mode: .dictation, app: "Notes", createdAt: .now.addingTimeInterval(-40 * 86_400),
+            durationSeconds: 1, input: "old", output: "old", audioFilename: filename
+        )
+        try await store.replace(.init(history: [entry]))
+        let state = environment.makeState(store: store, persistenceDelay: .seconds(60))
+        await state.data.loadStoredData()
+
+        #expect(state.data.historyEntries.isEmpty)
+        #expect(await eventually {
+            !FileManager.default.fileExists(atPath: environment.root.appendingPathComponent("Audio").appendingPathComponent(filename).path)
+        })
+        #expect(try await store.load().history.isEmpty)
+    }
+
+    @Test("deleting before local data loads never removes its recording")
+    @MainActor
+    func deletionBeforeLoad() async throws {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let store = LocalStore(root: environment.root)
+        let id = UUID()
+        let filename = try await store.saveAudio(Data("audio".utf8), id: id)
+        let state = environment.makeState(store: store)
+        state.data.historyEntries = [HistoryEntry(
+            id: id, mode: .dictation, app: "Notes", durationSeconds: 1,
+            input: "hello", output: "hello", audioFilename: filename
+        )]
+
+        state.data.deleteHistoryEntry(id)
+        #expect(state.data.historyEntries.isEmpty)
+        #expect(try await store.audio(named: filename) == Data("audio".utf8))
     }
 
     @Test("legacy history without a status remains readable")
