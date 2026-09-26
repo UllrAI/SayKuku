@@ -474,6 +474,14 @@ private struct HistoryRow: View {
                      : localized("Processing…"))
             }
             .foregroundStyle(KukuColor.textSecondary)
+        case .awaitingConfirmation:
+            VStack(alignment: .leading, spacing: KukuSpacing.iconText) {
+                Label(localized("Waiting for confirmation"), systemImage: "hand.raised")
+                    .foregroundStyle(KukuColor.textSecondary)
+                Text(entry.output)
+                    .foregroundStyle(KukuColor.textPrimary)
+                    .textSelection(.enabled)
+            }
         case .failed:
             VStack(alignment: .leading, spacing: KukuSpacing.sm) {
                 KukuStatusLabel(

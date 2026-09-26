@@ -207,7 +207,92 @@ struct VoiceWorkflowTests {
         #expect(await eventually { state.workflow.agentPhase == .answerReady })
         #expect(state.workflow.pendingAction == link)
         #expect(state.workflow.pendingAnswerText == "https://example.com")
+        #expect(state.data.historyEntries.first?.status == .awaitingConfirmation)
         #expect(text.writes.isEmpty)
+    }
+
+    @Test("a shortcut always waits for approval, then completes History and Session after execution")
+    func approvedShortcut() async throws {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let shortcut = AgentResponse(transcript: "运行早安", action: .runShortcut, shortcutName: "早安")
+        var executed = false
+        var dependencies = AppState.Dependencies.fake(reasoning: FakeReasoning(agentReply: .success(shortcut)))
+        dependencies.actionExecutor = { _, _ in executed = true }
+        let state = try makeState(environment, dependencies)
+
+        try await startAgentListening(state)
+        state.workflow.finishAgentListening()
+        try #require(await eventually { state.workflow.agentPhase == .answerReady })
+        #expect(state.workflow.pendingAction == shortcut)
+        #expect(state.data.historyEntries.first?.status == .awaitingConfirmation)
+        #expect(!executed)
+
+        state.workflow.confirmPendingAction()
+        #expect(await eventually { state.data.historyEntries.first?.status == .completed })
+        #expect(executed)
+        try await startAgentListening(state)
+        #expect(state.workflow.contextItems.contains { $0.kind == .session })
+        state.workflow.dismissAgent()
+    }
+
+    @Test("closing an action card cancels History without running or remembering the action")
+    func declinedShortcut() async throws {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let shortcut = AgentResponse(transcript: "运行早安", action: .runShortcut, shortcutName: "早安")
+        var executed = false
+        var dependencies = AppState.Dependencies.fake(reasoning: FakeReasoning(agentReply: .success(shortcut)))
+        dependencies.actionExecutor = { _, _ in executed = true }
+        let state = try makeState(environment, dependencies)
+
+        try await startAgentListening(state)
+        state.workflow.finishAgentListening()
+        try #require(await eventually { state.workflow.agentPhase == .answerReady })
+        state.workflow.dismissAnswer()
+        #expect(state.data.historyEntries.first?.status == .cancelled)
+        #expect(!executed)
+        try await startAgentListening(state)
+        #expect(!state.workflow.contextItems.contains { $0.kind == .session })
+        state.workflow.dismissAgent()
+    }
+
+    @Test("an approved action that fails records the failure and leaves Session unchanged")
+    func failedShortcut() async throws {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let shortcut = AgentResponse(transcript: "运行早安", action: .runShortcut, shortcutName: "早安")
+        var dependencies = AppState.Dependencies.fake(reasoning: FakeReasoning(agentReply: .success(shortcut)))
+        dependencies.actionExecutor = { _, _ in throw AgentActionError.shortcutFailed }
+        let state = try makeState(environment, dependencies)
+
+        try await startAgentListening(state)
+        state.workflow.finishAgentListening()
+        try #require(await eventually { state.workflow.agentPhase == .answerReady })
+        state.workflow.confirmPendingAction()
+        #expect(await eventually { state.data.historyEntries.first?.status == .failed })
+        #expect(state.data.historyEntries.first?.errorMessage == AgentActionError.shortcutFailed.localizedDescription)
+        try await startAgentListening(state)
+        #expect(!state.workflow.contextItems.contains { $0.kind == .session })
+        state.workflow.dismissAgent()
+    }
+
+    @Test("cancelling an approved action records cancellation")
+    func cancelledShortcut() async throws {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let shortcut = AgentResponse(transcript: "运行早安", action: .runShortcut, shortcutName: "早安")
+        var dependencies = AppState.Dependencies.fake(reasoning: FakeReasoning(agentReply: .success(shortcut)))
+        dependencies.actionExecutor = { _, _ in try await Task.sleep(for: .seconds(5)) }
+        let state = try makeState(environment, dependencies)
+
+        try await startAgentListening(state)
+        state.workflow.finishAgentListening()
+        try #require(await eventually { state.workflow.agentPhase == .answerReady })
+        state.workflow.confirmPendingAction()
+        #expect(state.data.historyEntries.first?.status == .processing)
+        state.workflow.dismissAgent()
+        #expect(state.data.historyEntries.first?.status == .cancelled)
     }
 
     @Test("the Agent deletes the last write without a History entry, and the deletion can be undone")
