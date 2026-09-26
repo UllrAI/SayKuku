@@ -1,4 +1,5 @@
 import Foundation
+import Security
 import Testing
 @testable import SayKuku
 
@@ -75,6 +76,40 @@ struct QwenSettingsTests {
         try state.settings.saveAPIKey("")
         #expect(state.settings.apiKey.isEmpty)
         #expect(try environment.keychain.string(for: "qwen.apiKey") == nil)
+    }
+
+    @Test("a failed Keychain read cannot erase a stored API Key")
+    @MainActor
+    func failedAPIKeyRead() throws {
+        let service = "com.saykuku.tests.\(UUID().uuidString)"
+        let store = KeychainStore(service: service)
+        let suite = "SayKukuTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer {
+            defaults.removePersistentDomain(forName: suite)
+            try? store.remove("qwen.apiKey")
+        }
+
+        let malformed = Data([0xFF])
+        let item: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: "qwen.apiKey",
+            kSecValueData as String: malformed
+        ]
+        #expect(SecItemAdd(item as CFDictionary, nil) == errSecSuccess)
+
+        let settings = AppSettings(defaults: defaults, keychain: store)
+        #expect(settings.apiKey.isEmpty)
+        #expect(settings.apiKeyLoadState == .failed)
+        #expect(throws: SecureStorageError.self) { try settings.saveAPIKey("") }
+        #expect(throws: SecureStorageError.invalidData) { try store.string(for: "qwen.apiKey") }
+
+        try store.remove("qwen.apiKey")
+        try store.set("sk-recovered", for: "qwen.apiKey")
+        settings.reloadAPIKey()
+        #expect(settings.apiKeyLoadState == .available)
+        #expect(settings.apiKey == "sk-recovered")
     }
 
     @Test("committing credentials stores the trimmed key and Workspace ID together")
