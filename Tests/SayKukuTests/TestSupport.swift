@@ -62,7 +62,8 @@ extension AudioCapture.Recording {
 extension TextTargetSnapshot {
     /// A plain, non-sensitive field with no Accessibility elements behind it.
     static func fake(
-        selectedText: String = "", valueBefore: String? = nil, selectedRange: CFRange? = nil
+        selectedText: String = "", valueBefore: String? = nil, selectedRange: CFRange? = nil,
+        isSensitive: Bool = false
     ) -> TextTargetSnapshot {
         TextTargetSnapshot(
             appPID: 0,
@@ -74,7 +75,7 @@ extension TextTargetSnapshot {
             selectedRange: selectedRange,
             selectedText: selectedText,
             valueBefore: valueBefore,
-            isSensitive: false,
+            isSensitive: isSensitive,
             caretFrame: nil
         )
     }
@@ -84,6 +85,9 @@ extension TextTargetSnapshot {
 final class FakeAudioCapturing: AudioCapturing {
     let recording: AudioCapture.Recording
     let startError: (any Error)?
+    private let starts = Mutex(0)
+
+    var startCount: Int { starts.withLock { $0 } }
 
     init(recording: AudioCapture.Recording = .speech, startError: (any Error)? = nil) {
         self.recording = recording
@@ -95,6 +99,7 @@ final class FakeAudioCapturing: AudioCapturing {
         onChunk: @escaping @Sendable (Data) -> Void,
         onInterruption: @escaping @Sendable () -> Void
     ) -> Task<Void, Error> {
+        starts.withLock { $0 += 1 }
         // One chunk, so a streamed dictation has audio to send.
         onChunk(Data(count: 2))
         let startError = startError
@@ -163,6 +168,8 @@ final class FakeReasoning: Reasoning {
         var transcriptions: [Transcription]
         var transcribeCount = 0
         var targetApps: [String?] = []
+        var agentContexts: [[ContextItem]] = []
+        var agentMemoryPrompts: [String] = []
     }
 
     private let state: Mutex<State>
@@ -179,6 +186,8 @@ final class FakeReasoning: Reasoning {
 
     var transcribeCount: Int { state.withLock { $0.transcribeCount } }
     var targetApps: [String?] { state.withLock { $0.targetApps } }
+    var agentContexts: [[ContextItem]] { state.withLock { $0.agentContexts } }
+    var agentMemoryPrompts: [String] { state.withLock { $0.agentMemoryPrompts } }
 
     func transcribeAudio(
         apiKey: String,
@@ -216,7 +225,11 @@ final class FakeReasoning: Reasoning {
         matchAppTone: Bool,
         memoryPrompt: String
     ) async throws -> AgentResponse {
-        try agentReply.get()
+        state.withLock {
+            $0.agentContexts.append(context)
+            $0.agentMemoryPrompts.append(memoryPrompt)
+        }
+        return try agentReply.get()
     }
 
     func extractMemory(apiKey: String, configuration: QwenConfiguration, text: String) async throws -> [ProposedEntity] {
@@ -233,6 +246,7 @@ final class FakeReasoning: Reasoning {
 @MainActor
 final class FakeTextWriting: TextWriting {
     var snapshot: TextTargetSnapshot
+    var captureError: TextInteractionError?
     var writeOutcome = TextWriteOutcome.verified
     var writeError: TextInteractionError?
     var replacementError: TextInteractionError?
@@ -247,7 +261,8 @@ final class FakeTextWriting: TextWriting {
     }
 
     func captureTarget(requiringWindow: Bool, includingCaretFrame: Bool) throws -> TextTargetSnapshot {
-        snapshot
+        if let captureError { throw captureError }
+        return snapshot
     }
 
     func write(_ text: String, to snapshot: TextTargetSnapshot) async throws -> TextWriteOutcome {

@@ -128,10 +128,10 @@ final class TextInteraction: TextWriting {
         if requiringWindow, element == nil, window == nil { throw TextInteractionError.noFocusedElement }
         let title: String = window.flatMap { copyAttribute($0, kAXTitleAttribute) } ?? ""
         let bundleID = app.bundleIdentifier ?? ""
-        let range = element.flatMap(selectedRange(of:))
-        let value = element.flatMap { normalizedValue(of: $0, selectedRange: range) }
-        let selection = element.map { self.selectedText(of: $0, value: value, range: range) } ?? ""
         let sensitive = isSensitive(element: element, bundleID: bundleID)
+        let range = sensitive ? nil : element.flatMap(selectedRange(of:))
+        let value = sensitive ? nil : element.flatMap { normalizedValue(of: $0, selectedRange: range) }
+        let selection = sensitive ? "" : element.map { self.selectedText(of: $0, value: value, range: range) } ?? ""
         let caret = includingCaretFrame
             ? element.flatMap { element in range.flatMap { caretFrame(of: element, at: $0) } }
             : nil

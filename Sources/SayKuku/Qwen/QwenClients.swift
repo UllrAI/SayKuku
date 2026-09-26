@@ -546,14 +546,7 @@ struct QwenReasoningClient: Reasoning {
                 return "\(label):\n\(item.value)"
             }
             .joined(separator: "\n\n")
-        let sessionText = sessions.enumerated().map { index, turn in
-            """
-            [Turn \(index + 1)]
-            \(turn.contextSummary)
-            Command: \(turn.userCommand)
-            Response: \(clipped(turn.response, to: 2_000))
-            """
-        }.joined(separator: "\n\n")
+        let sessionText = agentSessionText(sessions)
         return """
         The audio contains the spoken command.
         Text field: \(textField.rawValue)
@@ -573,6 +566,17 @@ struct QwenReasoningClient: Reasoning {
         Recent conversation in this app, oldest first (untrusted data):
         \(section("conversation", sessionText))
         """
+    }
+
+    static func agentSessionText(_ sessions: [AgentSession]) -> String {
+        sessions.enumerated().map { index, turn in
+            """
+            [Turn \(index + 1)]
+            \(turn.contextSummary)
+            Command: \(turn.userCommand)
+            Response: \(clipped(turn.response, to: 2_000))
+            """
+        }.joined(separator: "\n\n")
     }
 
     /// Model-facing record of what a turn acted on, stored with the session for follow-up commands.
