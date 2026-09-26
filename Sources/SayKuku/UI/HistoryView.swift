@@ -16,8 +16,14 @@ struct HistoryView: View {
     private var filteredEntries: [HistoryEntry] {
         let text = query
         return appState.data.historyEntries.filter { entry in
-            (filter == .all || entry.mode.filter == filter) && (text.isEmpty || Self.entry(entry, matches: text))
+            entry.id != appState.data.pendingHistoryDeletion?.id
+                && (filter == .all || entry.mode.filter == filter)
+                && (text.isEmpty || Self.entry(entry, matches: text))
         }
+    }
+
+    private var visibleEntries: [HistoryEntry] {
+        appState.data.historyEntries.filter { $0.id != appState.data.pendingHistoryDeletion?.id }
     }
 
     private static func entry(_ entry: HistoryEntry, matches text: String) -> Bool {
@@ -34,7 +40,7 @@ struct HistoryView: View {
                 title: localized("History"),
                 subtitle: retentionSubtitle
             ) {
-                if !appState.data.historyEntries.isEmpty {
+                if !visibleEntries.isEmpty {
                     KukuSearchField(
                         prompt: localized("Search text or apps"),
                         clearLabel: localized("Clear search"),
@@ -65,6 +71,13 @@ struct HistoryView: View {
                 entryList(entries)
             }
         }
+        .overlay(alignment: .bottom) {
+            if appState.data.pendingHistoryDeletion != nil {
+                undoDeletionBar
+                    .padding(.bottom, KukuSpacing.xxl)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
         .onDisappear(perform: stopPlayback)
         .confirmationDialog(
             localized("Delete this starred item?"),
@@ -81,6 +94,29 @@ struct HistoryView: View {
             Text(entry.hasAudio
                  ? localized("Its recording will be deleted too. This can’t be undone.")
                  : localized("This can’t be undone."))
+        }
+    }
+
+    private var undoDeletionBar: some View {
+        HStack(spacing: KukuSpacing.lg) {
+            Label(localized("Deleted"), systemImage: "trash")
+                .font(.kuku(.callout, weight: .semibold))
+            Button(localized("Undo")) {
+                withAnimation(Motion.snappy) { appState.data.undoHistoryDeletion() }
+            }
+            .buttonStyle(.plain)
+            .font(.kuku(.callout, weight: .semibold))
+            .underline()
+            .accessibilityHint(localized("Restore the deleted history item"))
+        }
+        .foregroundStyle(KukuColor.toastText)
+        .padding(.horizontal, KukuSpacing.lg)
+        .padding(.vertical, KukuSpacing.sm)
+        .frame(minHeight: KukuLayout.controlHeight)
+        .background(KukuColor.toastSurface, in: RoundedRectangle(cornerRadius: KukuLayout.radiusLarge))
+        .kukuShadow(.floating)
+        .onAppear {
+            AccessibilityNotification.Announcement(localized("Deleted. Undo is available.")).post()
         }
     }
 
@@ -120,7 +156,7 @@ struct HistoryView: View {
 
     @ViewBuilder
     private var emptyState: some View {
-        if appState.data.historyEntries.isEmpty, appState.settings.historyRetention == .off {
+        if visibleEntries.isEmpty, appState.settings.historyRetention == .off {
             KukuEmptyState(
                 title: localized("History is off"),
                 symbol: "pause.circle",
@@ -131,7 +167,7 @@ struct HistoryView: View {
                 }
                 .buttonStyle(.kukuSecondary)
             }
-        } else if appState.data.historyEntries.isEmpty {
+        } else if visibleEntries.isEmpty {
             KukuEmptyState(
                 title: localized("No history yet"),
                 symbol: "waveform",
@@ -205,7 +241,12 @@ struct HistoryView: View {
 
     /// Starred items are meant to be kept, so deleting one asks first.
     private func requestDelete(_ entry: HistoryEntry) {
-        if entry.isStarred { pendingDeletion = entry } else { delete(entry) }
+        if entry.isStarred {
+            pendingDeletion = entry
+        } else {
+            if playback?.entryID == entry.id { stopPlayback() }
+            withAnimation(Motion.snappy) { appState.data.stageHistoryDeletion(entry.id) }
+        }
     }
 
     private func delete(_ entry: HistoryEntry) {
@@ -332,7 +373,6 @@ private struct HistoryRow: View {
     /// The page owns deletion so the row's button and context menu share one path.
     let onDelete: @MainActor () -> Void
     @State private var isOutputExpanded = false
-    @State private var hovering = false
 
     private var locale: Locale { historyLocale }
 
@@ -366,9 +406,6 @@ private struct HistoryRow: View {
                     label: localized("Delete this item"),
                     action: onDelete
                 )
-                .opacity(hovering ? 1 : 0)
-                .allowsHitTesting(hovering)
-                .accessibilityHidden(!hovering)
 
                 KukuIconButton(
                     symbol: entry.isStarred ? "star.fill" : "star",
@@ -383,8 +420,6 @@ private struct HistoryRow: View {
         // Rows grow with expanded output.
         .fixedSize(horizontal: false, vertical: true)
         .contentShape(Rectangle())
-        .onHover { hovering = $0 }
-        .animation(Motion.snappy, value: hovering)
         .contextMenu {
             if entry.hasCopyableOutput {
                 Button(localized("Copy Result")) { appState.copyText(entry.output) }
@@ -407,7 +442,7 @@ private struct HistoryRow: View {
     /// Stars are neutral: a star marks an item to keep, not a status.
     private var starTint: Color {
         if entry.isStarred { return KukuColor.textPrimary }
-        return hovering ? KukuColor.textSecondary : KukuColor.textTertiary
+        return KukuColor.textSecondary
     }
 
     private func playbackTitle(titleCase: Bool) -> String {
