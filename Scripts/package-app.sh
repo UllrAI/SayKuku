@@ -24,14 +24,10 @@ if [[ "$CONFIGURATION" != "release" && "$BUNDLE_IDENTIFIER" == "com.saykuku.app"
 fi
 
 # Keychain ACLs and TCC permissions survive updates only when the app keeps a
-# stable, anchored signing identity. CI can build a disposable debug bundle
-# without a private signing certificate; local and release builds still require one.
-if [[ "$CONFIGURATION" == "debug" && "${CI:-}" == "true" && "${SAYKUKU_CI_ADHOC_SIGNING:-0}" == "1" ]]; then
-    SIGNING_IDENTITY="-"
-else
-    source "$ROOT_DIR/Scripts/signing-identity.sh"
-    SIGNING_IDENTITY="$(resolve_signing_identity "$CONFIGURATION")"
-fi
+# stable, anchored signing identity. Resolve it before building so a missing
+# certificate fails in seconds rather than after a universal build.
+source "$ROOT_DIR/Scripts/signing-identity.sh"
+SIGNING_IDENTITY="$(resolve_signing_identity "$CONFIGURATION")"
 SIGNING_KEYCHAIN="${SAYKUKU_KEYCHAIN:-}"
 
 # Theme.swift calls glassEffect behind #available(macOS 26.0, *), which only
