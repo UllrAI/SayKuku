@@ -373,7 +373,6 @@ private struct HistoryRow: View {
     /// The page owns deletion so the row's button and context menu share one path.
     let onDelete: @MainActor () -> Void
     @State private var isOutputExpanded = false
-    @State private var hovering = false
 
     private var locale: Locale { historyLocale }
 
@@ -421,8 +420,6 @@ private struct HistoryRow: View {
         // Rows grow with expanded output.
         .fixedSize(horizontal: false, vertical: true)
         .contentShape(Rectangle())
-        .onHover { hovering = $0 }
-        .animation(Motion.snappy, value: hovering)
         .contextMenu {
             if entry.hasCopyableOutput {
                 Button(localized("Copy Result")) { appState.copyText(entry.output) }
@@ -445,7 +442,7 @@ private struct HistoryRow: View {
     /// Stars are neutral: a star marks an item to keep, not a status.
     private var starTint: Color {
         if entry.isStarred { return KukuColor.textPrimary }
-        return hovering ? KukuColor.textSecondary : KukuColor.textTertiary
+        return KukuColor.textSecondary
     }
 
     private func playbackTitle(titleCase: Bool) -> String {
