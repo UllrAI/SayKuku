@@ -150,6 +150,7 @@ final class AppState {
     /// Saves whatever changed in the typed credentials. A Keychain failure shows in the connection status.
     @discardableResult
     func commitQwenCredentials(_ draft: QwenCredentialsDraft) -> Bool {
+        guard settings.apiKeyLoadState != .failed else { return false }
         let workspaceID = draft.workspaceID.trimmingCharacters(in: .whitespacesAndNewlines)
         if workspaceID != settings.qwenWorkspaceID { settings.qwenWorkspaceID = workspaceID }
         let key = draft.apiKey.trimmingCharacters(in: .whitespacesAndNewlines)

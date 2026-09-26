@@ -26,7 +26,7 @@ struct AppStateTests {
             AgentActionError.deleteNeedsInsert, AgentActionError.openFailed,
             AgentActionError.shortcutFailed, AgentActionError.shortcutTimedOut,
             LocalStoreError.unreadableSnapshot, LocalStoreError.invalidAudioFilename,
-            SecureStorageError.keychain(-25300), SecureStorageError.invalidData
+            SecureStorageError.keychain(-25300), SecureStorageError.invalidData, SecureStorageError.readUnavailable
         ]
         for error in errors {
             #expect(error.errorDescription?.isEmpty == false, "\(error) has no description")
