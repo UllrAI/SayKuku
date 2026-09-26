@@ -1226,6 +1226,17 @@
         }
       }
     },
+    "Couldn’t open this address. Check your default browser." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法打开此地址，请检查默认浏览器"
+          }
+        }
+      }
+    },
     "Couldn’t read local data, so new changes won’t be saved. See History for details." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5399,6 +5410,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "语音试写区"
+          }
+        }
+      }
+    },
+    "Waiting for confirmation" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "等待确认"
           }
         }
       }

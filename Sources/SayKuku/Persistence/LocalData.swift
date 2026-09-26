@@ -205,9 +205,12 @@ final class LocalData {
         if let input { historyEntries[index].input = input }
         if let output { historyEntries[index].output = output }
         if let audioFilename { historyEntries[index].audioFilename = audioFilename }
-        if let status, historyEntries[index].status == .processing {
-            historyEntries[index].status = status
-            historyEntries[index].errorMessage = errorMessage
+        if let status {
+            let current = historyEntries[index].status
+            if current == .processing || current == .awaitingConfirmation {
+                historyEntries[index].status = status
+                historyEntries[index].errorMessage = errorMessage
+            }
         } else if let errorMessage {
             historyEntries[index].errorMessage = errorMessage
         }
@@ -269,13 +272,14 @@ final class LocalData {
         return current + stored.filter { !currentIDs.contains($0.id) }
     }
 
-    /// Entries still processing at launch were cut off by a quit or crash; keep their audio so they can be retried.
+    /// Entries still processing at launch were cut off by a quit or crash; a confirmation card
+    /// cannot be restored, so its action is cancelled. Keep the audio for retry where applicable.
     nonisolated static func recoveringInterruptedHistory(_ entries: [HistoryEntry], message: String) -> [HistoryEntry] {
         entries.map { entry in
-            guard entry.status == .processing else { return entry }
+            guard entry.status == .processing || entry.status == .awaitingConfirmation else { return entry }
             var recovered = entry
-            recovered.status = .failed
-            recovered.errorMessage = message
+            recovered.status = entry.status == .processing ? .failed : .cancelled
+            recovered.errorMessage = entry.status == .processing ? message : nil
             return recovered
         }
     }

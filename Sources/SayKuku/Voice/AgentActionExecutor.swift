@@ -3,12 +3,14 @@ import os
 
 enum AgentActionError: LocalizedError {
     case deleteNeedsInsert
+    case openFailed
     case shortcutFailed
     case shortcutTimedOut
 
     var errorDescription: String? {
         switch self {
         case .deleteNeedsInsert: localized("Turn on Insert automatically to delete text by voice.")
+        case .openFailed: localized("Couldn’t open this address. Check your default browser.")
         case .shortcutFailed: localized("Couldn’t run the shortcut. Check it in the Shortcuts app.")
         case .shortcutTimedOut: localized("The shortcut took over a minute, so it was stopped.")
         }
@@ -22,9 +24,12 @@ enum AgentActionExecutor {
     ]
 
     @MainActor
-    static func execute(_ response: AgentResponse, engine: SearchEngine) async throws {
+    static func execute(
+        _ response: AgentResponse, engine: SearchEngine,
+        openURL: @MainActor (URL) -> Bool = { NSWorkspace.shared.open($0) }
+    ) async throws {
         if let url = try validate(response, engine: engine) {
-            NSWorkspace.shared.open(url)
+            guard openURL(url) else { throw AgentActionError.openFailed }
         } else if response.action == .runShortcut, let name = response.shortcutName {
             try await runShortcut(named: name)
         }
@@ -51,12 +56,13 @@ enum AgentActionExecutor {
         }
     }
 
-    /// The model reads context and picks the action in one reply, so injected text could choose a link, a search
-    /// that sends the clipboard away, or a shortcut, and even the transcript beside it. Every action that leaves
-    /// the app waits for the user when untrusted context is attached; writes and answers stay in view.
+    /// A shortcut can change files or other apps, so it always requires approval. Links and searches
+    /// require approval when the model saw text that someone other than the user may have written.
     static func needsConfirmation(_ response: AgentResponse, context: [ContextItem]) -> Bool {
-        [.openURL, .webSearch, .runShortcut].contains(response.action)
-            && context.contains { untrustedContextKinds.contains($0.kind) }
+        response.action == .runShortcut || (
+            [.openURL, .webSearch].contains(response.action)
+                && context.contains { untrustedContextKinds.contains($0.kind) }
+        )
     }
 
     /// Whether a writeText reply replaces text the model saw only the start of, which would drop the rest.

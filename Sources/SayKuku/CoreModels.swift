@@ -343,6 +343,7 @@ enum HistoryMode: String, Codable {
 
 enum HistoryStatus: String, Codable {
     case processing
+    case awaitingConfirmation
     case completed
     case failed
     case cancelled
