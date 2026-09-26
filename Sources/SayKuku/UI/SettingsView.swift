@@ -304,6 +304,14 @@ struct QwenConnectionForm: View {
                 link: helpLink(localized("Get an API Key"), page: "get-api-key")
             ) {
                 SecureField("sk-…", text: $draft.apiKey)
+                    .disabled(appState.settings.apiKeyLoadState == .failed)
+            }
+            if appState.settings.apiKeyLoadState == .failed {
+                KukuDivider()
+                KukuRow(localized("Keychain access needs attention"), caption: localized("Couldn’t read the API Key from this Mac’s Keychain. Try again before editing it.")) {
+                    Button(localized("Try Again")) { appState.settings.reloadAPIKey() }
+                        .buttonStyle(.kukuSecondary)
+                }
             }
             KukuDivider()
             credentialRow(
@@ -345,7 +353,8 @@ struct QwenConnectionForm: View {
     }
 
     private var keyCaption: String {
-        appState.settings.apiKey.isEmpty
+        if appState.settings.apiKeyLoadState == .failed { return localized("API Key unavailable") }
+        return appState.settings.apiKey.isEmpty
             ? localized("Stored in this Mac’s Keychain")
             : localized("Saved in this Mac’s Keychain")
     }
@@ -370,22 +379,26 @@ struct QwenConnectionStatus: View {
 
     var body: some View {
         testResult
-            .lineLimit(2)
+            .lineLimit(3)
     }
 
     @ViewBuilder
     private var testResult: some View {
-        switch appState.connectionState {
-        // A success only counts for the values it tested; edits since then need a new test.
-        case .connected(let realtime, let chat) where draft.matches(apiKey: appState.settings.apiKey, workspaceID: appState.settings.qwenWorkspaceID):
-            KukuStatusLabel(text: connectedMessage(realtime: realtime, chat: chat), tone: .success, font: font)
-        case .failed(let message):
-            KukuStatusLabel(text: message, tone: .danger, font: font)
-        case .testing:
-            hint(localized("Connecting to Qwen…"))
-        case .connected, .idle:
-            if !draft.hasKey {
-                hint(localized("Add an API Key to test the connection"))
+        if appState.settings.apiKeyLoadState == .failed {
+            KukuStatusLabel(text: localized("Couldn’t read the API Key from this Mac’s Keychain. Try again before editing it."), tone: .danger, font: font)
+        } else {
+            switch appState.connectionState {
+            // A success only counts for the values it tested; edits since then need a new test.
+            case .connected(let realtime, let chat) where draft.matches(apiKey: appState.settings.apiKey, workspaceID: appState.settings.qwenWorkspaceID):
+                KukuStatusLabel(text: connectedMessage(realtime: realtime, chat: chat), tone: .success, font: font)
+            case .failed(let message):
+                KukuStatusLabel(text: message, tone: .danger, font: font)
+            case .testing:
+                hint(localized("Connecting to Qwen…"))
+            case .connected, .idle:
+                if !draft.hasKey {
+                    hint(localized("Add an API Key to test the connection"))
+                }
             }
         }
     }
@@ -418,7 +431,7 @@ struct QwenConnectionButton: View {
             Task { await appState.testQwenConnection(draft) }
         }
         .buttonStyle(.kuku(kind))
-        .disabled(isTesting || !draft.hasKey)
+        .disabled(isTesting || !draft.hasKey || appState.settings.apiKeyLoadState == .failed)
     }
 }
 

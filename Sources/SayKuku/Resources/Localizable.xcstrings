@@ -243,6 +243,17 @@
         }
       }
     },
+    "API Key unavailable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暂时无法读取 API Key"
+          }
+        }
+      }
+    },
     "Accessibility" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1222,6 +1233,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "无法连接 Qwen，请在“设置 › Qwen 连接”中检查地域和业务空间 ID"
+          }
+        }
+      }
+    },
+    "Couldn’t read the API Key from this Mac’s Keychain. Try again before editing it." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法读取这台 Mac 钥匙串中的 API Key。请重试后再编辑。"
           }
         }
       }
@@ -2391,6 +2413,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "保留 %@，星标记录不会自动删除。"
+          }
+        }
+      }
+    },
+    "Keychain access needs attention" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请检查钥匙串访问"
           }
         }
       }
@@ -5102,6 +5135,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已尝试撤销，请核对"
+          }
+        }
+      }
+    },
+    "Try Again" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重试"
           }
         }
       }

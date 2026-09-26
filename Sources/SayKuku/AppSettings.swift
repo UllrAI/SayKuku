@@ -77,6 +77,7 @@ final class AppSettings {
     }
     /// The saved key; edits stay in a view draft until `commitQwenCredentials` runs.
     private(set) var apiKey = ""
+    private(set) var apiKeyLoadState: APIKeyLoadState = .missing
     // nil means the shortcut is turned off; Fn gestures keep working either way.
     var voiceInputShortcut: GlobalShortcut? = .defaultVoiceInput {
         didSet { saveGlobalShortcut(voiceInputShortcut, forKey: Keys.voiceInputShortcut) }
@@ -97,7 +98,7 @@ final class AppSettings {
         self.defaults = defaults
         self.keychain = keychain
         loadSettings()
-        apiKey = (try? keychain.string(for: Keys.apiKey)) ?? ""
+        reloadAPIKey()
     }
 
     var configuration: QwenConfiguration {
@@ -110,10 +111,24 @@ final class AppSettings {
     }
 
     func saveAPIKey(_ value: String) throws {
+        guard apiKeyLoadState != .failed else { throw SecureStorageError.readUnavailable }
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty { try keychain.remove(Keys.apiKey) }
         else { try keychain.set(trimmed, for: Keys.apiKey) }
         apiKey = trimmed
+        apiKeyLoadState = trimmed.isEmpty ? .missing : .available
+        qwenConnectionChangeHandler?()
+    }
+
+    func reloadAPIKey() {
+        do {
+            let saved = try keychain.string(for: Keys.apiKey)
+            apiKey = saved ?? ""
+            apiKeyLoadState = saved == nil ? .missing : .available
+        } catch {
+            apiKey = ""
+            apiKeyLoadState = .failed
+        }
         qwenConnectionChangeHandler?()
     }
 
@@ -221,6 +236,10 @@ final class AppSettings {
         static let realtimeModelUpgraded = "qwen.realtimeModelUpgradedToQwen38"
         static let automaticUpdateChecks = "updates.automaticChecks", skippedUpdateVersion = "updates.skippedVersion"
     }
+}
+
+enum APIKeyLoadState {
+    case missing, available, failed
 }
 
 enum InputMode: String, CaseIterable, Identifiable {
