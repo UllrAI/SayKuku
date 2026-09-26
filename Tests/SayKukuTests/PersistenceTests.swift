@@ -576,12 +576,20 @@ struct PersistenceTests {
             audioFilename: "a.wav", status: .processing
         )
         let completed = HistoryEntry(mode: .agent, app: "Mail", durationSeconds: 2, input: "a", output: "b")
-        let recovered = LocalData.recoveringInterruptedHistory([interrupted, completed], message: "SayKuku quit before this finished")
+        let awaiting = HistoryEntry(
+            mode: .agent, app: "Mail", durationSeconds: 2, input: "search", output: "SayKuku",
+            status: .awaitingConfirmation
+        )
+        let recovered = LocalData.recoveringInterruptedHistory(
+            [interrupted, completed, awaiting], message: "SayKuku quit before this finished"
+        )
 
         #expect(recovered[0].status == .failed)
         #expect(recovered[0].errorMessage == "SayKuku quit before this finished")
         #expect(recovered[0].audioFilename == "a.wav")
         #expect(recovered[1] == completed)
+        #expect(recovered[2].status == .cancelled)
+        #expect(recovered[2].errorMessage == nil)
     }
 
     @Test("audio is stored as a regular WAV file")

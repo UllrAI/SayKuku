@@ -69,6 +69,9 @@ final class AppState {
         var reasoningClient: any Reasoning
         var textInteraction: any TextWriting
         var systemPermissions: SystemPermissionController
+        var actionExecutor: @MainActor (AgentResponse, SearchEngine) async throws -> Void = {
+            try await AgentActionExecutor.execute($0, engine: $1)
+        }
 
         /// New instances on every call, so no two states share an engine or a socket.
         @MainActor static var live: Dependencies {
@@ -147,6 +150,7 @@ final class AppState {
     /// Saves whatever changed in the typed credentials. A Keychain failure shows in the connection status.
     @discardableResult
     func commitQwenCredentials(_ draft: QwenCredentialsDraft) -> Bool {
+        guard settings.apiKeyLoadState != .failed else { return false }
         let workspaceID = draft.workspaceID.trimmingCharacters(in: .whitespacesAndNewlines)
         if workspaceID != settings.qwenWorkspaceID { settings.qwenWorkspaceID = workspaceID }
         let key = draft.apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
