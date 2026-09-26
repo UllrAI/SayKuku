@@ -23,7 +23,8 @@ struct AppStateTests {
             TextInteractionError.accessibilityRequired, TextInteractionError.noFocusedElement,
             TextInteractionError.sensitiveTarget, TextInteractionError.targetChanged, TextInteractionError.writeFailed,
             AudioCaptureError.microphoneUnavailable, AudioCaptureError.unsupportedFormat,
-            AgentActionError.deleteNeedsInsert, AgentActionError.shortcutFailed, AgentActionError.shortcutTimedOut,
+            AgentActionError.deleteNeedsInsert, AgentActionError.openFailed,
+            AgentActionError.shortcutFailed, AgentActionError.shortcutTimedOut,
             LocalStoreError.unreadableSnapshot, LocalStoreError.invalidAudioFilename,
             SecureStorageError.keychain(-25300), SecureStorageError.invalidData, SecureStorageError.readUnavailable
         ]
