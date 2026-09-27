@@ -52,7 +52,7 @@ Qwen API Key 保存在这台 Mac 的钥匙串中；输入历史、记忆、纠�
 
 打包只用两个入口：`Scripts/package-app.sh debug` 生成签名开发版 App；`Scripts/release.sh` 生成已公证、装订的正式版 App 和 DMG，并产出 dSYM。正式包固定使用 Bundle ID `com.saykuku.app` 和稳定的 Developer ID Application 身份；前置条件和排查步骤见 [本地打包与发布](docs/LOCAL_PACKAGING.md)。
 
-App 不在内部下载或安装更新：1.0.1 起正式版读取 `https://say.anikuku.com/ver.json`，发现新版本时打开[官网版本下载区](https://say.anikuku.com/#download)。DMG 存放在 SayKuku 的 R2 bucket，并通过 `saykuku.ullrai.com` 公开分发；旧版仍读取 `https://saykuku.ullrai.com/ver.json`，发布时需同步更新两个地址的版本文件。
+App 不在内部下载或安装更新：1.0.1 起正式版读取 `https://say.anikuku.com/ver.json`，发现新版本时打开[官网版本下载页](https://say.anikuku.com/download/)。DMG 存放在 SayKuku 的 R2 bucket，并通过 `saykuku.ullrai.com` 公开分发；旧版仍读取 `https://saykuku.ullrai.com/ver.json`，发布时需同步更新两个地址的版本文件。
 
 ## License
 

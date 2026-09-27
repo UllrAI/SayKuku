@@ -4,7 +4,7 @@ The public 1.0.1 installer is available from the landing page. Gallery: `../asse
 
 - **Name:** SayKuku
 - **Tagline:** Voice Input and Voice Agent, one Fn away
-- **Description:** Press Fn to dictate where the cursor is. Double press Fn for Voice Agent: rewrite selected text, translate it, ask questions, or keep the conversation going. SayKuku is a native macOS 15+ app with a small Memory for names, projects, and terms. The current build uses Qwen cloud processing and requires your own API key.
+- **Description:** Press Fn to dictate where the cursor is. Double press Fn for Voice Agent: rewrite selected text, translate it, ask questions, or keep the conversation going. SayKuku is a native macOS 15+ app with a small Memory for names, projects, and terms. It uses cloud processing and requires your own API key.
 - **Website:** https://say.anikuku.com/en/
 - **Topics:** Mac, Productivity, AI (choose the matching options shown at submission)
 

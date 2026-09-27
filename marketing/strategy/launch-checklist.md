@@ -2,9 +2,9 @@
 
 ## 发布前
 
-- [ ] 将 `say.anikuku.com` 接通并验证 HTTPS 与所有页面；确定对外反馈入口和正式下载方式，链接在未登录浏览器中可访问。
-- [ ] 确认官网版本区与 R2 公开安装包可在未登录浏览器打开；GitHub 仓库可保持私有。
-- [ ] 依 `docs/LOCAL_PACKAGING.md` 正式签名、公证、装订并发布 DMG；完成 Gatekeeper 校验，上传 `ver.json`。
+- [x] 将 `say.anikuku.com` 接通并验证 HTTPS 与所有页面；对外反馈邮箱为 `saykuku@ullrai.com`，正式下载链接可公开访问。
+- [x] 确认官网 `/download/` 与 R2 公开安装包可在未登录浏览器打开；GitHub 仓库可保持私有。
+- [x] 依 `docs/LOCAL_PACKAGING.md` 正式签名、公证、装订并发布 DMG；完成 Gatekeeper 校验，上传官网与 R2 的 `ver.json`。
 - [ ] 从正式版与**干净演示数据**补拍历史、记忆、Agent 结果；检查没有姓名、聊天、API Key、网址或私人文件名。
 - [ ] 录制 15–30 秒无剪辑误导的真实操作：光标输入 → Fn → 结果；选中文字 → Fn Fn → Voice Agent 改写与追问。没有授权时不用第三方聊天内容作演示。
 - [ ] 对照正式版逐句核对截图、文案、Fn 默认操作、菜单、macOS 要求与 Qwen 地域。

@@ -82,7 +82,7 @@ rm "$NOTARY_ARCHIVE" "$ROOT_DIR/Build/notarization-${NOTARY_ARCHIVE:t:r}.json"
 cat >"$VERSION_FEED" <<JSON
 {
   "version": "$VERSION",
-  "url": "https://say.anikuku.com/#download",
+  "url": "https://say.anikuku.com/download/",
   "notes": ""
 }
 JSON

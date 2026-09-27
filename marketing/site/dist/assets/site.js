@@ -110,14 +110,9 @@
   $$('#demo [data-demo-mode]').forEach(b=>b.addEventListener('click',()=>{clearTimeout(tapTimer);lastTap=0;setMode(b.dataset.demoMode);}));
   $('#demo-reset').addEventListener('click',()=>{clearTimeout(tapTimer);lastTap=0;setMode(state.mode);});
   document.addEventListener('keydown',e=>{if(e.key==='Escape'){clearTimeout(tapTimer);lastTap=0;setMode(state.mode);fn.classList.remove('pressed');}});
-  $$('[data-demo-try]').forEach(b=>b.addEventListener('click',()=>{
-    clearTimeout(tapTimer);lastTap=0;setMode('input');$('#demo').scrollIntoView({behavior:reduced?'instant':'smooth',block:'center'});
-    fn.classList.remove('key-attention');void fn.offsetWidth;fn.classList.add('key-attention');
-    fn.focus({preventScroll:true});later(()=>beginRecording(true),reduced?0:400);
-  }));
   function setTrigger(trigger,notify=true){
     state.trigger=trigger;$$('[data-trigger]').forEach(b=>{const on=b.dataset.trigger===trigger;b.setAttribute('aria-checked',String(on));b.tabIndex=on?0:-1;});
-    $('#trigger-description').textContent=trigger==='hold'?(language === 'en' ? 'Hold to speak, release to finish. It follows your instinct.' : '按住时说话，松开就完成。跟着直觉，不用多想。'):(language === 'en' ? 'Tap once to start, again to stop. Go at your own pace.' : '点一下开始，再点一下结束。按你的节奏来。');
+    $('#trigger-description').textContent=trigger==='hold'?(language === 'en' ? 'Hold to speak, release to finish. It follows your instinct.' : '按住 Fn 说话，松开结束。'):(language === 'en' ? 'Tap once to start, again to stop. Go at your own pace.' : '单击 Fn，开始或结束听写。');
     $('#key-caption').textContent=trigger==='hold'?'HOLD TO TALK':'CLICK TO TRY';
     if(state.phase==='idle'||state.phase==='done')setMode(state.mode);
     if(notify)toast(trigger==='hold'?tr('setHold'):tr('setTap'));

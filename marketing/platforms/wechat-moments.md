@@ -8,8 +8,8 @@
 
 连按两次 Fn 是 Voice Agent。选中文字可以说“短一点”“翻成英文”，也可以直接提问、接着聊。官网有不用麦克风的交互演示，也能下载 1.0.1 Mac 版：say.anikuku.com。
 
-先说明门槛：只支持 macOS 15+，目前要自己配模型 API Key，语音需要云端处理。你平时最想在哪个 App 里用这种操作？
+它只支持 macOS 15+，目前要自己配模型 API Key，语音需要云端处理。你平时最想在哪个 App 里用这种操作？
 
 ## 极短版
 
-做了 SayKuku：Mac 上 Fn 说话输入，Fn Fn 唤起 Voice Agent。想先看看手感，可以点开 say.anikuku.com 的网页演示。1.0.1 已在官网可下载；你最想在哪个 App 里用？
+做了 SayKuku：Mac 上 Fn 说话输入，Fn Fn 唤起 Voice Agent。say.anikuku.com 有网页演示，也能下载 1.0.1；你最想在哪个 App 里用？
