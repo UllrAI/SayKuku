@@ -8,7 +8,7 @@ A thought is ready. The cursor is already there. Why open another app?
 
 I’m building SayKuku for Mac. Fn turns speech into text at the cursor. Fn Fn opens Voice Agent to rewrite selected text, ask a question, or keep the conversation going.
 
-Download the Mac app → https://say.anikuku.com/en/download/
+Download the Mac app → https://say.anikuku.com/en/download/?utm_source=x&utm_medium=social&utm_campaign=launch_101&utm_content=launch_post
 
 **Image alt text:** SayKuku. card with a coral bird mark. “Speak. It lands where you type.” Two modes: Fn Voice Input and Fn Fn Voice Agent.
 
@@ -20,7 +20,7 @@ Download the Mac app → https://say.anikuku.com/en/download/
 
 **3/4** You can save names, projects, and terms in Memory; a correction is only saved after you confirm it. The Mac app uses cloud processing and needs your own API key. History and Memory stay on your Mac as files without extra encryption.
 
-**4/4** The signed Mac installer is up. I’d love to know where you’d use this most and which Mac text field gives you trouble. https://say.anikuku.com/en/download/
+**4/4** The signed Mac installer is up. I’d love to know where you’d use this most and which Mac text field gives you trouble. https://say.anikuku.com/en/download/?utm_source=x&utm_medium=social&utm_campaign=launch_101&utm_content=thread
 
 ## 隐私跟进帖
 

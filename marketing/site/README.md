@@ -15,6 +15,8 @@
 
 首页上的预设演示不请求麦克风，也不调用模型。首页下载按钮进入 `/download/`；下载页的 DMG 按钮连接 `https://saykuku.ullrai.com/SayKuku-1.0.1.dmg`，由 Cloudflare R2 的 `saykuku` bucket 公开域名提供。发布前核对版本号、签名、公证、公开文件哈希及下载状态；发布流程见 `docs/LOCAL_PACKAGING.md`。
 
+页面浏览与关键点击使用自建 Umami 统计，事件和归因规则见 [ANALYTICS.md](ANALYTICS.md)。
+
 ## 本机预览
 
 ```bash

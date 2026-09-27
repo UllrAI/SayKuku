@@ -77,6 +77,7 @@
   }
   function beginRecording(autoFinish=false){
     cancelRun();$('#agent-result').hidden=true;
+    window.umami?.track('demo_started', {mode:state.mode, input_style:state.mode==='agent'?'double_fn':state.trigger});
     if(state.mode==='input'){$('#demo-text').textContent='';$('#typing-caret').hidden=false;$('#hero-note-text').textContent=language === 'en' ? '“Friday at 3, with the design team…”' : '“周五下午三点，和设计团队……”';}
     else{$('#demo-text').textContent=language === 'en' ? originalEnglish : originalChinese;$('#demo-text').classList.add('selected');$('#typing-caret').hidden=true;}
     updatePill(state.mode==='agent'?tr('pillAgentDemo'):autoFinish?tr('pillInput'):state.trigger==='hold'?tr('pillHoldDemo'):tr('pillTapDemo'),'listening');announce(tr('announceDemo'));

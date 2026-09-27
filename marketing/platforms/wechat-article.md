@@ -12,4 +12,4 @@
 
 官网有一段可点击的 Fn 演示，用的是预设文字。它能帮你看懂交互，但不会打开麦克风或调用模型。真正使用时，需要 macOS 15 或更新版本、麦克风和辅助功能权限。当前版本通过 Qwen 处理语音和 Agent 请求，需自备 API Key，模型服务可能收费。音频及你允许的 Agent 上下文会发往所选地域；历史、记忆和可选录音保存在本机，文件未额外加密。细节写在[隐私与权限说明](https://say.anikuku.com/privacy/)。
 
-[SayKuku 1.0.1 已可在官网下载](https://say.anikuku.com/download/)。如果你试了，欢迎告诉我你用的是哪个 Mac App，文字有没有落在预期的位置。
+[SayKuku 1.0.1 已可在官网下载](https://say.anikuku.com/download/?utm_source=wechat_article&utm_medium=social&utm_campaign=launch_101)。如果你试了，欢迎告诉我你用的是哪个 Mac App，文字有没有落在预期的位置。

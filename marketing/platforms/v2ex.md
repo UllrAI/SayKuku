@@ -15,4 +15,4 @@ Fn 手势用 AppKit 监听，辅助功能负责选区与写回；写回前会核
 
 当前版本需要 macOS 15+ 和自己的模型 API Key；语音走云端。历史、记忆和可选录音在本机，没有额外加密。配置与权限说明写在 https://say.anikuku.com/guide/ 和 https://say.anikuku.com/privacy/。
 
-1.0.1 可以从 https://say.anikuku.com/download/ 下载；官网首页的交互演示使用预设内容。想先请教大家：你最常在哪个 Mac App 里用语音输入？如果愿意帮忙测，最想先测哪种输入框？
+1.0.1 可以从 https://say.anikuku.com/download/?utm_source=v2ex&utm_medium=community&utm_campaign=launch_101 下载；官网首页的交互演示使用预设内容。想先请教大家：你最常在哪个 Mac App 里用语音输入？如果愿意帮忙测，最想先测哪种输入框？
