@@ -1,0 +1,17 @@
+# 用隔离演示数据补齐正式版截图与真实操作视频
+
+## 背景
+
+本次只安全采集了开发版首页和隐私设置；开发版历史/记忆包含本机旧记录，不可用于宣发。新版 `marketing/assets/generated/` 是统一视觉的直接带字成图；官网交互是预设演示。正式上线还需要可验证的真实使用结果。
+
+## 完成标准
+
+- [ ] 为演示准备隔离的全新账号/数据目录或专用测试环境，不读写用户现有 Application Support 与正式 Keychain 服务。
+- [ ] 用正式版补拍首页、语音输入结果、Voice Agent 改写、记忆和隐私设置。图片里没有真实聊天、姓名、邮箱、API Key、私人网址或录音路径。
+- [ ] 录制 15–30 秒真实流程：Fn 输入、Fn Fn Voice Agent 改写与追问；字幕准确标注等待、权限和 Qwen 云端处理，不伪造模型输出。
+- [ ] 中文与英文宣发各有适合的界面语言画面，更新 `marketing/assets/screenshots/README.md` 来源记录。
+- [ ] 将正式版真实截图与操作视频补入媒体资料页，逐张在手机和桌面大小核对；沿用官方鸟形字标与橙红点。
+
+## 参考
+
+`marketing/copy/press-kit.md` 中的分镜；`marketing/assets/screenshots/README.md`

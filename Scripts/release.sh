@@ -82,7 +82,7 @@ rm "$NOTARY_ARCHIVE" "$ROOT_DIR/Build/notarization-${NOTARY_ARCHIVE:t:r}.json"
 cat >"$VERSION_FEED" <<JSON
 {
   "version": "$VERSION",
-  "url": "https://github.com/UllrAI/SayKuku/releases/tag/$TAG",
+  "url": "https://say.anikuku.com/#download",
   "notes": ""
 }
 JSON
@@ -97,6 +97,6 @@ print -u2 "  DMG:     $DMG"
 print -u2 "  SHA-256: $SHA256"
 print -u2 "  dSYM:    $DSYM_DIR"
 print -u2 "  Feed:    $VERSION_FEED"
-print -u2 "Publish with: git push origin $TAG && gh release create $TAG $DMG"
-print -u2 "Then upload $VERSION_FEED to https://saykuku.ullrai.com/ver.json"
+print -u2 "Publish with: upload $DMG to the saykuku R2 bucket, then deploy marketing/site/dist"
+print -u2 "Publish $VERSION_FEED at https://say.anikuku.com/ver.json and mirror it to https://saykuku.ullrai.com/ver.json for older clients"
 print "$DMG"

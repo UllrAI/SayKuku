@@ -2,6 +2,7 @@
 .build/
 Build/
 Dist/
+!/marketing/site/dist/
 Design/
 design-*.md
 

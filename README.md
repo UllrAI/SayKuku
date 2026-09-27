@@ -46,13 +46,13 @@ SayKuku 只在语音输入、语音 Agent 和麦克风测试时使用麦克风�
 
 Qwen API Key 保存在这台 Mac 的钥匙串中；输入历史、记忆、纠正建议和可选录音以 JSON 与 WAV 文件保存在本机，不额外加密；Voice Agent 的最近对话只在内存里，退出即清除。不想留下输入历史时，可在“设置 → 历史”中选择“不保存”，此后不再记录新的历史和录音。焦点在密码输入框（含系统安全输入状态）或已知密码管理器（1Password、Bitwarden、LastPass、Dashlane、KeePassXC、钥匙串访问、“密码”）中时，SayKuku 不会开始录音，也不读取或写入内容。无痕浏览窗口不会被单独识别，与普通窗口同样处理。
 
-正式版启动后和之后每 24 小时，会向 `saykuku.ullrai.com` 请求一次版本号文件，请求不含任何个人数据；可在“设置 → 通用”中关闭“自动检查更新”。开发版不检查更新。
+1.0.1 起正式版启动后和之后每 24 小时，会向 `say.anikuku.com` 请求一次版本号文件，请求不含任何个人数据；旧版仍使用 `saykuku.ullrai.com`。可在“设置 → 通用”中关闭“自动检查更新”。开发版不检查更新。
 
 ## 发布
 
 打包只用两个入口：`Scripts/package-app.sh debug` 生成签名开发版 App；`Scripts/release.sh` 生成已公证、装订的正式版 App 和 DMG，并产出 dSYM。正式包固定使用 Bundle ID `com.saykuku.app` 和稳定的 Developer ID Application 身份；前置条件和排查步骤见 [本地打包与发布](docs/LOCAL_PACKAGING.md)。
 
-App 不在内部下载或安装更新：正式版读取 `https://saykuku.ullrai.com/ver.json`，发现更新的版本号时弹窗，引导用户到 GitHub Release 下载。发布脚本最后会生成 `Dist/ver.json`，发布 GitHub Release 后把它上传到该地址。
+App 不在内部下载或安装更新：1.0.1 起正式版读取 `https://say.anikuku.com/ver.json`，发现新版本时打开[官网版本下载区](https://say.anikuku.com/#download)。DMG 存放在 SayKuku 的 R2 bucket，并通过 `saykuku.ullrai.com` 公开分发；旧版仍读取 `https://saykuku.ullrai.com/ver.json`，发布时需同步更新两个地址的版本文件。
 
 ## License
 

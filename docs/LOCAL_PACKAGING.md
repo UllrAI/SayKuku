@@ -8,7 +8,7 @@
 测试 → Release 构建 → Developer ID 签名 → 生成公证 ZIP
     → App 公证 → Staple 票据 → Gatekeeper 验证
     → 用装订后的 App 制作 DMG → DMG 签名 → DMG 公证 → Staple → Gatekeeper 验证
-    → 生成 ver.json → gh release create → 上传 ver.json
+    → 生成 ver.json → 上传 DMG 到 R2 → 更新官网与新旧版本文件
 ```
 
 公证 ZIP 只用于上传 Apple；用户下载的是 DMG，它必须用已经装订票据的 `.app` 制作。
@@ -288,7 +288,7 @@ Scripts/release.sh
 4. 调用 `Scripts/package-app.sh release`，生成已签名的 App 和 UUID 已核对的 dSYM。
 5. 把 App 压成公证 ZIP 提交 Apple，然后 `stapler staple`、`stapler validate`，并要求 `spctl` 输出 `source=Notarized Developer ID`。先装订 App，用户从 DMG 拖出来的那份 App 才自带票据，离线首次打开也能通过 Gatekeeper。
 6. 内部调用 `Scripts/make-dmg.sh`：只接受已公证的 App，用同一个 Developer ID 身份制作并签名 DMG，再提交公证、装订、执行 Gatekeeper 和镜像校验。全部成功后才把 DMG 放到 `Dist/` 并输出 SHA-256（见下文“DMG 安装窗口”）。
-7. 生成 `Dist/ver.json`：`version` 为本次版本号，`url` 为 `https://github.com/UllrAI/SayKuku/releases/tag/v<版本>`，`notes` 留空供手工填写。
+7. 生成 `Dist/ver.json`：`version` 为本次版本号，`url` 为 `https://say.anikuku.com/#download`，`notes` 留空供手工填写。
 8. 给构建时的提交打 `v<版本>` 标签。脚本不会推送，确认产物无误后手动执行 `git push origin v<版本>`。
 
 任一次公证状态不是 `Accepted`，脚本都会打印 `notarytool log` 后退出，并保留 `Build/notarization-SayKuku-<版本>-notarization.json`（App）或 `Build/notarization-SayKuku-<版本>.json`（DMG）供排查，里面有 submission `id`。成功后会清理这两个过程文件和提交 Apple 用的 ZIP；一次发布要公证两次，通常共需几分钟到十几分钟。
@@ -299,25 +299,34 @@ Scripts/release.sh
 | --- | --- |
 | `SayKuku-<版本>.dmg` | 分发给用户的安装包 |
 | `SayKuku-<版本>.dSYM` | 符号化崩溃日志，必须和对应 DMG 一起长期保存 |
-| `ver.json` | 版本号文件，GitHub Release 发布后上传到 `https://saykuku.ullrai.com/ver.json` |
+| `ver.json` | 版本号文件，官网发布后同步到官网根目录与旧版读取的 `https://saykuku.ullrai.com/ver.json` |
 
 脚本不修改 `CFBundleShortVersionString`，也不上传任何产物。确认产物无误后按顺序手动发布：
 
-1. 推送标签并创建 GitHub Release：
+1. 把已验证的 DMG 上传到 Cloudflare R2 的 `saykuku` bucket；公开域名是 `saykuku.ullrai.com`：
 
    ```bash
-   git push origin "v${VERSION}"
-   gh release create "v${VERSION}" "Dist/SayKuku-${VERSION}.dmg"
+   CLOUDFLARE_ACCOUNT_ID=CLOUDFLARE_ACCOUNT_ID \
+     wrangler r2 object put "saykuku/SayKuku-${VERSION}.dmg" \
+     --file "Dist/SayKuku-${VERSION}.dmg" --content-type application/x-apple-diskimage --remote
    ```
 
-2. 需要时在 `Dist/ver.json` 的 `notes` 里写几行更新说明（弹窗只显示前几行），用 `python3 -m json.tool Dist/ver.json` 确认仍是合法 JSON（多一个逗号或句号都会让所有客户端读取失败），再把它上传到 `https://saykuku.ullrai.com/ver.json`。
+2. 确认公开 DMG 可下载且哈希与本机一致。把官网 `marketing/site/dist/#download` 的版本号与 DMG 链接更新为本次版本；在 `Dist/ver.json` 的 `notes` 中填写更新说明，并将相同内容写入 `marketing/site/dist/ver.json`。用 `python3 -m json.tool` 校验两个 JSON，然后部署官网。
 
-一定要等 Release 可以下载后再上传 `ver.json`：已安装的 App 读到更新的版本号就会弹窗，“前往下载”打开的正是 `url` 指向的 Release 页面。`ver.json` 的格式：
+3. 官网 `https://say.anikuku.com/ver.json` 可访问后，把同一份 `ver.json` 上传到 R2 根目录，供 1.0.0 等旧版读取：
+
+   ```bash
+   CLOUDFLARE_ACCOUNT_ID=CLOUDFLARE_ACCOUNT_ID \
+     wrangler r2 object put saykuku/ver.json --file Dist/ver.json \
+     --content-type application/json --cache-control 'no-cache' --remote
+   ```
+
+一定要等 DMG 可以下载且官网版本区可访问后再上传 `ver.json`：已安装的 App 读到更新版本后会打开 `url` 指向的官网。`ver.json` 的格式：
 
 ```json
 {
   "version": "1.2.0",
-  "url": "https://github.com/UllrAI/SayKuku/releases/tag/v1.2.0",
+  "url": "https://say.anikuku.com/#download",
   "notes": "修复了……"
 }
 ```
