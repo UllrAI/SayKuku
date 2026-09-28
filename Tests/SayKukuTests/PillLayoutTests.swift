@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 import Testing
 @testable import SayKuku
 
@@ -32,6 +33,26 @@ struct PillLayoutTests {
 
         #expect(width >= 120)
         #expect(width < 200)
+    }
+
+    @Test("the no-speech notice leaves room for its icon and stays on one line")
+    @MainActor
+    func noSpeechNoticeWidth() {
+        let message = "没有听清，请再说一次"
+        let content = HStack(spacing: KukuSpacing.md) {
+            Label {
+                Text(message)
+            } icon: {
+                Image(systemName: "waveform.slash")
+            }
+        }
+        .font(.kuku(.callout, weight: .medium))
+        .padding(.horizontal, KukuSpacing.md)
+        .padding(.vertical, KukuSpacing.sm)
+        let width = KukuPillLayout.errorWidth(for: message)
+
+        #expect(width >= NSHostingView(rootView: content).fittingSize.width + 8)
+        #expect(width < 340)
     }
 
     @Test("buttons after a message get their own room within the same cap")

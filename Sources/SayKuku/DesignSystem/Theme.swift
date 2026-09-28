@@ -432,7 +432,7 @@ enum KukuPillLayout {
     /// titles of the text buttons after the message, each with the gap before it.
     static func errorWidth(for text: String, buttons: [String] = []) -> CGFloat {
         let buttonsWidth = buttons.reduce(0) { $0 + ceil(textWidth($1, weight: .semibold)) + KukuSpacing.md }
-        return width(for: text, minimum: 120, fixedContentWidth: 46 + buttonsWidth, maximum: 340, fontWeight: .medium)
+        return width(for: text, minimum: 120, fixedContentWidth: 70 + buttonsWidth, maximum: 340, fontWeight: .medium)
     }
 
     /// Pill text is always callout; only the weight differs between states and errors.
