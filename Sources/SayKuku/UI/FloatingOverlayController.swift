@@ -43,7 +43,12 @@ final class FloatingOverlayController {
         return NSSize(width: OverlayLayout.answerCardWidth + 20, height: answerHeight + 30)
     }
 
-    /// Called once per workflow, when its target is captured. Errors before that reuse the last anchor.
+    /// Use the focused screen while the target details are still being read.
+    func resetAnchor() {
+        caretFrame = nil
+        visibleFrame = NSScreen.main?.visibleFrame
+    }
+
     /// The snapshot only carries a caret when the overlay follows the cursor; otherwise the overlay
     /// goes on the screen with keyboard focus.
     func anchor(to snapshot: TextTargetSnapshot) {
@@ -52,6 +57,7 @@ final class FloatingOverlayController {
             NSScreen.screens.first { $0.frame.contains(CGPoint(x: caret.midX, y: caret.midY)) }
         } ?? NSScreen.main
         visibleFrame = screen?.visibleFrame
+        refresh()
     }
 
     func refresh() {
@@ -162,10 +168,13 @@ private struct FloatingSystemOverlay: View {
             } else if let error = appState.workflow.overlayError {
                 OverlayNotice(message: error)
                     .transition(.scale(scale: 0.94, anchor: .bottom).combined(with: .opacity))
-            } else if appState.workflow.agentPhase == .listening
+            } else if appState.workflow.agentPhase == .starting
+                || appState.workflow.agentPhase == .listening
+                || appState.workflow.dictationPhase == .starting
                 || appState.workflow.dictationPhase == .listening {
                 RecordingPill()
-                    .transition(.scale(scale: 0.94, anchor: .bottom).combined(with: .opacity))
+                    .transition(appState.workflow.agentPhase == .starting || appState.workflow.dictationPhase == .starting
+                        ? .identity : .scale(scale: 0.94, anchor: .bottom).combined(with: .opacity))
             } else if appState.workflow.agentPhase != .hidden {
                 AgentPill()
                     .transition(.scale(scale: 0.94, anchor: .bottom).combined(with: .opacity))
@@ -188,7 +197,7 @@ private struct FloatingSystemOverlay: View {
     /// Follows the phases rather than live text, so a streaming transcript isn't read out word by word.
     private var announcement: String? {
         // Speech while the mic is open would end up in the recording.
-        if appState.workflow.dictationPhase == .listening || appState.workflow.agentPhase == .listening { return nil }
+        if appState.workflow.dictationIsListening || appState.workflow.agentIsListening { return nil }
         if appState.workflow.agentPhase == .answerReady { return appState.workflow.pendingAnswerStatus ?? appState.workflow.pendingAnswerText }
         return appState.workflow.overlayError
             ?? appState.workflow.agentPhase.status(appState.workflow)

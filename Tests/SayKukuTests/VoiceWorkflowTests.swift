@@ -32,13 +32,38 @@ struct VoiceWorkflowTests {
         defer { environment.clean() }
         let audio = FakeAudioCapturing()
         let text = FakeTextWriting()
-        var startedDuringCapture = false
-        text.afterSafeTarget = { startedDuringCapture = audio.startCount == 1 }
         let state = try makeState(environment, .fake(audio: audio, text: text))
+        var startedDuringCapture = false
+        var pillStartedDuringCapture = false
+        text.afterSafeTarget = {
+            startedDuringCapture = audio.startCount == 1
+            pillStartedDuringCapture = state.workflow.dictationPhase == .starting
+        }
 
         state.workflow.startDictation()
 
         #expect(startedDuringCapture)
+        #expect(pillStartedDuringCapture)
+    }
+
+    @Test("the pill shows startup immediately and only reports recording after the engine opens")
+    func startupPillPrecedesRecording() async throws {
+        for agent in [false, true] {
+            let environment = AppStateTestEnvironment()
+            defer { environment.clean() }
+            let audio = FakeAudioCapturing(startDelay: .milliseconds(100))
+            let state = try makeState(environment, .fake(audio: audio))
+
+            if agent { state.workflow.startAgent() }
+            else { state.workflow.startDictation() }
+
+            #expect(agent ? state.workflow.agentPhase == .starting : state.workflow.dictationPhase == .starting)
+            #expect(!state.workflow.isRecording)
+            #expect(await eventually {
+                agent ? state.workflow.agentPhase == .listening : state.workflow.dictationPhase == .listening
+            })
+            #expect(state.workflow.isRecording)
+        }
     }
 
     @Test("a double tap can promote audio while the microphone is still starting")
@@ -50,7 +75,9 @@ struct VoiceWorkflowTests {
 
         state.workflow.startFnTapDictation()
         #expect(audio.startCount == 1)
+        #expect(state.workflow.dictationPhase == .starting)
         #expect(state.workflow.promoteFnTapToAgent())
+        #expect(state.workflow.agentPhase == .starting)
         #expect(await eventually { state.workflow.agentPhase == .listening })
         #expect(state.workflow.dictationPhase == .idle)
         #expect(audio.startCount == 1)

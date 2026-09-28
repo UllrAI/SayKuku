@@ -17,27 +17,27 @@ private struct PendingExternalAction {
 final class VoiceWorkflow {
     enum AnalyticsEvent { case voiceInput, voiceAgent }
     enum DictationPhase: Equatable {
-        case idle, listening, processing, success, copyReady
+        case idle, starting, listening, processing, success, copyReady
 
         /// Recording or waiting on the model. Finished states close on their own or from their card.
-        var isCancellable: Bool { self == .listening || self == .processing }
+        var isCancellable: Bool { self == .starting || self == .listening || self == .processing }
     }
 
     enum AgentPhase: Equatable {
-        case hidden, listening, transcribing, processing, result, copyReady, answerReady
+        case hidden, starting, listening, transcribing, processing, result, copyReady, answerReady
 
         /// Recording or waiting on the model. Finished states close on their own or from their card.
-        var isCancellable: Bool { self == .listening || self == .transcribing || self == .processing }
+        var isCancellable: Bool { self == .starting || self == .listening || self == .transcribing || self == .processing }
     }
 
     var dictationPhase: DictationPhase = .idle { didSet { overlayController?.refresh() } }
     var agentPhase: AgentPhase = .hidden { didSet { overlayController?.refresh() } }
     /// True while the microphone is capturing for either workflow.
     var isRecording: Bool { dictationPhase == .listening || agentPhase == .listening }
-    /// Also true while the microphone is still starting. The pill waits for it, but a release,
-    /// second press or Esc in that window must stop the start instead of going unheard.
-    var dictationIsListening: Bool { dictationPhase == .listening || startingWorkflow == .dictation }
-    var agentIsListening: Bool { agentPhase == .listening || startingWorkflow == .agent }
+    /// Also true while the microphone is still starting, so a release, second press or Esc
+    /// in that window can stop the start instead of going unheard.
+    var dictationIsListening: Bool { dictationPhase == .starting || dictationPhase == .listening || startingWorkflow == .dictation }
+    var agentIsListening: Bool { agentPhase == .starting || agentPhase == .listening || startingWorkflow == .agent }
     var canPromoteFnTap: Bool { fnTapDictation && dictationIsListening }
     var contextItems: [ContextItem] = []
     var agentCommand = ""
@@ -157,7 +157,11 @@ final class VoiceWorkflow {
             Task { [realtimeClient] in await realtimeClient.cancel(session: session) }
         }
         let wasStarting = startingWorkflow == .dictation
-        if wasStarting { startingWorkflow = .agent }
+        if wasStarting {
+            startingWorkflow = .agent
+            agentPhase = .starting
+            dictationPhase = .idle
+        }
         prepareWorkflow(mode: .agent, snapshot: snapshot)
         if !wasStarting {
             recordingLimitTask?.cancel()
@@ -440,6 +444,7 @@ final class VoiceWorkflow {
             handleWorkflowError(TextInteractionError.sensitiveTarget, agent: mode == .agent)
             return
         }
+        overlayController?.resetAnchor()
         fnTapDictation = pendingFnTap
         fnTapConfirmed = false
         let generation = workflowGeneration
@@ -468,6 +473,9 @@ final class VoiceWorkflow {
                         // queue while Accessibility reads the remaining target details.
                         startingWorkflow = mode
                         engineStart = startAudioCapture(for: mode, onChunk: onChunk)
+                        // The pill can appear before optional Accessibility reads finish.
+                        if mode == .agent { agentPhase = .starting }
+                        else { dictationPhase = .starting }
                     }
                 )
             }
@@ -545,7 +553,7 @@ final class VoiceWorkflow {
         agentCommand = localized("Listening…")
     }
 
-    /// Shows the pill only once the target is read and the engine runs, so it still means the microphone is open.
+    /// Changes the pill to listening only once the engine runs.
     private func startListening(
         mode: VoiceWorkflowMode, chunks: AsyncStream<Data>?, generation: Int,
         playStartCue: Bool = true

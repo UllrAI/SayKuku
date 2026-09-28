@@ -9,6 +9,8 @@ extension VoiceWorkflow.AgentPhase {
         switch self {
         case .hidden, .answerReady:
             return nil
+        case .starting:
+            return localized("Starting…")
         case .listening:
             return localized("Listening…")
         case .transcribing:
@@ -31,6 +33,7 @@ extension VoiceWorkflow.DictationPhase {
     @MainActor func status(_ workflow: VoiceWorkflow) -> String? {
         switch self {
         case .idle: nil
+        case .starting: localized("Starting…")
         case .listening: localized("Listening…")
         case .processing: localized("Transcribing…")
         case .success: localized("Inserted")
@@ -44,7 +47,12 @@ struct RecordingPill: View {
     @Environment(AppState.self) private var appState
     @State private var showingContext = false
 
-    private var isAgent: Bool { appState.workflow.agentPhase == .listening }
+    private var isAgent: Bool {
+        appState.workflow.agentPhase == .starting || appState.workflow.agentPhase == .listening
+    }
+    private var isStarting: Bool {
+        appState.workflow.agentPhase == .starting || appState.workflow.dictationPhase == .starting
+    }
     private var width: CGFloat {
         KukuPillLayout.width(for: localized("Listening…"), minimum: 208, fixedContentWidth: 140)
     }
@@ -76,11 +84,15 @@ struct RecordingPill: View {
                         .accessibilityHidden(true)
                 }
 
-                Waveform(color: KukuColor.coral, level: appState.workflow.inputLevel, barCount: 5, height: 15)
-                    .frame(width: 22)
+                if isStarting {
+                    ProgressView().controlSize(.mini).frame(width: 22)
+                } else {
+                    Waveform(color: KukuColor.coral, level: appState.workflow.inputLevel, barCount: 5, height: 15)
+                        .frame(width: 22)
+                }
             }
 
-            Text(localized("Listening…"))
+            Text(isStarting ? localized("Starting…") : localized("Listening…"))
                 .font(.kuku(.callout, weight: .semibold))
                 .foregroundStyle(KukuColor.textPrimary)
                 .lineLimit(1)
@@ -92,6 +104,7 @@ struct RecordingPill: View {
                 label: isAgent ? localized("Stop recording and run") : localized("Stop recording and insert"),
                 action: isAgent ? appState.workflow.finishAgentListening : appState.workflow.finishDictation
             )
+            .disabled(isStarting)
         }
         .padding(.horizontal, KukuSpacing.sm)
         .frame(width: width)
@@ -105,7 +118,7 @@ struct AgentPill: View {
     @Environment(AppState.self) private var appState
     private var width: CGFloat {
         switch appState.workflow.agentPhase {
-        case .hidden, .listening: 0
+        case .hidden, .starting, .listening: 0
         case .copyReady:
             CopyFallbackContent.width(appState.workflow)
         case .answerReady:
@@ -312,7 +325,7 @@ struct DictationPill: View {
 
     private var width: CGFloat {
         switch appState.workflow.dictationPhase {
-        case .idle, .listening: 0
+        case .idle, .starting, .listening: 0
         case .copyReady:
             CopyFallbackContent.width(appState.workflow)
         case .processing:
@@ -338,7 +351,7 @@ struct DictationPill: View {
             switch appState.workflow.dictationPhase {
             case .idle:
                 EmptyView()
-            case .listening:
+            case .starting, .listening:
                 EmptyView()
             case .processing:
                 ProgressView().controlSize(.small)

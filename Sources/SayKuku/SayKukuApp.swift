@@ -395,14 +395,14 @@ private struct VoiceMenuItems: View {
     let appState: AppState
 
     var body: some View {
-        Button(appState.workflow.dictationPhase == .listening
+        Button(appState.workflow.dictationIsListening
                ? localized("Stop Voice Input")
                : localized("Start Voice Input")) {
             appState.workflow.toggleDictation()
         }
         .keyboardShortcut(keyboardShortcut(for: .voiceInput))
 
-        Button(appState.workflow.agentPhase == .listening
+        Button(appState.workflow.agentIsListening
                ? localized("Stop Voice Agent")
                : localized("Start Voice Agent")) {
             appState.workflow.startAgent()
