@@ -1,5 +1,5 @@
 {
-  "version": "1.0.2",
+  "version": "1.0.3",
   "url": "https://say.anikuku.com/download/",
-  "notes": "SayKuku 1.0.2：新增轻量使用统计，可在「设置 → 隐私」关闭。"
+  "notes": "SayKuku 1.0.3：优化 Fn 语音输入的响应速度，让录音更早开始；新增邮件反馈入口（帮助菜单、菜单栏）。"
 }
