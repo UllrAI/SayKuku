@@ -38,6 +38,17 @@ enum SpeechDisfluencyCleaner {
         return result
     }
 
+    /// Keeps punctuation inside the text and quoted speech; an ellipsis is not a run of periods to remove.
+    static func withoutEndingPunctuation(_ text: String) -> String {
+        var result = text
+        while let last = result.last {
+            if last == ".", result.hasSuffix("...") { break }
+            guard "。.!?！？".contains(last) else { break }
+            result.removeLast()
+        }
+        return result
+    }
+
     private static func cleanSegment(_ segment: String, deduplicate: Bool) -> String {
         let range = NSRange(segment.startIndex..<segment.endIndex, in: segment)
         let text = deduplicate

@@ -178,6 +178,23 @@ struct VoiceWorkflowTests {
         #expect(state.workflow.canUndoLastWrite)
     }
 
+    @Test("Voice Input omits ending punctuation when the setting is off")
+    func dictationWithoutEndingPunctuation() async throws {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let text = FakeTextWriting()
+        let state = try makeState(environment, .fake(text: text))
+        state.settings.keepEndingPunctuation = false
+
+        try await startListening(state)
+        state.workflow.finishDictation()
+
+        #expect(await eventually { state.workflow.dictationPhase == .success })
+        #expect(text.writes == ["Hello world"])
+        #expect(state.data.historyEntries.first?.input == "Hello world.")
+        #expect(state.data.historyEntries.first?.output == "Hello world")
+    }
+
     @Test("a failed write falls back to the clipboard and still completes History")
     func dictationWriteFails() async throws {
         let environment = AppStateTestEnvironment()

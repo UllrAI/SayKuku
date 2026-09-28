@@ -108,6 +108,15 @@ struct DictationPromptTests {
         #expect(SpeechDisfluencyCleaner.clean(source, mode: .verbatim) == "我们今天讲这个这个新版本的好不好？")
     }
 
+    @Test("ending punctuation removal keeps internal marks, quoted speech, ellipses, and tokens")
+    func endingPunctuation() {
+        #expect(SpeechDisfluencyCleaner.withoutEndingPunctuation("第一句。第二句？！") == "第一句。第二句")
+        #expect(SpeechDisfluencyCleaner.withoutEndingPunctuation("Hello!?") == "Hello")
+        #expect(SpeechDisfluencyCleaner.withoutEndingPunctuation("他说“好。”。") == "他说“好。”")
+        #expect(SpeechDisfluencyCleaner.withoutEndingPunctuation("等一下...") == "等一下...")
+        #expect(SpeechDisfluencyCleaner.withoutEndingPunctuation("报告.pdf 和 3.14") == "报告.pdf 和 3.14")
+    }
+
     @Test("punctuation cleanup keeps file names, URLs and times intact")
     func punctuationKeepsTokens() {
         #expect(SpeechDisfluencyCleaner.clean("把报告.pdf 发给我.", mode: .light) == "把报告.pdf 发给我。")

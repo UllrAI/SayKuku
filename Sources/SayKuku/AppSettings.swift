@@ -22,6 +22,9 @@ final class AppSettings {
     var dictationCleanup: DictationCleanup = .light {
         didSet { defaults.set(dictationCleanup.rawValue, forKey: Keys.dictationCleanup) }
     }
+    var keepEndingPunctuation = true {
+        didSet { defaults.set(keepEndingPunctuation, forKey: Keys.keepEndingPunctuation) }
+    }
     var matchAppTone = true { didSet { defaults.set(matchAppTone, forKey: Keys.matchAppTone) } }
     var selectedDomains: Set<DomainPreset> = [] {
         didSet { defaults.set(selectedDomains.map(\.rawValue).sorted(), forKey: Keys.selectedDomains) }
@@ -193,6 +196,7 @@ final class AppSettings {
         reasoningModel = QwenModelCatalog.reasoningModel(stored: defaults.string(forKey: Keys.reasoningModel))
         storedSearchEngine = defaults.string(forKey: Keys.searchEngine).flatMap(SearchEngine.init(rawValue:))
         autoStop = storedBool(Keys.autoStop, default: false)
+        keepEndingPunctuation = storedBool(Keys.keepEndingPunctuation, default: true)
         matchAppTone = storedBool(Keys.matchAppTone, default: true)
         continuousConversation = storedBool(Keys.continuousConversation, default: true)
         automaticAgentWriteBack = storedBool(Keys.automaticAgentWriteBack, default: true)
@@ -228,7 +232,7 @@ final class AppSettings {
         static let overlayPlacement = "overlay.placement"
         static let recognitionLanguage = "dictation.recognitionLanguage", dictationNumberFormat = "dictation.numberFormat"
         static let dictationCleanup = "dictation.cleanup", soundCues = "voice.soundCues"
-        static let matchAppTone = "dictation.matchAppTone"
+        static let keepEndingPunctuation = "dictation.keepEndingPunctuation", matchAppTone = "dictation.matchAppTone"
         static let selectedDomains = "dictation.selectedDomains", legacyCustomTerms = "dictation.customDomainTerms"
         static let didCompleteOnboarding = "onboarding.completed"
         static let continuousConversation = "continuousConversation", learnCorrections = "learnFromCorrections"

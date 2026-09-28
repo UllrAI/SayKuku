@@ -411,7 +411,9 @@ final class VoiceWorkflow {
                 memoryPrompt: renderMemoryPrompt(.transcription)
             )
             let cleaned = try SpeechDisfluencyCleaner.dictation(result, mode: settings.dictationCleanup)
-            data.updateHistory(id, input: cleaned, output: cleaned, status: .completed)
+            let output = settings.keepEndingPunctuation
+                ? cleaned : SpeechDisfluencyCleaner.withoutEndingPunctuation(cleaned)
+            data.updateHistory(id, input: cleaned, output: output, status: .completed)
             showToast(localized("Transcribed again"), symbol: "checkmark")
         } catch {
             data.updateHistory(id, status: .failed, errorMessage: localizedError(error))
@@ -704,7 +706,9 @@ final class VoiceWorkflow {
             guard generation == workflowGeneration else { throw CancellationError() }
             guard !transcript.isEmpty else { throw QwenError.invalidResponse }
             guard let snapshot else { throw TextInteractionError.targetChanged }
-            let raw = DictationTextJoiner.join(transcript, to: snapshot)
+            let output = settings.keepEndingPunctuation
+                ? transcript : SpeechDisfluencyCleaner.withoutEndingPunctuation(transcript)
+            let raw = DictationTextJoiner.join(output, to: snapshot)
             data.updateHistory(historyID, input: transcript, output: raw)
             do {
                 let outcome = try await textInteraction.write(raw, to: snapshot)

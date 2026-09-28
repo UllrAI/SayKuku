@@ -2406,6 +2406,17 @@
         }
       }
     },
+    "Keep ending punctuation" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留结尾标点"
+          }
+        }
+      }
+    },
     "Keep history" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5498,6 +5509,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "读音相近时，SayKuku 靠线索选对写法"
+          }
+        }
+      }
+    },
+    "When off, Voice Input removes a final period, question mark, or exclamation mark." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关闭后，语音输入会去掉末尾的句号、问号和感叹号。"
           }
         }
       }

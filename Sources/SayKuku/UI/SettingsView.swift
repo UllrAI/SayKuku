@@ -128,6 +128,12 @@ private struct VoiceInputSettings: View {
                 .padding(.bottom, KukuSpacing.md)
                 KukuDivider()
                 KukuToggleRow(
+                    title: localized("Keep ending punctuation"),
+                    caption: localized("When off, Voice Input removes a final period, question mark, or exclamation mark."),
+                    isOn: $settings.keepEndingPunctuation
+                )
+                KukuDivider()
+                KukuToggleRow(
                     title: localized("Match the app’s tone"),
                     caption: localized(
                         "Casual in chat, complete sentences in email and documents, no trailing punctuation in code. Sends the current app’s name along with your speech."
