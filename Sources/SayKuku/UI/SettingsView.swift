@@ -144,6 +144,8 @@ private struct VoiceInputSettings: View {
                 .disabled(appState.settings.dictationCleanup == .verbatim)
             }
 
+            DictationAppFormatsSettings()
+
             KukuGroup(localized("Recognition")) {
                 KukuRow(localized("Domains"), caption: domainSummary) {
                     Button(localized("Edit…")) {

@@ -84,6 +84,7 @@ final class VoiceWorkflow {
     @ObservationIgnored private var uploadTask: Task<Void, Error>?
     @ObservationIgnored private var chunkContinuation: AsyncStream<Data>.Continuation?
     @ObservationIgnored private var targetSnapshot: TextTargetSnapshot?
+    @ObservationIgnored private var activeDictationFormat: EffectiveDictationFormat?
     /// A tap starts one capture immediately; the second tap can reuse it for Voice Agent.
     @ObservationIgnored private var fnTapDictation = false
     @ObservationIgnored private var fnTapConfirmed = false
@@ -205,6 +206,8 @@ final class VoiceWorkflow {
         playSoundCue(.stop)
         let historyID = data.beginHistoryEntry(mode: .dictation, recording: recording, snapshot: targetSnapshot)
         let snapshot = targetSnapshot
+        let format = activeDictationFormat ?? settings.dictationFormat(for: snapshot?.bundleID)
+        activeDictationFormat = nil
         let upload = uploadTask
         let realtimeSession = realtimeSessionID
         targetSnapshot = nil
@@ -213,7 +216,7 @@ final class VoiceWorkflow {
         workflowTask = Task { [weak self] in
             await self?.completeDictation(
                 recording, historyID: historyID, snapshot: snapshot,
-                upload: upload, realtimeSession: realtimeSession, generation: generation
+                upload: upload, realtimeSession: realtimeSession, format: format, generation: generation
             )
         }
     }
@@ -408,6 +411,8 @@ final class VoiceWorkflow {
                 cleanup: settings.dictationCleanup,
                 // A retry lands in History, not in an app, so there is no tone to match.
                 targetApp: nil,
+                keepEndingPunctuation: settings.keepEndingPunctuation,
+                expressionPreference: "",
                 memoryPrompt: renderMemoryPrompt(.transcription)
             )
             let cleaned = try SpeechDisfluencyCleaner.dictation(result, mode: settings.dictationCleanup)
@@ -524,6 +529,7 @@ final class VoiceWorkflow {
 
     private func prepareWorkflow(mode: VoiceWorkflowMode, snapshot: TextTargetSnapshot) {
         targetSnapshot = snapshot
+        activeDictationFormat = mode == .dictation ? settings.dictationFormat(for: snapshot.bundleID) : nil
         liveTranscript = ""
         inputLevel = 0
         pendingCopyText = ""
@@ -579,14 +585,13 @@ final class VoiceWorkflow {
     private func connectRealtime(streaming chunks: AsyncStream<Data>, generation: Int) {
         let shouldAutoStop = settings.autoStop
         let selectedRecognitionLanguage = settings.recognitionLanguage
-        let selectedNumberFormat = settings.dictationNumberFormat
-        let selectedCleanup = settings.dictationCleanup
-        let targetApp = toneTargetApp(for: targetSnapshot)
+        let format = activeDictationFormat ?? settings.dictationFormat(for: targetSnapshot?.bundleID)
+        let targetApp = format.targetAppName(for: targetSnapshot)
         let memoryPrompt = renderMemoryPrompt(.transcription)
         let realtimeSession = UUID()
         realtimeSessionID = realtimeSession
         let connectInterval = signposter.beginInterval("realtime connect", id: signposter.makeSignpostID())
-        uploadTask = Task { [weak self, realtimeClient, apiKey = settings.apiKey, configuration = settings.configuration, selectedRecognitionLanguage, selectedNumberFormat, selectedCleanup, targetApp, memoryPrompt] in
+        uploadTask = Task { [weak self, realtimeClient, apiKey = settings.apiKey, configuration = settings.configuration, selectedRecognitionLanguage, format, targetApp, memoryPrompt] in
             try await realtimeClient.connect(
                 session: realtimeSession,
                 apiKey: apiKey,
@@ -605,9 +610,11 @@ final class VoiceWorkflow {
                     }
                 },
                 recognitionLanguage: selectedRecognitionLanguage,
-                numberFormat: selectedNumberFormat,
-                cleanup: selectedCleanup,
+                numberFormat: format.numberFormat,
+                cleanup: format.cleanup,
                 targetApp: targetApp,
+                keepEndingPunctuation: format.keepEndingPunctuation,
+                expressionPreference: format.expressionPreference,
                 memoryPrompt: memoryPrompt
             )
             self?.signposter.endInterval("realtime connect", connectInterval)
@@ -694,19 +701,19 @@ final class VoiceWorkflow {
     private func completeDictation(
         _ recording: AudioCapture.Recording, historyID: UUID?,
         snapshot: TextTargetSnapshot?, upload: Task<Void, Error>?,
-        realtimeSession: UUID, generation: Int
+        realtimeSession: UUID, format: EffectiveDictationFormat, generation: Int
     ) async {
         await persistHistoryAudio(recording, historyID: historyID)
         do {
             let transcript = try await transcribe(
                 recording, upload: upload, realtimeSession: realtimeSession,
-                targetApp: toneTargetApp(for: snapshot), generation: generation
+                targetApp: format.targetAppName(for: snapshot), format: format, generation: generation
             )
             try Task.checkCancellation()
             guard generation == workflowGeneration else { throw CancellationError() }
             guard !transcript.isEmpty else { throw QwenError.invalidResponse }
             guard let snapshot else { throw TextInteractionError.targetChanged }
-            let output = settings.keepEndingPunctuation
+            let output = format.keepEndingPunctuation
                 ? transcript : SpeechDisfluencyCleaner.withoutEndingPunctuation(transcript)
             let raw = DictationTextJoiner.join(output, to: snapshot)
             data.updateHistory(historyID, input: transcript, output: raw)
@@ -799,7 +806,7 @@ final class VoiceWorkflow {
     /// `upload` is nil when dictation skipped realtime, so the recording goes straight to batch recognition.
     private func transcribe(
         _ recording: AudioCapture.Recording, upload: Task<Void, Error>?,
-        realtimeSession: UUID, targetApp: String?, generation: Int
+        realtimeSession: UUID, targetApp: String?, format: EffectiveDictationFormat, generation: Int
     ) async throws -> String {
         guard recording.hasSpeech else {
             throw QwenError.noSpeech
@@ -814,7 +821,7 @@ final class VoiceWorkflow {
                     session: realtimeSession,
                     timeout: .seconds(15 + recording.duration / 4)
                 )
-                return try SpeechDisfluencyCleaner.dictation(result, mode: settings.dictationCleanup)
+                return try SpeechDisfluencyCleaner.dictation(result, mode: format.cleanup)
             } catch is CancellationError {
                 throw CancellationError()
             } catch {
@@ -831,19 +838,14 @@ final class VoiceWorkflow {
             configuration: settings.configuration,
             wav: recording.wav,
             recognitionLanguage: settings.recognitionLanguage,
-            numberFormat: settings.dictationNumberFormat,
-            cleanup: settings.dictationCleanup,
+            numberFormat: format.numberFormat,
+            cleanup: format.cleanup,
             targetApp: targetApp,
+            keepEndingPunctuation: format.keepEndingPunctuation,
+            expressionPreference: format.expressionPreference,
             memoryPrompt: renderMemoryPrompt(.transcription)
         )
-        return try SpeechDisfluencyCleaner.dictation(result, mode: settings.dictationCleanup)
-    }
-
-    /// The app dictation asks the model to match in tone. Nil keeps the tone rule out of the prompt:
-    /// the setting is off, cleanup is verbatim, or the target is sensitive.
-    private func toneTargetApp(for snapshot: TextTargetSnapshot?) -> String? {
-        guard settings.matchAppTone, settings.dictationCleanup == .light, let snapshot, !snapshot.isSensitive else { return nil }
-        return snapshot.promptAppName
+        return try SpeechDisfluencyCleaner.dictation(result, mode: format.cleanup)
     }
 
     /// Saved memory and domain presets for dictation.
@@ -1003,6 +1005,7 @@ final class VoiceWorkflow {
         Task { [realtimeClient] in await realtimeClient.cancel(session: realtimeSession) }
         targetSnapshot = nil
         activeAgentSessions = []
+        activeDictationFormat = nil
         pendingCopyText = ""
         pendingAnswerText = ""
         pendingAnswerStatus = nil

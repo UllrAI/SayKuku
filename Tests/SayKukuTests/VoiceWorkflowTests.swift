@@ -195,6 +195,57 @@ struct VoiceWorkflowTests {
         #expect(state.data.historyEntries.first?.output == "Hello world")
     }
 
+    @Test("the captured app rule stays fixed across realtime failure, batch fallback and final write")
+    func appRuleSurvivesFallback() async throws {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let text = FakeTextWriting(snapshot: .fake(bundleID: "com.example.chat"))
+        let realtime = FakeRealtime(commitError: .timeout)
+        let reasoning = FakeReasoning(transcriptions: [.text("明天见。")])
+        let state = try makeState(environment, .fake(realtime: realtime, reasoning: reasoning, text: text))
+        state.settings.qwenWorkspaceID = "llm-test"
+        state.settings.saveDictationAppFormat(DictationAppFormat(
+            bundleID: "com.example.chat", keepEndingPunctuation: false,
+            cleanup: .verbatim, numberFormat: .spoken, matchAppTone: false,
+            expressionPreference: "自然口语，保留语气词"
+        ))
+
+        try await startListening(state)
+        state.settings.keepEndingPunctuation = true
+        state.settings.removeDictationAppFormat(for: "com.example.chat")
+        state.workflow.finishDictation()
+
+        #expect(await eventually { state.workflow.dictationPhase == .success })
+        #expect(text.writes == ["明天见"])
+        #expect(state.data.historyEntries.first?.input == "明天见。")
+        #expect(await realtime.formats.first?.0 == .spoken)
+        #expect(await realtime.formats.first?.1 == .verbatim)
+        #expect(await realtime.formats.first?.2 == false)
+        #expect(await realtime.formats.first?.3 == "自然口语，保留语气词")
+        #expect(reasoning.formats.first?.0 == .spoken)
+        #expect(reasoning.formats.first?.1 == .verbatim)
+        #expect(reasoning.formats.first?.2 == false)
+        #expect(reasoning.formats.first?.3 == "自然口语，保留语气词")
+        #expect(reasoning.targetApps == [nil])
+    }
+
+    @Test("a different app does not receive another app’s expression preference")
+    func preferenceIsScopedToCapturedApp() async throws {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let text = FakeTextWriting(snapshot: .fake(bundleID: "com.example.mail"))
+        let reasoning = FakeReasoning()
+        let state = try makeState(environment, .fake(reasoning: reasoning, text: text))
+        state.settings.saveDictationAppFormat(DictationAppFormat(
+            bundleID: "com.example.chat", expressionPreference: "自然口语"
+        ))
+
+        try await startListening(state)
+        state.workflow.finishDictation()
+        #expect(await eventually { state.workflow.dictationPhase == .success })
+        #expect(reasoning.formats.first?.3 == "")
+    }
+
     @Test("a failed write falls back to the clipboard and still completes History")
     func dictationWriteFails() async throws {
         let environment = AppStateTestEnvironment()
