@@ -12,6 +12,7 @@ Umami：<https://track.pixmiller.com/websites/2cabd56c-0309-4ffb-a63a-11abd23f71
 | `demo_started` | 首页预设 Fn 演示实际启动 | 看 Voice Input / Voice Agent 的使用兴趣；附 `mode`、`input_style` |
 | `contact_click` | 点击页脚邮箱 | 看联系意向；不记录邮件内容 |
 | `press_asset_download_click` | 点击媒体资料页的 PNG 链接 | 看素材使用需求；只附站内静态文件名 |
+| `related_site_click` | 点击页脚的 AniKuku 或 Ullr AI Lab 链接 | 看相关站点的引流；`site` 为 `anikuku` 或 `ullrai` |
 
 Umami 中已建立目标「安装包下载点击」，条件为 `installer_download_click`。日常观察可按「进入下载页 → 点击 DMG」理解漏斗，但下载完成、安装和激活不在官网统计范围内。统计站点不公开共享。
 
