@@ -120,7 +120,7 @@ private struct Sidebar: View {
     }
 }
 
-private struct SidebarButton: View {
+struct SidebarButton: View {
     let title: String
     let symbol: String
     let isSelected: Bool

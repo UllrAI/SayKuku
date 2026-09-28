@@ -15,7 +15,7 @@ SayKuku is a free, native macOS voice app. Press **Fn** to dictate at the cursor
 | **Fn** | Voice Input transcribes speech and tries to insert the result at the original cursor. Choose hold-to-talk or tap-to-start/tap-to-stop. Adjust language, number formatting, and spoken-word cleanup in Settings. |
 | **Fn Fn** | Voice Agent uses your request and the context you allow to rewrite or translate a selection, answer a question, or follow up. It checks the original target before writing. Running a Shortcut requires confirmation; opening a link or searching the web requires confirmation when untrusted context is involved. |
 
-You can also use configurable global shortcuts. The defaults are `⌃⌥⌘V` for Voice Input and `⌃⌥⌘A` for Voice Agent. Writing into another app depends on that app's text controls; check important text before sending it.
+You can also use configurable global shortcuts. The defaults are `⌃⌘V` for Voice Input and `⌃⌘A` for Voice Agent. A single modifier can start Voice Input, and Voice Agent can use a double tap of that same key. Writing into another app depends on that app's text controls; check important text before sending it.
 
 ## A look at the app
 
@@ -32,7 +32,7 @@ You can also use configurable global shortcuts. The defaults are `⌃⌥⌘V` fo
 You need macOS 15 or newer, an internet connection for Qwen processing, and your own Qwen API key. Model usage may incur charges.
 
 1. [Download the signed, notarized DMG](https://say.anikuku.com/en/download/) and drag SayKuku into Applications.
-2. Open the app and allow **Microphone** and **Accessibility** access when guided. Accessibility supports Fn gestures, reading an allowed selection, and writing to another app.
+2. Open the app and allow **Microphone** and **Accessibility** access when guided. Accessibility supports Fn and single-modifier gestures, reading an allowed selection, and writing to another app.
 3. Choose the Qwen region that matches your API key, enter the key, and add a Workspace ID if your account uses one. The key is stored in macOS Keychain.
 4. Put the cursor in a text field and press **Fn**. Select text and press **Fn twice** to try Voice Agent.
 

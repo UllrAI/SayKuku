@@ -7,15 +7,14 @@ struct SettingsView: View {
     var body: some View {
         @Bindable var appState = appState
 
-        VStack(spacing: 0) {
-            KukuPageTabs(
-                items: SettingsSection.allCases,
-                selection: $appState.settingsSection,
-                title: { $0.title }
-            )
-            .padding(.top, KukuLayout.pageTop)
+        HStack(spacing: 0) {
+            SettingsSidebar(selection: $appState.settingsSection)
+                .frame(width: KukuLayout.sidebarWidth)
 
-            KukuDivider(inset: 0)
+            Rectangle()
+                .fill(KukuColor.separator)
+                .frame(width: 1)
+                .accessibilityHidden(true)
 
             KukuPageScroll {
                 switch appState.settingsSection {
@@ -27,9 +26,42 @@ struct SettingsView: View {
                 case .qwen: QwenSettings()
                 }
             }
-            // Each tab opens at the top instead of at the last tab's scroll offset.
+            // Each section opens at the top instead of at the last section's scroll offset.
             .id(appState.settingsSection)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+    }
+}
+
+private struct SettingsSidebar: View {
+    @Binding var selection: SettingsSection
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(localized("Settings"))
+                .font(.kuku(.title))
+                .foregroundStyle(KukuColor.textPrimary)
+                .padding(.top, KukuLayout.pageTop)
+                .padding(.horizontal, KukuSpacing.lg)
+                .padding(.bottom, KukuSpacing.xl)
+
+            VStack(spacing: KukuSpacing.xs) {
+                ForEach(SettingsSection.allCases) { section in
+                    SidebarButton(
+                        title: section.title,
+                        symbol: section.symbol,
+                        isSelected: selection == section
+                    ) {
+                        selection = section
+                    }
+                }
+            }
+            .padding(.horizontal, KukuSpacing.sm)
+
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(KukuColor.sidebar)
     }
 }
 
@@ -676,10 +708,13 @@ private struct GlobalShortcutRow: View {
     private var subtitle: String {
         let gesture = action.fnGesture
         if recorder.action == action {
-            return localized("Press new keys · Esc to cancel · Delete to turn off")
+            return localized("Press a modifier alone or a shortcut · Esc to cancel · Delete to turn off")
         }
-        if appState.settings.globalShortcut(for: action) == nil {
+        guard let shortcut = appState.settings.globalShortcut(for: action) else {
             return localized("Off. \(gesture) still works.")
+        }
+        if shortcut.modifierTapCount == 2 {
+            return localized("Double-press to start or finish. \(gesture) still works.")
         }
         return localized("Press to start, press again to finish. \(gesture) still works.")
     }
@@ -711,7 +746,7 @@ private struct ShortcutStatusRow: View {
             Spacer(minLength: KukuSpacing.md)
 
             if appState.shortcutStatus == .accessibilityRequired {
-                Button(localized("Enable Fn")) {
+                Button(localized("Enable Accessibility")) {
                     Task { await appState.requestPermission(.accessibility) }
                 }
                 .buttonStyle(.kukuSecondary)
@@ -862,6 +897,16 @@ where Option.AllCases: RandomAccessCollection {
 enum SettingsSection: String, CaseIterable, Identifiable {
     case general, voiceInput, voiceAgent, history, privacy, qwen
     var id: String { rawValue }
+    var symbol: String {
+        switch self {
+        case .general: "gearshape"
+        case .voiceInput: "mic"
+        case .voiceAgent: "sparkles"
+        case .history: "clock.arrow.circlepath"
+        case .privacy: "hand.raised"
+        case .qwen: "network"
+        }
+    }
     var title: String {
         switch self {
         case .general: localized("General")

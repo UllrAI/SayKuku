@@ -636,7 +636,7 @@ struct KukuStatusLabel: View {
     }
 }
 
-/// A key or shortcut, such as Fn or ⌃⌥⌘V.
+/// A key or shortcut, such as Fn or ⌃⌘V.
 struct KukuKeyCap: View {
     let text: String
 

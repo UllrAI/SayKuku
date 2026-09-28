@@ -52,12 +52,12 @@ struct SayKukuApp: App {
         Settings {
             SettingsView()
                 .environment(appState)
-                .frame(width: 720)
+                .frame(width: 920)
                 .frame(minHeight: 480, idealHeight: 640)
                 .background(KukuColor.canvas)
                 .tint(KukuColor.coral)
         }
-        .defaultSize(width: 720, height: 640)
+        .defaultSize(width: 920, height: 640)
         .windowResizability(.contentSize)
 
         MenuBarExtra(isInserted: Binding(

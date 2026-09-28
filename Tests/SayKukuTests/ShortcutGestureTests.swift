@@ -1,9 +1,143 @@
+import AppKit
 import Carbon.HIToolbox
 import Testing
 @testable import SayKuku
 
 @Suite("Fn gesture routing")
 struct FnGestureRoutingTests {
+    @Test("mouse down becomes other input without reading a keyboard key code")
+    func mouseEventSample() throws {
+        let event = try #require(NSEvent.mouseEvent(
+            with: .leftMouseDown,
+            location: .zero,
+            modifierFlags: [],
+            timestamp: 1,
+            windowNumber: 0,
+            context: nil,
+            eventNumber: 1,
+            clickCount: 1,
+            pressure: 1
+        ))
+        let sample = try #require(KeyboardEventSample.from(event))
+        #expect(sample.kind == .otherInput)
+        #expect(sample.keyCode == 0)
+    }
+
+    @Test("single right Command fires on release but chords and mouse gestures do not")
+    func modifierTap() {
+        let rightCommand = UInt16(kVK_RightCommand)
+        let configured: Set<UInt16> = [rightCommand]
+        var tracker = ModifierTapTracker()
+        let command = UInt32(cmdKey)
+        func sample(_ kind: KeyboardEventSample.Kind, _ key: UInt16, _ modifiers: UInt32) -> KeyboardEventSample {
+            KeyboardEventSample(kind: kind, functionIsPressed: false, keyCode: key, timestamp: 1, carbonModifiers: modifiers)
+        }
+
+        #expect(tracker.release(in: sample(.flagsChanged, rightCommand, command), configuredKeys: configured) == nil)
+        #expect(tracker.release(in: sample(.flagsChanged, rightCommand, 0), configuredKeys: configured) == rightCommand)
+
+        #expect(tracker.release(in: sample(.flagsChanged, rightCommand, command), configuredKeys: configured) == nil)
+        #expect(tracker.release(in: sample(.keyDown, UInt16(kVK_ANSI_C), command), configuredKeys: configured) == nil)
+        #expect(tracker.release(in: sample(.flagsChanged, rightCommand, 0), configuredKeys: configured) == nil)
+
+        #expect(tracker.release(in: sample(.flagsChanged, rightCommand, command), configuredKeys: configured) == nil)
+        #expect(tracker.release(in: sample(.otherInput, 0, command), configuredKeys: configured) == nil)
+        #expect(tracker.release(in: sample(.flagsChanged, rightCommand, 0), configuredKeys: configured) == nil)
+
+        #expect(tracker.release(in: sample(.flagsChanged, rightCommand, command), configuredKeys: configured) == nil)
+        #expect(tracker.release(in: sample(.flagsChanged, UInt16(kVK_Shift), command | UInt32(shiftKey)), configuredKeys: configured) == nil)
+        #expect(tracker.release(in: sample(.flagsChanged, UInt16(kVK_Shift), command), configuredKeys: configured) == nil)
+        #expect(tracker.release(in: sample(.flagsChanged, rightCommand, 0), configuredKeys: configured) == nil)
+    }
+
+    @Test("two right Command taps start and stop voice input")
+    @MainActor
+    func modifierTapTogglesDictation() async throws {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let audio = FakeAudioCapturing()
+        let state = environment.makeState(dependencies: .fake(audio: audio))
+        state.settings.soundCuesEnabled = false
+        state.settings.voiceInputShortcut = GlobalShortcut(keyCode: UInt32(kVK_RightCommand), carbonModifiers: 0)
+        try state.settings.saveAPIKey("test")
+        let controller = ShortcutController(appState: state)
+        let rightCommand = UInt16(kVK_RightCommand)
+
+        func event(down: Bool) -> KeyboardEventSample {
+            KeyboardEventSample(
+                kind: .flagsChanged,
+                functionIsPressed: false,
+                keyCode: rightCommand,
+                timestamp: 1,
+                carbonModifiers: down ? UInt32(cmdKey) : 0
+            )
+        }
+
+        controller.handle(event(down: true))
+        #expect(audio.startCount == 0)
+        controller.handle(event(down: false))
+        for _ in 0..<100 {
+            if state.workflow.dictationIsListening { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(state.workflow.dictationIsListening)
+        #expect(audio.startCount == 1)
+
+        controller.handle(event(down: true))
+        controller.handle(event(down: false))
+        #expect(!state.workflow.dictationIsListening)
+    }
+
+    @Test("a shared modifier distinguishes one tap for input from two for Agent")
+    @MainActor
+    func sharedModifierTapCounts() async throws {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let audio = FakeAudioCapturing()
+        let state = environment.makeState(dependencies: .fake(audio: audio))
+        state.settings.soundCuesEnabled = false
+        state.settings.voiceInputShortcut = GlobalShortcut(keyCode: UInt32(kVK_RightCommand), carbonModifiers: 0)
+        state.settings.voiceAgentShortcut = GlobalShortcut(
+            keyCode: UInt32(kVK_RightCommand), carbonModifiers: 0, modifierTapCount: 2
+        )
+        try state.settings.saveAPIKey("test")
+        let controller = ShortcutController(appState: state)
+
+        func tap(at timestamp: TimeInterval) {
+            controller.handle(KeyboardEventSample(
+                kind: .flagsChanged, functionIsPressed: false,
+                keyCode: UInt16(kVK_RightCommand), timestamp: timestamp,
+                carbonModifiers: UInt32(cmdKey)
+            ))
+            controller.handle(KeyboardEventSample(
+                kind: .flagsChanged, functionIsPressed: false,
+                keyCode: UInt16(kVK_RightCommand), timestamp: timestamp + 0.02,
+                carbonModifiers: 0
+            ))
+        }
+
+        tap(at: 1)
+        #expect(audio.startCount == 1)
+        tap(at: 1.2)
+        for _ in 0..<100 {
+            if state.workflow.agentIsListening { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(state.workflow.agentIsListening)
+        #expect(!state.workflow.dictationIsListening)
+        #expect(audio.startCount == 1)
+
+        state.workflow.cancelActiveVoiceWorkflow()
+        tap(at: 2)
+        #expect(audio.startCount == 2)
+        for _ in 0..<100 {
+            if state.workflow.dictationIsListening { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(state.workflow.dictationIsListening)
+        #expect(audio.startCount == 2)
+    }
+
     @Test("single Fn release stops an active agent before starting dictation")
     func agentStopHasPriority() {
         #expect(ShortcutController.releaseAction(

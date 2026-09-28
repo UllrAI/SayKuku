@@ -8,13 +8,31 @@ import Testing
 struct GlobalShortcutTests {
     private let controlOptionCommand = UInt32(controlKey | optionKey | cmdKey)
 
-    @Test("defaults are valid, distinct, and avoid the old ⇧⌘ combinations")
+    @Test("defaults use two modifiers and remain distinct")
     func defaults() {
         #expect(GlobalShortcut.defaultVoiceInput.isValid)
         #expect(GlobalShortcut.defaultVoiceAgent.isValid)
         #expect(GlobalShortcut.defaultVoiceInput != GlobalShortcut.defaultVoiceAgent)
-        #expect(GlobalShortcut.defaultVoiceInput.displayString == "⌃⌥⌘V")
-        #expect(GlobalShortcut.defaultVoiceAgent.displayString == "⌃⌥⌘A")
+        #expect(GlobalShortcut.defaultVoiceInput.displayString == "⌃⌘V")
+        #expect(GlobalShortcut.defaultVoiceAgent.displayString == "⌃⌘A")
+    }
+
+    @Test("new defaults do not replace saved shortcuts or an explicit off state")
+    @MainActor
+    func savedPreferences() {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let settings = AppSettings(defaults: environment.defaults, keychain: environment.keychain)
+        #expect(settings.voiceInputShortcut == .defaultVoiceInput)
+        #expect(settings.voiceAgentShortcut == .defaultVoiceAgent)
+
+        let oldInput = GlobalShortcut(keyCode: UInt32(kVK_ANSI_V), carbonModifiers: UInt32(controlKey | optionKey | cmdKey))
+        settings.voiceInputShortcut = oldInput
+        settings.voiceAgentShortcut = nil
+
+        let reloaded = AppSettings(defaults: environment.defaults, keychain: environment.keychain)
+        #expect(reloaded.voiceInputShortcut == oldInput)
+        #expect(reloaded.voiceAgentShortcut == nil)
     }
 
     @Test("display uses Apple's modifier order and readable key names")
@@ -30,7 +48,7 @@ struct GlobalShortcutTests {
 
     @Test("VoiceOver names spell out modifiers and symbol keys")
     func spokenString() {
-        #expect(GlobalShortcut.defaultVoiceInput.spokenString == "Control-Option-Command-V")
+        #expect(GlobalShortcut.defaultVoiceInput.spokenString == "Control-Command-V")
         #expect(GlobalShortcut(keyCode: UInt32(kVK_UpArrow), carbonModifiers: UInt32(controlKey | shiftKey)).spokenString == "Control-Shift-Up Arrow")
         #expect(GlobalShortcut(keyCode: UInt32(kVK_F5), carbonModifiers: UInt32(cmdKey)).spokenString == "Command-F5")
     }
@@ -48,6 +66,26 @@ struct GlobalShortcutTests {
         #expect(GlobalShortcut.restored(from: shiftOnly, fallback: .defaultVoiceAgent) == .defaultVoiceAgent)
         #expect(GlobalShortcut(storageValue: "\(kVK_ANSI_V):\(optionKey | shiftKey)") == nil)
         #expect(GlobalShortcut(storageValue: "\(kVK_ANSI_Keypad1):\(cmdKey)") == nil)
+        let rightCommand = GlobalShortcut(keyCode: UInt32(kVK_RightCommand), carbonModifiers: 0)
+        #expect(rightCommand.isValid)
+        #expect(rightCommand.isModifierOnly)
+        #expect(GlobalShortcut.restored(from: rightCommand.storageValue, fallback: .defaultVoiceInput) == rightCommand)
+        #expect(rightCommand.displayString == "\(localized("Right")) ⌘")
+        #expect(rightCommand.spokenString == "\(localized("Right")) \(localized("Command"))")
+        #expect(rightCommand.keyboardShortcut == nil)
+
+        let doubleCommand = GlobalShortcut(keyCode: UInt32(kVK_RightCommand), carbonModifiers: 0, modifierTapCount: 2)
+        #expect(doubleCommand.isValid)
+        #expect(doubleCommand.displayString == "\(localized("Right")) ⌘ ×2")
+        #expect(doubleCommand.storageValue == "\(kVK_RightCommand):0:2")
+        #expect(GlobalShortcut(storageValue: doubleCommand.storageValue) == doubleCommand)
+        #expect(GlobalShortcut.modifierOnlyResult(
+            keyCode: UInt16(kVK_RightCommand), tapCount: 2, otherShortcut: rightCommand
+        ) == .record(doubleCommand))
+        #expect(GlobalShortcut.modifierOnlyResult(
+            keyCode: UInt16(kVK_RightCommand), tapCount: 2, otherShortcut: doubleCommand
+        ) == .reject(.duplicate))
+        #expect(!GlobalShortcut(keyCode: UInt32(kVK_ANSI_V), carbonModifiers: UInt32(cmdKey), modifierTapCount: 2).isValid)
     }
 
     @Test("AppKit modifier flags map to Carbon and ignore non-shortcut flags")
@@ -63,7 +101,7 @@ struct GlobalShortcutTests {
     func keyboardShortcut() {
         let letter = GlobalShortcut.defaultVoiceInput.keyboardShortcut
         #expect(letter?.key.character == "v")
-        #expect(letter?.modifiers == SwiftUI.EventModifiers([.control, .option, .command]))
+        #expect(letter?.modifiers == SwiftUI.EventModifiers([.control, .command]))
 
         let space = GlobalShortcut(keyCode: UInt32(kVK_Space), carbonModifiers: UInt32(optionKey | shiftKey))
         #expect(space.keyboardShortcut?.key.character == " ")
@@ -84,6 +122,10 @@ struct GlobalShortcutTests {
         #expect(GlobalShortcut.recordingResult(
             keyCode: UInt16(kVK_ANSI_K), carbonModifiers: controlOptionCommand, otherShortcut: .defaultVoiceAgent
         ) == .record(GlobalShortcut(keyCode: UInt32(kVK_ANSI_K), carbonModifiers: controlOptionCommand)))
+        let rightCommand = GlobalShortcut(keyCode: UInt32(kVK_RightCommand), carbonModifiers: 0)
+        #expect(GlobalShortcut.modifierOnlyResult(keyCode: UInt16(kVK_RightCommand), otherShortcut: nil) == .record(rightCommand))
+        #expect(GlobalShortcut.modifierOnlyResult(keyCode: UInt16(kVK_RightCommand), otherShortcut: rightCommand) == .reject(.duplicate))
+        #expect(GlobalShortcut.modifierOnlyResult(keyCode: UInt16(kVK_Function), otherShortcut: nil) == nil)
     }
 
     @Test("recording rejects missing modifiers, unsupported keys, and duplicates")
@@ -107,7 +149,7 @@ struct GlobalShortcutTests {
             keyCode: UInt16(kVK_ANSI_Keypad1), carbonModifiers: UInt32(cmdKey), otherShortcut: nil
         ) == .reject(.unsupportedKey))
         #expect(GlobalShortcut.recordingResult(
-            keyCode: UInt16(kVK_ANSI_A), carbonModifiers: controlOptionCommand, otherShortcut: .defaultVoiceAgent
+            keyCode: UInt16(kVK_ANSI_A), carbonModifiers: UInt32(controlKey | cmdKey), otherShortcut: .defaultVoiceAgent
         ) == .reject(.duplicate))
     }
 
@@ -171,10 +213,10 @@ struct GlobalShortcutTests {
     @Test("status reports which shortcut failed before Accessibility")
     @MainActor
     func status() {
-        #expect(ShortcutController.status(fnReady: true, failedHotKeys: []) == .ready)
-        #expect(ShortcutController.status(fnReady: false, failedHotKeys: []) == .accessibilityRequired)
-        #expect(ShortcutController.status(fnReady: true, failedHotKeys: [.voiceAgent]) == .hotKeyConflict([.voiceAgent]))
-        #expect(ShortcutController.status(fnReady: false, failedHotKeys: [.voiceInput, .voiceAgent])
+        #expect(ShortcutController.status(gestureReady: true, failedHotKeys: []) == .ready)
+        #expect(ShortcutController.status(gestureReady: false, failedHotKeys: []) == .accessibilityRequired)
+        #expect(ShortcutController.status(gestureReady: true, failedHotKeys: [.voiceAgent]) == .hotKeyConflict([.voiceAgent]))
+        #expect(ShortcutController.status(gestureReady: false, failedHotKeys: [.voiceInput, .voiceAgent])
             == .hotKeyConflict([.voiceInput, .voiceAgent]))
     }
 

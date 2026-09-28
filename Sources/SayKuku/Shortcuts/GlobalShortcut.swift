@@ -32,21 +32,21 @@ enum GlobalShortcutAction: UInt32, CaseIterable, Sendable {
     }
 }
 
-/// A system-wide shortcut: a virtual key code plus Carbon modifier flags,
-/// exactly what `RegisterEventHotKey` expects.
+/// A Carbon hot key or a side-specific modifier tap.
 struct GlobalShortcut: Hashable, Sendable {
     let keyCode: UInt32
     let carbonModifiers: UInt32
+    var modifierTapCount: UInt8 = 1
 
-    // ⌃⌥Space is the macOS "Select next source in Input menu" default, so both
-    // defaults use ⌃⌥⌘, which neither macOS nor common apps bind out of the box.
+    // Keep the default combinations reachable with two modifiers. User-chosen
+    // shortcuts remain in UserDefaults and are never replaced by new defaults.
     static let defaultVoiceInput = GlobalShortcut(
         keyCode: UInt32(kVK_ANSI_V),
-        carbonModifiers: UInt32(controlKey | optionKey | cmdKey)
+        carbonModifiers: UInt32(controlKey | cmdKey)
     )
     static let defaultVoiceAgent = GlobalShortcut(
         keyCode: UInt32(kVK_ANSI_A),
-        carbonModifiers: UInt32(controlKey | optionKey | cmdKey)
+        carbonModifiers: UInt32(controlKey | cmdKey)
     )
 
     enum RecordingIssue: Equatable, Sendable {
@@ -62,13 +62,21 @@ struct GlobalShortcut: Hashable, Sendable {
     }
 
     var isValid: Bool {
-        carbonModifiers & Self.requiredModifiers != 0
+        isModifierOnly || (modifierTapCount == 1 && carbonModifiers & Self.requiredModifiers != 0
             && carbonModifiers & ~Self.supportedModifiers == 0
-            && Self.keys[Int(keyCode)] != nil
+            && Self.keys[Int(keyCode)] != nil)
     }
 
-    /// Standard macOS notation, e.g. "⌃⌥⌘V" or "⌃⇧Space".
+    var isModifierOnly: Bool {
+        (modifierTapCount == 1 || modifierTapCount == 2)
+            && carbonModifiers == 0 && Self.modifierFlag(for: keyCode) != nil
+    }
+
+    /// Standard macOS notation, e.g. "⌃⌘V" or "⌃⇧Space".
     var displayString: String {
+        if isModifierOnly, let key = Self.modifierKey(for: keyCode) {
+            return key.displayName + (modifierTapCount == 2 ? " ×2" : "")
+        }
         let modifiers = Self.modifierSymbols
             .filter { carbonModifiers & $0.mask != 0 }
             .map { $0.symbol }
@@ -76,8 +84,11 @@ struct GlobalShortcut: Hashable, Sendable {
         return modifiers + (Self.keys[Int(keyCode)]?.name ?? "?")
     }
 
-    /// Spelled-out form for VoiceOver, e.g. "Control-Option-Command-V".
+    /// Spelled-out form for VoiceOver, e.g. "Control-Command-V".
     var spokenString: String {
+        if isModifierOnly, let key = Self.modifierKey(for: keyCode) {
+            return modifierTapCount == 2 ? localized("Press \(key.spokenName) twice") : key.spokenName
+        }
         let modifiers = Self.modifierSymbols
             .filter { carbonModifiers & $0.mask != 0 }
             .map { $0.name }
@@ -96,11 +107,15 @@ struct GlobalShortcut: Hashable, Sendable {
 
     /// Used to label menu items with the active combination.
     var keyboardShortcut: KeyboardShortcut? {
+        guard !isModifierOnly else { return nil }
         guard let key = Self.keys[Int(keyCode)] else { return nil }
         return KeyboardShortcut(KeyEquivalent(key.character), modifiers: eventModifiers)
     }
 
-    var storageValue: String { "\(keyCode):\(carbonModifiers)" }
+    var storageValue: String {
+        let value = "\(keyCode):\(carbonModifiers)"
+        return modifierTapCount == 2 ? value + ":2" : value
+    }
 
     static func carbonModifiers(from flags: NSEvent.ModifierFlags) -> UInt32 {
         var result: UInt32 = 0
@@ -143,6 +158,49 @@ struct GlobalShortcut: Hashable, Sendable {
         guard !systemShortcuts.contains(shortcut) else { return .reject(.system) }
         guard shortcut != otherShortcut else { return .reject(.duplicate) }
         return .record(shortcut)
+    }
+
+    static func modifierOnlyResult(keyCode: UInt16, tapCount: UInt8 = 1, otherShortcut: GlobalShortcut?) -> RecordingResult? {
+        guard modifierFlag(for: keyCode) != nil else { return nil }
+        let shortcut = GlobalShortcut(keyCode: UInt32(keyCode), carbonModifiers: 0, modifierTapCount: tapCount)
+        return shortcut == otherShortcut ? .reject(.duplicate) : .record(shortcut)
+    }
+
+    static func modifierFlag(for keyCode: UInt16) -> NSEvent.ModifierFlags? {
+        modifierFlag(for: UInt32(keyCode))
+    }
+
+    private static func modifierFlag(for keyCode: UInt32) -> NSEvent.ModifierFlags? {
+        switch Int(keyCode) {
+        case kVK_Command, kVK_RightCommand: .command
+        case kVK_Control, kVK_RightControl: .control
+        case kVK_Option, kVK_RightOption: .option
+        case kVK_Shift, kVK_RightShift: .shift
+        default: nil
+        }
+    }
+
+    private static func modifierKey(for keyCode: UInt32) -> ModifierKey? {
+        switch Int(keyCode) {
+        case kVK_Command: ModifierKey(side: localized("Left"), symbol: "⌘", name: localized("Command"))
+        case kVK_RightCommand: ModifierKey(side: localized("Right"), symbol: "⌘", name: localized("Command"))
+        case kVK_Control: ModifierKey(side: localized("Left"), symbol: "⌃", name: localized("Control"))
+        case kVK_RightControl: ModifierKey(side: localized("Right"), symbol: "⌃", name: localized("Control"))
+        case kVK_Option: ModifierKey(side: localized("Left"), symbol: "⌥", name: localized("Option"))
+        case kVK_RightOption: ModifierKey(side: localized("Right"), symbol: "⌥", name: localized("Option"))
+        case kVK_Shift: ModifierKey(side: localized("Left"), symbol: "⇧", name: localized("Shift"))
+        case kVK_RightShift: ModifierKey(side: localized("Right"), symbol: "⇧", name: localized("Shift"))
+        default: nil
+        }
+    }
+
+    private struct ModifierKey {
+        let side: String
+        let symbol: String
+        let name: String
+
+        var displayName: String { "\(side) \(symbol)" }
+        var spokenName: String { "\(side) \(name)" }
     }
 
     // ⌥ and ⌥⇧ alone type special characters, and macOS 15 refuses to register
@@ -241,10 +299,17 @@ struct GlobalShortcut: Hashable, Sendable {
 extension GlobalShortcut {
     init?(storageValue: String) {
         let parts = storageValue.split(separator: ":")
-        guard parts.count == 2,
+        guard parts.count == 2 || parts.count == 3,
               let keyCode = UInt32(parts[0]),
               let modifiers = UInt32(parts[1]) else { return nil }
-        self.init(keyCode: keyCode, carbonModifiers: modifiers)
+        let tapCount: UInt8
+        if parts.count == 3 {
+            guard let parsed = UInt8(parts[2]), parsed == 2 else { return nil }
+            tapCount = parsed
+        } else {
+            tapCount = 1
+        }
+        self.init(keyCode: keyCode, carbonModifiers: modifiers, modifierTapCount: tapCount)
         guard isValid else { return nil }
     }
 }

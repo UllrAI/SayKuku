@@ -7,12 +7,65 @@ struct KeyboardEventSample: Sendable {
     enum Kind: Sendable {
         case flagsChanged
         case keyDown
+        case otherInput
     }
 
     let kind: Kind
     let functionIsPressed: Bool
     let keyCode: UInt16
     let timestamp: TimeInterval
+    var carbonModifiers: UInt32 = 0
+
+    static func from(_ event: NSEvent) -> Self? {
+        let kind: Kind
+        switch event.type {
+        case .flagsChanged:
+            kind = .flagsChanged
+        case .keyDown:
+            kind = .keyDown
+        case .leftMouseDown, .rightMouseDown, .otherMouseDown,
+             .leftMouseDragged, .rightMouseDragged, .otherMouseDragged, .scrollWheel:
+            kind = .otherInput
+        default:
+            return nil
+        }
+
+        return Self(
+            kind: kind,
+            functionIsPressed: event.modifierFlags.contains(.function),
+            keyCode: kind == .otherInput ? 0 : event.keyCode,
+            timestamp: event.timestamp,
+            carbonModifiers: GlobalShortcut.carbonModifiers(from: event.modifierFlags)
+        )
+    }
+}
+
+/// A lone modifier fires only after release. Other input while it is down
+/// makes the gesture part of a normal keyboard or mouse shortcut instead.
+struct ModifierTapTracker {
+    private(set) var candidate: UInt16?
+
+    mutating func reset() { candidate = nil }
+
+    mutating func release(in sample: KeyboardEventSample, configuredKeys: Set<UInt16>) -> UInt16? {
+        guard sample.kind == .flagsChanged else {
+            candidate = nil
+            return nil
+        }
+        guard let flag = GlobalShortcut.modifierFlag(for: sample.keyCode) else {
+            candidate = nil
+            return nil
+        }
+        let modifier = GlobalShortcut.carbonModifiers(from: flag)
+        if candidate == sample.keyCode {
+            candidate = nil
+            return sample.carbonModifiers & modifier == 0 ? sample.keyCode : nil
+        }
+        candidate = configuredKeys.contains(sample.keyCode)
+            && sample.carbonModifiers == modifier
+            && !sample.functionIsPressed ? sample.keyCode : nil
+        return nil
+    }
 }
 
 enum FnReleaseAction: Equatable {
@@ -45,8 +98,8 @@ private let hotKeyEventCallback: EventHandlerUPP = { _, event, userInfo in
 }
 
 /// Owns the configurable system-wide shortcuts and the Fn gesture state machine.
-/// Carbon hot keys need no permission. Fn uses AppKit event monitors and the
-/// Accessibility permission that text insertion already requires.
+/// Carbon hot keys need no permission. Fn and modifier taps use AppKit event
+/// monitors and the Accessibility permission that text insertion already requires.
 final class ShortcutController: @unchecked Sendable {
     private weak var appState: AppState?
     private var globalKeyMonitor: Any?
@@ -62,7 +115,10 @@ final class ShortcutController: @unchecked Sendable {
     private var firstTapAt: TimeInterval?
     private var holdTask: Task<Void, Never>?
     private var singleTapTask: Task<Void, Never>?
-    private var fnMonitorReady = false
+    private var gestureMonitorReady = false
+    private var modifierTap = ModifierTapTracker()
+    private var pendingModifierTap: (keyCode: UInt16, timestamp: TimeInterval, startedInput: Bool)?
+    private var pendingModifierTask: Task<Void, Never>?
 
     private static let doubleTapInterval: TimeInterval = 0.45
     private let holdThreshold = Duration.milliseconds(150)
@@ -80,14 +136,14 @@ final class ShortcutController: @unchecked Sendable {
     @MainActor
     func start() {
         reloadHotKeys()
-        installFnMonitors()
+        installGestureMonitors()
         if wakeObserver == nil {
             wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
                 forName: NSWorkspace.didWakeNotification,
                 object: nil,
                 queue: .main
             ) { [weak self] _ in
-                Task { @MainActor in self?.installFnMonitors() }
+                Task { @MainActor in self?.installGestureMonitors() }
             }
         }
     }
@@ -95,8 +151,9 @@ final class ShortcutController: @unchecked Sendable {
     func stop() {
         holdTask?.cancel()
         singleTapTask?.cancel()
+        pendingModifierTask?.cancel()
 
-        removeFnMonitors()
+        removeGestureMonitors()
 
         unregisterHotKeys()
         if let hotKeyHandler {
@@ -111,7 +168,7 @@ final class ShortcutController: @unchecked Sendable {
 
     @MainActor
     func refreshAccessibilityPermission() {
-        installFnMonitors()
+        installGestureMonitors()
     }
 
     @MainActor
@@ -133,6 +190,17 @@ final class ShortcutController: @unchecked Sendable {
     func handle(_ sample: KeyboardEventSample) {
         guard let appState else { return }
 
+        let modifierKeys = Set(GlobalShortcutAction.allCases.compactMap { action -> UInt16? in
+            guard let shortcut = appState.settings.globalShortcut(for: action), shortcut.isModifierOnly else { return nil }
+            return UInt16(shortcut.keyCode)
+        })
+        if hotKeysPaused {
+            modifierTap.reset()
+        } else if let keyCode = modifierTap.release(in: sample, configuredKeys: modifierKeys) {
+            handleModifierTap(keyCode, at: sample.timestamp, appState: appState)
+            return
+        }
+
         let isFnKey = sample.keyCode == UInt16(kVK_Function)
 
         if sample.kind == .keyDown,
@@ -143,6 +211,9 @@ final class ShortcutController: @unchecked Sendable {
            ) {
             holdTask?.cancel()
             singleTapTask?.cancel()
+            pendingModifierTask?.cancel()
+            pendingModifierTask = nil
+            pendingModifierTap = nil
             firstTapAt = nil
             fnWasChorded = fnIsDown
             appState.workflow.cancelActiveVoiceWorkflow()
@@ -164,6 +235,76 @@ final class ShortcutController: @unchecked Sendable {
             fnDown(appState)
         } else if !sample.functionIsPressed, fnIsDown {
             fnUp(appState, at: sample.timestamp)
+        }
+    }
+
+    @MainActor
+    private func handleModifierTap(_ keyCode: UInt16, at timestamp: TimeInterval, appState: AppState) {
+        func action(for key: UInt16, tapCount: UInt8) -> GlobalShortcutAction? {
+            GlobalShortcutAction.allCases.first {
+                guard let shortcut = appState.settings.globalShortcut(for: $0) else { return false }
+                return shortcut.isModifierOnly && shortcut.keyCode == UInt32(key)
+                    && shortcut.modifierTapCount == tapCount
+            }
+        }
+
+        let singleAction = action(for: keyCode, tapCount: 1)
+        let doubleAction = action(for: keyCode, tapCount: 2)
+        guard singleAction != nil || doubleAction != nil else { return }
+
+        if let pendingModifierTap,
+           pendingModifierTap.keyCode == keyCode,
+           timestamp >= pendingModifierTap.timestamp,
+           timestamp - pendingModifierTap.timestamp <= Self.doubleTapInterval,
+           let doubleAction {
+            pendingModifierTask?.cancel()
+            pendingModifierTask = nil
+            self.pendingModifierTap = nil
+            if !(pendingModifierTap.startedInput && doubleAction == .voiceAgent
+                 && appState.workflow.promoteFnTapToAgent()) {
+                handleHotKey(id: doubleAction.rawValue)
+            }
+            return
+        }
+
+        if let pendingModifierTap {
+            pendingModifierTask?.cancel()
+            self.pendingModifierTap = nil
+            if pendingModifierTap.startedInput {
+                appState.workflow.confirmFnTapDictation()
+            } else if let previousAction = action(for: pendingModifierTap.keyCode, tapCount: 1),
+                      !appState.workflow.agentIsListening {
+                handleHotKey(id: previousAction.rawValue)
+            }
+        }
+
+        if let singleAction, doubleAction == nil {
+            handleHotKey(id: singleAction.rawValue)
+            return
+        }
+
+        let startsInputImmediately = singleAction == .voiceInput && doubleAction == .voiceAgent
+            && !appState.workflow.agentIsListening
+        if startsInputImmediately {
+            if appState.workflow.dictationIsListening {
+                handleHotKey(id: GlobalShortcutAction.voiceInput.rawValue)
+                return
+            }
+            appState.workflow.startFnTapDictation()
+        }
+
+        pendingModifierTask?.cancel()
+        pendingModifierTap = (keyCode, timestamp, startsInputImmediately)
+        pendingModifierTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(450))
+            guard let self, !Task.isCancelled, self.pendingModifierTap?.keyCode == keyCode else { return }
+            self.pendingModifierTap = nil
+            self.pendingModifierTask = nil
+            if startsInputImmediately {
+                appState.workflow.confirmFnTapDictation()
+            } else if let singleAction, !appState.workflow.agentIsListening {
+                self.handleHotKey(id: singleAction.rawValue)
+            }
         }
     }
 
@@ -277,38 +418,45 @@ final class ShortcutController: @unchecked Sendable {
     }
 
     @MainActor
-    private func installFnMonitors() {
+    private func installGestureMonitors() {
         let rebuilding = globalKeyMonitor != nil || localKeyMonitor != nil
-        removeFnMonitors()
+        removeGestureMonitors()
 
         // Do not install a global keyboard monitor before Accessibility is
         // already trusted. This keeps startup entirely outside Input Monitoring.
         guard AXIsProcessTrusted() else {
-            Log.shortcut.info("Fn monitors not installed: Accessibility not granted")
-            fnMonitorReady = false
+            Log.shortcut.info("Gesture monitors not installed: Accessibility not granted")
+            gestureMonitorReady = false
             publishStatus()
             return
         }
 
-        let mask: NSEvent.EventTypeMask = [.flagsChanged, .keyDown]
+        let mask: NSEvent.EventTypeMask = [
+            .flagsChanged, .keyDown, .leftMouseDown, .rightMouseDown, .otherMouseDown,
+            .leftMouseDragged, .rightMouseDragged, .otherMouseDragged, .scrollWheel
+        ]
         globalKeyMonitor = NSEvent.addGlobalMonitorForEvents(matching: mask) { [weak self] event in
-            self?.receiveFnEvent(event)
+            self?.receiveGestureEvent(event)
         }
         localKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: mask) { [weak self] event in
-            self?.receiveFnEvent(event)
+            self?.receiveGestureEvent(event)
             return event
         }
-        fnMonitorReady = globalKeyMonitor != nil && localKeyMonitor != nil
-        let ready = fnMonitorReady
+        gestureMonitorReady = globalKeyMonitor != nil && localKeyMonitor != nil
+        let ready = gestureMonitorReady
         let change = rebuilding ? "rebuilt" : "installed"
         Log.shortcut.log(
             level: ready ? .info : .error,
-            "Fn monitors \(change, privacy: .public), ready: \(ready, privacy: .public)"
+            "Gesture monitors \(change, privacy: .public), ready: \(ready, privacy: .public)"
         )
         publishStatus()
     }
 
-    private func removeFnMonitors() {
+    private func removeGestureMonitors() {
+        modifierTap.reset()
+        pendingModifierTask?.cancel()
+        pendingModifierTask = nil
+        pendingModifierTap = nil
         if let globalKeyMonitor {
             NSEvent.removeMonitor(globalKeyMonitor)
             self.globalKeyMonitor = nil
@@ -317,26 +465,11 @@ final class ShortcutController: @unchecked Sendable {
             NSEvent.removeMonitor(localKeyMonitor)
             self.localKeyMonitor = nil
         }
-        fnMonitorReady = false
+        gestureMonitorReady = false
     }
 
-    private func receiveFnEvent(_ event: NSEvent) {
-        let kind: KeyboardEventSample.Kind
-        switch event.type {
-        case .flagsChanged:
-            kind = .flagsChanged
-        case .keyDown:
-            kind = .keyDown
-        default:
-            return
-        }
-
-        let sample = KeyboardEventSample(
-            kind: kind,
-            functionIsPressed: event.modifierFlags.contains(.function),
-            keyCode: event.keyCode,
-            timestamp: event.timestamp
-        )
+    private func receiveGestureEvent(_ event: NSEvent) {
+        guard let sample = KeyboardEventSample.from(event) else { return }
         DispatchQueue.main.async { [weak self] in
             self?.handle(sample)
         }
@@ -354,6 +487,7 @@ final class ShortcutController: @unchecked Sendable {
         var failed: [GlobalShortcutAction] = []
         for action in GlobalShortcutAction.allCases {
             guard let shortcut = appState.settings.globalShortcut(for: action) else { continue }
+            if shortcut.isModifierOnly { continue }
             if handlerReady, let hotKey = register(shortcut, for: action) {
                 hotKeys[action] = hotKey
             } else {
@@ -368,12 +502,16 @@ final class ShortcutController: @unchecked Sendable {
     func setHotKeysPaused(_ paused: Bool) {
         guard hotKeysPaused != paused else { return }
         hotKeysPaused = paused
+        modifierTap.reset()
+        pendingModifierTask?.cancel()
+        pendingModifierTask = nil
+        pendingModifierTap = nil
         reloadHotKeys()
     }
 
-    static func status(fnReady: Bool, failedHotKeys: [GlobalShortcutAction]) -> AppState.ShortcutStatus {
+    static func status(gestureReady: Bool, failedHotKeys: [GlobalShortcutAction]) -> AppState.ShortcutStatus {
         if !failedHotKeys.isEmpty { return .hotKeyConflict(failedHotKeys) }
-        return fnReady ? .ready : .accessibilityRequired
+        return gestureReady ? .ready : .accessibilityRequired
     }
 
     @MainActor
@@ -428,7 +566,7 @@ final class ShortcutController: @unchecked Sendable {
 
     @MainActor
     private func publishStatus() {
-        appState?.shortcutStatus = Self.status(fnReady: fnMonitorReady, failedHotKeys: failedHotKeys)
+        appState?.shortcutStatus = Self.status(gestureReady: gestureMonitorReady, failedHotKeys: failedHotKeys)
     }
 }
 
@@ -456,7 +594,11 @@ extension AppState {
             case .accessibilityRequired:
                 return shortcutsOff
                     ? localized("Fn needs Accessibility · Global shortcuts off")
-                    : localized("Global shortcuts ready · Fn needs Accessibility")
+                    : GlobalShortcutAction.allCases.contains(where: {
+                        appState.settings.globalShortcut(for: $0)?.isModifierOnly == true
+                    })
+                        ? localized("Fn and single-modifier shortcuts need Accessibility")
+                        : localized("Global shortcuts ready · Fn needs Accessibility")
             case .hotKeyConflict(let actions):
                 guard actions.count == 1, let action = actions.first else {
                     return localized("Both global shortcuts are already in use by other apps. Record new ones.")
