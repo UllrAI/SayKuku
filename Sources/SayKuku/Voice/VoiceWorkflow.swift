@@ -38,6 +38,7 @@ final class VoiceWorkflow {
     /// second press or Esc in that window must stop the start instead of going unheard.
     var dictationIsListening: Bool { dictationPhase == .listening || startingWorkflow == .dictation }
     var agentIsListening: Bool { agentPhase == .listening || startingWorkflow == .agent }
+    var canPromoteFnTap: Bool { fnTapDictation && dictationIsListening }
     var contextItems: [ContextItem] = []
     var agentCommand = ""
     var liveTranscript = ""
@@ -83,6 +84,11 @@ final class VoiceWorkflow {
     @ObservationIgnored private var uploadTask: Task<Void, Error>?
     @ObservationIgnored private var chunkContinuation: AsyncStream<Data>.Continuation?
     @ObservationIgnored private var targetSnapshot: TextTargetSnapshot?
+    /// A tap starts one capture immediately; the second tap can reuse it for Voice Agent.
+    @ObservationIgnored private var fnTapDictation = false
+    @ObservationIgnored private var fnTapConfirmed = false
+    @ObservationIgnored private var fnTapChunks: AsyncStream<Data>?
+    @ObservationIgnored private var finishFnTapWhenReady = false
     /// Recent Voice Agent turns for continuous conversation. Memory only, so quitting clears them.
     @ObservationIgnored private var sessions: [AgentSession] = []
     @ObservationIgnored private var activeAgentSessions: [AgentSession] = []
@@ -116,6 +122,52 @@ final class VoiceWorkflow {
         beginVoiceWorkflow(mode: .dictation)
     }
 
+    func startFnTapDictation() {
+        beginVoiceWorkflow(mode: .dictation, pendingFnTap: true)
+    }
+
+    func confirmFnTapDictation() {
+        guard fnTapDictation, !fnTapConfirmed else { return }
+        fnTapConfirmed = true
+        guard targetSnapshot?.hasDictationTarget == true else {
+            cancelWorkflow()
+            handleWorkflowError(TextInteractionError.noFocusedElement, agent: false)
+            return
+        }
+        if dictationPhase == .listening, let fnTapChunks {
+            connectRealtime(streaming: fnTapChunks, generation: workflowGeneration)
+            self.fnTapChunks = nil
+        }
+    }
+
+    /// Switches the still-running capture to Agent without stopping or restarting the microphone.
+    @discardableResult
+    func promoteFnTapToAgent() -> Bool {
+        guard fnTapDictation, dictationIsListening, let snapshot = targetSnapshot else { return false }
+        fnTapDictation = false
+        fnTapConfirmed = false
+        fnTapChunks = nil
+        finishFnTapWhenReady = false
+        chunkContinuation?.finish()
+        chunkContinuation = nil
+        if let uploadTask {
+            uploadTask.cancel()
+            self.uploadTask = nil
+            let session = realtimeSessionID
+            Task { [realtimeClient] in await realtimeClient.cancel(session: session) }
+        }
+        let wasStarting = startingWorkflow == .dictation
+        if wasStarting { startingWorkflow = .agent }
+        prepareWorkflow(mode: .agent, snapshot: snapshot)
+        if !wasStarting {
+            recordingLimitTask?.cancel()
+            agentPhase = .listening
+            dictationPhase = .idle
+            scheduleRecordingLimit(for: .agent)
+        }
+        return true
+    }
+
     func toggleDictation() {
         if dictationIsListening { finishDictation() }
         else { startDictation() }
@@ -129,11 +181,23 @@ final class VoiceWorkflow {
 
     func finishDictation() {
         guard dictationPhase == .listening else {
-            // Stopped before the microphone opened, so nothing was recorded.
-            if startingWorkflow == .dictation { cancelDictation() }
+            if startingWorkflow == .dictation, fnTapDictation {
+                // The engine may already be recording while its start task is waiting to resume.
+                if !fnTapConfirmed { confirmFnTapDictation() }
+                if dictationIsListening { finishFnTapWhenReady = true }
+            } else if startingWorkflow == .dictation {
+                cancelDictation()
+            }
             return
         }
+        if fnTapDictation && !fnTapConfirmed {
+            confirmFnTapDictation()
+            guard dictationPhase == .listening else { return }
+        }
         let recording = stopRecording()
+        fnTapDictation = false
+        fnTapConfirmed = false
+        fnTapChunks = nil
         playSoundCue(.stop)
         let historyID = data.beginHistoryEntry(mode: .dictation, recording: recording, snapshot: targetSnapshot)
         let snapshot = targetSnapshot
@@ -352,7 +416,7 @@ final class VoiceWorkflow {
 
     private enum VoiceWorkflowMode: Sendable { case dictation, agent }
 
-    private func beginVoiceWorkflow(mode: VoiceWorkflowMode) {
+    private func beginVoiceWorkflow(mode: VoiceWorkflowMode, pendingFnTap: Bool = false) {
         cancelWorkflow()
         dictationPhase = .idle
         agentPhase = .hidden
@@ -376,12 +440,35 @@ final class VoiceWorkflow {
             handleWorkflowError(TextInteractionError.sensitiveTarget, agent: mode == .agent)
             return
         }
+        fnTapDictation = pendingFnTap
+        fnTapConfirmed = false
         let generation = workflowGeneration
         let pillInterval = signposter.beginInterval("Fn to Pill", id: signposter.makeSignpostID())
+        // Buffer realtime audio while the connection is established after the microphone opens.
+        let chunks: AsyncStream<Data>?
+        let onChunk: @Sendable (Data) -> Void
+        if mode == .dictation && settings.configuration.realtimeURL != nil {
+            let (stream, continuation) = AsyncStream<Data>.makeStream()
+            chunks = stream
+            chunkContinuation = continuation
+            onChunk = { continuation.yield($0) }
+        } else {
+            chunks = nil
+            onChunk = { _ in }
+        }
+        fnTapChunks = pendingFnTap ? chunks : nil
+        var engineStart: Task<Void, Error>?
         do {
             let snapshot = try signposter.withIntervalSignpost("captureTarget") {
                 try textInteraction.captureTarget(
-                    requiringWindow: mode == .dictation, includingCaretFrame: settings.overlayPlacement == .caret
+                    requiringWindow: mode == .dictation && !pendingFnTap,
+                    includingCaretFrame: settings.overlayPlacement == .caret,
+                    onSafeTarget: {
+                        // The secure-field and target checks have passed. Start the engine on its
+                        // queue while Accessibility reads the remaining target details.
+                        startingWorkflow = mode
+                        engineStart = startAudioCapture(for: mode, onChunk: onChunk)
+                    }
                 )
             }
             guard !snapshot.isSensitive else { throw TextInteractionError.sensitiveTarget }
@@ -392,22 +479,11 @@ final class VoiceWorkflow {
             handleWorkflowError(error, agent: mode == .agent)
             return
         }
-        // Realtime needs a workspace ID; without one the full recording goes to batch recognition.
-        let chunks: AsyncStream<Data>?
-        let onChunk: @Sendable (Data) -> Void
-        if mode == .dictation && settings.configuration.realtimeURL != nil {
-            // Holds the audio until the Realtime connection is ready to take it.
-            let (stream, continuation) = AsyncStream<Data>.makeStream()
-            chunks = stream
-            chunkContinuation = continuation
-            onChunk = { continuation.yield($0) }
-        } else {
-            chunks = nil
-            onChunk = { _ in }
+        guard let engineStart else {
+            signposter.endInterval("Fn to Pill", pillInterval)
+            handleWorkflowError(AudioCaptureError.microphoneUnavailable, agent: mode == .agent)
+            return
         }
-        // Capture the focused target before starting the engine, including the secure-field check.
-        let engineStart = startAudioCapture(for: mode, onChunk: onChunk)
-        startingWorkflow = mode
         Task { [weak self] in
             let started = await engineStart.result
             // Whatever bumped the generation also cancelled the capture, which stopped this engine.
@@ -416,16 +492,23 @@ final class VoiceWorkflow {
                 self.signposter.endInterval("Fn to Pill", pillInterval)
                 return
             }
+            let activeMode = self.startingWorkflow ?? mode
             self.startingWorkflow = nil
             do {
                 try started.get()
             } catch {
                 self.signposter.endInterval("Fn to Pill", pillInterval)
-                self.handleWorkflowError(error, agent: mode == .agent)
+                self.handleWorkflowError(error, agent: activeMode == .agent)
                 return
             }
             self.signposter.endInterval("Fn to Pill", pillInterval)
-            self.startListening(mode: mode, chunks: chunks, generation: generation)
+            let finishAfterStart = activeMode == .dictation && self.finishFnTapWhenReady
+            self.finishFnTapWhenReady = false
+            self.startListening(
+                mode: activeMode, chunks: chunks, generation: generation,
+                playStartCue: !finishAfterStart
+            )
+            if finishAfterStart { self.finishDictation() }
         }
     }
 
@@ -463,15 +546,23 @@ final class VoiceWorkflow {
     }
 
     /// Shows the pill only once the target is read and the engine runs, so it still means the microphone is open.
-    private func startListening(mode: VoiceWorkflowMode, chunks: AsyncStream<Data>?, generation: Int) {
+    private func startListening(
+        mode: VoiceWorkflowMode, chunks: AsyncStream<Data>?, generation: Int,
+        playStartCue: Bool = true
+    ) {
         if mode == .agent {
             agentPhase = .listening
         } else {
             withAnimation(Motion.spring) { dictationPhase = .listening }
         }
-        if let chunks { connectRealtime(streaming: chunks, generation: generation) }
-        playSoundCue(.start)
-        scheduleRecordingLimit(for: mode)
+        if mode == .dictation, let chunks, (!fnTapDictation || fnTapConfirmed) {
+            connectRealtime(streaming: chunks, generation: generation)
+            fnTapChunks = nil
+        }
+        if playStartCue {
+            playSoundCue(.start)
+            scheduleRecordingLimit(for: mode)
+        }
     }
 
     /// Chunks recorded before the connection is ready wait in the stream.
@@ -493,14 +584,14 @@ final class VoiceWorkflow {
                 autoStop: shouldAutoStop,
                 onSpeechStopped: {
                     Task { @MainActor in
-                        guard self?.workflowGeneration == generation else { return }
-                        self?.finishDictation()
+                        guard let self, self.workflowGeneration == generation, self.dictationIsListening else { return }
+                        self.finishDictation()
                     }
                 },
                 onDelta: { transcript in
                     Task { @MainActor in
-                        guard self?.workflowGeneration == generation else { return }
-                        self?.liveTranscript = transcript
+                        guard let self, self.workflowGeneration == generation, self.dictationIsListening else { return }
+                        self.liveTranscript = transcript
                     }
                 },
                 recognitionLanguage: selectedRecognitionLanguage,
@@ -580,7 +671,7 @@ final class VoiceWorkflow {
                 Task { @MainActor [weak self] in
                     guard let self, self.workflowGeneration == generation,
                           self.dictationIsListening || self.agentIsListening else { return }
-                    self.finishListening(for: mode)
+                    self.finishListening(for: self.agentIsListening ? .agent : mode)
                     self.showOverlayFeedback(
                         localized("Audio device changed. Recording stopped."),
                         symbol: "mic.slash"
@@ -881,6 +972,10 @@ final class VoiceWorkflow {
         data.updateHistory(executingActionHistoryID, status: .cancelled)
         executingActionHistoryID = nil
         startingWorkflow = nil
+        fnTapDictation = false
+        fnTapConfirmed = false
+        fnTapChunks = nil
+        finishFnTapWhenReady = false
         workflowTask?.cancel()
         workflowTask = nil
         uploadTask?.cancel()
@@ -922,6 +1017,11 @@ final class VoiceWorkflow {
         Log.workflow.log(level: level, "Workflow failed in \(stage, privacy: .public): \(Log.describe(error), privacy: .public)")
         recordingLimitTask?.cancel()
         recordingLimitTask = nil
+        startingWorkflow = nil
+        fnTapDictation = false
+        fnTapConfirmed = false
+        fnTapChunks = nil
+        finishFnTapWhenReady = false
         audioCapture.cancel()
         inputLevel = 0
         chunkContinuation?.finish()

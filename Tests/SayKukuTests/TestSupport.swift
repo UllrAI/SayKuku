@@ -63,13 +63,14 @@ extension TextTargetSnapshot {
     /// A plain, non-sensitive field with no Accessibility elements behind it.
     static func fake(
         selectedText: String = "", valueBefore: String? = nil, selectedRange: CFRange? = nil,
-        isSensitive: Bool = false
+        isSensitive: Bool = false, hasDictationTarget: Bool = true
     ) -> TextTargetSnapshot {
         TextTargetSnapshot(
             appPID: 0,
             bundleID: "com.example.editor",
             appName: "Editor",
             windowTitle: "",
+            hasDictationTarget: hasDictationTarget,
             windowElement: nil,
             textElement: nil,
             selectedRange: selectedRange,
@@ -85,13 +86,19 @@ extension TextTargetSnapshot {
 final class FakeAudioCapturing: AudioCapturing {
     let recording: AudioCapture.Recording
     let startError: (any Error)?
+    let startDelay: Duration
     private let starts = Mutex(0)
 
     var startCount: Int { starts.withLock { $0 } }
 
-    init(recording: AudioCapture.Recording = .speech, startError: (any Error)? = nil) {
+    init(
+        recording: AudioCapture.Recording = .speech,
+        startError: (any Error)? = nil,
+        startDelay: Duration = .zero
+    ) {
         self.recording = recording
         self.startError = startError
+        self.startDelay = startDelay
     }
 
     func start(
@@ -103,7 +110,9 @@ final class FakeAudioCapturing: AudioCapturing {
         // One chunk, so a streamed dictation has audio to send.
         onChunk(Data(count: 2))
         let startError = startError
+        let startDelay = startDelay
         return Task {
+            if startDelay > .zero { try await Task.sleep(for: startDelay) }
             if let startError { throw startError }
         }
     }
@@ -117,6 +126,7 @@ final class FakeAudioCapturing: AudioCapturing {
 actor FakeRealtime: RealtimeTranscribing {
     private let transcript: String
     private let commitError: QwenError?
+    private var speechStoppedHandler: (@Sendable () -> Void)?
     private(set) var targetApps: [String?] = []
     private(set) var appendCount = 0
     private(set) var commitCount = 0
@@ -140,7 +150,10 @@ actor FakeRealtime: RealtimeTranscribing {
         memoryPrompt: String
     ) async throws {
         targetApps.append(targetApp)
+        speechStoppedHandler = onSpeechStopped
     }
+
+    func reportSpeechStopped() { speechStoppedHandler?() }
 
     func append(_ pcm16: Data, session: UUID) async throws {
         appendCount += 1
@@ -253,6 +266,7 @@ final class FakeTextWriting: TextWriting {
     /// What `currentValue(of:)` reads back from the field.
     var fieldValue: String?
     var screenText = ""
+    var afterSafeTarget: (() -> Void)?
     private(set) var writes: [String] = []
     private(set) var visibleTextReads = 0
 
@@ -260,8 +274,13 @@ final class FakeTextWriting: TextWriting {
         self.snapshot = snapshot
     }
 
-    func captureTarget(requiringWindow: Bool, includingCaretFrame: Bool) throws -> TextTargetSnapshot {
+    func captureTarget(
+        requiringWindow: Bool, includingCaretFrame: Bool, onSafeTarget: () -> Void
+    ) throws -> TextTargetSnapshot {
         if let captureError { throw captureError }
+        if snapshot.isSensitive { throw TextInteractionError.sensitiveTarget }
+        onSafeTarget()
+        afterSafeTarget?()
         return snapshot
     }
 

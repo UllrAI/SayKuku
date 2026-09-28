@@ -32,6 +32,8 @@ struct TextTargetSnapshot: @unchecked Sendable {
     let bundleID: String
     let appName: String
     let windowTitle: String
+    /// Dictation can target either an exposed text field or a focused window for paste fallback.
+    let hasDictationTarget: Bool
     let windowElement: AXUIElement?
     let textElement: AXUIElement?
     let selectedRange: CFRange?
@@ -87,7 +89,10 @@ enum DictationTextJoiner {
 /// The focused app's text as the voice workflows use it; tests pass a fake.
 @MainActor
 protocol TextWriting: AnyObject {
-    func captureTarget(requiringWindow: Bool, includingCaretFrame: Bool) throws -> TextTargetSnapshot
+    /// Calls `onSafeTarget` after checking the focused field, before reading optional text and geometry.
+    func captureTarget(
+        requiringWindow: Bool, includingCaretFrame: Bool, onSafeTarget: () -> Void
+    ) throws -> TextTargetSnapshot
     func write(_ text: String, to snapshot: TextTargetSnapshot) async throws -> TextWriteOutcome
     func currentValue(of snapshot: TextTargetSnapshot) -> String?
     func browserPageAddress(in snapshot: TextTargetSnapshot) -> String?
@@ -116,22 +121,33 @@ final class TextInteraction: TextWriting {
     /// Dictation needs a window to write into; the Agent can also answer, open links or run shortcuts
     /// from the desktop, so `requiringWindow: false` returns a snapshot without a window or text field.
     /// `includingCaretFrame` reads the caret rectangle, which only the cursor-following overlay needs.
-    func captureTarget(requiringWindow: Bool = true, includingCaretFrame: Bool = false) throws -> TextTargetSnapshot {
+    func captureTarget(
+        requiringWindow: Bool = true, includingCaretFrame: Bool = false,
+        onSafeTarget: () -> Void = {}
+    ) throws -> TextTargetSnapshot {
         guard AXIsProcessTrusted() else { throw TextInteractionError.accessibilityRequired }
         guard let app = NSWorkspace.shared.frontmostApplication else { throw TextInteractionError.noFocusedElement }
         let application = applicationElement(for: app.processIdentifier)
         let focusedElement = focusedElement(for: app.processIdentifier)
         let element = focusedElement.flatMap(preferredTextElement(from:))
-        let window = element.flatMap(window(of:))
-            ?? focusedElement.flatMap(window(of:))
-            ?? copyAttribute(application, kAXFocusedWindowAttribute)
-        if requiringWindow, element == nil, window == nil { throw TextInteractionError.noFocusedElement }
-        let title: String = window.flatMap { copyAttribute($0, kAXTitleAttribute) } ?? ""
+        let resolveWindow = {
+            element.flatMap(self.window(of:))
+                ?? focusedElement.flatMap(self.window(of:))
+                ?? self.copyAttribute(application, kAXFocusedWindowAttribute)
+        }
+        let checkedWindow = requiringWindow ? resolveWindow() : nil
+        if requiringWindow, element == nil, checkedWindow == nil { throw TextInteractionError.noFocusedElement }
         let bundleID = app.bundleIdentifier ?? ""
-        let sensitive = isSensitive(element: element, bundleID: bundleID)
-        let range = sensitive ? nil : element.flatMap(selectedRange(of:))
-        let value = sensitive ? nil : element.flatMap { normalizedValue(of: $0, selectedRange: range) }
-        let selection = sensitive ? "" : element.map { self.selectedText(of: $0, value: value, range: range) } ?? ""
+        let sensitive = OSSignposter.performance.withIntervalSignpost("secure target check") {
+            isSensitive(element: element, bundleID: bundleID)
+        }
+        guard !sensitive else { throw TextInteractionError.sensitiveTarget }
+        onSafeTarget()
+        let window = checkedWindow ?? (requiringWindow ? nil : resolveWindow())
+        let title: String = window.flatMap { copyAttribute($0, kAXTitleAttribute) } ?? ""
+        let range = element.flatMap(selectedRange(of:))
+        let value = element.flatMap { normalizedValue(of: $0, selectedRange: range) }
+        let selection = element.map { self.selectedText(of: $0, value: value, range: range) } ?? ""
         let caret = includingCaretFrame
             ? element.flatMap { element in range.flatMap { caretFrame(of: element, at: $0) } }
             : nil
@@ -144,6 +160,7 @@ final class TextInteraction: TextWriting {
             bundleID: bundleID,
             appName: app.localizedName ?? bundleID,
             windowTitle: title,
+            hasDictationTarget: element != nil || window != nil,
             windowElement: window,
             textElement: element,
             selectedRange: range,

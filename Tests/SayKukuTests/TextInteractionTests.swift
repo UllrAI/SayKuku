@@ -271,6 +271,7 @@ struct TextWriteVerificationTests {
             bundleID: "tests",
             appName: "Tests",
             windowTitle: "",
+            hasDictationTarget: window != nil || text != nil,
             windowElement: window,
             textElement: text,
             selectedRange: range,

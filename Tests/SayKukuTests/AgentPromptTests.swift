@@ -116,6 +116,7 @@ struct AgentPromptTests {
             bundleID: "com.apple.Notes",
             appName: "备忘录",
             windowTitle: "周报",
+            hasDictationTarget: false,
             windowElement: nil,
             textElement: nil,
             selectedRange: nil,

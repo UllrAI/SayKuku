@@ -26,6 +26,114 @@ struct VoiceWorkflowTests {
         }
     }
 
+    @Test("the microphone starts after the safety check, before optional target reads finish")
+    func audioStartOverlapsTargetReads() throws {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let audio = FakeAudioCapturing()
+        let text = FakeTextWriting()
+        var startedDuringCapture = false
+        text.afterSafeTarget = { startedDuringCapture = audio.startCount == 1 }
+        let state = try makeState(environment, .fake(audio: audio, text: text))
+
+        state.workflow.startDictation()
+
+        #expect(startedDuringCapture)
+    }
+
+    @Test("a double tap can promote audio while the microphone is still starting")
+    func fnTapPromotesDuringStart() async throws {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let audio = FakeAudioCapturing(startDelay: .milliseconds(100))
+        let state = try makeState(environment, .fake(audio: audio))
+
+        state.workflow.startFnTapDictation()
+        #expect(audio.startCount == 1)
+        #expect(state.workflow.promoteFnTapToAgent())
+        #expect(await eventually { state.workflow.agentPhase == .listening })
+        #expect(state.workflow.dictationPhase == .idle)
+        #expect(audio.startCount == 1)
+    }
+
+    @Test("a tap that stops while audio is starting still processes that capture")
+    func fnTapStopsDuringStart() async throws {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let audio = FakeAudioCapturing(startDelay: .milliseconds(100))
+        let state = try makeState(environment, .fake(audio: audio))
+
+        state.workflow.startFnTapDictation()
+        state.workflow.confirmFnTapDictation()
+        state.workflow.finishDictation()
+
+        #expect(await eventually { state.workflow.dictationPhase == .success })
+        #expect(audio.startCount == 1)
+    }
+
+    @Test("a desktop double tap can become Agent, while a single tap reports no dictation target")
+    func fnTapWithoutTarget() async throws {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let audio = FakeAudioCapturing()
+        let text = FakeTextWriting(snapshot: .fake(hasDictationTarget: false))
+        let state = try makeState(environment, .fake(audio: audio, text: text))
+
+        state.workflow.startFnTapDictation()
+        #expect(audio.startCount == 1)
+        #expect(state.workflow.promoteFnTapToAgent())
+        #expect(await eventually { state.workflow.agentPhase == .listening })
+
+        state.workflow.dismissAgent()
+        state.workflow.startFnTapDictation()
+        state.workflow.confirmFnTapDictation()
+        #expect(state.workflow.overlayError == TextInteractionError.noFocusedElement.localizedDescription)
+        #expect(!state.workflow.dictationIsListening)
+    }
+
+    @Test("tap mode buffers audio until its dictation mode is confirmed")
+    func fnTapDefersRealtime() async throws {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let realtime = FakeRealtime()
+        let state = try makeState(environment, .fake(realtime: realtime))
+        state.settings.qwenWorkspaceID = "llm-test"
+
+        state.workflow.startFnTapDictation()
+        try #require(await eventually { state.workflow.dictationPhase == .listening })
+        #expect(await realtime.targetApps.isEmpty)
+        state.workflow.confirmFnTapDictation()
+        for _ in 0..<100 {
+            if !(await realtime.targetApps).isEmpty { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect((await realtime.targetApps).count == 1)
+    }
+
+    @Test("an already connected dictation can promote without a stale auto-stop ending Agent")
+    func fnTapPromotesAfterRealtimeConnect() async throws {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let audio = FakeAudioCapturing()
+        let realtime = FakeRealtime()
+        let state = try makeState(environment, .fake(audio: audio, realtime: realtime))
+        state.settings.qwenWorkspaceID = "llm-test"
+
+        state.workflow.startFnTapDictation()
+        try #require(await eventually { state.workflow.dictationPhase == .listening })
+        state.workflow.confirmFnTapDictation()
+        for _ in 0..<100 {
+            if !(await realtime.targetApps).isEmpty { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        try #require((await realtime.targetApps).count == 1)
+        #expect(state.workflow.promoteFnTapToAgent())
+        await realtime.reportSpeechStopped()
+        try await Task.sleep(for: .milliseconds(20))
+        #expect(state.workflow.agentPhase == .listening)
+        #expect(audio.startCount == 1)
+    }
+
     @Test("a verified write ends in success, completes History, and can be undone")
     func dictationSucceeds() async throws {
         let environment = AppStateTestEnvironment()
