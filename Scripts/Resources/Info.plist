@@ -24,7 +24,7 @@
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0.1</string>
+    <string>1.0.2</string>
     <!-- Set by Scripts/package-app.sh from the commit count. -->
     <key>CFBundleVersion</key>
     <string>0</string>
@@ -38,5 +38,9 @@
     <string>SayKuku uses the microphone only for Voice Input, Voice Agent, and the microphone test. Audio is sent to your selected Qwen region for processing. If “Save recordings” is on, recordings stay on this Mac. Microphone test audio is never saved or uploaded.</string>
     <key>SayKukuUpdateURL</key>
     <string>https://say.anikuku.com/ver.json</string>
+    <key>SayKukuAnalyticsURL</key>
+    <string>https://track.pixmiller.com/api/send</string>
+    <key>SayKukuAnalyticsWebsiteID</key>
+    <string>d8745d55-b5c9-4ace-a137-4a90376456bf</string>
 </dict>
 </plist>

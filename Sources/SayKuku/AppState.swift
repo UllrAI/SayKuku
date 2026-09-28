@@ -51,6 +51,8 @@ final class AppState {
     let microphoneTest = MicrophoneTestController()
     /// Nil in dev builds and `swift run`, which never check for updates.
     let updateChecker: UpdateChecker?
+    /// Nil in development builds and tests.
+    let analytics: AppAnalytics?
 
     @ObservationIgnored private let reasoningClient: any Reasoning
     @ObservationIgnored private var shortcutController: ShortcutController?
@@ -100,12 +102,21 @@ final class AppState {
         reasoningClient = dependencies.reasoningClient
         systemPermissions = dependencies.systemPermissions
         updateChecker = StorageIdentity() == .release ? UpdateChecker(bundle: .main, settings: settings) : nil
+        analytics = StorageIdentity() == .release
+            ? AppAnalytics(bundle: .main, settings: settings, defaults: defaults) : nil
         launchAtLogin = SMAppService.mainApp.status == .enabled
         systemPermissions.accessibilityChangeHandler = { [weak self] in self?.refreshSystemPermissions() }
         settings.qwenConnectionChangeHandler = { [weak self] in self?.invalidateConnectionTest() }
         settings.historyRetentionChangeHandler = { [weak self] in self?.data.cleanExpiredHistory() }
         data.toastHandler = { [weak self] text, symbol in self?.showToast(text, symbol: symbol) }
         settings.globalShortcutChangeHandler = { [weak self] in self?.shortcutController?.reloadHotKeys() }
+        settings.analyticsEnabledHandler = { [weak self] in self?.analytics?.start() }
+        workflow.analyticsHandler = { [weak self] event, characters in
+            switch event {
+            case .voiceInput: self?.analytics?.completedVoiceInput(characters: characters)
+            case .voiceAgent: self?.analytics?.completedVoiceAgent(characters: characters)
+            }
+        }
         workflow.toastHandler = { [weak self] text, symbol in self?.showToast(text, symbol: symbol) }
         workflow.settingsHandler = { [weak self] section in self?.showSettings(section: section) }
         workflow.permissionGuideHandler = { [weak self] in
@@ -125,6 +136,7 @@ final class AppState {
         shortcutController = controller
         controller.start()
         updateChecker?.startPeriodicChecks()
+        analytics?.start()
         Task { await data.loadStoredData() }
         Task { @MainActor [weak self] in
             await Task.yield()

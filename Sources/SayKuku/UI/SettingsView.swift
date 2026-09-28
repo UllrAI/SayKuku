@@ -232,6 +232,13 @@ private struct PrivacySettings: View {
                 }
                 .padding(KukuLayout.rowPadding)
             }
+            KukuGroup(localized("Usage statistics")) {
+                KukuToggleRow(
+                    title: localized("Share usage statistics"),
+                    caption: localized("Sends a random installation ID, app version, completed actions, and text lengths. Umami estimates country from your IP address. Statistics never include text or audio."),
+                    isOn: $settings.analyticsEnabled
+                )
+            }
         }
     }
 }

@@ -15,6 +15,7 @@ private struct PendingExternalAction {
 @MainActor
 @Observable
 final class VoiceWorkflow {
+    enum AnalyticsEvent { case voiceInput, voiceAgent }
     enum DictationPhase: Equatable {
         case idle, listening, processing, success, copyReady
 
@@ -64,6 +65,7 @@ final class VoiceWorkflow {
     @ObservationIgnored var settingsHandler: (@MainActor (SettingsSection) -> Void)?
     /// Opens the permission guide in the main window.
     @ObservationIgnored var permissionGuideHandler: (@MainActor () -> Void)?
+    @ObservationIgnored var analyticsHandler: (@MainActor (AnalyticsEvent, Int) -> Void)?
 
     @ObservationIgnored private let settings: AppSettings
     @ObservationIgnored private let data: LocalData
@@ -277,6 +279,7 @@ final class VoiceWorkflow {
                 try await self.actionExecutor(action, engine)
                 guard generation == self.workflowGeneration else { return }
                 self.data.updateHistory(historyID, status: .completed)
+                self.analyticsHandler?(.voiceAgent, 0)
                 if let session { self.sessions = AgentSession.appending(session, to: self.sessions) }
                 self.executingActionHistoryID = nil
                 await self.showAgentResult(generation: generation)
@@ -621,10 +624,12 @@ final class VoiceWorkflow {
                 guard generation == workflowGeneration else { throw CancellationError() }
                 data.updateHistory(historyID, status: .completed)
                 presentCopyFallback(raw, agent: false)
+                analyticsHandler?(.voiceInput, raw.count)
                 await realtimeClient.cancel(session: realtimeSession)
                 return
             }
             withAnimation(Motion.spring) { dictationPhase = .success }
+            analyticsHandler?(.voiceInput, raw.count)
             try? await Task.sleep(for: Self.successDisplayDuration)
             if generation == workflowGeneration, dictationPhase == .success {
                 withAnimation(Motion.snappy) { dictationPhase = .idle }
@@ -814,6 +819,9 @@ final class VoiceWorkflow {
                 historyID, input: command, output: output,
                 status: actionToConfirm == nil ? .completed : .awaitingConfirmation
             )
+            if actionToConfirm == nil {
+                analyticsHandler?(.voiceAgent, response.action == .writeText || response.action == .answer ? output.count : 0)
+            }
             if actionToConfirm == nil, let session { sessions = AgentSession.appending(session, to: sessions) }
             if needsCopyFallback {
                 presentCopyFallback(output, agent: true, copyImmediately: settings.automaticAgentWriteBack)

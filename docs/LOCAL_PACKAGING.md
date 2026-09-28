@@ -122,7 +122,7 @@ git status --short
 
 App 的更新检查只比较 `CFBundleShortVersionString`，不看构建号，所以每次正式发布都必须提高版本号。
 
-版本号属于源代码。需要变更时应先修改、测试并提交，再生成发布包。
+版本号属于源代码。需要变更时应先修改、测试并提交，再生成发布包。提交前检查 `git diff` 和 `git diff --check`，只暂存本次 App 代码、测试、版本号与相关技术文档。官网页面和宣发素材按当次发布要求决定是否提交；即使暂不提交，也要更新并部署实际要交付的页面。
 
 先运行测试：
 
@@ -280,6 +280,18 @@ Dock 会缓存图标。换图标后看到的还是旧样子时，执行 `killall
 Scripts/release.sh
 ```
 
+脚本会拒绝任何未提交文件。若官网页面已编辑但本次暂不提交，可在运行脚本前只暂存这些页面的改动，脚本结束后立即恢复；记录并核对原有 stash，避免覆盖其他工作：
+
+```bash
+git stash list
+git stash push -m 'site copy for release' -- marketing/site/dist/
+git status --short
+Scripts/release.sh
+git stash pop
+```
+
+若脚本失败，也先恢复这次暂存的页面，再排查和重跑。新建的未跟踪页面不会被上述 `stash push` 收纳，需单独妥善保存或先完成页面改动。
+
 签名身份的选择规则、`SAYKUKU_SIGNING_IDENTITY` 和 `SAYKUKU_KEYCHAIN` 的用法与第 4 节相同。脚本任何一步失败都会立即退出，不重试，也不会等待输入。它按顺序执行：
 
 1. 前置检查：`git status --porcelain` 为空、能确定唯一的 Developer ID 签名身份、`v<版本>` 标签尚不存在、`xcrun notarytool history --keychain-profile 'SayKuku-Notary'` 能正常执行、没有已挂载的 `/Volumes/SayKuku`。
@@ -289,7 +301,7 @@ Scripts/release.sh
 5. 把 App 压成公证 ZIP 提交 Apple，然后 `stapler staple`、`stapler validate`，并要求 `spctl` 输出 `source=Notarized Developer ID`。先装订 App，用户从 DMG 拖出来的那份 App 才自带票据，离线首次打开也能通过 Gatekeeper。
 6. 内部调用 `Scripts/make-dmg.sh`：只接受已公证的 App，用同一个 Developer ID 身份制作并签名 DMG，再提交公证、装订、执行 Gatekeeper 和镜像校验。全部成功后才把 DMG 放到 `Dist/` 并输出 SHA-256（见下文“DMG 安装窗口”）。
 7. 生成 `Dist/ver.json`：`version` 为本次版本号，`url` 为 `https://say.anikuku.com/download/`，`notes` 留空供手工填写。
-8. 给构建时的提交打 `v<版本>` 标签。脚本不会推送，确认产物无误后手动执行 `git push origin v<版本>`。
+8. 给构建时的提交打 `v<版本>` 标签。脚本不会推送；完成产物与线上验证后，推送代码提交和标签。
 
 任一次公证状态不是 `Accepted`，脚本都会打印 `notarytool log` 后退出，并保留 `Build/notarization-SayKuku-<版本>-notarization.json`（App）或 `Build/notarization-SayKuku-<版本>.json`（DMG）供排查，里面有 submission `id`。成功后会清理这两个过程文件和提交 Apple 用的 ZIP；一次发布要公证两次，通常共需几分钟到十几分钟。
 
@@ -311,7 +323,7 @@ Scripts/release.sh
      --file "Dist/SayKuku-${VERSION}.dmg" --content-type application/x-apple-diskimage --remote
    ```
 
-2. 确认公开 DMG 可下载且哈希与本机一致。把官网 `marketing/site/dist/download/` 与 `marketing/site/dist/en/download/` 的版本号与 DMG 链接更新为本次版本；在 `Dist/ver.json` 的 `notes` 中填写更新说明，并将相同内容写入 `marketing/site/dist/ver.json`。用 `python3 -m json.tool` 校验两个 JSON，然后部署官网。
+2. 确认公开 DMG 可下载且哈希与本机一致。把官网 `marketing/site/dist/download/` 与 `marketing/site/dist/en/download/` 的版本号、DMG 链接、实际文件大小和 SHA-256 更新为本次版本；同步更新其他显示当前版本的页面。在 `Dist/ver.json` 的 `notes` 中填写更新说明，并将相同内容写入 `marketing/site/dist/ver.json`。用 `python3 -m json.tool` 校验两个 JSON，确认内容一致，再按 `marketing/site/README.md` 中记录的 Zeabur 项目与服务部署 `marketing/site/dist`。
 
 3. 官网 `https://say.anikuku.com/ver.json` 可访问后，把同一份 `ver.json` 上传到 R2 根目录，供 1.0.0 等旧版读取：
 
@@ -322,6 +334,15 @@ Scripts/release.sh
    ```
 
 一定要等 DMG 可以下载且官网版本区可访问后再上传 `ver.json`：已安装的 App 读到更新版本后会打开 `url` 指向的官网。`ver.json` 的格式：
+
+发布结束后，逐项核对两个下载页的版本、链接、大小和哈希，`https://say.anikuku.com/ver.json` 与 `https://saykuku.ullrai.com/ver.json` 的版本与内容，以及公开 DMG 的 SHA-256；再推送发布提交和标签：
+
+```bash
+git push origin HEAD
+git push origin "v${VERSION}"
+```
+
+最后检查 `git status --short`，确认留下的只有本次明确不提交的官网或宣发改动，并保留 `Dist/` 中的 DMG、dSYM 和 `ver.json`。
 
 ```json
 {

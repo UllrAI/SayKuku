@@ -5789,6 +5789,39 @@
         }
       }
     },
+    "Sends a random installation ID, app version, completed actions, and text lengths. Umami estimates country from your IP address. Statistics never include text or audio." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "发送随机安装标识、App 版本、完成的操作及文本字符数。Umami 根据 IP 地址估计国家；统计不包含文字内容或音频。"
+          }
+        }
+      }
+    },
+    "Share usage statistics" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "发送使用统计"
+          }
+        }
+      }
+    },
+    "Usage statistics" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用统计"
+          }
+        }
+      }
+    },
     "“%@” is already in Memory" : {
       "extractionState" : "manual",
       "localizations" : {

@@ -56,6 +56,12 @@ final class AppSettings {
     var automaticUpdateChecks = true {
         didSet { defaults.set(automaticUpdateChecks, forKey: Keys.automaticUpdateChecks) }
     }
+    var analyticsEnabled = true {
+        didSet {
+            defaults.set(analyticsEnabled, forKey: Keys.analyticsEnabled)
+            if analyticsEnabled { analyticsEnabledHandler?() }
+        }
+    }
     private(set) var showInMenuBar = true { didSet { defaults.set(showInMenuBar, forKey: Keys.showInMenuBar) } }
     var hideDockIconAfterMainWindowCloses = false {
         didSet {
@@ -90,6 +96,7 @@ final class AppSettings {
     @ObservationIgnored var qwenConnectionChangeHandler: (@MainActor () -> Void)?
     @ObservationIgnored var historyRetentionChangeHandler: (@MainActor () -> Void)?
     @ObservationIgnored var globalShortcutChangeHandler: (@MainActor () -> Void)?
+    @ObservationIgnored var analyticsEnabledHandler: (@MainActor () -> Void)?
 
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let keychain: KeychainStore
@@ -199,6 +206,7 @@ final class AppSettings {
         screenTextAllowed = storedBool(Keys.screenText, default: true)
         storeVoiceAudio = storedBool(Keys.storeVoiceAudio, default: true)
         automaticUpdateChecks = storedBool(Keys.automaticUpdateChecks, default: true)
+        analyticsEnabled = storedBool(Keys.analyticsEnabled, default: true)
         showInMenuBar = storedBool(Keys.showInMenuBar, default: true)
         hideDockIconAfterMainWindowCloses = storedBool(Keys.hideDockIconAfterMainWindowCloses, default: false)
         // Earlier builds hard-coded ⇧⌘D / ⇧⌘A without saving them, so upgrades start from the new defaults.
@@ -235,6 +243,7 @@ final class AppSettings {
         static let voiceInputShortcut = "shortcuts.voiceInput", voiceAgentShortcut = "shortcuts.voiceAgent"
         static let realtimeModelUpgraded = "qwen.realtimeModelUpgradedToQwen38"
         static let automaticUpdateChecks = "updates.automaticChecks", skippedUpdateVersion = "updates.skippedVersion"
+        static let analyticsEnabled = "analytics.enabled"
     }
 }
 

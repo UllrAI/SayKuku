@@ -36,6 +36,7 @@ open Build/SayKuku.app
 
 - [产品与实现说明](SayKuku.md)：功能范围、交互、数据模型和当前实现状态。
 - [本地打包与发布](docs/LOCAL_PACKAGING.md)：Release 构建、Developer ID 签名、发布脚本、公证、装订、DMG 和 dSYM。
+- [Mac App 使用统计](docs/APP_ANALYTICS.md)：Umami 事件、指标口径和隐私边界。
 - [写入兼容性实测](docs/COMPATIBILITY.md)：各应用的插入路径、校验、撤销、纠错检测结果和 Fn 到 Pill 延迟，以及真机测试步骤。
 - [中英混说评测](docs/MIXED_LANGUAGE_EVAL.md)：听写 Prompt 的固定评测集、评测脚本和结果解读；改动 Prompt 后必须重跑。
 - [Agent 协作约定](AGENTS.md)：代码修改、测试、Keychain、权限和发布约束。
@@ -47,6 +48,8 @@ SayKuku 只在语音输入、语音 Agent 和麦克风测试时使用麦克风�
 Qwen API Key 保存在这台 Mac 的钥匙串中；输入历史、记忆、纠正建议和可选录音以 JSON 与 WAV 文件保存在本机，不额外加密；Voice Agent 的最近对话只在内存里，退出即清除。不想留下输入历史时，可在“设置 → 历史”中选择“不保存”，此后不再记录新的历史和录音。焦点在密码输入框（含系统安全输入状态）或已知密码管理器（1Password、Bitwarden、LastPass、Dashlane、KeePassXC、钥匙串访问、“密码”）中时，SayKuku 不会开始录音，也不读取或写入内容。无痕浏览窗口不会被单独识别，与普通窗口同样处理。
 
 1.0.1 起正式版启动后和之后每 24 小时，会向 `say.anikuku.com` 请求一次版本号文件，请求不含任何个人数据；旧版仍使用 `saykuku.ullrai.com`。可在“设置 → 通用”中关闭“自动检查更新”。开发版不检查更新。
+
+正式版使用自部署的 Umami 统计首次观测到的安装实例、启动、每日实际使用、语音输入及 Voice Agent 完成次数与最终文本字符数。App 会发送随机安装 ID、版本号和固定事件名称；Umami 由请求来源推断大致国家。不会发送语音、文字内容、窗口标题、网页地址或 API Key。统计默认开启，可在“设置 → 隐私 → 使用统计”中关闭；开发版和测试不发送。这里的“安装”指首次运行并成功上报的安装实例，不等于 DMG 下载或自然人数量。
 
 ## 发布
 
