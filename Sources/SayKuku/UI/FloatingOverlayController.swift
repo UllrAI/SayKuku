@@ -162,6 +162,10 @@ private struct FloatingSystemOverlay: View {
             } else if let error = appState.workflow.overlayError {
                 OverlayNotice(message: error)
                     .transition(.scale(scale: 0.94, anchor: .bottom).combined(with: .opacity))
+            } else if appState.workflow.agentPhase == .listening
+                || appState.workflow.dictationPhase == .listening {
+                RecordingPill()
+                    .transition(.scale(scale: 0.94, anchor: .bottom).combined(with: .opacity))
             } else if appState.workflow.agentPhase != .hidden {
                 AgentPill()
                     .transition(.scale(scale: 0.94, anchor: .bottom).combined(with: .opacity))

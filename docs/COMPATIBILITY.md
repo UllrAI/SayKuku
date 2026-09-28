@@ -67,13 +67,13 @@
 
 每格填 P95，单位 ms。
 
-| 应用 | 麦克风类型 | captureTarget | audio start | realtime connect | Fn→Pill 总计 |
-| --- | --- | --- | --- | --- | --- |
-| TextEdit | 内建 | 待测 | 待测 | 待测 | 待测 |
-| TextEdit | 蓝牙 | 待测 | 待测 | 待测 | 待测 |
-| Notes | 内建 | 待测 | 待测 | 待测 | 待测 |
+| 应用 | 麦克风类型 | captureTarget | secure target check | audio start | realtime connect | Fn→Pill 总计 |
+| --- | --- | --- | --- | --- | --- | --- |
+| TextEdit | 内建 | 待测 | 待测 | 待测 | 待测 | 待测 |
+| TextEdit | 蓝牙 | 待测 | 待测 | 待测 | 待测 | 待测 |
+| Notes | 内建 | 待测 | 待测 | 待测 | 待测 | 待测 |
 | Mail（写邮件正文） | 内建 | 待测 | 待测 | 待测 | 待测 |
-| Safari（网页 textarea） | 内建 | 待测 | 待测 | 待测 | 待测 |
+| Safari（网页 textarea） | 内建 | 待测 | 待测 | 待测 | 待测 | 待测 |
 | Safari（网页 textarea） | 蓝牙 | 待测 | 待测 | 待测 | 待测 |
 | Chrome（网页 textarea） | 内建 | 待测 | 待测 | 待测 | 待测 |
 | Slack（消息输入框） | 内建 | 待测 | 待测 | 待测 | 待测 |
@@ -85,7 +85,8 @@
 各列对应的 signpost 区间（subsystem 是 Bundle ID，category 是 `Performance`）：
 
 - **captureTarget**：主线程读取目标 App 的焦点元素、窗口和文本框。
-- **audio start**：在采集队列上新建音频引擎并 `prepare`、`start`，和 captureTarget 同时进行。
+- **secure target check**：读取焦点元素的安全角色和子角色；与 captureTarget 重叠，用于单独判断密码框检查耗时。
+- **audio start**：确认焦点不是安全输入后，在采集队列上新建音频引擎并 `prepare`、`start`；与 captureTarget 后续读取窗口标题、文本、选区和位置，以及 Voice Agent 上下文采集重叠。Tap 模式在双击窗口结束后才确认听写目标。
 - **realtime connect**：Pill 出现后建立 Realtime 连接，不计入 Fn→Pill；连上之前录到的音频先缓冲，不会丢。没填业务空间 ID 时听写走整段识别，没有这一段。
 - **Fn→Pill 总计**：区间 `Fn to Pill`，从手势或快捷键触发语音输入，到 Pill 切到「正在听」。按住 Fn 时要先等 150 ms 才算按住，这 150 ms 不在区间内。
 
@@ -94,5 +95,7 @@
 1. 按上文「如何跑」第 1 步构建并启动开发包（subsystem 是 `com.saykuku.dev`），并在「设置 › Qwen 连接」填好业务空间 ID。测蓝牙那几行前，先在「系统设置 › 声音 › 输入」里切到蓝牙耳机。
 2. 打开 Instruments，选 **Blank** 模板，点右上角 **+** 加入 **os_signpost** 工具，目标选正在运行的 SayKuku，开始录制。
 3. 在目标应用的输入框里按住 Fn，说一句话再松开，重复十次；每次等 Pill 消失再按下一次。
-4. 停止录制。选中 os_signpost 轨道，在下方详情里切到 **Summary: Intervals**，找到 subsystem `com.saykuku.dev`、category `Performance` 下的 `captureTarget`、`audio start`、`realtime connect` 和 `Fn to Pill`，确认每个的 Count 是 10。
+4. 停止录制。选中 os_signpost 轨道，在下方详情里切到 **Summary: Intervals**，找到 subsystem `com.saykuku.dev`、category `Performance` 下的 `captureTarget`、`secure target check`、`audio start`、`realtime connect` 和 `Fn to Pill`，确认每个的 Count 是 10。
 5. 十个样本按最近秩法取 P95 就是最大值，所以每格填 **Max Duration**。连同测试日期、macOS 版本和提交哈希一起填表并提交。
+
+测 Tap 模式时，改为第一次快速单击启动，超过 450 ms 后第二次单击结束；把结果另记，避免与上表的 Hold 样本混算。双击测试还应确认切到 Agent 后录音没有重新启动，Pill 不会消失再出现。

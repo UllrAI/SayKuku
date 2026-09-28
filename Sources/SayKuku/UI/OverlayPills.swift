@@ -39,15 +39,73 @@ extension VoiceWorkflow.DictationPhase {
     }
 }
 
-struct AgentPill: View {
+/// Keeps the same pill on screen when a second Fn tap turns dictation into Agent.
+struct RecordingPill: View {
     @Environment(AppState.self) private var appState
     @State private var showingContext = false
 
+    private var isAgent: Bool { appState.workflow.agentPhase == .listening }
+    private var width: CGFloat {
+        KukuPillLayout.width(for: localized("Listening…"), minimum: 208, fixedContentWidth: 140)
+    }
+
+    var body: some View {
+        HStack(spacing: KukuSpacing.sm) {
+            PillCancelButton(
+                label: isAgent ? localized("Cancel Voice Agent") : localized("Cancel Voice Input"),
+                action: isAgent ? appState.workflow.dismissAgent : appState.workflow.cancelDictation
+            )
+
+            HStack(spacing: KukuSpacing.xs) {
+                if isAgent {
+                    Button { showingContext.toggle() } label: {
+                        Image(systemName: "sparkle")
+                            .font(.kukuIcon(.regular, weight: .semibold))
+                            .foregroundStyle(KukuColor.coral)
+                            .frame(width: 16, height: 22)
+                    }
+                    .buttonStyle(.plain)
+                    .transition(.opacity)
+                    .accessibilityLabel(localized("Review what’s sent"))
+                    .help(localized("Review what’s sent"))
+                    .popover(isPresented: $showingContext, arrowEdge: .bottom) {
+                        AgentContextPopover()
+                    }
+                } else {
+                    Color.clear.frame(width: 16, height: 22)
+                        .accessibilityHidden(true)
+                }
+
+                Waveform(color: KukuColor.coral, level: appState.workflow.inputLevel, barCount: 5, height: 15)
+                    .frame(width: 22)
+            }
+
+            Text(localized("Listening…"))
+                .font(.kuku(.callout, weight: .semibold))
+                .foregroundStyle(KukuColor.textPrimary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+
+            Spacer(minLength: 0)
+
+            PillConfirmButton(
+                label: isAgent ? localized("Stop recording and run") : localized("Stop recording and insert"),
+                action: isAgent ? appState.workflow.finishAgentListening : appState.workflow.finishDictation
+            )
+        }
+        .padding(.horizontal, KukuSpacing.sm)
+        .frame(width: width)
+        .frame(minHeight: KukuLayout.pillHeight)
+        .kukuGlassPill()
+        .animation(Motion.snappy, value: isAgent)
+    }
+}
+
+struct AgentPill: View {
+    @Environment(AppState.self) private var appState
     private var width: CGFloat {
         switch appState.workflow.agentPhase {
-        case .hidden: 0
-        case .listening:
-            KukuPillLayout.width(for: appState.workflow.agentCommand, minimum: 168, fixedContentWidth: 140)
+        case .hidden, .listening: 0
         case .copyReady:
             CopyFallbackContent.width(appState.workflow)
         case .answerReady:
@@ -69,48 +127,6 @@ struct AgentPill: View {
         HStack(spacing: KukuSpacing.sm) {
             if appState.workflow.agentPhase == .copyReady {
                 CopyFallbackContent()
-            } else if appState.workflow.agentPhase == .listening {
-                PillCancelButton(
-                    label: localized("Cancel Voice Agent"),
-                    action: appState.workflow.dismissAgent
-                )
-
-                // Fixed-size glyphs below are counted in the listening `fixedContentWidth`.
-                HStack(spacing: KukuSpacing.xs) {
-                    Button { showingContext.toggle() } label: {
-                        Image(systemName: "doc.text.magnifyingglass")
-                            .font(.kukuIcon(.small, weight: .semibold))
-                            .foregroundStyle(KukuColor.textSecondary)
-                            .frame(width: 16, height: 22)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(localized("Review what’s sent"))
-                    .help(localized("Review what’s sent"))
-                    .popover(isPresented: $showingContext, arrowEdge: .bottom) {
-                        AgentContextPopover()
-                    }
-
-                    Waveform(
-                        color: KukuColor.coral,
-                        level: appState.workflow.inputLevel,
-                        barCount: 5,
-                        height: 15
-                    )
-                    .frame(width: 22)
-                }
-
-                Text(appState.workflow.agentCommand)
-                    .font(.kuku(.callout, weight: .semibold))
-                    .foregroundStyle(KukuColor.textPrimary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-
-                Spacer(minLength: 0)
-
-                PillConfirmButton(
-                    label: localized("Stop recording and run"),
-                    action: appState.workflow.finishAgentListening
-                )
             } else if appState.workflow.agentPhase == .transcribing || appState.workflow.agentPhase == .processing {
                 AgentActivityIndicator()
                 Text(status)
@@ -296,9 +312,7 @@ struct DictationPill: View {
 
     private var width: CGFloat {
         switch appState.workflow.dictationPhase {
-        case .idle: 0
-        case .listening:
-            KukuPillLayout.width(for: status, minimum: 160, fixedContentWidth: 135, maximum: 340)
+        case .idle, .listening: 0
         case .copyReady:
             CopyFallbackContent.width(appState.workflow)
         case .processing:
@@ -325,19 +339,7 @@ struct DictationPill: View {
             case .idle:
                 EmptyView()
             case .listening:
-                PillCancelButton(
-                    label: localized("Cancel Voice Input"),
-                    action: appState.workflow.cancelDictation
-                )
-                Waveform(color: KukuColor.coral, level: appState.workflow.inputLevel, barCount: 6, height: 16)
-                Text(status)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                Spacer(minLength: 0)
-                PillConfirmButton(
-                    label: localized("Stop recording and insert"),
-                    action: appState.workflow.finishDictation
-                )
+                EmptyView()
             case .processing:
                 ProgressView().controlSize(.small)
                 Text(transcriptLabel)

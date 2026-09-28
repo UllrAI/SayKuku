@@ -254,20 +254,20 @@ Voice Agent
 ```text
 第一次 Fn
     ↓
-Tap Pending ≈ 220–280ms
+确认不是安全输入后立即开始采音
     │
-    ├─ 没有第二次 Fn
+    ├─ 约 450ms 内没有第二次 Fn
     │       ↓
-    │   Voice Input
+    │   确认 Voice Input，开始 Realtime 连接
     │
-    └─ 出现第二次 Fn
+    └─ 约 450ms 内出现第二次 Fn
             ↓
-        Voice Agent
+        同一段录音切换为 Voice Agent
 ```
 
 用户体验上不应该显示“等待双击”。
 
-确定进入 Voice Input 后直接显示 Listening 与输入电平波形，不暴露短暂的内部准备状态。当前 Manual Realtime 流程在停止录音并提交后才接收文本 delta，因此识别文本在 Processing 阶段增量显示，不宣称边说边出字。
+麦克风启动后直接显示 Listening 与输入电平波形，不暴露短暂的内部准备状态。双击切换 Agent 不重新启动麦克风，录音 Pill 保持在原位并继续显示 Listening，通过上下文按钮和结束操作区分模式；确认是单击前，音频留在内存且不建立 Realtime 连接。当前 Manual Realtime 流程在停止录音并提交后才接收文本 delta，因此识别文本在 Processing 阶段增量显示，不宣称边说边出字。
 
 输入结束可以：
 
@@ -303,9 +303,9 @@ Voice workflow
 
 * 用户按下 `Fn + ←/→`、`Fn + F1…F12` 或其他组合键时，立即取消语音手势；如果已经开始 Dictation，则停止并丢弃本次录音。
 * 录音或处理中按 Esc 取消本次 Voice Input 或 Voice Agent。monitor 只观察按键，Esc 仍会传给当前 App；其他时候不响应 Esc，避免用户在当前 App 里按 Esc 时误关已完成的结果卡片。
-* 快速单击未形成双击时，才按所选模式开始 Dictation。
+* Tap 模式第一次快速单击立即开始采音；约 450 ms 后确认 Dictation，第二次快速单击沿用录音切换 Agent。
 * Hold 模式中第二次 Fn 进入 Agent 后，不得同时触发 Dictation。
-* Tap Dictation 已在录音时，单击 Fn 优先结束当前录音，不再进入双击判断。
+* Tap Dictation 确认后，下一次单击 Fn 结束录音；双击窗口内的第二次单击优先切换 Agent。
 * Processing 期间再次触发时，默认取消上一次未提交任务，再开始新任务。
 * Accessibility 被撤销、全局 monitor 失效、睡眠唤醒后，应恢复监听或给出明确错误。
 * 外接键盘不产生 Fn 事件时，必须提供普通全局快捷键作为 fallback。
