@@ -284,7 +284,7 @@ Scripts/release.sh
 
 ```bash
 git stash list
-git stash push -m 'site copy for release' -- marketing/site/dist/
+git stash push -m 'site copy for release' -- marketing/site/dist/ marketing/site/README.md
 git status --short
 Scripts/release.sh
 git stash pop
