@@ -20,7 +20,7 @@ Umami 中已建立目标「安装包下载点击」，条件为 `installer_downl
 
 官网只在 `say.anikuku.com` 上发送事件，本机预览不会污染数据。浏览器的 DNT 设置会被尊重。`assets/analytics.js` 在发送前移除 URL 查询参数，只保留值为简短字母、数字、下划线或连字符的五种 UTM 参数，并去掉片段及来源 URL 的查询参数。事件只使用固定枚举和静态资源名，不采集演示文字、录音、API Key 或邮件内容。官网隐私说明在 `/privacy/` 同步披露 Umami。
 
-发布稿可使用 `utm_source`、`utm_medium`、`utm_campaign=launch_101`，同平台不同稿件用 `utm_content` 区分。X、V2EX、公众号与 Product Hunt 发布稿已加入对应参数；朋友圈、小红书和微博的可见短网址保持简洁，访问来源可从 Umami 的来源报告查看，缺失来源的流量不能强行归因。
+发布稿可使用 `utm_source`、`utm_medium`、`utm_campaign=launch_102`，同平台不同稿件用 `utm_content` 区分。X、V2EX、公众号与 Product Hunt 发布稿已加入对应参数；朋友圈、小红书和微博的可见短网址保持简洁，访问来源可从 Umami 的来源报告查看，缺失来源的流量不能强行归因。
 
 ## 核验
 

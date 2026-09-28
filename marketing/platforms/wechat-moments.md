@@ -1,15 +1,15 @@
 # 朋友圈文案
 
-配图：`../assets/generated/wechat-cover.png`。熟人关系里讲自己为什么做，少用广告语；下载指向官网版本区，别把网页演示当成真实识别。
+配图：`../assets/generated/wechat-cover.png`。熟人关系里讲自己为什么做；官网演示是预设内容。
 
 ## 首发
 
-最近在做一个 Mac 小工具 SayKuku。写消息时，我经常一句话已经想好了，手还在敲第一个词，所以做了个很直接的入口：按 Fn，说完写进当前输入框。
+之前用 Typeless，额度降低后试了几个替代品，还是不太顺手，就 Vibe Coding 了一个自己用的 Mac 语音工具 SayKuku。
 
-连按两次 Fn 是 Voice Agent。选中文字可以说“短一点”“翻成英文”，也可以直接提问、接着聊。官网有不用麦克风的交互演示，也能下载 1.0.1 Mac 版：say.anikuku.com。
+按 Fn 说话，文字尝试写到当前光标；连按两次 Fn，可以让 Voice Agent 改写、翻译或回答问题。原生 macOS App，1.0.2 安装包只有 4.8 MB。
 
-它只支持 macOS 15+，目前要自己配模型 API Key，语音需要云端处理。你平时最想在哪个 App 里用这种操作？
+App 免费，使用时自己配 Qwen API Key，模型费用走自己的账号，通常很低。代码整理好后计划开源。下载和预设交互演示在 say.anikuku.com。想听听你们在哪个 App 里最需要语音输入。
 
 ## 极短版
 
-做了 SayKuku：Mac 上 Fn 说话输入，Fn Fn 唤起 Voice Agent。say.anikuku.com 有网页演示，也能下载 1.0.1；你最想在哪个 App 里用？
+Typeless 降低额度后，我 Vibe Coding 了 SayKuku：原生 Mac 语音输入，Fn 说话、Fn Fn 改写；安装包 4.8 MB。App 免费，自备 Qwen API Key，后续计划开源。say.anikuku.com
