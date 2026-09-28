@@ -19,7 +19,7 @@ Typeless 降低额度后，我 Vibe Coding 了一个 4.8 MB 的原生 Mac 语音
 
 这是用 SwiftUI 和 AppKit 做的 macOS 15+ 原生 App，1.0.2 的通用 DMG 是 4.8 MB，同时支持 Apple 芯片和 Intel Mac。Fn 手势、选区读取与跨 App 写回依赖辅助功能；写回前会核对目标。不同 App 的文本控件行为不一样，遇到不能写入或焦点跑掉的情况，欢迎告诉我 App 名称和复现步骤。
 
-App 免费。当前用 Qwen3.8 Omni Flash 系列直接处理语音和指令，不走「先纯 ASR、再交给另一模型」的固定两段流程。需要自己配置阿里云百炼 API Key，音频会发送到所选地域，模型调用由自己的账号计费。按官方当前北京地域单价，默认实时模型的 **1 小时音频输入约 0.15 元**；输出文字、其他请求和地域差异另计，实际以账单为准。历史、记忆和可选录音留在本机，本地文件没有额外加密。代码整理好后计划开源，目前还没有开源许可。
+App 免费。当前用 Qwen3.8 Omni Flash 系列直接处理语音和指令，不走「先纯 ASR、再交给另一模型」的固定两段流程。需要自己配置阿里云百炼 API Key，音频会发送到所选地域，模型调用由自己的账号计费。按官方当前北京地域单价，默认实时模型的 **1 小时音频输入约 0.15 元**；输出文字、其他请求和地域差异另计，实际以账单为准。历史、记忆和可选录音留在本机，本地文件没有额外加密。源代码采用 Apache-2.0 许可，待仓库公开后开放下载。
 
 - [下载 SayKuku 1.0.2](https://say.anikuku.com/download/?utm_source=v2ex&utm_medium=community&utm_campaign=launch_102&utm_content=download)
 - [配置指南](https://say.anikuku.com/guide/?utm_source=v2ex&utm_medium=community&utm_campaign=launch_102&utm_content=guide)

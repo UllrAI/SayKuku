@@ -59,4 +59,4 @@ App 不在内部下载或安装更新：1.0.1 起正式版读取 `https://say.an
 
 ## License
 
-仓库当前未提供 `LICENSE` 文件。在明确授权前，不应假定代码可按开源许可证复制、再分发或用于衍生项目。
+源代码采用 [Apache License 2.0](LICENSE) 授权。第三方图标的许可说明见 `Scripts/Resources/Licenses/Lucide.txt`。

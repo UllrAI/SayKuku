@@ -315,21 +315,23 @@ git stash pop
 
 脚本不修改 `CFBundleShortVersionString`，也不上传任何产物。确认产物无误后按顺序手动发布：
 
-1. 把已验证的 DMG 上传到 Cloudflare R2 的 `saykuku` bucket；公开域名是 `saykuku.ullrai.com`：
+1. 从仅保存在本机的 `~/.config/saykuku/deploy.env` 读取 Cloudflare 账号 ID，把已验证的 DMG 上传到 Cloudflare R2 的 `saykuku` bucket；公开域名是 `saykuku.ullrai.com`：
 
    ```bash
-   CLOUDFLARE_ACCOUNT_ID=CLOUDFLARE_ACCOUNT_ID \
-     wrangler r2 object put "saykuku/SayKuku-${VERSION}.dmg" \
+   source "$HOME/.config/saykuku/deploy.env"
+   : "${CLOUDFLARE_ACCOUNT_ID:?}"
+   wrangler r2 object put "saykuku/SayKuku-${VERSION}.dmg" \
      --file "Dist/SayKuku-${VERSION}.dmg" --content-type application/x-apple-diskimage --remote
    ```
 
-2. 确认公开 DMG 可下载且哈希与本机一致。把官网 `marketing/site/dist/download/` 与 `marketing/site/dist/en/download/` 的版本号、DMG 链接、实际文件大小和 SHA-256 更新为本次版本；同步更新其他显示当前版本的页面。在 `Dist/ver.json` 的 `notes` 中填写更新说明，并将相同内容写入 `marketing/site/dist/ver.json`。用 `python3 -m json.tool` 校验两个 JSON，确认内容一致，再按 `marketing/site/README.md` 中记录的 Zeabur 项目与服务部署 `marketing/site/dist`。
+2. 确认公开 DMG 可下载且哈希与本机一致。把官网 `marketing/site/dist/download/` 与 `marketing/site/dist/en/download/` 的版本号、DMG 链接、实际文件大小和 SHA-256 更新为本次版本；同步更新其他显示当前版本的页面。在 `Dist/ver.json` 的 `notes` 中填写更新说明，并将相同内容写入 `marketing/site/dist/ver.json`。用 `python3 -m json.tool` 校验两个 JSON，确认内容一致，再按 `marketing/site/CLAUDE.md` 中的步骤部署 `marketing/site/dist`。
 
 3. 官网 `https://say.anikuku.com/ver.json` 可访问后，把同一份 `ver.json` 上传到 R2 根目录，供 1.0.0 等旧版读取：
 
    ```bash
-   CLOUDFLARE_ACCOUNT_ID=CLOUDFLARE_ACCOUNT_ID \
-     wrangler r2 object put saykuku/ver.json --file Dist/ver.json \
+   source "$HOME/.config/saykuku/deploy.env"
+   : "${CLOUDFLARE_ACCOUNT_ID:?}"
+   wrangler r2 object put saykuku/ver.json --file Dist/ver.json \
      --content-type application/json --cache-control 'no-cache' --remote
    ```
 

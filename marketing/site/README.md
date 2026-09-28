@@ -1,6 +1,6 @@
 # SayKuku 官网
 
-主域名：<https://say.anikuku.com/>。页面以用户提供的 `~/Downloads/SayKuku.html` 为视觉与交互基准，源码在仓库的 `dist/`，部署到 Zeabur 时以该目录为站点根。`CLAUDE.md` 记录已有项目与服务 ID，后续部署必须复用服务。
+主域名：<https://say.anikuku.com/>。页面以用户提供的 `~/Downloads/SayKuku.html` 为视觉与交互基准，源码在仓库的 `dist/`，部署到 Zeabur 时以该目录为站点根。部署标识只保存在本机，后续部署必须复用服务；步骤见 `CLAUDE.md`。
 
 ## 页面
 
