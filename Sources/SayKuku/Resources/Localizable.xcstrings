@@ -1741,6 +1741,17 @@
         }
       }
     },
+    "Email Feedback…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "邮件反馈…"
+          }
+        }
+      }
+    },
     "Enable" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3901,17 +3912,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "现在重新打开"
-          }
-        }
-      }
-    },
-    "Report a Problem…" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "反馈问题…"
           }
         }
       }

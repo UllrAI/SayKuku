@@ -41,12 +41,9 @@ struct SayKukuApp: App {
             CommandMenu(localized("Voice")) {
                 VoiceMenuItems(appState: appState)
             }
-            // There is no help book, so the Help menu points to the issue tracker instead.
             CommandGroup(replacing: .help) {
-                Button(localized("Report a Problem…")) {
-                    if let url = URL(string: "https://github.com/UllrAI/SayKuku/issues") {
-                        NSWorkspace.shared.open(url)
-                    }
+                Button(localized("Email Feedback…")) {
+                    composeFeedbackEmail()
                 }
             }
         }
@@ -288,6 +285,10 @@ private struct MenuBarContent: View {
         }
         .keyboardShortcut(",", modifiers: .command)
 
+        Button(localized("Email Feedback…")) {
+            composeFeedbackEmail()
+        }
+
         Divider()
 
         shortcutStatusItem
@@ -326,6 +327,12 @@ private struct MenuBarContent: View {
         appState.registerSettingsOpener(openSettings)
         appState.showSettings(section: section)
     }
+}
+
+@MainActor
+private func composeFeedbackEmail() {
+    guard let url = URL(string: "mailto:saykuku@ullrai.com?subject=SayKuku%20Feedback") else { return }
+    NSWorkspace.shared.open(url)
 }
 
 /// Manual update check for the app menu; hidden in dev builds.
