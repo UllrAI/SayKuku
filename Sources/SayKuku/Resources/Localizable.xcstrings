@@ -34,6 +34,26 @@
         }
       }
     },
+    "%lld / 300 characters" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld / 300 character" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld / 300 characters" } }
+            }
+          }
+        },
+        "zh-Hans" : {
+          "variations" : {
+            "plural" : {
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "已输入 %lld / 300 字" } }
+            }
+          }
+        }
+      }
+    },
     "%lld characters" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -239,6 +259,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "名称里要有文字或数字"
+          }
+        }
+      }
+    },
+    "Add App…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加应用…"
+          }
+        }
+      }
+    },
+    "Add another app" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加其他应用"
           }
         }
       }
@@ -515,6 +557,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已复制回答"
+          }
+        }
+      }
+    },
+    "App-specific formatting" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "应用专属格式"
           }
         }
       }
@@ -801,6 +854,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "切换到“全部”查看其他条目。"
+          }
+        }
+      }
+    },
+    "Choose Application…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择应用…"
           }
         }
       }
@@ -1391,6 +1455,17 @@
         }
       }
     },
+    "Current global value: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当前全局值：%@"
+          }
+        }
+      }
+    },
     "Custom vocabulary" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1477,6 +1552,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "保留星标，删除其余"
+          }
+        }
+      }
+    },
+    "Delete this app rule" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除此应用规则"
           }
         }
       }
@@ -1818,6 +1904,39 @@
         }
       }
     },
+    "Example: Write naturally in chat and keep tone particles; break long sentences by meaning." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "例如：聊天时自然口语一些，保留语气词；长句按意思分段。"
+          }
+        }
+      }
+    },
+    "Expression preference" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "表达偏好"
+          }
+        }
+      }
+    },
+    "Expression preference (optional)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "表达偏好（可选）"
+          }
+        }
+      }
+    },
     "Filtered sensitive info" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1917,6 +2036,17 @@
         }
       }
     },
+    "Follow global (current: %@)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "跟随全局（当前：%@）"
+          }
+        }
+      }
+    },
     "Follow the cursor" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1957,6 +2087,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "永久"
+          }
+        }
+      }
+    },
+    "Formatting" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "格式"
           }
         }
       }
@@ -2358,6 +2499,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "国际（新加坡）"
+          }
+        }
+      }
+    },
+    "Items not set for an app follow the global settings above." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未单独设置的项目沿用上方全局设置。"
           }
         }
       }
@@ -2887,6 +3039,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "不再记录新内容，已有记录会保留到你手动清空"
+          }
+        }
+      }
+    },
+    "No app rules yet" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暂无应用规则"
           }
         }
       }
@@ -4279,6 +4442,17 @@
         }
       }
     },
+    "Sent to Qwen with new Voice Input requests for this app. It cannot change the spoken meaning or override a formatting setting." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此应用的新语音输入请求会将这段文字发送给 Qwen。它不能改变原意或覆盖明确的格式设置。"
+          }
+        }
+      }
+    },
     "Separate aliases with commas" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5410,6 +5584,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "原样"
+          }
+        }
+      }
+    },
+    "Verbatim keeps the spoken words. App tone has no effect; expression preference can only affect punctuation and paragraphs." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "逐字记录会保留原话。匹配应用语气不生效；表达偏好只能影响标点和分段。"
           }
         }
       }

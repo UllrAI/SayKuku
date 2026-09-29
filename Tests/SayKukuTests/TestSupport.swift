@@ -63,11 +63,12 @@ extension TextTargetSnapshot {
     /// A plain, non-sensitive field with no Accessibility elements behind it.
     static func fake(
         selectedText: String = "", valueBefore: String? = nil, selectedRange: CFRange? = nil,
-        isSensitive: Bool = false, hasDictationTarget: Bool = true
+        isSensitive: Bool = false, hasDictationTarget: Bool = true,
+        bundleID: String = "com.example.editor"
     ) -> TextTargetSnapshot {
         TextTargetSnapshot(
             appPID: 0,
-            bundleID: "com.example.editor",
+            bundleID: bundleID,
             appName: "Editor",
             windowTitle: "",
             hasDictationTarget: hasDictationTarget,
@@ -128,6 +129,7 @@ actor FakeRealtime: RealtimeTranscribing {
     private let commitError: QwenError?
     private var speechStoppedHandler: (@Sendable () -> Void)?
     private(set) var targetApps: [String?] = []
+    private(set) var formats: [(DictationNumberFormat, DictationCleanup, Bool, String)] = []
     private(set) var appendCount = 0
     private(set) var commitCount = 0
 
@@ -147,9 +149,12 @@ actor FakeRealtime: RealtimeTranscribing {
         numberFormat: DictationNumberFormat,
         cleanup: DictationCleanup,
         targetApp: String?,
+        keepEndingPunctuation: Bool,
+        expressionPreference: String,
         memoryPrompt: String
     ) async throws {
         targetApps.append(targetApp)
+        formats.append((numberFormat, cleanup, keepEndingPunctuation, expressionPreference))
         speechStoppedHandler = onSpeechStopped
     }
 
@@ -181,6 +186,7 @@ final class FakeReasoning: Reasoning {
         var transcriptions: [Transcription]
         var transcribeCount = 0
         var targetApps: [String?] = []
+        var formats: [(DictationNumberFormat, DictationCleanup, Bool, String)] = []
         var agentContexts: [[ContextItem]] = []
         var agentMemoryPrompts: [String] = []
     }
@@ -199,6 +205,7 @@ final class FakeReasoning: Reasoning {
 
     var transcribeCount: Int { state.withLock { $0.transcribeCount } }
     var targetApps: [String?] { state.withLock { $0.targetApps } }
+    var formats: [(DictationNumberFormat, DictationCleanup, Bool, String)] { state.withLock { $0.formats } }
     var agentContexts: [[ContextItem]] { state.withLock { $0.agentContexts } }
     var agentMemoryPrompts: [String] { state.withLock { $0.agentMemoryPrompts } }
 
@@ -210,11 +217,14 @@ final class FakeReasoning: Reasoning {
         numberFormat: DictationNumberFormat,
         cleanup: DictationCleanup,
         targetApp: String?,
+        keepEndingPunctuation: Bool,
+        expressionPreference: String,
         memoryPrompt: String
     ) async throws -> String {
         let reply = state.withLock { current in
             current.transcribeCount += 1
             current.targetApps.append(targetApp)
+            current.formats.append((numberFormat, cleanup, keepEndingPunctuation, expressionPreference))
             return current.transcriptions.count > 1 ? current.transcriptions.removeFirst() : current.transcriptions[0]
         }
         switch reply {

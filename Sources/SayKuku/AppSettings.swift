@@ -26,6 +26,13 @@ final class AppSettings {
         didSet { defaults.set(keepEndingPunctuation, forKey: Keys.keepEndingPunctuation) }
     }
     var matchAppTone = true { didSet { defaults.set(matchAppTone, forKey: Keys.matchAppTone) } }
+    private(set) var dictationAppFormats: [DictationAppFormat] = [] {
+        didSet {
+            if let data = try? JSONEncoder().encode(dictationAppFormats) {
+                defaults.set(data, forKey: Keys.dictationAppFormats)
+            }
+        }
+    }
     var selectedDomains: Set<DomainPreset> = [] {
         didSet { defaults.set(selectedDomains.map(\.rawValue).sorted(), forKey: Keys.selectedDomains) }
     }
@@ -115,6 +122,31 @@ final class AppSettings {
         QwenConfiguration(region: qwenRegion, workspaceID: qwenWorkspaceID.trimmingCharacters(in: .whitespacesAndNewlines), realtimeModel: realtimeModel, reasoningModel: reasoningModel)
     }
 
+    func dictationFormat(for bundleID: String?) -> EffectiveDictationFormat {
+        let rule = dictationAppFormats.first { $0.bundleID == bundleID }
+        return EffectiveDictationFormat(
+            keepEndingPunctuation: rule?.keepEndingPunctuation ?? keepEndingPunctuation,
+            cleanup: rule?.cleanup ?? dictationCleanup,
+            numberFormat: rule?.numberFormat ?? dictationNumberFormat,
+            matchAppTone: rule?.matchAppTone ?? matchAppTone,
+            expressionPreference: rule?.expressionPreference ?? ""
+        )
+    }
+
+    func saveDictationAppFormat(_ rule: DictationAppFormat) {
+        guard !rule.bundleID.isEmpty else { return }
+        var updated = dictationAppFormats.filter { $0.bundleID != rule.bundleID }
+        var rule = rule
+        rule.expressionPreference = String(rule.expressionPreference.prefix(300))
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if !rule.isEmpty { updated.append(rule) }
+        dictationAppFormats = updated.sorted { $0.bundleID < $1.bundleID }
+    }
+
+    func removeDictationAppFormat(for bundleID: String) {
+        dictationAppFormats.removeAll { $0.bundleID == bundleID }
+    }
+
     func setShowInMenuBar(_ isVisible: Bool) {
         guard isVisible || !hideDockIconAfterMainWindowCloses else { return }
         showInMenuBar = isVisible
@@ -198,6 +230,10 @@ final class AppSettings {
         autoStop = storedBool(Keys.autoStop, default: false)
         keepEndingPunctuation = storedBool(Keys.keepEndingPunctuation, default: true)
         matchAppTone = storedBool(Keys.matchAppTone, default: true)
+        if let data = defaults.data(forKey: Keys.dictationAppFormats),
+           let rules = try? JSONDecoder().decode([DictationAppFormat].self, from: data) {
+            dictationAppFormats = rules
+        }
         continuousConversation = storedBool(Keys.continuousConversation, default: true)
         automaticAgentWriteBack = storedBool(Keys.automaticAgentWriteBack, default: true)
         learnFromCorrections = storedBool(Keys.learnCorrections, default: true)
@@ -233,6 +269,7 @@ final class AppSettings {
         static let recognitionLanguage = "dictation.recognitionLanguage", dictationNumberFormat = "dictation.numberFormat"
         static let dictationCleanup = "dictation.cleanup", soundCues = "voice.soundCues"
         static let keepEndingPunctuation = "dictation.keepEndingPunctuation", matchAppTone = "dictation.matchAppTone"
+        static let dictationAppFormats = "dictation.appFormats"
         static let selectedDomains = "dictation.selectedDomains", legacyCustomTerms = "dictation.customDomainTerms"
         static let didCompleteOnboarding = "onboarding.completed"
         static let continuousConversation = "continuousConversation", learnCorrections = "learnFromCorrections"

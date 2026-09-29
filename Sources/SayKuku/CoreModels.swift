@@ -190,7 +190,7 @@ enum RecognitionLanguage: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
-enum DictationNumberFormat: String, CaseIterable, Identifiable, Sendable {
+enum DictationNumberFormat: String, CaseIterable, Identifiable, Codable, Sendable {
     case preferDigits
     case spoken
 
@@ -213,7 +213,7 @@ enum DictationNumberFormat: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
-enum DictationCleanup: String, CaseIterable, Identifiable, Sendable {
+enum DictationCleanup: String, CaseIterable, Identifiable, Codable, Sendable {
     case light
     case verbatim
 
