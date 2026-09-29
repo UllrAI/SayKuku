@@ -9,6 +9,11 @@ private struct DictationAppIdentity: Identifiable {
 
     var id: String { bundleID }
 
+    static func isSayKuku(_ bundleID: String) -> Bool {
+        bundleID == Bundle.main.bundleIdentifier
+            || bundleID == "com.saykuku.app" || bundleID == "com.saykuku.dev"
+    }
+
     init(bundleID: String, url: URL?) {
         self.bundleID = bundleID
         self.url = url
@@ -28,10 +33,9 @@ struct DictationAppFormatsSettings: View {
     @State private var editingApp: DictationAppIdentity?
 
     private var runningApps: [DictationAppIdentity] {
-        let ownID = Bundle.main.bundleIdentifier
         let apps = NSWorkspace.shared.runningApplications.compactMap { app -> DictationAppIdentity? in
             guard app.activationPolicy == .regular,
-                  let id = app.bundleIdentifier, id != ownID,
+                  let id = app.bundleIdentifier, !DictationAppIdentity.isSayKuku(id),
                   let url = app.bundleURL else { return nil }
             return DictationAppIdentity(bundleID: id, url: url)
         }
@@ -105,7 +109,7 @@ struct DictationAppFormatsSettings: View {
         panel.canChooseFiles = true
         guard panel.runModal() == .OK, let url = panel.url,
               let id = Bundle(url: url)?.bundleIdentifier,
-              id != Bundle.main.bundleIdentifier else { return }
+              !DictationAppIdentity.isSayKuku(id) else { return }
         editingApp = DictationAppIdentity(bundleID: id, url: url)
     }
 }
