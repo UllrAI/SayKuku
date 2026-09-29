@@ -61,5 +61,5 @@ open Build/SayKuku.app
 - 修改前检查 `git status`，保留用户已有改动；只暂存本任务相关文件。
 - `Build/`、`Dist/`、`.build/` 和 `.swiftpm/` 是生成物，不提交 Git。
 - 不提交签名私钥、`.p8`、`.p12`、密码、公证 profile 内容或真实 API Key。
-- 仓库当前没有 `LICENSE` 文件。引入或复制第三方代码前必须核对许可证，不能把调研候选误写成现有依赖。
+- 仓库使用 `LICENSE` 中的 Apache-2.0 许可。引入或复制第三方代码前必须核对许可证，不能把调研候选误写成现有依赖。
 - 发布前检查 diff、运行测试并验证签名。完整公证顺序必须是：App 签名 → 公证 → staple → Gatekeeper 验证 → 用装订后的 App 制作 DMG → DMG 签名 → 公证 → staple → Gatekeeper 验证。

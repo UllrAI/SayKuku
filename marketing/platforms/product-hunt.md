@@ -14,7 +14,7 @@ Hi Product Hunt! I used Typeless for voice input, but when its allowance was red
 
 It's a native SwiftUI/AppKit app for macOS 15+, and the universal installer is 4.8 MB. The app is free. You bring your own Qwen API key, so model use is billed to your account. Qwen3.8 Omni Flash models work directly with audio instead of a fixed speech-to-text then LLM pipeline. Audio and context you allow go to your selected Qwen region; History and Memory stay on your Mac as local files without extra encryption.
 
-I plan to open source the code after cleaning it up. If you try SayKuku, I'd love to know which Mac app you used and whether the text landed where you expected.
+The source is available on GitHub under Apache 2.0: https://github.com/UllrAI/SayKuku. If you try SayKuku, I'd love to know which Mac app you used and whether the text landed where you expected.
 
 **Share post:** SayKuku is on Product Hunt: a free, native Mac app for dictation and voice actions, with a 4.8 MB installer. Fn to type by voice; Fn Fn to do more. Bring your own Qwen key. Tell me where you'd use it: https://say.anikuku.com/en/?utm_source=product_hunt&utm_medium=social&utm_campaign=launch_102&utm_content=share_post
 

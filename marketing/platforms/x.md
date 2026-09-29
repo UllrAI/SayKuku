@@ -20,7 +20,7 @@ https://say.anikuku.com/en/download/?utm_source=x&utm_medium=social&utm_campaign
 
 **3/4** The app is free, and you bring your own Qwen API key. It uses Qwen3.8 Omni Flash models to work directly with audio, rather than a fixed ASR-then-LLM chain. Model calls are billed to your account. Audio and allowed context go to your selected Qwen region.
 
-**4/4** I'm cleaning up the code and plan to open source it. For now, I'd love to hear which Mac app you tried and whether dictation landed in the right field. Download: https://say.anikuku.com/en/download/?utm_source=x&utm_medium=social&utm_campaign=launch_102&utm_content=thread
+**4/4** The source is on GitHub under Apache 2.0: https://github.com/UllrAI/SayKuku. I'd love to hear which Mac app you tried and whether dictation landed in the right field. Download: https://say.anikuku.com/en/download/?utm_source=x&utm_medium=social&utm_campaign=launch_102&utm_content=thread
 
 ## 费用与隐私跟进帖
 

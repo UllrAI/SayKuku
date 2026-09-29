@@ -20,7 +20,7 @@
 1. **Fn 是 Voice Input**：把说的话写到当前光标。
 2. **Fn Fn 是 Voice Agent**：改写或翻译选区、提问、继续对话。
 3. 记忆只讲人名、项目和术语，手动添加、从粘贴文字中挑选或确认纠正。没有文件/截图提取与关系知识库。
-4. App 免费，安装包 4.9 MB；使用 Qwen3.8 Omni Flash 系列，用户自备 API Key 并承担模型费用。代码整理后计划开源，不能写成已经开源。
+4. App 免费，安装包 4.9 MB；使用 Qwen3.8 Omni Flash 系列，用户自备 API Key 并承担模型费用。源代码已在 [GitHub](https://github.com/UllrAI/SayKuku) 公开，采用 Apache-2.0 许可。
 
 官网交互区是**预设网页演示**，不调用麦克风或模型。1.0.4 正式安装包从官网版本区下载；真实 App 录屏与正式版截图由 [#158](https://github.com/UllrAI/SayKuku/issues/158) 跟踪。发布时不要把网页演示说成实际识别结果。
 

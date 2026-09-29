@@ -16,7 +16,7 @@ SayKuku 的语音输入从 Fn 开始。光标停在聊天窗口、邮件或文�
 
 我还做了一个简单的记忆页，放常用人名、项目和术语。可以手动添加，从粘贴的文字中挑选，也可以在听写后确认一条纠正建议。保存的词条随时能编辑或删除；它们是识别时的参考，不会替你补写没说过的内容。
 
-SayKuku 是用 SwiftUI 和 AppKit 做的原生 macOS 应用，支持 macOS 15 及更新版本。1.0.2 的通用 DMG 只有 4.8 MB，Apple 芯片和 Intel Mac 都可以安装。App 本身免费；代码还需要整理，之后计划开源。
+SayKuku 是用 SwiftUI 和 AppKit 做的原生 macOS 应用，支持 macOS 15 及更新版本。1.0.2 的通用 DMG 只有 4.8 MB，Apple 芯片和 Intel Mac 都可以安装。App 本身免费，源代码已在 github.com/UllrAI/SayKuku 公开。
 
 ## 使用前需要配置什么
 

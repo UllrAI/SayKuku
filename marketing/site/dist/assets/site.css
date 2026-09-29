@@ -71,6 +71,8 @@
 .page-faq .faq-item{border:1px solid var(--line);border-radius:14px;background:var(--white);padding:22px 25px;margin-bottom:14px}.page-faq .faq-item h2{font-size:19px;line-height:1.35;margin:0 0 8px}.page-faq .faq-item p{padding:0}
 .site-nav .logo img,.footer .logo img{display:block!important;width:178px!important;height:49px!important;object-fit:contain!important}
 @media(max-width:375px){.site-nav .logo img{width:150px!important;height:auto!important}}
+.button-secondary{background:#fffdfa;border:1px solid #d7cbbb;color:var(--ink);box-shadow:0 4px 0 #e6dbcb;gap:10px}.button-secondary:hover{background:#f6eee4;box-shadow:0 6px 0 #e6dbcb}.button-secondary span{font-size:15px;font-weight:400;color:var(--orange)}
+.hero-actions{flex-wrap:wrap}@media(max-width:740px){.hero-actions{gap:12px}}
 /* Keep the language switch centered after removing the header CTA. */
 .nav-right{display:flex;align-items:center;justify-content:flex-end}.language-toggle{display:inline-flex;align-items:center;justify-content:center;align-self:center;min-width:39px;min-height:34px;line-height:1;padding:0 9px}
 @media(min-width:741px){.nav-links{margin-left:auto}.nav-right{margin-left:34px}}

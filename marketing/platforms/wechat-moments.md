@@ -8,8 +8,8 @@
 
 按 Fn 说话，文字尝试写到当前光标；连按两次 Fn，可以让 Voice Agent 改写、翻译或回答问题。原生 macOS App，1.0.2 安装包只有 4.8 MB。
 
-App 免费，使用时自己配 Qwen API Key，模型费用走自己的账号，通常很低。代码整理好后计划开源。下载和预设交互演示在 say.anikuku.com。想听听你们在哪个 App 里最需要语音输入。
+App 免费，使用时自己配 Qwen API Key，模型费用走自己的账号，通常很低。源代码已在 github.com/UllrAI/SayKuku 公开。下载和预设交互演示在 say.anikuku.com。想听听你们在哪个 App 里最需要语音输入。
 
 ## 极短版
 
-Typeless 降低额度后，我 Vibe Coding 了 SayKuku：原生 Mac 语音输入，Fn 说话、Fn Fn 改写；安装包 4.8 MB。App 免费，自备 Qwen API Key，后续计划开源。say.anikuku.com
+Typeless 降低额度后，我 Vibe Coding 了 SayKuku：原生 Mac 语音输入，Fn 说话、Fn Fn 改写；安装包 4.8 MB。App 免费，自备 Qwen API Key，源代码已公开：github.com/UllrAI/SayKuku。say.anikuku.com
