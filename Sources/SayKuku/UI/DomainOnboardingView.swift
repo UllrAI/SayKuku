@@ -143,7 +143,7 @@ struct DomainOnboardingView: View {
         KukuSheetFooter(
             note: appState.settings.didCompleteOnboarding
                 ? nil
-                : KukuSheetNote(text: localized("You can change this later in Settings › Voice Input."))
+                : KukuSheetNote(text: localized("You can change this later in Settings › Memory."))
         ) {
             if appState.settings.didCompleteOnboarding {
                 Button(localized("Cancel"), action: dismiss.callAsFunction)

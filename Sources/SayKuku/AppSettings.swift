@@ -52,6 +52,9 @@ final class AppSettings {
         set { storedSearchEngine = newValue }
     }
     var learnFromCorrections = true { didSet { defaults.set(learnFromCorrections, forKey: Keys.learnCorrections) } }
+    var voiceProcessingEnabled = false {
+        didSet { defaults.set(voiceProcessingEnabled, forKey: Keys.voiceProcessing) }
+    }
     var soundCuesEnabled = true { didSet { defaults.set(soundCuesEnabled, forKey: Keys.soundCues) } }
     var selectedTextAllowed = true { didSet { defaults.set(selectedTextAllowed, forKey: Keys.selectedText) } }
     var currentAppAllowed = true { didSet { defaults.set(currentAppAllowed, forKey: Keys.currentApp) } }
@@ -237,6 +240,7 @@ final class AppSettings {
         continuousConversation = storedBool(Keys.continuousConversation, default: true)
         automaticAgentWriteBack = storedBool(Keys.automaticAgentWriteBack, default: true)
         learnFromCorrections = storedBool(Keys.learnCorrections, default: true)
+        voiceProcessingEnabled = storedBool(Keys.voiceProcessing, default: false)
         soundCuesEnabled = storedBool(Keys.soundCues, default: true)
         selectedTextAllowed = storedBool(Keys.selectedText, default: true)
         currentAppAllowed = storedBool(Keys.currentApp, default: true)
@@ -267,6 +271,7 @@ final class AppSettings {
         static let inputMode = "inputMode", legacyLanguage = "appLanguage", autoStop = "autoStop"
         static let overlayPlacement = "overlay.placement"
         static let recognitionLanguage = "dictation.recognitionLanguage", dictationNumberFormat = "dictation.numberFormat"
+        static let voiceProcessing = "voice.processingEnabled"
         static let dictationCleanup = "dictation.cleanup", soundCues = "voice.soundCues"
         static let keepEndingPunctuation = "dictation.keepEndingPunctuation", matchAppTone = "dictation.matchAppTone"
         static let dictationAppFormats = "dictation.appFormats"

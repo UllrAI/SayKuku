@@ -53,7 +53,7 @@ If Fn conflicts with a macOS keyboard setting, follow the in-app guidance or use
 | Local data | The API key is stored in this Mac’s Keychain. History, Memory, and correction suggestions are saved in `~/Library/Application Support/SayKuku/store.json`; saved recordings are in `~/Library/Application Support/SayKuku/Audio/*.wav`. |
 | History defaults | New history is kept for 30 days and recording storage is on by default. Starred entries are exempt from automatic deletion. **Settings → History → Don’t keep** stops new history and recordings; it does not delete older entries. |
 | Usage analytics | Release builds send a random installation ID, app version, fixed event names, and the character count of completed output to a self-hosted Umami service. No speech, text content, window titles, URLs, or API key is included. This is on by default and can be turned off in **Settings → Privacy**. Development builds and tests do not send it. |
-| Update checks | Release builds check a version file after launch and periodically; automatic checks can be turned off in **Settings → General**. Updates open the download page in your browser rather than installing inside the app. |
+| Update checks | Release builds check a version file after launch and periodically; automatic checks can be turned off in **Settings → About**. Updates open the download page in your browser rather than installing inside the app. |
 
 SayKuku blocks recording and content access in secure text fields and known password managers. Private browsing windows are not detected separately. It does not request Input Monitoring permission or record keystrokes. Read the [full privacy and permissions explanation (Chinese)](https://say.anikuku.com/privacy/) before enabling optional context sources.
 

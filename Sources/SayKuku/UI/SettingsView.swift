@@ -19,11 +19,15 @@ struct SettingsView: View {
             KukuPageScroll {
                 switch appState.settingsSection {
                 case .general: GeneralSettings()
+                case .shortcuts: ShortcutsSettings()
+                case .audio: AudioSettings()
                 case .voiceInput: VoiceInputSettings()
                 case .voiceAgent: VoiceAgentSettings()
+                case .memory: MemorySettings()
                 case .history: HistorySettings()
                 case .privacy: PrivacySettings()
                 case .qwen: QwenSettings()
+                case .about: AboutSettings()
                 }
             }
             // Each section opens at the top instead of at the last section's scroll offset.
@@ -45,18 +49,21 @@ private struct SettingsSidebar: View {
                 .padding(.horizontal, KukuSpacing.lg)
                 .padding(.bottom, KukuSpacing.xl)
 
-            VStack(spacing: KukuSpacing.xs) {
-                ForEach(SettingsSection.allCases) { section in
-                    SidebarButton(
-                        title: section.title,
-                        symbol: section.symbol,
-                        isSelected: selection == section
-                    ) {
-                        selection = section
+            ScrollView {
+                VStack(spacing: KukuSpacing.xs) {
+                    ForEach(SettingsSection.allCases) { section in
+                        SidebarButton(
+                            title: section.title,
+                            symbol: section.symbol,
+                            isSelected: selection == section
+                        ) {
+                            selection = section
+                        }
                     }
                 }
+                .padding(.horizontal, KukuSpacing.sm)
             }
-            .padding(.horizontal, KukuSpacing.sm)
+            .scrollIndicators(.hidden)
 
             Spacer()
         }
@@ -71,33 +78,6 @@ private struct VoiceInputSettings: View {
     var body: some View {
         @Bindable var settings = appState.settings
         SettingsStack(title: localized("Voice Input"), subtitle: localized("Types what you say, without changing what you mean.")) {
-            KukuGroup(localized("Input gesture")) {
-                ForEach(InputMode.allCases) { mode in
-                    if mode != InputMode.allCases.first {
-                        KukuDivider()
-                    }
-                    KukuChoiceRow(
-                        title: mode.title,
-                        caption: mode == .hold
-                            ? localized("Hold briefly to start, release to insert. Esc cancels.")
-                            : localized("Tap to start, tap again to insert. Esc cancels."),
-                        isSelected: appState.settings.inputMode == mode
-                    ) {
-                        appState.settings.inputMode = mode
-                    }
-                }
-                KukuDivider()
-                KukuToggleRow(
-                    title: localized("Play a sound when recording starts and stops"),
-                    caption: localized("Also plays for Voice Agent"),
-                    isOn: $settings.soundCuesEnabled
-                )
-            }
-
-            KukuGroup(localized("Microphone test")) {
-                MicrophoneTestPanel()
-            }
-
             KukuGroup(localized("Stop & output")) {
                 KukuToggleRow(title: localized("Stop after a pause"), caption: autoStopSubtitle, isOn: $settings.autoStop)
                 KukuDivider()
@@ -145,7 +125,23 @@ private struct VoiceInputSettings: View {
             }
 
             DictationAppFormatsSettings()
+        }
+    }
 
+    /// Pause detection runs on the realtime session, which needs a workspace ID.
+    private var autoStopSubtitle: String {
+        appState.settings.configuration.realtimeURL == nil
+            ? localized("Requires a Workspace ID in Qwen Connection")
+            : localized("Ends recording after about 1 second of silence")
+    }
+}
+
+private struct MemorySettings: View {
+    @Environment(AppState.self) private var appState
+
+    var body: some View {
+        @Bindable var settings = appState.settings
+        SettingsStack(title: localized("Memory"), subtitle: localized("Vocabulary, domains, and learning from corrections.")) {
             KukuGroup(localized("Recognition")) {
                 KukuRow(localized("Domains"), caption: domainSummary) {
                     Button(localized("Edit…")) {
@@ -174,13 +170,6 @@ private struct VoiceInputSettings: View {
                 )
             }
         }
-    }
-
-    /// Pause detection runs on the realtime session, which needs a workspace ID.
-    private var autoStopSubtitle: String {
-        appState.settings.configuration.realtimeURL == nil
-            ? localized("Requires a Workspace ID in Qwen Connection")
-            : localized("Ends recording after about 1 second of silence")
     }
 
     private var domainSummary: String {
@@ -240,7 +229,23 @@ private struct PrivacySettings: View {
 
     var body: some View {
         @Bindable var settings = appState.settings
-        SettingsStack(title: localized("What Voice Agent can use"), subtitle: localized("While you talk, the overlay shows what’s sent.")) {
+        SettingsStack(title: localized("Privacy"), subtitle: localized("System permissions, Voice Agent context, and usage statistics.")) {
+            KukuGroup(localized("System permissions")) {
+                PermissionActionRow(kind: .microphone)
+                KukuDivider()
+                PermissionActionRow(kind: .accessibility)
+                KukuDivider()
+                KukuRow(
+                    localized("Permission guide"),
+                    caption: localized("Recheck status, enable access, and test the microphone")
+                ) {
+                    Button(localized("Open Guide")) {
+                        appState.showPermissionGuide()
+                        appState.showMainWindow()
+                    }
+                    .buttonStyle(.kukuSecondary)
+                }
+            }
             KukuGroup(localized("Allow access to")) {
                 KukuToggleRow(title: localized("Selected text"), caption: localized("Used to rewrite or ask about the text you’ve selected"), isOn: $settings.selectedTextAllowed)
                 KukuDivider()
@@ -531,7 +536,7 @@ private struct GeneralSettings: View {
     var body: some View {
         @Bindable var settings = appState.settings
 
-        SettingsStack(title: localized("General"), subtitle: localized("Language, permissions, startup, overlay, shortcuts, and updates.")) {
+        SettingsStack(title: localized("General"), subtitle: localized("Language, startup, and overlay appearance.")) {
             KukuGroup(localized("Language")) {
                 KukuRow(
                     localized("Interface language"),
@@ -543,23 +548,6 @@ private struct GeneralSettings: View {
                         selection: Binding(get: { appState.settings.appLanguage }, set: { changeLanguage(to: $0) }),
                         label: { $0.title }
                     )
-                }
-            }
-
-            KukuGroup(localized("System permissions")) {
-                PermissionActionRow(kind: .microphone)
-                KukuDivider()
-                PermissionActionRow(kind: .accessibility)
-                KukuDivider()
-                KukuRow(
-                    localized("Permission guide"),
-                    caption: localized("Recheck status, enable access, and test the microphone")
-                ) {
-                    Button(localized("Open Guide")) {
-                        appState.showPermissionGuide()
-                        appState.showMainWindow()
-                    }
-                    .buttonStyle(.kukuSecondary)
                 }
             }
 
@@ -605,12 +593,6 @@ private struct GeneralSettings: View {
                     )
                 }
             }
-
-            KukuGroup(localized("Shortcuts")) {
-                GlobalShortcutSettings()
-            }
-
-            SoftwareUpdateSettings()
         }
     }
 
@@ -625,6 +607,108 @@ private struct GeneralSettings: View {
             alert.addButton(withTitle: localized("Reopen Now"))
             alert.addButton(withTitle: localized("Later"))
             if alert.runModal() == .alertFirstButtonReturn { appState.relaunch() }
+        }
+    }
+}
+
+private struct ShortcutsSettings: View {
+    @Environment(AppState.self) private var appState
+
+    var body: some View {
+        SettingsStack(title: localized("Shortcuts"), subtitle: localized("Fn gestures and keyboard shortcuts for Voice Input and Voice Agent.")) {
+            KukuGroup(localized("Input gesture")) {
+                ForEach(InputMode.allCases) { mode in
+                    if mode != InputMode.allCases.first {
+                        KukuDivider()
+                    }
+                    KukuChoiceRow(
+                        title: mode.title,
+                        caption: mode == .hold
+                            ? localized("Hold briefly to start, release to insert. Esc cancels.")
+                            : localized("Tap to start, tap again to insert. Esc cancels."),
+                        isSelected: appState.settings.inputMode == mode
+                    ) {
+                        appState.settings.inputMode = mode
+                    }
+                }
+            }
+
+            KukuGroup(localized("Keyboard shortcuts")) {
+                GlobalShortcutSettings()
+            }
+            KukuGroup(localized("Voice Agent")) {
+                KukuRow(localized("Double-tap Fn"), caption: localized("Press Fn twice to write, edit, or ask by voice. Esc cancels.")) {
+                    EmptyView()
+                }
+            }
+        }
+    }
+}
+
+private struct AudioSettings: View {
+    @Environment(AppState.self) private var appState
+
+    var body: some View {
+        @Bindable var settings = appState.settings
+        SettingsStack(title: localized("Audio"), subtitle: localized("Microphone and recording options for Voice Input and Voice Agent.")) {
+            KukuGroup(localized("Microphone")) {
+                KukuToggleRow(
+                    title: localized("Apple voice processing"),
+                    caption: localized("Uses on-device noise reduction, echo cancellation, and automatic gain control. Applies to the next recording or microphone test."),
+                    isOn: $settings.voiceProcessingEnabled
+                )
+                Text(localized("Soft speech and whispers may be affected. Turn this off if words are missed. This does not identify your voice or guarantee that other speakers are removed."))
+                    .font(.kuku(.subheadline))
+                    .foregroundStyle(KukuColor.textSecondary)
+                    .padding(.horizontal, KukuLayout.rowPadding)
+                    .padding(.bottom, KukuSpacing.md)
+            }
+            KukuGroup(localized("Microphone test")) {
+                MicrophoneTestPanel()
+            }
+            KukuGroup(localized("Recording sounds")) {
+                KukuToggleRow(
+                    title: localized("Play a sound when recording starts and stops"),
+                    caption: localized("Applies to Voice Input and Voice Agent"),
+                    isOn: $settings.soundCuesEnabled
+                )
+            }
+        }
+    }
+}
+
+private struct AboutSettings: View {
+    var body: some View {
+        SettingsStack(title: localized("About SayKuku"), subtitle: localized("Version, updates, and project information.")) {
+            KukuGroup {
+                HStack(spacing: KukuSpacing.md) {
+                    BrandMark()
+                    KukuRowLabel(title: "SayKuku", caption: localized("A voice keyboard and voice assistant for macOS."))
+                }
+                .kukuRowFrame()
+            }
+            SoftwareUpdateSettings()
+            KukuGroup(localized("Project")) {
+                KukuRow(localized("Website")) {
+                    Link(localized("Open Website"), destination: URL(string: "https://saykuku.ullrai.com")!)
+                        .buttonStyle(.kukuSecondary)
+                }
+                KukuDivider()
+                KukuRow(localized("Source Code"), caption: localized("Open source under the Apache License 2.0.")) {
+                    Link(localized("View on GitHub"), destination: URL(string: "https://github.com/UllrAI/SayKuku")!)
+                        .buttonStyle(.kukuSecondary)
+                }
+                KukuDivider()
+                KukuRow(localized("License")) {
+                    Link(localized("View License"), destination: URL(string: "https://github.com/UllrAI/SayKuku/blob/main/LICENSE")!)
+                        .buttonStyle(.kukuSecondary)
+                }
+                KukuDivider()
+                KukuRow(localized("Feedback")) {
+                    Link(localized("Email Feedback…"), destination: URL(string: "mailto:saykuku@ullrai.com?subject=SayKuku%20Feedback")!)
+                        .buttonStyle(.kukuSecondary)
+                }
+            }
         }
     }
 }
@@ -903,11 +987,15 @@ where Option.AllCases: RandomAccessCollection {
 }
 
 enum SettingsSection: String, CaseIterable, Identifiable {
-    case general, voiceInput, voiceAgent, history, privacy, qwen
+    case general, shortcuts, audio, voiceInput, voiceAgent, memory, history, privacy, qwen, about
     var id: String { rawValue }
     var symbol: String {
         switch self {
         case .general: "gearshape"
+        case .shortcuts: "keyboard"
+        case .audio: "waveform"
+        case .memory: "brain"
+        case .about: "info.circle"
         case .voiceInput: "mic"
         case .voiceAgent: "sparkles"
         case .history: "clock.arrow.circlepath"
@@ -918,6 +1006,10 @@ enum SettingsSection: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .general: localized("General")
+        case .shortcuts: localized("Shortcuts")
+        case .audio: localized("Audio")
+        case .memory: localized("Memory")
+        case .about: localized("About")
         case .voiceInput: localized("Voice Input")
         case .voiceAgent: localized("Voice Agent")
         case .history: localized("History")

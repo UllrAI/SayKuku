@@ -30,6 +30,11 @@ struct SayKukuApp: App {
         .defaultSize(width: 1_000, height: 660)
         .windowStyle(.hiddenTitleBar)
         .commands {
+            CommandGroup(replacing: .appInfo) {
+                Button(localized("About SayKuku")) {
+                    appState.showSettings(section: .about)
+                }
+            }
             CommandGroup(after: .appInfo) {
                 CheckForUpdatesItem(appState: appState)
             }
@@ -301,7 +306,7 @@ private struct MenuBarContent: View {
         .keyboardShortcut("q", modifiers: .command)
     }
 
-    /// A problem links to Settings › General, where it can be fixed; other states are informational.
+    /// A problem links to Settings › Shortcuts, where it can be fixed; other states are informational.
     @ViewBuilder
     private var shortcutStatusItem: some View {
         let status = appState.shortcutStatus
@@ -311,7 +316,7 @@ private struct MenuBarContent: View {
             label.disabled(true)
         case .accessibilityRequired, .hotKeyConflict:
             Button {
-                showSettings(section: .general)
+                showSettings(section: .shortcuts)
             } label: {
                 label
             }

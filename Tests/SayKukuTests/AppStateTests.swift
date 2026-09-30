@@ -22,7 +22,7 @@ struct AppStateTests {
             QwenError.recordingTooLong,
             TextInteractionError.accessibilityRequired, TextInteractionError.noFocusedElement,
             TextInteractionError.sensitiveTarget, TextInteractionError.targetChanged, TextInteractionError.writeFailed,
-            AudioCaptureError.microphoneUnavailable, AudioCaptureError.unsupportedFormat,
+            AudioCaptureError.microphoneUnavailable, AudioCaptureError.unsupportedFormat, AudioCaptureError.voiceProcessingUnavailable,
             AgentActionError.deleteNeedsInsert, AgentActionError.openFailed,
             AgentActionError.shortcutFailed, AgentActionError.shortcutTimedOut,
             LocalStoreError.unreadableSnapshot, LocalStoreError.invalidAudioFilename,
@@ -114,6 +114,19 @@ struct AppStateTests {
         #expect(state.settings.soundCuesEnabled)
         state.settings.soundCuesEnabled = false
         #expect(!environment.makeState().settings.soundCuesEnabled)
+    }
+
+    @Test("voice processing is opt-in and both choices survive a relaunch")
+    @MainActor
+    func voiceProcessingSetting() {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let settings = AppSettings(defaults: environment.defaults, keychain: environment.keychain)
+        #expect(!settings.voiceProcessingEnabled)
+        settings.voiceProcessingEnabled = true
+        #expect(AppSettings(defaults: environment.defaults, keychain: environment.keychain).voiceProcessingEnabled)
+        settings.voiceProcessingEnabled = false
+        #expect(!AppSettings(defaults: environment.defaults, keychain: environment.keychain).voiceProcessingEnabled)
     }
 
     @Test("the search engine follows the region until the user picks one, then stays put")

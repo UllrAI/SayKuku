@@ -26,6 +26,50 @@ struct VoiceWorkflowTests {
         }
     }
 
+    @Test("both workflows snapshot voice processing at the start of each recording")
+    func voiceProcessingFollowsSettings() async throws {
+        for agent in [false, true] {
+            let environment = AppStateTestEnvironment()
+            defer { environment.clean() }
+            let audio = FakeAudioCapturing()
+            let state = try makeState(environment, .fake(audio: audio))
+            for enabled in [false, true, false] {
+                state.settings.voiceProcessingEnabled = enabled
+                if agent { state.workflow.startAgent() }
+                else { state.workflow.startDictation() }
+                try #require(await eventually {
+                    agent ? state.workflow.agentPhase == .listening : state.workflow.dictationPhase == .listening
+                })
+                #expect(audio.voiceProcessingOptions.last == enabled)
+                state.settings.voiceProcessingEnabled.toggle()
+                #expect(audio.voiceProcessingOptions.last == enabled)
+                if agent { state.workflow.dismissAgent() }
+                else { state.workflow.cancelDictation() }
+            }
+            #expect(audio.voiceProcessingOptions == [false, true, false])
+        }
+    }
+
+    @Test("a voice processing startup failure ends either workflow without sending a recording")
+    func voiceProcessingStartupFailure() async throws {
+        for agent in [false, true] {
+            let environment = AppStateTestEnvironment()
+            defer { environment.clean() }
+            let audio = FakeAudioCapturing(startError: AudioCaptureError.voiceProcessingUnavailable)
+            let reasoning = FakeReasoning()
+            let state = try makeState(environment, .fake(audio: audio, reasoning: reasoning))
+            state.settings.voiceProcessingEnabled = true
+            if agent { state.workflow.startAgent() }
+            else { state.workflow.startDictation() }
+            #expect(await eventually {
+                state.workflow.overlayError == AudioCaptureError.voiceProcessingUnavailable.localizedDescription
+            })
+            #expect(!state.workflow.isRecording)
+            #expect(reasoning.transcribeCount == 0)
+            #expect(reasoning.agentContexts.isEmpty)
+        }
+    }
+
     @Test("the microphone starts after the safety check, before optional target reads finish")
     func audioStartOverlapsTargetReads() throws {
         let environment = AppStateTestEnvironment()
