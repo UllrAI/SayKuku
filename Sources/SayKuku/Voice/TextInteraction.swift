@@ -36,6 +36,8 @@ struct TextTargetSnapshot: @unchecked Sendable {
     let hasDictationTarget: Bool
     let windowElement: AXUIElement?
     let textElement: AXUIElement?
+    /// The focused element when it exposes a selection outside the recognized text field.
+    let selectionElement: AXUIElement?
     let selectedRange: CFRange?
     let selectedText: String
     let valueBefore: String?
@@ -140,6 +142,7 @@ final class TextInteraction: TextWriting {
         let bundleID = app.bundleIdentifier ?? ""
         let sensitive = OSSignposter.performance.withIntervalSignpost("secure target check") {
             isSensitive(element: element, bundleID: bundleID)
+                || isSensitive(element: focusedElement, bundleID: bundleID)
         }
         guard !sensitive else { throw TextInteractionError.sensitiveTarget }
         onSafeTarget()
@@ -147,13 +150,22 @@ final class TextInteraction: TextWriting {
         let title: String = window.flatMap { copyAttribute($0, kAXTitleAttribute) } ?? ""
         let range = element.flatMap(selectedRange(of:))
         let value = element.flatMap { normalizedValue(of: $0, selectedRange: range) }
-        let selection = element.map { self.selectedText(of: $0, value: value, range: range) } ?? ""
+        var selection = element.map { self.selectedText(of: $0, value: value, range: range) } ?? ""
+        var selectionElement: AXUIElement?
+        if selection.isEmpty, let focusedElement,
+           element.map({ !CFEqual($0, focusedElement) }) ?? true {
+            let focusedSelection = selectedText(of: focusedElement, value: nil, range: nil)
+            if !focusedSelection.isEmpty {
+                selection = focusedSelection
+                selectionElement = focusedElement
+            }
+        }
         let caret = includingCaretFrame
             ? element.flatMap { element in range.flatMap { caretFrame(of: element, at: $0) } }
             : nil
 
         Log.text.info(
-            "Captured target bundle=\(bundleID, privacy: .public) role=\(element.map(self.role(of:)) ?? "unavailable", privacy: .public) readable=\(value != nil, privacy: .public)"
+            "Captured target bundle=\(bundleID, privacy: .public) role=\(element.map(self.role(of:)) ?? "unavailable", privacy: .public) focusRole=\(focusedElement.map(self.role(of:)) ?? "unavailable", privacy: .public) readable=\(value != nil, privacy: .public) selectionLength=\(selection.count, privacy: .public)"
         )
         return TextTargetSnapshot(
             appPID: app.processIdentifier,
@@ -163,6 +175,7 @@ final class TextInteraction: TextWriting {
             hasDictationTarget: element != nil || window != nil,
             windowElement: window,
             textElement: element,
+            selectionElement: selectionElement,
             selectedRange: range,
             selectedText: selection,
             valueBefore: value,
@@ -193,8 +206,15 @@ final class TextInteraction: TextWriting {
         if let original = snapshot.textElement {
             guard let element, CFEqual(original, element) else { throw TextInteractionError.targetChanged }
         }
-        guard !isSensitive(element: element, bundleID: snapshot.bundleID) else {
+        guard !isSensitive(element: element, bundleID: snapshot.bundleID),
+              !isSensitive(element: focusedElement, bundleID: snapshot.bundleID) else {
             throw TextInteractionError.sensitiveTarget
+        }
+        if let original = snapshot.selectionElement {
+            guard let focusedElement, CFEqual(original, focusedElement),
+                  selectedText(of: focusedElement, value: nil, range: nil) == snapshot.selectedText else {
+                throw TextInteractionError.targetChanged
+            }
         }
 
         if let element, snapshot.valueBefore != nil, snapshot.selectedRange != nil {
@@ -202,7 +222,8 @@ final class TextInteraction: TextWriting {
             let value = normalizedValue(of: element, selectedRange: range)
             guard value == snapshot.valueBefore,
                   range == snapshot.selectedRange,
-                  selectedText(of: element, value: value, range: range) == snapshot.selectedText else {
+                  (snapshot.selectionElement != nil
+                    || selectedText(of: element, value: value, range: range) == snapshot.selectedText) else {
                 throw TextInteractionError.targetChanged
             }
         }
@@ -234,7 +255,9 @@ final class TextInteraction: TextWriting {
         _ text: String, into element: AXUIElement, snapshot: TextTargetSnapshot
     ) async throws -> TextWriteOutcome? {
         var settable = DarwinBoolean(false)
-        guard let expectedValue = Self.expectedValue(afterWriting: text, to: snapshot),
+        // A selection exposed by the focused container may not belong to this text field.
+        guard snapshot.selectionElement == nil,
+              let expectedValue = Self.expectedValue(afterWriting: text, to: snapshot),
               AXUIElementIsAttributeSettable(element, kAXSelectedTextAttribute as CFString, &settable) == .success,
               settable.boolValue else { return nil }
         try Task.checkCancellation()

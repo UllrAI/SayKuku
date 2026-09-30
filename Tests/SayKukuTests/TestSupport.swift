@@ -74,6 +74,7 @@ extension TextTargetSnapshot {
             hasDictationTarget: hasDictationTarget,
             windowElement: nil,
             textElement: nil,
+            selectionElement: nil,
             selectedRange: selectedRange,
             selectedText: selectedText,
             valueBefore: valueBefore,

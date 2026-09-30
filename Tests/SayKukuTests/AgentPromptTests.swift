@@ -119,6 +119,7 @@ struct AgentPromptTests {
             hasDictationTarget: false,
             windowElement: nil,
             textElement: nil,
+            selectionElement: nil,
             selectedRange: nil,
             selectedText: "明天下午见",
             valueBefore: nil,

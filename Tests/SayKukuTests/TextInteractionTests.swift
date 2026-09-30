@@ -274,6 +274,7 @@ struct TextWriteVerificationTests {
             hasDictationTarget: window != nil || text != nil,
             windowElement: window,
             textElement: text,
+            selectionElement: nil,
             selectedRange: range,
             selectedText: "",
             valueBefore: value,
