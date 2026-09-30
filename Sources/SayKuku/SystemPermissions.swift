@@ -215,6 +215,7 @@ enum MicrophoneTestFailure: Equatable {
     case permissionRequired
     case noInputDevice
     case couldNotStart
+    case voiceProcessingUnavailable
 }
 
 @MainActor
@@ -240,7 +241,7 @@ final class MicrophoneTestController {
 
     var isRunning: Bool { phase == .running }
 
-    func start() {
+    func start(voiceProcessingEnabled: Bool) {
         guard AVAudioApplication.shared.recordPermission == .granted else {
             phase = .failed(.permissionRequired)
             return
@@ -252,6 +253,12 @@ final class MicrophoneTestController {
 
         let engine = AVAudioEngine()
         let input = engine.inputNode
+        do {
+            try AudioCapture.configureVoiceProcessing(on: input, enabled: voiceProcessingEnabled)
+        } catch {
+            phase = .failed(.voiceProcessingUnavailable)
+            return
+        }
         let format = input.outputFormat(forBus: 0)
         guard format.channelCount > 0, format.sampleRate > 0 else {
             phase = .failed(.noInputDevice)

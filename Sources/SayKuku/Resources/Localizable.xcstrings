@@ -263,6 +263,39 @@
         }
       }
     },
+    "A voice keyboard and voice assistant for macOS." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS 上的语音键盘和语音助手。"
+          }
+        }
+      }
+    },
+    "About" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关于"
+          }
+        }
+      }
+    },
+    "About SayKuku" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关于 SayKuku"
+          }
+        }
+      }
+    },
     "Add App…" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -484,17 +517,6 @@
         }
       }
     },
-    "Also plays for Voice Agent" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "语音 Agent 也会播放"
-          }
-        }
-      }
-    },
     "Also used for Memory imports and retrying recordings" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -572,6 +594,28 @@
         }
       }
     },
+    "Apple voice processing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple 原生语音处理"
+          }
+        }
+      }
+    },
+    "Applies to Voice Input and Voice Agent" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "适用于语音输入和语音助手"
+          }
+        }
+      }
+    },
     "As spoken" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -579,6 +623,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "保持口述"
+          }
+        }
+      }
+    },
+    "Audio" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "音频"
           }
         }
       }
@@ -1268,6 +1323,28 @@
         }
       }
     },
+    "Couldn’t enable voice processing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法启用语音处理"
+          }
+        }
+      }
+    },
+    "Couldn’t enable voice processing. Try another microphone or turn it off in Settings › Audio." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法启用语音处理，请换一个麦克风，或在设置 › 音频中关闭此功能。"
+          }
+        }
+      }
+    },
     "Couldn’t get a result. Try again." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1750,6 +1827,17 @@
         }
       }
     },
+    "Double-tap Fn" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连按两次 Fn"
+          }
+        }
+      }
+    },
     "Download" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1937,6 +2025,17 @@
         }
       }
     },
+    "Feedback" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "反馈"
+          }
+        }
+      }
+    },
     "Filtered sensitive info" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1988,6 +2087,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Fn 与全局快捷键已就绪"
+          }
+        }
+      }
+    },
+    "Fn gestures and keyboard shortcuts for Voice Input and Voice Agent." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "语音输入和语音助手的 Fn 操作与快捷键。"
           }
         }
       }
@@ -2602,6 +2712,17 @@
         }
       }
     },
+    "Keyboard shortcuts" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "键盘快捷键"
+          }
+        }
+      }
+    },
     "Keychain access needs attention" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2635,13 +2756,13 @@
         }
       }
     },
-    "Language, permissions, startup, overlay, shortcuts, and updates." : {
+    "Language, startup, and overlay appearance." : {
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "语言、权限、启动方式、浮层、快捷键和更新。"
+            "value" : "界面语言、启动方式和浮层显示。"
           }
         }
       }
@@ -2719,6 +2840,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "用来识别 Fn 手势、把文字写入输入框并核对结果，使用语音 Agent 时也会读取选中文字。SayKuku 不会记录你的按键。"
+          }
+        }
+      }
+    },
+    "License" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "许可证"
           }
         }
       }
@@ -2885,6 +3017,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "麦克风"
+          }
+        }
+      }
+    },
+    "Microphone and recording options for Voice Input and Voice Agent." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "语音输入和语音助手共用的麦克风与录音设置。"
           }
         }
       }
@@ -3329,6 +3472,17 @@
         }
       }
     },
+    "Open source under the Apache License 2.0." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "基于 Apache License 2.0 开源。"
+          }
+        }
+      }
+    },
     "Open System Settings" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3369,6 +3523,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "打开这个网址？"
+          }
+        }
+      }
+    },
+    "Open Website" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开网站"
           }
         }
       }
@@ -3660,6 +3825,17 @@
         }
       }
     },
+    "Press Fn twice to write, edit, or ask by voice. Esc cancels." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连按两次 Fn，用语音撰写、编辑或提问。按 Esc 取消。"
+          }
+        }
+      }
+    },
     "Press keys…" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3920,6 +4096,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "录制快捷键"
+          }
+        }
+      }
+    },
+    "Recording sounds" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "录音提示音"
           }
         }
       }
@@ -4619,6 +4806,17 @@
         }
       }
     },
+    "Soft speech and whispers may be affected. Turn this off if words are missed. This does not identify your voice or guarantee that other speakers are removed." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "轻声和耳语可能受影响，如有漏字可关闭。此功能不识别声纹，也不能保证滤除其他人的声音。"
+          }
+        }
+      }
+    },
     "Software Development" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4659,6 +4857,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已检测到声音"
+          }
+        }
+      }
+    },
+    "Source Code" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "源代码"
           }
         }
       }
@@ -4990,6 +5199,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "系统权限"
+          }
+        }
+      }
+    },
+    "System permissions, Voice Agent context, and usage statistics." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "系统权限、语音助手的上下文访问和使用统计。"
           }
         }
       }
@@ -5566,6 +5786,17 @@
         }
       }
     },
+    "Uses on-device noise reduction, echo cancellation, and automatic gain control. Applies to the next recording or microphone test." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在本机进行降噪、回声消除和自动增益调节。从下一次录音或麦克风测试生效。"
+          }
+        }
+      }
+    },
     "Uses the system default input device" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5606,6 +5837,50 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "版本"
+          }
+        }
+      }
+    },
+    "Version, updates, and project information." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "版本、更新和项目信息。"
+          }
+        }
+      }
+    },
+    "View License" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "查看许可证"
+          }
+        }
+      }
+    },
+    "View on GitHub" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 GitHub 查看"
+          }
+        }
+      }
+    },
+    "Vocabulary, domains, and learning from corrections." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "词汇、专业领域和纠正学习。"
           }
         }
       }
@@ -5665,13 +5940,13 @@
         }
       }
     },
-    "What Voice Agent can use" : {
+    "Website" : {
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "语音 Agent 可使用的内容"
+            "value" : "网站"
           }
         }
       }
@@ -5731,17 +6006,6 @@
         }
       }
     },
-    "While you talk, the overlay shows what’s sent." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "说话时，可在浮层中查看本次会发送的内容。"
-          }
-        }
-      }
-    },
     "Window title" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5797,6 +6061,17 @@
         }
       }
     },
+    "You can change this later in Settings › Memory." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "之后可以在设置 › 记忆中修改。"
+          }
+        }
+      }
+    },
     "You can change this later in Settings › Qwen Connection." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5808,24 +6083,13 @@
         }
       }
     },
-    "You can change this later in Settings › Voice Input." : {
+    "You can recheck this later in Settings › Privacy." : {
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "以后可在“设置 › 语音输入”中修改。"
-          }
-        }
-      }
-    },
-    "You can recheck this later in Settings › General." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "以后可在“设置 › 通用”中重新检查。"
+            "value" : "之后可以在设置 › 隐私中重新检查。"
           }
         }
       }

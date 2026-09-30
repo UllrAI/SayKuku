@@ -170,7 +170,7 @@ MVP 暂不提供：
 
 ## 2. Fn 交互设计
 
-> 实现状态：`🟡 部分完成`。当前 App 已包含统一 Fn Gesture Router，并检测系统“按下 fn 键时”设置；Fn 与其他 App 的冲突检测尚未实现。普通组合键通过 Carbon 注册，不需要隐私权限；Fn 是纯修饰键，无法作为普通 HotKey 注册，因此在 Accessibility 已授权后使用 AppKit `NSEvent` 全局/本地 monitor。实现不创建 CGEvent tap，不调用 Input Monitoring API，也不声明相关权限。`NSEvent` 全局 monitor 只能观察事件，不能阻止系统同时执行 Fn / Globe 动作。App 读取 `com.apple.HIToolbox` 域的 `AppleFnUsageType`（0 无操作、1 切换输入法、2 显示表情与符号、3 开始听写），每次 App 激活时刷新；值为 1–3 时，设置 › 通用 › 快捷键状态下方显示一行警告，引导在键盘设置中改为“无操作”，其中“开始听写”即连按两次 Fn 打开系统听写的情况。值为 0、键不存在或值未知时不提示；已授权辅助功能时，状态行右侧的“键盘设置”按钮照常显示。App 不修改系统设置。可配置的组合式全局快捷键（默认 `⌃⌘V` 与 `⌃⌘A`）作为无权限 fallback，可在设置中关闭。
+> 实现状态：`🟡 部分完成`。当前 App 已包含统一 Fn Gesture Router，并检测系统“按下 fn 键时”设置；Fn 与其他 App 的冲突检测尚未实现。普通组合键通过 Carbon 注册，不需要隐私权限；Fn 是纯修饰键，无法作为普通 HotKey 注册，因此在 Accessibility 已授权后使用 AppKit `NSEvent` 全局/本地 monitor。实现不创建 CGEvent tap，不调用 Input Monitoring API，也不声明相关权限。`NSEvent` 全局 monitor 只能观察事件，不能阻止系统同时执行 Fn / Globe 动作。App 读取 `com.apple.HIToolbox` 域的 `AppleFnUsageType`（0 无操作、1 切换输入法、2 显示表情与符号、3 开始听写），每次 App 激活时刷新；值为 1–3 时，设置 › 快捷键 › 快捷键状态下方显示一行警告，引导在键盘设置中改为“无操作”，其中“开始听写”即连按两次 Fn 打开系统听写的情况。值为 0、键不存在或值未知时不提示；已授权辅助功能时，状态行右侧的“键盘设置”按钮照常显示。App 不修改系统设置。可配置的组合式全局快捷键（默认 `⌃⌘V` 与 `⌃⌘A`）作为无权限 fallback，可在设置中关闭。
 
 ### 2.1 用户可选择两种输入习惯
 
@@ -1122,19 +1122,16 @@ Knowledge Prompt 只作为模型的参考数据；模型必须在语音明确指
 Settings 使用固定左侧分类导航，右侧滚动显示当前分类的内容：
 
 ```text
-General | Voice Input | Voice Agent | History | Privacy | Qwen Connection
+General | Shortcuts | Audio | Voice Input | Voice Agent | Memory | History | Privacy | Qwen Connection | About
 ```
 
-记忆保持为一级侧栏目的地，不在 Settings 中重复。MVP 不提供 Advanced 空壳页面。
+记忆内容保持为主窗口一级侧栏目的地；Settings › Memory 只管理领域、纠正学习和打开记忆的入口。MVP 不提供 Advanced 空壳页面。
 
 ### General
 
 ```text
 语言
 界面语言：跟随系统 / 简体中文 / English
-
-系统权限
-麦克风 · 辅助功能 · 权限引导
 
 启动与后台
 登录时打开
@@ -1144,41 +1141,47 @@ General | Voice Input | Voice Agent | History | Privacy | Qwen Connection
 浮层
 位置：底部居中（默认） / 顶部 / 跟随光标
 
-快捷键
-快捷键状态（一行状态；系统 Fn 未设为“无操作”时多一行警告）
-Voice Input · Voice Agent
-
-软件更新
-版本号（构建号）· 检查更新…
-自动检查更新
-（开发版只显示版本号）
 ```
 
 界面语言保存在本 App 的 `AppleLanguages` 里：简体中文写 `["zh-Hans"]`，English 写 `["en"]`，跟随系统时删除该键。macOS 在启动时据此统一决定 App 文案、系统菜单、对话框和日期格式的语言，所以切换后会提示“重新打开 SayKuku 后生效”，可选“现在重新打开”或“稍后”。文案集中在 `Sources/SayKuku/Resources/Localizable.xcstrings`，以英文为源语言，提供简体中文翻译，数量相关的文案用复数变体。目录不含繁体中文：macOS 不会把 zh-Hant 回落到 zh-Hans，繁体中文系统会显示英文界面；以后补上 zh-Hant 翻译即可支持。发给模型的 Prompt 不做本地化。
 
 软件更新只比较版本号，不在 App 内下载或安装。正式版启动 10 秒后读取一次 `Info.plist` 中 `SayKukuUpdateURL` 指向的 `https://saykuku.ullrai.com/ver.json`，之后运行期间每 24 小时读取一次；请求使用无缓存、无 Cookie 的 GET，10 秒超时。远端 `version` 比本机 `CFBundleShortVersionString` 新时弹窗（按 `.` 分段逐段比较，缺少的段按 0，不比构建号），可选“前往下载”（打开 `url` 指向的 GitHub Release 页面）、“跳过此版本”（自动检查不再为这个版本弹窗，手动检查仍会弹）或“稍后”（本次运行内不再为它弹窗）。自动检查没有新版本、读取失败或超时时什么都不提示；手动检查会弹窗告知“已是最新版本”或“无法检查更新”（设置窗口没有 Toast，所以用弹窗）。更新弹窗常在 App 处于后台时出现，会浮在其他窗口之上，避免被系统隐藏后卡在模态状态。“自动检查更新”保存在 UserDefaults `updates.automaticChecks`（默认开启），跳过的版本保存在 `updates.skippedVersion`。开发版和 `swift run` 不检查更新。
 
-首次启动先展示轻量领域 Onboarding，再进入系统权限引导（权限齐全时跳过），最后引导连接 Qwen：按三步说明（打开对应地域的百炼控制台、创建并粘贴 API Key、可选复制以 `llm-` 开头的业务空间 ID）完成填写；“测试连接”是可选的次按钮，连接成功后隐藏；主按钮响应 Return，未填 API Key 时显示为“跳过”；填好的内容在关闭弹窗时即生效，不会丢失；已保存 API Key 时跳过这一步。三个步骤的弹窗尺寸、页头和底栏一致：进行中的步骤主按钮为“继续”，最后一步为“完成”，未完成时可“跳过”；权限在从系统设置返回时自动刷新，全部开启前“继续”不可用。用户可以多选 AI / Vibe Coding、软件开发、产品设计、市场增长等常用领域，选择会持久化为识别上下文，并以“仅用于词汇消歧、不得补写未说内容”的参考数据加入 Voice Input 与 Voice Agent Prompt；以后可在 Voice Input 设置中重新编辑。同一页也可以手动添加产品名、项目名或技术词，点“继续”或“保存”时逐个作为术语存进记忆（已有同名条目时就地提示），以后在“记忆”页补别名。旧版本存在 UserDefaults `dictation.customDomainTerms` 中的自定义词，会在本地数据加载后一次性迁入记忆（重复的跳过），随后删除该键。
+首次启动先展示轻量领域 Onboarding，再进入系统权限引导（权限齐全时跳过），最后引导连接 Qwen：按三步说明（打开对应地域的百炼控制台、创建并粘贴 API Key、可选复制以 `llm-` 开头的业务空间 ID）完成填写；“测试连接”是可选的次按钮，连接成功后隐藏；主按钮响应 Return，未填 API Key 时显示为“跳过”；填好的内容在关闭弹窗时即生效，不会丢失；已保存 API Key 时跳过这一步。三个步骤的弹窗尺寸、页头和底栏一致：进行中的步骤主按钮为“继续”，最后一步为“完成”，未完成时可“跳过”；权限在从系统设置返回时自动刷新，全部开启前“继续”不可用。用户可以多选 AI / Vibe Coding、软件开发、产品设计、市场增长等常用领域，选择会持久化为识别上下文，并以“仅用于词汇消歧、不得补写未说内容”的参考数据加入 Voice Input 与 Voice Agent Prompt；以后可在 Memory 设置中重新编辑。同一页也可以手动添加产品名、项目名或技术词，点“继续”或“保存”时逐个作为术语存进记忆（已有同名条目时就地提示），以后在“记忆”页补别名。旧版本存在 UserDefaults `dictation.customDomainTerms` 中的自定义词，会在本地数据加载后一次性迁入记忆（重复的跳过），随后删除该键。
+
+### Shortcuts
+
+Fn 输入方式：按住片刻开始、松开即输入，或单击开始、再单击结束；Esc 取消。语音助手仍由连按两次 Fn 触发。此页集中展示快捷键状态、系统 Fn 冲突提示，以及 Voice Input / Voice Agent 的可配置快捷键。
+
+### Audio
+
+Apple 原生语音处理默认关闭，保存于 UserDefaults `voice.processingEnabled`。开启后通过 `AVAudioInputNode.setVoiceProcessingEnabled(true)` 在本机进行降噪、回声消除和自动增益；先启用处理，再读取 I/O 格式并创建 tap／转换器。使用最低的 other-audio ducking 等级，减少对其他 App 播放音量的影响。开关从下一次录音生效，语音输入、语音助手和麦克风测试共用配置；测试运行中改动开关会停止测试，重新开始时使用新配置。
+
+轻声和耳语可能受影响；此能力不识别声纹，也不保证去除其他说话人。无法启用时明确提示更换麦克风或关闭开关，不会静默切换到未处理录音。音频仍统一转换为 16 kHz 单声道 PCM，实时上传与保存的 WAV 使用同一份处理后的音频。录音开始／结束提示音和仅显示音量的麦克风测试也归入此页。
 
 ### Voice Input
 
 ```text
-输入方式
-○ Hold Fn：按住片刻开始，松开即输入。按 Esc 取消。
-○ Tap Fn：单击开始说话，再单击即输入。按 Esc 取消。
-开始和结束时播放提示音（默认开启）
-
 自动停止
 识别语言：自动中英混合 / 简体中文 / English
 数字格式：优先阿拉伯数字 / 保持口述
 口语整理：轻整理 / 原样
+保留结尾标点（默认开启）
 按当前 App 调整语气（默认开启；原样模式下不可用）
+按应用覆盖格式与表达偏好
+```
 
-识别
+### Memory
+
+```text
 常用领域：已选领域 · 编辑
 记忆：N 条 · 打开记忆
 从纠正中学习
 ```
+
+### About
+
+版本号、构建号和更新检查集中在此页，开发版只显示版本信息；还提供网站、GitHub 源代码、Apache-2.0 许可证和邮件反馈入口。App 菜单的“关于 SayKuku”也打开此页。
 
 ### Voice Agent
 
@@ -1246,7 +1249,7 @@ History 默认仅保存在本机 Application Support，记录为 JSON，录音�
 
 ### Context & Privacy
 
-明确列：
+系统权限（麦克风、辅助功能和权限引导）归入此页。语音助手上下文权限明确列：
 
 ```text
 ✓ Selected Text
@@ -1579,7 +1582,7 @@ Updater
 对应单元测试
 ```
 
-其中 Updater 不移植：正式版只读取 `ver.json` 比较版本号，有新版本时弹窗引导到 GitHub Release 下载，App 菜单和设置 › 通用有“检查更新…”；不做 App 内安装、delta 包和多通道。行为见第 15 节 General，发布步骤见 [本地打包与发布](docs/LOCAL_PACKAGING.md)。
+其中 Updater 不移植：正式版只读取 `ver.json` 比较版本号，有新版本时弹窗引导到 GitHub Release 下载，App 菜单和设置 › 关于有“检查更新…”；不做 App 内安装、delta 包和多通道。行为见第 15 节 About，发布步骤见 [本地打包与发布](docs/LOCAL_PACKAGING.md)。
 
 Pindrop 是 MIT License，而且目前工程结构已经把 Services、Transcription、Models、UI 等模块拆得比较清楚，所以适合当工程参考。
 

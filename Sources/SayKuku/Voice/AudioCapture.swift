@@ -5,15 +5,22 @@ import os
 enum AudioCaptureError: LocalizedError {
     case microphoneUnavailable
     case unsupportedFormat
+    case voiceProcessingUnavailable
 
     var errorDescription: String? {
-        localized("Couldn’t use the microphone. Check your input device and microphone access.")
+        switch self {
+        case .microphoneUnavailable, .unsupportedFormat:
+            localized("Couldn’t use the microphone. Check your input device and microphone access.")
+        case .voiceProcessingUnavailable:
+            localized("Couldn’t enable voice processing. Try another microphone or turn it off in Settings › Audio.")
+        }
     }
 }
 
 /// The microphone as the voice workflows use it; tests pass a fake.
 protocol AudioCapturing: AnyObject, Sendable {
     func start(
+        voiceProcessingEnabled: Bool,
         onLevel: @escaping @Sendable (Double) -> Void,
         onChunk: @escaping @Sendable (Data) -> Void,
         onInterruption: @escaping @Sendable () -> Void
@@ -57,6 +64,7 @@ final class AudioCapture: AudioCapturing, @unchecked Sendable {
     /// Queuing before returning keeps call order: a later `start`, `stop` or `cancel` always runs after this one.
     /// `onInterruption` fires once, on an arbitrary thread, when an audio device change stops the engine.
     func start(
+        voiceProcessingEnabled: Bool,
         onLevel: @escaping @Sendable (Double) -> Void,
         onChunk: @escaping @Sendable (Data) -> Void,
         onInterruption: @escaping @Sendable () -> Void
@@ -65,7 +73,7 @@ final class AudioCapture: AudioCapturing, @unchecked Sendable {
         let (outcome, continuation) = AsyncThrowingStream<Void, Error>.makeStream()
         queue.async {
             do {
-                try self.startEngine(onLevel: onLevel, onChunk: onChunk, onInterruption: onInterruption)
+                try self.startEngine(voiceProcessingEnabled: voiceProcessingEnabled, onLevel: onLevel, onChunk: onChunk, onInterruption: onInterruption)
                 continuation.finish()
             } catch {
                 Log.audio.error("Engine start failed: \(Log.describe(error), privacy: .public)")
@@ -76,6 +84,7 @@ final class AudioCapture: AudioCapturing, @unchecked Sendable {
     }
 
     private func startEngine(
+        voiceProcessingEnabled: Bool,
         onLevel: @escaping @Sendable (Double) -> Void,
         onChunk: @escaping @Sendable (Data) -> Void,
         onInterruption: @escaping @Sendable () -> Void
@@ -85,6 +94,8 @@ final class AudioCapture: AudioCapturing, @unchecked Sendable {
         stopEngine()
         let engine = AVAudioEngine()
         let input = engine.inputNode
+        // Voice processing can change the I/O format; configure it before creating the converter or tap.
+        try Self.configureVoiceProcessing(on: input, enabled: voiceProcessingEnabled)
         let sourceFormat = input.outputFormat(forBus: 0)
         guard sourceFormat.channelCount > 0, sourceFormat.sampleRate > 0 else {
             throw AudioCaptureError.microphoneUnavailable
@@ -128,6 +139,22 @@ final class AudioCapture: AudioCapturing, @unchecked Sendable {
         let channels = Int(sourceFormat.channelCount)
         Log.audio.info(
             "Engine started: \(sampleRate, privacy: .public) Hz, \(channels, privacy: .public) ch, device changed: \(deviceChanged, privacy: .public)"
+        )
+    }
+
+    /// Shared with the microphone test so its meter uses the same processing as recordings.
+    static func configureVoiceProcessing(on input: AVAudioInputNode, enabled: Bool) throws {
+        guard enabled else { return }
+        do {
+            try input.setVoiceProcessingEnabled(true)
+        } catch {
+            Log.audio.error("Voice processing setup failed: \(Log.describe(error), privacy: .public)")
+            throw AudioCaptureError.voiceProcessingUnavailable
+        }
+        input.isVoiceProcessingAGCEnabled = true
+        // Dictation should change other apps' playback volume as little as the API allows.
+        input.voiceProcessingOtherAudioDuckingConfiguration = .init(
+            enableAdvancedDucking: false, duckingLevel: .min
         )
     }
 

@@ -89,9 +89,10 @@ final class FakeAudioCapturing: AudioCapturing {
     let recording: AudioCapture.Recording
     let startError: (any Error)?
     let startDelay: Duration
-    private let starts = Mutex(0)
+    private let starts = Mutex<[Bool]>([])
 
-    var startCount: Int { starts.withLock { $0 } }
+    var startCount: Int { starts.withLock { $0.count } }
+    var voiceProcessingOptions: [Bool] { starts.withLock { $0 } }
 
     init(
         recording: AudioCapture.Recording = .speech,
@@ -104,11 +105,12 @@ final class FakeAudioCapturing: AudioCapturing {
     }
 
     func start(
+        voiceProcessingEnabled: Bool,
         onLevel: @escaping @Sendable (Double) -> Void,
         onChunk: @escaping @Sendable (Data) -> Void,
         onInterruption: @escaping @Sendable () -> Void
     ) -> Task<Void, Error> {
-        starts.withLock { $0 += 1 }
+        starts.withLock { $0.append(voiceProcessingEnabled) }
         // One chunk, so a streamed dictation has audio to send.
         onChunk(Data(count: 2))
         let startError = startError
