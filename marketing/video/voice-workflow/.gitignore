@@ -1,0 +1,8 @@
+node_modules/
+out/
+.remotion/
+*.log
+.venv/
+__pycache__/
+public/score-final*.wav
+public/score-final-analysis.json

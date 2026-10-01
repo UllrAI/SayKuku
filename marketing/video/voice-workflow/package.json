@@ -1,0 +1,32 @@
+{
+  "name": "saykuku-voice-workflow-film",
+  "version": "1.0.0",
+  "description": "15-second SayKuku product film built with Remotion and Three.js",
+  "main": "index.js",
+  "scripts": {
+    "studio": "remotion studio src/index.tsx",
+    "render": "remotion render src/index.tsx SayKukuFinal out/SayKuku-final-render.mp4 --codec=h264 --crf=17 --concurrency=3 && bash scripts/mux-compatible.sh",
+    "preview": "node scripts/preview-real.cjs",
+    "typecheck": "tsc --noEmit",
+    "audio": "python3 scripts/make_score_final.py",
+    "prestudio": "node scripts/ensure-audio.cjs",
+    "prerender": "node scripts/ensure-audio.cjs",
+    "prepreview": "node scripts/ensure-audio.cjs"
+  },
+  "keywords": [],
+  "author": "",
+  "type": "commonjs",
+  "dependencies": {
+    "@react-three/fiber": "^9.8.1",
+    "@remotion/cli": "^4.0.532",
+    "@remotion/three": "^4.0.532",
+    "@types/react": "^19.3.0",
+    "@types/three": "^0.186.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "remotion": "^4.0.532",
+    "three": "^0.186.1",
+    "typescript": "^7.0.2"
+  },
+  "private": true
+}
