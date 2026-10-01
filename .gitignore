@@ -17,3 +17,4 @@ xcuserdata/
 *.p8
 *.p12
 *.keychain-db
+/marketing/video/node_modules
