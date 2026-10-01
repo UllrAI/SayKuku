@@ -54,7 +54,7 @@
     $('#demo-text').classList.remove('selected');
     if(mode==='agent'){
       $('#demo-text').textContent=language === 'en' ? originalEnglish : originalChinese;$('#demo-text').classList.add('selected');$('#typing-caret').hidden=true;
-      $('#document-label').textContent=language === 'en' ? 'SELECTED TEXT · HAND IT TO KUKU' : 'SELECTED TEXT · 这段文字，交给 KUKU';$('#document-title').textContent=language === 'en' ? 'Friday design chat' : '周五的设计讨论';
+      $('#document-label').textContent=language === 'en' ? 'SELECTED TEXT · HAND IT TO KUKU' : 'SELECTED TEXT · 选区翻译示例';$('#document-title').textContent=language === 'en' ? 'Friday design chat' : '周五的设计讨论';
       $('#mode-name').textContent='Fn × 2 · Voice Agent';$('#hero-note-text').textContent=language === 'en' ? '“Translate this naturally into English.”' : '“翻成英文，语气自然一点。”';
       $('#demo-footer-text').textContent=language === 'en' ? 'Use the selected text' : '使用你选中的这一段';updatePill(tr('pillAgent'));
     }else{

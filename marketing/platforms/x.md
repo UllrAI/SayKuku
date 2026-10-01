@@ -16,7 +16,7 @@ https://say.anikuku.com/en/download/?utm_source=x&utm_medium=social&utm_campaign
 
 **1/4** Typeless cut its allowance, so I went looking for a replacement. After trying a few, I vibe coded the one I wanted: SayKuku, a native macOS app with a 4.8 MB installer.
 
-**2/4** Press Fn to dictate into the text field you're using. Double press Fn for Voice Agent: select text and ask for a rewrite or translation, or ask a question and follow up.
+**2/4** Press Fn to dictate into the text field you're using. Double press Fn for Voice Agent. Ask a question or draft text—no selection needed. Select text for a rewrite or translation, or keep the conversation going.
 
 **3/4** The app is free, and you bring your own Qwen API key. It uses Qwen3.8 Omni Flash models to work directly with audio, rather than a fixed ASR-then-LLM chain. Model calls are billed to your account. Audio and allowed context go to your selected Qwen region.
 

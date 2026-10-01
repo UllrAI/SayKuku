@@ -34,7 +34,7 @@ struct HomeView: View {
                             .font(.kuku(.headline))
                             .foregroundStyle(KukuColor.textPrimary)
                         Text(localized(
-                            "Click here and press Fn to talk. Select text and press Fn twice to have Voice Agent rewrite it."
+                            "Click here and press Fn to dictate. Press Fn twice to ask or draft without a selection, or select text to rewrite it."
                         ))
                         .font(.kuku(.subheadline))
                         .foregroundStyle(KukuColor.textSecondary)
@@ -82,7 +82,7 @@ struct HomeView: View {
         HomeGestureRow(
             key: "Fn Fn",
             title: localized("Voice Agent"),
-            subtitle: localized("Rewrite selected text, ask questions, or open pages"),
+            subtitle: localized("Ask or draft without a selection; select text to rewrite"),
             shortcut: appState.settings.globalShortcut(for: .voiceAgent),
             symbol: "sparkles"
         ) {

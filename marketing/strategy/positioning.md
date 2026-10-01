@@ -1,17 +1,17 @@
 # 产品事实与措辞基线
 
-核对来源：`README.md`、`Sources/SayKuku/UI/HomeView.swift`、`Sources/SayKuku/UI/MemoryView.swift`，2026-09-28。
+核对来源：`README.md`、`Sources/SayKuku/UI/HomeView.swift`、`Sources/SayKuku/UI/MemoryView.swift`，2026-09-30；无选区启动与回答行为另核对 `VoiceWorkflow.swift`、`QwenClients.swift` 和 `VoiceWorkflowTests.swift`。
 
 ## 核心表达
 
-**SayKuku 让 Mac 上想说的话直接落在光标处。Fn 是 Voice Input；Fn Fn 是 Voice Agent，用来改写、翻译、提问或继续对话。**
+**SayKuku 让 Mac 上想说的话直接落在光标处。Fn 是 Voice Input；Fn Fn 唤起 Voice Agent，说出你的要求。不选文字也能提问、起草内容或继续对话；选中文字可改写或翻译。**
 
-从用户动作讲起，技术只在需要解释配置、费用和隐私时出现。不要把 Fn Fn 缩成「改写快捷键」。
+从用户动作讲起，技术只在需要解释配置、费用和隐私时出现。主标题统一用「双击 Fn，说出你的要求」或「双击 Fn，唤起语音助手」。选中文字是改写和翻译已有内容的场景，不是启动条件；不要把 Fn Fn 缩成「改写快捷键」。
 
 ## 功能边界
 
 - macOS 15+ 原生应用；1.0.2 通用 DMG 为 4.8 MB。Fn 输入支持按住与单击模式，普通全局快捷键可作备用入口。
-- Voice Agent 可处理选区和你允许的上下文；跨 App 写回仍受具体文本控件影响。
+- Voice Agent 无需选中文字，也无需聚焦输入框即可启动（例如在桌面直接提问）。选区及其他上下文只按用户允许的来源读取；提问的结果显示在回答卡片，起草内容写入有效的原输入位置，没有可写目标时保留结果供复制。跨 App 写回仍受具体文本控件影响。
 - 记忆是人名、项目和术语的词条：可手动添加、从粘贴文字中挑选、确认纠正后保存，并可编辑删除。没有文件解析、截图提取、关系知识库。
 - App 免费；当前实现使用阿里云百炼 Qwen3.8 Omni Flash 系列直接处理音频，用户自备 API Key，云端模型调用由自己的账号计费。默认实时模型在北京地域 1 小时音频输入约 0.15 元，输出文字及其他请求另计。未来供应商扩展是方向，**不能写成当前已经支持多供应商**。
 - 音频和允许的 Agent 上下文发往所选 Qwen 地域；历史、记忆与可选录音留在本机，文件未额外加密；API Key 在系统钥匙串。

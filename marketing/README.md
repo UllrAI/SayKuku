@@ -10,6 +10,7 @@
 | `assets/brand/` | 官方横向字标与带 Just Say It 的字标原图 |
 | `assets/generated/` | 小红书、公众号/朋友圈、X、Product Hunt 的带字成品图 |
 | `assets/screenshots/` | 开发版真实界面截图及来源说明 |
+| `video/` | 20 秒 Remotion 品牌宣传片源码、原创配乐生成脚本与导出说明 |
 | `platforms/` | 每个平台直接可用的正文、标题和配图建议 |
 | `copy/press-kit.md` | 产品简介、事实清单、媒体短介绍与演示分镜 |
 | `strategy/` | 定位、渠道节奏、发布与复盘清单 |
@@ -18,7 +19,7 @@
 ## 先讲什么
 
 1. **Fn 是 Voice Input**：把说的话写到当前光标。
-2. **Fn Fn 是 Voice Agent**：改写或翻译选区、提问、继续对话。
+2. **Fn Fn 是 Voice Agent**：说出你的要求。不选文字也能提问、起草内容或继续对话；选中文字可改写或翻译。
 3. 记忆只讲人名、项目和术语，手动添加、从粘贴文字中挑选或确认纠正。没有文件/截图提取与关系知识库。
 4. App 免费，安装包 4.9 MB；使用 Qwen3.8 Omni Flash 系列，用户自备 API Key 并承担模型费用。源代码已在 [GitHub](https://github.com/UllrAI/SayKuku) 公开，采用 Apache-2.0 许可。
 

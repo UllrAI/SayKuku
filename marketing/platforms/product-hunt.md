@@ -4,13 +4,13 @@ The public 1.0.2 installer is available from the landing page. Gallery: `../asse
 
 - **Name:** SayKuku
 - **Tagline:** A tiny native Mac app for voice input and voice actions
-- **Description:** Press Fn to dictate at the cursor. Double press Fn to rewrite selected text, translate, ask questions, or follow up. SayKuku is a native macOS 15+ app with a 4.8 MB installer. The app is free; bring your own Qwen API key for cloud model use.
+- **Description:** Press Fn to dictate at the cursor. Double press Fn for Voice Agent: ask, draft, or follow up without a selection; select text to rewrite or translate it. SayKuku is a native macOS 15+ app with a 4.8 MB installer. The app is free; bring your own Qwen API key for cloud model use.
 - **Website:** https://say.anikuku.com/en/?utm_source=product_hunt&utm_medium=directory&utm_campaign=launch_102
 - **Topics:** Mac, Productivity, AI (choose the matching options shown at submission)
 
 **Maker first comment**
 
-Hi Product Hunt! I used Typeless for voice input, but when its allowance was reduced, the alternatives I tried didn't quite fit how I work. I vibe coded SayKuku to keep the cursor where I already am: press Fn to dictate, or double press Fn to ask Voice Agent to rewrite, translate, or answer.
+Hi Product Hunt! I used Typeless for voice input, but when its allowance was reduced, the alternatives I tried didn't quite fit how I work. I vibe coded SayKuku to keep the cursor where I already am: press Fn to dictate, or double press Fn to tell Voice Agent what I need. No selection is needed to ask a question or draft text; I select text when I want it rewritten or translated.
 
 It's a native SwiftUI/AppKit app for macOS 15+, and the universal installer is 4.8 MB. The app is free. You bring your own Qwen API key, so model use is billed to your account. Qwen3.8 Omni Flash models work directly with audio instead of a fixed speech-to-text then LLM pipeline. Audio and context you allow go to your selected Qwen region; History and Memory stay on your Mac as local files without extra encryption.
 

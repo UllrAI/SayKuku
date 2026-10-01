@@ -1013,13 +1013,13 @@
         }
       }
     },
-    "Click here and press Fn to talk. Select text and press Fn twice to have Voice Agent rewrite it." : {
+    "Click here and press Fn to dictate. Press Fn twice to ask or draft without a selection, or select text to rewrite it." : {
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "点这里，按 Fn 说句话；选中文字后连按两次 Fn，让语音 Agent 改写。"
+            "value" : "点这里，按 Fn 语音输入。连按两次 Fn，不选文字也能提问或起草内容；选中文字可改写。"
           }
         }
       }
@@ -4332,13 +4332,13 @@
         }
       }
     },
-    "Rewrite selected text, ask questions, or open pages" : {
+    "Ask or draft without a selection; select text to rewrite" : {
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "改写选中文字、提问或打开网页"
+            "value" : "不选文字可提问、起草；选中文字可改写"
           }
         }
       }
