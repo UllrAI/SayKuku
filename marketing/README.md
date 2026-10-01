@@ -10,7 +10,7 @@
 | `assets/brand/` | 官方横向字标与带 Just Say It 的字标原图 |
 | `assets/generated/` | 小红书、公众号/朋友圈、X、Product Hunt 的带字成品图 |
 | `assets/screenshots/` | 开发版真实界面截图及来源说明 |
-| `video/` | 20 秒 Remotion 品牌宣传片源码、原创配乐生成脚本与导出说明 |
+| `video/` | 两套并列 Remotion 视频源码：20 秒产品概览与 15 秒语音工作流，含原创配乐生成脚本与导出说明 |
 | `platforms/` | 每个平台直接可用的正文、标题和配图建议 |
 | `copy/press-kit.md` | 产品简介、事实清单、媒体短介绍与演示分镜 |
 | `strategy/` | 定位、渠道节奏、发布与复盘清单 |

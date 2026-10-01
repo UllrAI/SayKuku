@@ -7,8 +7,8 @@
     "studio": "remotion studio src/index.tsx",
     "typecheck": "tsc --noEmit",
     "audio": "node scripts/compose-audio.mjs",
-    "render": "remotion render src/index.tsx SayKuku ../../Dist/marketing/SayKuku-Launch-1080p.mp4 --codec=h264 --crf=16 --pixel-format=yuv420p --color-space=bt709 --audio-codec=aac --audio-bitrate=320k --concurrency=2",
-    "poster": "remotion still src/index.tsx SayKuku ../../Dist/marketing/SayKuku-Poster.png --frame=1150"
+    "render": "remotion render src/index.tsx SayKuku ../../../Dist/marketing/SayKuku-Launch-1080p.mp4 --codec=h264 --crf=16 --pixel-format=yuv420p --color-space=bt709 --audio-codec=aac --audio-bitrate=320k --concurrency=2",
+    "poster": "remotion still src/index.tsx SayKuku ../../../Dist/marketing/SayKuku-Poster.png --frame=1150"
   },
   "dependencies": {
     "@remotion/cli": "4.0.530",
