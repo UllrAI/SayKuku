@@ -676,7 +676,6 @@ final class VoiceWorkflow {
     ) -> Task<Void, Error> {
         let generation = workflowGeneration
         return audioCapture.start(
-            voiceProcessingEnabled: settings.voiceProcessingEnabled,
             onLevel: { [weak self] level in
                 Task { @MainActor [weak self] in
                     guard let self else { return }

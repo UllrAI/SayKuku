@@ -22,7 +22,7 @@ struct AppStateTests {
             QwenError.recordingTooLong,
             TextInteractionError.accessibilityRequired, TextInteractionError.noFocusedElement,
             TextInteractionError.sensitiveTarget, TextInteractionError.targetChanged, TextInteractionError.writeFailed,
-            AudioCaptureError.microphoneUnavailable, AudioCaptureError.unsupportedFormat, AudioCaptureError.voiceProcessingUnavailable,
+            AudioCaptureError.microphoneUnavailable, AudioCaptureError.unsupportedFormat,
             AgentActionError.deleteNeedsInsert, AgentActionError.openFailed,
             AgentActionError.shortcutFailed, AgentActionError.shortcutTimedOut,
             LocalStoreError.unreadableSnapshot, LocalStoreError.invalidAudioFilename,
@@ -116,17 +116,20 @@ struct AppStateTests {
         #expect(!environment.makeState().settings.soundCuesEnabled)
     }
 
-    @Test("voice processing is opt-in and both choices survive a relaunch")
+    @Test("the retired voice processing preference is removed without changing sound cues")
     @MainActor
-    func voiceProcessingSetting() {
-        let environment = AppStateTestEnvironment()
-        defer { environment.clean() }
-        let settings = AppSettings(defaults: environment.defaults, keychain: environment.keychain)
-        #expect(!settings.voiceProcessingEnabled)
-        settings.voiceProcessingEnabled = true
-        #expect(AppSettings(defaults: environment.defaults, keychain: environment.keychain).voiceProcessingEnabled)
-        settings.voiceProcessingEnabled = false
-        #expect(!AppSettings(defaults: environment.defaults, keychain: environment.keychain).voiceProcessingEnabled)
+    func retiredVoiceProcessingSetting() {
+        for enabled in [false, true] {
+            let environment = AppStateTestEnvironment()
+            defer { environment.clean() }
+            environment.defaults.set(enabled, forKey: "voice.processingEnabled")
+            environment.defaults.set(false, forKey: "voice.soundCues")
+            let settings = AppSettings(defaults: environment.defaults, keychain: environment.keychain)
+            #expect(environment.defaults.object(forKey: "voice.processingEnabled") == nil)
+            #expect(!settings.soundCuesEnabled)
+            #expect(!AppSettings(defaults: environment.defaults, keychain: environment.keychain).soundCuesEnabled)
+            #expect(environment.defaults.object(forKey: "voice.processingEnabled") == nil)
+        }
     }
 
     @Test("the search engine follows the region until the user picks one, then stays put")

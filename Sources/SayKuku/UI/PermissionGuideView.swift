@@ -181,12 +181,6 @@ struct MicrophoneTestPanel: View {
 
             AudioLevelMeter(level: test.level)
 
-            if test.phase == .failed(.voiceProcessingUnavailable) {
-                Text(AudioCaptureError.voiceProcessingUnavailable.localizedDescription)
-                    .font(.kuku(.subheadline))
-                    .foregroundStyle(KukuColor.textSecondary)
-            }
-
             HStack(spacing: KukuSpacing.sm) {
                 Label(
                     localized("Checks the level only. Nothing is saved, uploaded, or played back."),
@@ -207,7 +201,7 @@ struct MicrophoneTestPanel: View {
                                 granted = await appState.requestPermission(.microphone)
                             }
                             if granted {
-                                test.start(voiceProcessingEnabled: appState.settings.voiceProcessingEnabled)
+                                test.start()
                             }
                         }
                     }
@@ -219,7 +213,6 @@ struct MicrophoneTestPanel: View {
         .padding(KukuLayout.rowPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
         .onDisappear { test.stop() }
-        .onChange(of: appState.settings.voiceProcessingEnabled) { _, _ in test.stop() }
     }
 
     private var statusDotColor: Color {
@@ -259,8 +252,6 @@ struct MicrophoneTestPanel: View {
             return localized("No input device found")
         case .failed(.couldNotStart):
             return localized("Couldn’t start")
-        case .failed(.voiceProcessingUnavailable):
-            return localized("Couldn’t enable voice processing")
         }
     }
 }

@@ -594,17 +594,6 @@
         }
       }
     },
-    "Apple voice processing" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Apple 原生语音处理"
-          }
-        }
-      }
-    },
     "Applies to Voice Input and Voice Agent" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1319,28 +1308,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "无法连接网络，请检查网络后重试"
-          }
-        }
-      }
-    },
-    "Couldn’t enable voice processing" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "无法启用语音处理"
-          }
-        }
-      }
-    },
-    "Couldn’t enable voice processing. Try another microphone or turn it off in Settings › Audio." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "无法启用语音处理，请换一个麦克风，或在设置 › 音频中关闭此功能。"
           }
         }
       }
@@ -4806,17 +4773,6 @@
         }
       }
     },
-    "Soft speech and whispers may be affected. Turn this off if words are missed. This does not identify your voice or guarantee that other speakers are removed." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "轻声和耳语可能受影响，如有漏字可关闭。此功能不识别声纹，也不能保证滤除其他人的声音。"
-          }
-        }
-      }
-    },
     "Software Development" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5782,17 +5738,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "语音 Agent 搜索时打开的网站"
-          }
-        }
-      }
-    },
-    "Uses on-device noise reduction, echo cancellation, and automatic gain control. Applies to the next recording or microphone test." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在本机进行降噪、回声消除和自动增益调节。从下一次录音或麦克风测试生效。"
           }
         }
       }

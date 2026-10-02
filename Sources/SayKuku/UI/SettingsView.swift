@@ -651,18 +651,6 @@ private struct AudioSettings: View {
     var body: some View {
         @Bindable var settings = appState.settings
         SettingsStack(title: localized("Audio"), subtitle: localized("Microphone and recording options for Voice Input and Voice Agent.")) {
-            KukuGroup(localized("Microphone")) {
-                KukuToggleRow(
-                    title: localized("Apple voice processing"),
-                    caption: localized("Uses on-device noise reduction, echo cancellation, and automatic gain control. Applies to the next recording or microphone test."),
-                    isOn: $settings.voiceProcessingEnabled
-                )
-                Text(localized("Soft speech and whispers may be affected. Turn this off if words are missed. This does not identify your voice or guarantee that other speakers are removed."))
-                    .font(.kuku(.subheadline))
-                    .foregroundStyle(KukuColor.textSecondary)
-                    .padding(.horizontal, KukuLayout.rowPadding)
-                    .padding(.bottom, KukuSpacing.md)
-            }
             KukuGroup(localized("Microphone test")) {
                 MicrophoneTestPanel()
             }
