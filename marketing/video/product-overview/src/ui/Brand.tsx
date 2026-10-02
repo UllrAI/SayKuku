@@ -8,7 +8,8 @@ export const Bird = ({size, draw = 1, color = C.brand}: {size: number; draw?: nu
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
     {BIRD.map((d, i) => {
       const local = Math.max(0, Math.min(1, draw * 1.6 - i * 0.15));
-      return <path key={d} d={d} pathLength={1} strokeDasharray="1 1" strokeDashoffset={1 - local} />;
+      // Round caps draw a dot even for a zero-length dash, so hide strokes that have not started.
+      return <path key={d} d={d} pathLength={1} strokeDasharray="1 1" strokeDashoffset={1 - local} opacity={local > 0 ? 1 : 0} />;
     })}
     <circle cx="16" cy="7" r="0.85" fill={color} stroke="none" opacity={draw >= 0.9 ? 1 : 0} />
   </svg>;

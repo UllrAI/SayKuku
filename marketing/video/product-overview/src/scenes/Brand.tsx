@@ -33,7 +33,7 @@ export const Finale = ({f, copy, lang}: {f: number; copy: Copy; lang: Lang}) => 
         <div style={{display: 'flex', alignItems: 'center', gap: 34, marginTop: -30}}>
           <div style={{transform: `scale(${lerp(0.8, 1, out(f, 1172, 1210))})`}}><Bird size={218} draw={ramp(f, 1174, 1222)} /></div>
           <div style={{overflow: 'hidden', padding: '12px 30px 22px 0'}}>
-            <div style={{transform: `translateY(${(1 - outExpo(f, 1186, 1216)) * 180}px)`}}><Wordmark size={200} dot={dot} /></div>
+            <div style={{transform: `translateY(${(1 - outExpo(f, 1186, 1216)) * 280}px)`, opacity: f >= 1186 ? 1 : 0}}><Wordmark size={200} dot={dot} /></div>
           </div>
         </div>
         <div style={{height: 150, marginTop: 26}}>
