@@ -1,0 +1,29 @@
+{
+  "fps": 60,
+  "bpm": 120,
+  "durationInFrames": 1440,
+  "scenes": {
+    "hook": [0, 180],
+    "press": [180, 330],
+    "speak": [330, 540],
+    "montage": [540, 720],
+    "double": [720, 840],
+    "agent": [840, 1050],
+    "verbs": [1050, 1170],
+    "finale": [1170, 1440]
+  },
+  "hookWords": [15, 30],
+  "typeTicks": [60, 75, 93, 105, 123],
+  "keyPresses": [180, 750, 765],
+  "speakWords": [345, 360, 375, 390, 405, 420],
+  "dictationCommit": 450,
+  "dictationLand": 480,
+  "montageLands": [570, 630, 690],
+  "commandWords": [870, 885, 900],
+  "agentUnderstand": 930,
+  "agentRun": 955,
+  "agentLand": 990,
+  "verbHits": [1050, 1080, 1110, 1140],
+  "finaleWipe": 1170,
+  "dotPop": 1230
+}

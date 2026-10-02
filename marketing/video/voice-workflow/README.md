@@ -66,7 +66,7 @@ macOS15+，用户需要自己的 Qwen API Key，模型调用按账号计费。
 
 ## 源码与复现
 
-本目录为 15 秒工作流版本，与相邻 `../product-overview/` 的 20 秒产品概览版本独立运行。两个版本的 composition、配乐和依赖锁文件不混用。
+本目录为 15 秒工作流版本，与相邻 `../product-overview/` 的 24 秒产品宣传片独立运行。两个版本的 composition、配乐和依赖锁文件不混用。
 
 音频是生成物，不提交 WAV、MP3 或最终 MP4。`npm run audio` 从共享 beatmap 和固定种子生成 `public/score-final.wav` 与分析 JSON；首次 studio、preview、render 发现缺少 WAV 时也会自动生成。编辑 beatmap 或音频代码后请重新运行 `npm run audio`。已安装音频依赖的 Python 环境须保持激活。
 
