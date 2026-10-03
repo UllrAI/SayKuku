@@ -512,6 +512,7 @@ struct QwenReasoningClient: Reasoning {
     Fields:
     - transcript (always): the spoken command as said, minus clear fillers, abandoned starts, and accidental repeats ("这个这个新版本" → "这个新版本"). Do not add words or turn a statement into a question.
     - intent (always): a verb phrase for a status label, in the command's language, at most 12 Chinese characters or 3 English words, such as "翻译成英文" or "Shorten text".
+    - purpose (always for writeText and answer): one of draft, rewrite, translate, summarize, answer, other. Choose the requested task: draft for new text, rewrite for editing, translate for translation, summarize for a summary, answer for questions, other when none fits. This category never changes the action or output. For other actions use null.
     - writeText: output (the complete final text) and target.
     - answer: output.
     - openURL: url. webSearch: query. runShortcut: shortcutName.
@@ -536,7 +537,7 @@ struct QwenReasoningClient: Reasoning {
     - \(PromptRules.punctuation)
 
     JSON:
-    {"transcript":string,"action":"writeText"|"answer"|"openURL"|"webSearch"|"runShortcut","target":"current"|"previous"|null,"intent":string,"output":string|null,"url":string|null,"query":string|null,"shortcutName":string|null}
+    {"transcript":string,"action":"writeText"|"answer"|"openURL"|"webSearch"|"runShortcut","target":"current"|"previous"|null,"intent":string,"purpose":"draft"|"rewrite"|"translate"|"summarize"|"answer"|"other"|null,"output":string|null,"url":string|null,"query":string|null,"shortcutName":string|null}
     """
 
     static let agentToneInstruction = "Tone: match the register of the app the text goes into."

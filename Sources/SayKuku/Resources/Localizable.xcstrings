@@ -54,6 +54,41 @@
         }
       }
     },
+    "%lld active days" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld active day"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld active days"
+                }
+              }
+            }
+          }
+        },
+        "zh-Hans" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld 个活跃日"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%lld characters" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -89,6 +124,41 @@
         }
       }
     },
+    "%lld completed uses" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld completed use"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld completed uses"
+                }
+              }
+            }
+          }
+        },
+        "zh-Hans" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "已完成 %lld 次"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%lld days" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -117,6 +187,41 @@
                 "stringUnit" : {
                   "state" : "translated",
                   "value" : "%lld 天"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld dictations" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld dictation"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld dictations"
+                }
+              }
+            }
+          }
+        },
+        "zh-Hans" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld 次听写"
                 }
               }
             }
@@ -233,6 +338,41 @@
                 "stringUnit" : {
                   "state" : "translated",
                   "value" : "%lld 条建议"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld uses" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld use"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld uses"
+                }
+              }
+            }
+          }
+        },
+        "zh-Hans" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld 次"
                 }
               }
             }
@@ -473,6 +613,17 @@
         }
       }
     },
+    "All local usage totals will be removed. History and recordings are kept. This can’t be undone." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "将删除全部本地使用统计，历史和录音会保留。此操作无法撤销。"
+          }
+        }
+      }
+    },
     "Allow Accessibility access for SayKuku first" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -579,6 +730,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已复制回答"
+          }
+        }
+      }
+    },
+    "Answers and completed tasks are counted separately from dictation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "回答和已完成的任务单独统计，不计入听写字数。"
           }
         }
       }
@@ -980,6 +1142,17 @@
         }
       }
     },
+    "Clear local statistics" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "清除本地统计"
+          }
+        }
+      }
+    },
     "Clear search" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1079,6 +1252,28 @@
         }
       }
     },
+    "Collected since %@." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自 %@ 开始统计。"
+          }
+        }
+      }
+    },
+    "Collection is paused. Your previous totals are still here." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "统计已暂停，已有数据仍然保留。"
+          }
+        }
+      }
+    },
     "Common domains (select any)" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1086,6 +1281,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "常用领域（可多选）"
+          }
+        }
+      }
+    },
+    "Confirmed input" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已确认写入的文字"
           }
         }
       }
@@ -1510,6 +1716,17 @@
         }
       }
     },
+    "Current period" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "回到当前"
+          }
+        }
+      }
+    },
     "Custom vocabulary" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1528,6 +1745,50 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "自定义…"
+          }
+        }
+      }
+    },
+    "Daily input" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每日输入趋势"
+          }
+        }
+      }
+    },
+    "Daily totals stay on this Mac, without text or audio. Independent of history retention and sharing statistics. Turning this off pauses collection and keeps existing totals." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每日汇总仅保存在本机，不含正文或录音，与历史保留和统计共享独立。关闭后暂停统计，保留已有数据。"
+          }
+        }
+      }
+    },
+    "Day" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "日"
+          }
+        }
+      }
+    },
+    "Days follow your local time zone; weeks follow your regional week-start setting. Comparisons use the same number of complete days and are hidden when collection was incomplete." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "日期按本地时区划分，每周起始日遵循地区设置。周期比较采用相同数量的完整日；统计不完整时不显示比较。"
           }
         }
       }
@@ -1678,6 +1939,17 @@
         }
       }
     },
+    "Deleting history keeps these totals. Clear them separately in Settings › Privacy." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除历史会保留统计；可在「设置 › 隐私」中单独清除。"
+          }
+        }
+      }
+    },
     "Development build" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1685,6 +1957,39 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "开发构建"
+          }
+        }
+      }
+    },
+    "Dictated characters" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "听写输入字数"
+          }
+        }
+      }
+    },
+    "Dictation counts only text whose insertion SayKuku could verify. Copies, unverified pastes, retries in History, and cancelled or failed attempts are excluded. A confirmed Undo removes that dictation’s characters, count and speaking time." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "听写仅统计 SayKuku 可确认已写入的文字。复制、无法确认的粘贴、历史中的重试、取消或失败的操作均不计入。确认撤销后，会扣回这次听写的字数、次数和说话时长。"
+          }
+        }
+      }
+    },
+    "Dictations" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "听写次数"
           }
         }
       }
@@ -1812,6 +2117,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "前往下载"
+          }
+        }
+      }
+    },
+    "Drafting" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "撰写"
+          }
+        }
+      }
+    },
+    "Each non-whitespace character counts once, including letters, numbers, punctuation and emoji. Voice Agent output is excluded from dictated characters." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每个非空白字符计为一字，包括字母、数字、标点和表情。语音助手的输出不计入听写字数。"
           }
         }
       }
@@ -2047,6 +2374,41 @@
         }
       }
     },
+    "First %lld complete days: %@ vs. the previous period" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "First %lld complete day: %@ vs. the previous period"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "First %lld complete days: %@ vs. the previous period"
+                }
+              }
+            }
+          }
+        },
+        "zh-Hans" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "前 %lld 个完整日：较上一同期 %@"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "Fn and global shortcuts ready" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2142,6 +2504,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "默认跟随 macOS，重新打开 SayKuku 后生效"
+          }
+        }
+      }
+    },
+    "For confirmed dictations" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "仅含已确认写入的听写"
           }
         }
       }
@@ -2366,6 +2739,17 @@
         }
       }
     },
+    "How statistics are counted" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "统计口径"
+          }
+        }
+      }
+    },
     "Ignore" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2514,6 +2898,17 @@
         }
       }
     },
+    "Input that week" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "所在周输入趋势"
+          }
+        }
+      }
+    },
     "Insert" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2653,6 +3048,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "保留历史"
+          }
+        }
+      }
+    },
+    "Keep local statistics" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留本地统计"
           }
         }
       }
@@ -2867,6 +3273,17 @@
         }
       }
     },
+    "Loading statistics" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在加载统计"
+          }
+        }
+      }
+    },
     "Local data can’t be read right now" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3065,6 +3482,17 @@
         }
       }
     },
+    "Month" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "月"
+          }
+        }
+      }
+    },
     "More actions" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3153,6 +3581,17 @@
         }
       }
     },
+    "Next period" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下一周期"
+          }
+        }
+      }
+    },
     "No app rules yet" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3160,6 +3599,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "暂无应用规则"
+          }
+        }
+      }
+    },
+    "No confirmed dictations in this period." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这段时间还没有已确认写入的听写。"
           }
         }
       }
@@ -3285,6 +3735,17 @@
         }
       }
     },
+    "Not yet" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "尚未到来"
+          }
+        }
+      }
+    },
     "Nothing remembered yet" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3358,6 +3819,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "在“API Key”页面创建一个 Key，复制后粘贴到下方。"
+          }
+        }
+      }
+    },
+    "Only daily counts, speaking time, app names and task categories are saved locally. Turning off “Current app” stops saving app names for new statistics. No text or audio is stored in statistics." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本地仅保存每日数量、说话时长、应用名称和任务类别。关闭「当前 App」后，新增统计不再记录应用名称。统计不保存正文或录音。"
           }
         }
       }
@@ -3516,6 +3988,17 @@
         }
       }
     },
+    "Opening links" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开链接"
+          }
+        }
+      }
+    },
     "Opening…" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3582,6 +4065,28 @@
         }
       }
     },
+    "Other apps" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其他应用"
+          }
+        }
+      }
+    },
+    "Other text work" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其他文本处理"
+          }
+        }
+      }
+    },
     "Overlay" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3600,6 +4105,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "浮层位置"
+          }
+        }
+      }
+    },
+    "Partial data" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "数据不完整"
           }
         }
       }
@@ -3726,6 +4242,17 @@
         }
       }
     },
+    "Point to a day to see its input." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "将指针移到某一天，查看输入详情。"
+          }
+        }
+      }
+    },
     "Position" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3836,6 +4363,17 @@
         }
       }
     },
+    "Previous period" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上一周期"
+          }
+        }
+      }
+    },
     "Privacy" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3920,6 +4458,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "把结果直接写入你正在用的输入框；关闭后结果留在浮层，供你复制"
+          }
+        }
+      }
+    },
+    "Questions & answers" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "问答"
           }
         }
       }
@@ -4233,6 +4782,28 @@
         }
       }
     },
+    "Reset totals and their start date. History and recordings are kept." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重置统计及其开始日期，保留历史和录音。"
+          }
+        }
+      }
+    },
+    "Reset your usage statistics?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "清除本地统计？"
+          }
+        }
+      }
+    },
     "Restricted" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4310,6 +4881,17 @@
         }
       }
     },
+    "Rewriting" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "改写"
+          }
+        }
+      }
+    },
     "Run" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4339,6 +4921,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "运行这个快捷指令？"
+          }
+        }
+      }
+    },
+    "Running shortcuts" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "运行快捷指令"
           }
         }
       }
@@ -4581,6 +5174,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "网页搜索"
+          }
+        }
+      }
+    },
+    "Selected period" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "所选周期"
           }
         }
       }
@@ -4828,6 +5432,17 @@
         }
       }
     },
+    "Speaking time" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "说话时长"
+          }
+        }
+      }
+    },
     "Speech cleanup" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4967,6 +5582,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "启动与后台"
+          }
+        }
+      }
+    },
+    "Statistics settings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "统计设置"
           }
         }
       }
@@ -5122,6 +5748,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "建议"
+          }
+        }
+      }
+    },
+    "Summaries" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "总结"
           }
         }
       }
@@ -5434,6 +6071,50 @@
         }
       }
     },
+    "This month" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本月"
+          }
+        }
+      }
+    },
+    "This period includes time before collection started or while it was paused. Totals may be partial." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这段时间包含统计开始前或暂停期间，数据可能不完整。"
+          }
+        }
+      }
+    },
+    "This week" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本周"
+          }
+        }
+      }
+    },
+    "This week’s input" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本周输入趋势"
+          }
+        }
+      }
+    },
     "To avoid overwriting the file, new changes won’t be saved. Check the file’s permissions or update SayKuku, then reopen it." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5496,6 +6177,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在识别…"
+          }
+        }
+      }
+    },
+    "Translation" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "翻译"
           }
         }
       }
@@ -5687,6 +6379,17 @@
         }
       }
     },
+    "Unspecified app" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未记录应用"
+          }
+        }
+      }
+    },
     "Updates existing" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5694,6 +6397,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "更新已有条目"
+          }
+        }
+      }
+    },
+    "Usage statistics cleared" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用统计已清除"
           }
         }
       }
@@ -5819,6 +6533,17 @@
         }
       }
     },
+    "View uses" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "查看用途"
+          }
+        }
+      }
+    },
     "Vocabulary, domains, and learning from corrections." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5885,6 +6610,17 @@
         }
       }
     },
+    "Web searches" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "网页搜索"
+          }
+        }
+      }
+    },
     "Website" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5892,6 +6628,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "网站"
+          }
+        }
+      }
+    },
+    "Week" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "周"
           }
         }
       }
@@ -5947,6 +6694,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "获取方式"
+          }
+        }
+      }
+    },
+    "Where you dictate" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "常用应用"
           }
         }
       }
@@ -6050,6 +6808,17 @@
         }
       }
     },
+    "Your confirmed dictations will appear here." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已确认写入的听写会显示在这里。"
+          }
+        }
+      }
+    },
     "Your selected domains and terms are sent to Qwen with voice requests." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6057,6 +6826,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "选中的领域和词汇会随语音请求发送给 Qwen。"
+          }
+        }
+      }
+    },
+    "Your voice input, over time. Saved only on this Mac." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "看看语音输入的日常变化，数据仅保存在本机。"
           }
         }
       }
@@ -6168,6 +6948,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "发送使用统计"
+          }
+        }
+      }
+    },
+    "Usage" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用统计"
           }
         }
       }

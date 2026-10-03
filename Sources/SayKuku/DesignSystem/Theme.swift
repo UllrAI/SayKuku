@@ -201,6 +201,9 @@ enum KukuLayout {
     static let searchFieldWidth: CGFloat = 220
     static let pickerWidth: CGFloat = 220
     static let emptyStateMinHeight: CGFloat = 180
+    static let usageChartHeight: CGFloat = 160
+    static let usageBreakdownMinWidth: CGFloat = 260
+    static let usageExplanationWidth: CGFloat = 360
 
     // Sheets
     static let sheetWidth: CGFloat = 560

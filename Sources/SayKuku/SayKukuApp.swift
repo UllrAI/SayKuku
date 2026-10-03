@@ -290,10 +290,6 @@ private struct MenuBarContent: View {
         }
         .keyboardShortcut(",", modifiers: .command)
 
-        Button(localized("Email Feedback…")) {
-            composeFeedbackEmail()
-        }
-
         Divider()
 
         shortcutStatusItem
@@ -378,6 +374,7 @@ private struct PageMenuItems: View {
         pageItem(.home, key: "1")
         pageItem(.history, key: "2")
         pageItem(.memory, key: "3")
+        pageItem(.usage, key: "4")
         Divider()
     }
 

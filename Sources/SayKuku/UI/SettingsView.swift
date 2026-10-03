@@ -226,6 +226,7 @@ private struct VoiceAgentSettings: View {
 
 private struct PrivacySettings: View {
     @Environment(AppState.self) private var appState
+    @State private var confirmsUsageClear = false
 
     var body: some View {
         @Bindable var settings = appState.settings
@@ -279,11 +280,32 @@ private struct PrivacySettings: View {
             }
             KukuGroup(localized("Usage statistics")) {
                 KukuToggleRow(
+                    title: localized("Keep local statistics"),
+                    caption: localized("Daily totals stay on this Mac, without text or audio. Independent of history retention and sharing statistics. Turning this off pauses collection and keeps existing totals."),
+                    isOn: $settings.localStatisticsEnabled
+                )
+                KukuDivider()
+                KukuRow(
+                    localized("Clear local statistics"),
+                    caption: localized("Reset totals and their start date. History and recordings are kept.")
+                ) {
+                    Button(localized("Clear…")) { confirmsUsageClear = true }
+                        .buttonStyle(.kukuSecondary)
+                        .disabled(!appState.data.isLoaded)
+                }
+                KukuDivider()
+                KukuToggleRow(
                     title: localized("Share usage statistics"),
                     caption: localized("Sends a random installation ID, app version, completed actions, and text lengths. Umami estimates country from your IP address. Statistics never include text or audio."),
                     isOn: $settings.analyticsEnabled
                 )
             }
+        }
+        .confirmationDialog(localized("Reset your usage statistics?"), isPresented: $confirmsUsageClear, titleVisibility: .visible) {
+            Button(localized("Clear local statistics"), role: .destructive) { appState.data.clearUsageStatistics() }
+            Button(localized("Cancel"), role: .cancel) {}
+        } message: {
+            Text(localized("All local usage totals will be removed. History and recordings are kept. This can’t be undone."))
         }
     }
 }

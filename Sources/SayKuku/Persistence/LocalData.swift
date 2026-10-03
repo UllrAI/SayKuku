@@ -1,7 +1,7 @@
 import Foundation
 import Observation
 
-/// History, Memory and correction suggestions, saved to `store.json`, plus the History recordings.
+/// History, Memory, correction suggestions and local usage totals, saved to `store.json`.
 /// Changes are saved shortly after they happen, but only once the stored data has loaded.
 @MainActor
 @Observable
@@ -10,6 +10,9 @@ final class LocalData {
     private(set) var pendingHistoryDeletion: HistoryEntry?
     var memoryEntities: [MemoryEntity] = [] { didSet { schedulePersistence() } }
     var corrections: [CorrectionRecord] = [] { didSet { schedulePersistence() } }
+    private(set) var usageStatistics = UsageStatistics() { didSet { schedulePersistence() } }
+    private(set) var isLoaded = false
+    private(set) var loadingFailed = false
     /// Correction suggestions still waiting for an answer.
     var pendingCorrections: [CorrectionRecord] { corrections.filter { $0.status == .pending } }
     private(set) var localDataIssue: LocalStore.DataIssue?
@@ -21,16 +24,73 @@ final class LocalData {
     @ObservationIgnored private let store: LocalStore
     @ObservationIgnored private let settings: AppSettings
     @ObservationIgnored private var didStartLoading = false
-    @ObservationIgnored private var isLoaded = false
+    @ObservationIgnored private var usageGeneration = UUID()
+    @ObservationIgnored private let initialUsageEnabled: Bool
+    @ObservationIgnored private var pendingUsageChanges: [PendingUsageChange] = []
     @ObservationIgnored private var persistenceGeneration = 0
     @ObservationIgnored private let persistenceDelay: Duration
     @ObservationIgnored private var persistenceTask: Task<Void, Never>?
     @ObservationIgnored private var pendingHistoryDeletionTask: Task<Void, Never>?
 
+    private enum PendingUsageChange {
+        case adjustment(UsageDay, subtract: Bool)
+        case preference(enabled: Bool, at: Date)
+    }
+
     init(store: LocalStore, settings: AppSettings, persistenceDelay: Duration) {
         self.store = store
         self.settings = settings
         self.persistenceDelay = persistenceDelay
+        initialUsageEnabled = settings.localStatisticsEnabled
+        usageStatistics.setEnabled(initialUsageEnabled, at: usageStatistics.startedAt)
+    }
+
+    func updateUsagePreference(at date: Date = .now) {
+        usageStatistics.setEnabled(settings.localStatisticsEnabled, at: date)
+        if !isLoaded { pendingUsageChanges.append(.preference(enabled: settings.localStatisticsEnabled, at: date)) }
+    }
+
+    func clearUsageStatistics(at date: Date = .now) {
+        guard isLoaded else { return }
+        usageGeneration = UUID()
+        usageStatistics = UsageStatistics(startedAt: date)
+        usageStatistics.setEnabled(settings.localStatisticsEnabled, at: date)
+        showToast(localized("Usage statistics cleared"), symbol: "trash")
+    }
+
+    @discardableResult
+    func recordDictationUsage(text: String, duration: Double, snapshot: TextTargetSnapshot,
+                              at date: Date = .now) -> DictationUsageReceipt? {
+        guard settings.localStatisticsEnabled, !snapshot.isSensitive else { return nil }
+        let characters = UsageDay.characterCount(text)
+        guard characters > 0 else { return nil }
+        var day = UsageDay(id: UsageDay.key(for: date, calendar: UsagePeriod.calendar()))
+        day.characters = characters
+        day.dictations = 1
+        day.dictationSeconds = duration.isFinite ? max(0, duration) : 0
+        day.apps = [UsageDay.App(
+            id: settings.currentAppAllowed ? snapshot.bundleID : "",
+            name: settings.currentAppAllowed ? snapshot.appName : "", characters: characters
+        )]
+        adjustUsage(day, subtract: false)
+        return DictationUsageReceipt(generation: usageGeneration, contribution: day)
+    }
+
+    func recordAgentUsage(_ response: AgentResponse, at date: Date = .now) {
+        guard settings.localStatisticsEnabled else { return }
+        var day = UsageDay(id: UsageDay.key(for: date, calendar: UsagePeriod.calendar()))
+        day.agentUses[UsagePurpose(response: response).rawValue] = 1
+        adjustUsage(day, subtract: false)
+    }
+
+    func adjustDictationUsage(_ receipt: DictationUsageReceipt, subtract: Bool) {
+        guard receipt.generation == usageGeneration else { return }
+        adjustUsage(receipt.contribution, subtract: subtract)
+    }
+
+    private func adjustUsage(_ contribution: UsageDay, subtract: Bool) {
+        usageStatistics.adjust(contribution, subtract: subtract)
+        if !isLoaded { pendingUsageChanges.append(.adjustment(contribution, subtract: subtract)) }
     }
 
     func commitMemory(_ analysis: MemoryAnalysis, selectedIDs: Set<UUID>) {
@@ -252,6 +312,7 @@ final class LocalData {
         do {
             snapshot = try await store.load()
         } catch {
+            loadingFailed = true
             showToast(
                 localized("Couldn’t read local data, so new changes won’t be saved. See History for details."),
                 symbol: "exclamationmark.triangle.fill"
@@ -268,6 +329,16 @@ final class LocalData {
             return entity
         })
         corrections = Self.merging(corrections, snapshot.corrections)
+        var usage = snapshot.usage ?? UsageStatistics(startedAt: usageStatistics.startedAt)
+        usage.setEnabled(initialUsageEnabled, at: usageStatistics.startedAt)
+        for change in pendingUsageChanges {
+            switch change {
+            case .adjustment(let contribution, let subtract): usage.adjust(contribution, subtract: subtract)
+            case .preference(let enabled, let date): usage.setEnabled(enabled, at: date)
+            }
+        }
+        usageStatistics = usage
+        pendingUsageChanges = []
         // Saving before every array is in place would replace the stored data with part of it.
         isLoaded = true
         cleanExpiredHistory()
@@ -376,7 +447,7 @@ final class LocalData {
         guard isLoaded else { return nil }
         persistenceGeneration += 1
         let value = LocalStore.Snapshot(
-            history: historyEntries, entities: memoryEntities, corrections: corrections
+            history: historyEntries, entities: memoryEntities, corrections: corrections, usage: usageStatistics
         )
         return (value, persistenceGeneration)
     }

@@ -72,6 +72,12 @@ final class AppSettings {
             if analyticsEnabled { analyticsEnabledHandler?() }
         }
     }
+    var localStatisticsEnabled = true {
+        didSet {
+            defaults.set(localStatisticsEnabled, forKey: Keys.localStatisticsEnabled)
+            localStatisticsEnabledHandler?()
+        }
+    }
     private(set) var showInMenuBar = true { didSet { defaults.set(showInMenuBar, forKey: Keys.showInMenuBar) } }
     var hideDockIconAfterMainWindowCloses = false {
         didSet {
@@ -107,6 +113,7 @@ final class AppSettings {
     @ObservationIgnored var historyRetentionChangeHandler: (@MainActor () -> Void)?
     @ObservationIgnored var globalShortcutChangeHandler: (@MainActor () -> Void)?
     @ObservationIgnored var analyticsEnabledHandler: (@MainActor () -> Void)?
+    @ObservationIgnored var localStatisticsEnabledHandler: (@MainActor () -> Void)?
 
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let keychain: KeychainStore
@@ -249,6 +256,7 @@ final class AppSettings {
         storeVoiceAudio = storedBool(Keys.storeVoiceAudio, default: true)
         automaticUpdateChecks = storedBool(Keys.automaticUpdateChecks, default: true)
         analyticsEnabled = storedBool(Keys.analyticsEnabled, default: true)
+        localStatisticsEnabled = storedBool(Keys.localStatisticsEnabled, default: true)
         showInMenuBar = storedBool(Keys.showInMenuBar, default: true)
         hideDockIconAfterMainWindowCloses = storedBool(Keys.hideDockIconAfterMainWindowCloses, default: false)
         // Earlier builds hard-coded ⇧⌘D / ⇧⌘A without saving them, so upgrades start from the new defaults.
@@ -287,6 +295,7 @@ final class AppSettings {
         static let realtimeModelUpgraded = "qwen.realtimeModelUpgradedToQwen38"
         static let automaticUpdateChecks = "updates.automaticChecks", skippedUpdateVersion = "updates.skippedVersion"
         static let analyticsEnabled = "analytics.enabled"
+        static let localStatisticsEnabled = "usage.enabled"
     }
 }
 

@@ -5,6 +5,73 @@ import Testing
 @Suite("Voice workflow")
 @MainActor
 struct VoiceWorkflowTests {
+    @Test("only verified dictation writes enter local totals, independently of History")
+    func dictationUsageDelivery() async throws {
+        for outcome in [TextWriteOutcome.verified, .deliveredUnverified] {
+            let environment = AppStateTestEnvironment()
+            defer { environment.clean() }
+            let text = FakeTextWriting()
+            text.writeOutcome = outcome
+            let state = try makeState(environment, .fake(text: text))
+            state.settings.historyRetention = .off
+            try await startListening(state)
+            state.workflow.finishDictation()
+            try #require(await eventually { state.workflow.dictationPhase == .success })
+            #expect(state.data.historyEntries.isEmpty)
+            #expect(state.data.usageStatistics.days.reduce(0) { $0 + $1.characters } == (outcome == .verified ? 11 : 0))
+            if outcome == .verified {
+                await state.workflow.undoLastWrite()
+                #expect(state.data.usageStatistics.days.isEmpty)
+            }
+        }
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let text = FakeTextWriting()
+        text.writeError = .writeFailed
+        let state = try makeState(environment, .fake(text: text))
+        try await startListening(state)
+        state.workflow.finishDictation()
+        try #require(await eventually { state.workflow.dictationPhase == .copyReady })
+        #expect(state.data.historyEntries.first?.status == .completed)
+        #expect(state.data.usageStatistics.days.isEmpty)
+    }
+
+    @Test("answers count once without adding characters, even after insertion")
+    func answerUsage() async throws {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let response = AgentResponse(transcript: "回答问题", action: .answer, output: "A long answer", purpose: "answer")
+        let state = try makeState(environment, .fake(reasoning: FakeReasoning(agentReply: .success(response))))
+        try await startAgentListening(state)
+        state.workflow.finishAgentListening()
+        try #require(await eventually { state.workflow.agentPhase == .answerReady })
+        #expect(state.data.usageStatistics.days.first?.agentUses == ["answer": 1])
+        #expect(state.data.usageStatistics.days.first?.characters == 0)
+        await state.workflow.insertAnswer()
+        await state.workflow.insertAnswer()
+        #expect(state.data.usageStatistics.days.first?.agentCount == 1)
+        #expect(state.data.usageStatistics.days.first?.characters == 0)
+    }
+
+    @Test("external actions count only after successful confirmation")
+    func confirmedActionUsage() async throws {
+        for fails in [false, true] {
+            let environment = AppStateTestEnvironment()
+            defer { environment.clean() }
+            let response = AgentResponse(transcript: "运行快捷指令", action: .runShortcut, shortcutName: "Test")
+            var dependencies = AppState.Dependencies.fake(reasoning: FakeReasoning(agentReply: .success(response)))
+            dependencies.actionExecutor = { _, _ in if fails { throw QwenError.invalidResponse } }
+            let state = try makeState(environment, dependencies)
+            try await startAgentListening(state)
+            state.workflow.finishAgentListening()
+            try #require(await eventually { state.workflow.agentPhase == .answerReady })
+            #expect(state.data.usageStatistics.days.isEmpty)
+            state.workflow.confirmPendingAction()
+            try #require(await eventually { fails ? state.workflow.overlayError != nil : state.workflow.agentPhase == .result })
+            #expect(state.data.usageStatistics.days.reduce(0) { $0 + $1.agentCount } == (fails ? 0 : 1))
+        }
+    }
+
     @Test("a secure text target never starts the microphone")
     func sensitiveTargetBlocksAudio() throws {
         for agent in [false, true] {
@@ -529,6 +596,7 @@ struct VoiceWorkflowTests {
         try #require(await eventually { state.workflow.dictationPhase == .success })
 
         // The field still holds exactly what was dictated, so the Agent is offered it.
+        #expect(state.data.usageStatistics.days.first?.characters == 11)
         text.snapshot = .fake(valueBefore: "Hello world.", selectedRange: CFRange(location: 12, length: 0))
         text.fieldValue = "Hello world."
         try await startAgentListening(state)
@@ -538,6 +606,7 @@ struct VoiceWorkflowTests {
         #expect(text.writes == ["Hello world.", ""])
         #expect(state.workflow.resultCanUndo)
         #expect(state.data.historyEntries.map(\.output) == ["Hello world."])
+        #expect(state.data.usageStatistics.days.first?.characters == 0)
 
         // The next turn sees the deletion in the Session, but not the emptied range as text to revise.
         text.snapshot = .fake(valueBefore: "", selectedRange: CFRange(location: 0, length: 0))
@@ -554,6 +623,7 @@ struct VoiceWorkflowTests {
         await state.workflow.undoLastWrite()
         #expect(text.writes == ["Hello world.", "", "Hello world."])
         #expect(!state.workflow.canUndoLastWrite)
+        #expect(state.data.usageStatistics.days.first?.characters == 11)
     }
 
     @Test("text on screen is read for the Agent with the setting on, and never for dictation")

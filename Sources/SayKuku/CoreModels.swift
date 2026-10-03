@@ -677,9 +677,27 @@ struct AgentResponse: Codable, Equatable {
     var url: String?
     var query: String?
     var shortcutName: String?
+    /// A fixed category for local usage totals; an omitted or unknown value never blocks an action.
+    var purpose: String? = nil
 
     /// An empty writeText to the previous output deletes that output.
     var deletesPrevious: Bool { action == .writeText && target == .previous && output?.isEmpty == true }
+}
+
+extension AgentResponse {
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        transcript = try container.decodeIfPresent(String.self, forKey: .transcript)
+        action = try container.decode(Action.self, forKey: .action)
+        target = try container.decodeIfPresent(Target.self, forKey: .target)
+        intent = try container.decodeIfPresent(String.self, forKey: .intent)
+        output = try container.decodeIfPresent(String.self, forKey: .output)
+        url = try container.decodeIfPresent(String.self, forKey: .url)
+        query = try container.decodeIfPresent(String.self, forKey: .query)
+        shortcutName = try container.decodeIfPresent(String.self, forKey: .shortcutName)
+        // Optional statistics metadata must not turn an otherwise valid action into a failure.
+        purpose = try? container.decode(String.self, forKey: .purpose)
+    }
 }
 
 enum MemoryNormalizer {

@@ -119,7 +119,7 @@ struct PersistenceTests {
         #expect(snapshot.history == [entry])
         let storedBytes = try Data(contentsOf: root.appendingPathComponent("store.json"))
         #expect(String(decoding: storedBytes, as: UTF8.self).contains("hello"))
-        #expect(String(decoding: storedBytes, as: UTF8.self).contains(#""version":1"#))
+        #expect(String(decoding: storedBytes, as: UTF8.self).contains(#""version":2"#))
         let fileMode = try FileManager.default.attributesOfItem(atPath: root.appendingPathComponent("store.json").path)[.posixPermissions] as? NSNumber
         #expect(fileMode?.intValue == 0o600)
     }
@@ -278,7 +278,7 @@ struct PersistenceTests {
         defer { try? FileManager.default.removeItem(at: root) }
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let snapshotURL = root.appendingPathComponent("store.json")
-        let original = Data(#"{"version":2,"history":[],"futureField":true}"#.utf8)
+        let original = Data(#"{"version":3,"history":[],"futureField":true}"#.utf8)
         try original.write(to: snapshotURL)
         let store = LocalStore(root: root)
 

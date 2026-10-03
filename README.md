@@ -42,6 +42,7 @@ If Fn conflicts with a macOS keyboard setting, follow the in-app guidance or use
 
 - **Memory:** add names, projects, organizations, and terms; import suggestions from pasted text; or approve a correction after dictation. Review or edit saved entries in the Memory page.
 - **History:** search, replay saved recordings, retry a failed dictation when audio exists, star entries, and delete records. Voice Agent's recent conversation stays in memory for up to 30 minutes and is cleared on quit.
+- **Usage:** view daily, weekly, and monthly dictated characters, dictation counts, speaking time, active days, input trends, top apps, and Voice Agent uses. Only verified dictation insertions count as input; confirmed Undo adjusts the totals. Open with **⌘4**.
 - **Control:** change input style, overlay position, language, shortcuts, automatic writing, context sources, history retention, and analytics in Settings. The interface supports English and Simplified Chinese.
 
 ## Privacy and data
@@ -50,8 +51,9 @@ If Fn conflicts with a macOS keyboard setting, follow the in-app guidance or use
 | --- | --- |
 | Microphone | Captures audio only for Voice Input, Voice Agent, or a microphone level test. Voice audio goes to the selected Qwen region; the level test is neither saved nor uploaded. |
 | Voice Agent context | Selected text, current app, window title, and visible text in the current window are allowed by default. Clipboard text and the Safari/Chrome page URL are off by default. Each source has a switch in **Settings → Privacy**. Visible text is limited to 2,000 characters and is sent only with that request, without being stored in History or logs. Voice Input does not read screen text. |
-| Local data | The API key is stored in this Mac’s Keychain. History, Memory, and correction suggestions are saved in `~/Library/Application Support/SayKuku/store.json`; saved recordings are in `~/Library/Application Support/SayKuku/Audio/*.wav`. |
+| Local data | The API key is stored in this Mac’s Keychain. History, Memory, correction suggestions, and local usage totals are saved in `~/Library/Application Support/SayKuku/store.json`; saved recordings are in `~/Library/Application Support/SayKuku/Audio/*.wav`. |
 | History defaults | New history is kept for 30 days and recording storage is on by default. Starred entries are exempt from automatic deletion. **Settings → History → Don’t keep** stops new history and recordings; it does not delete older entries. |
+| Local usage statistics | Daily totals contain counts, speaking time, app names, and task categories, without text or audio. Collection starts with this feature; older history is not backfilled. Days follow the local time zone at collection and weeks follow regional preferences. Comparisons use equal numbers of complete days with uninterrupted collection. History deletion does not clear totals. Pause or clear them separately in **Settings → Privacy**. Turning off **Current app** omits app names from new statistics. |
 | Usage analytics | Release builds send a random installation ID, app version, fixed event names, and the character count of completed output to a self-hosted Umami service. No speech, text content, window titles, URLs, or API key is included. This is on by default and can be turned off in **Settings → Privacy**. Development builds and tests do not send it. |
 | Update checks | Release builds check a version file after launch and periodically; automatic checks can be turned off in **Settings → About**. Updates open the download page in your browser rather than installing inside the app. |
 

@@ -8,6 +8,8 @@ struct RootView: View {
     @State private var historySearch = ""
     @State private var memorySearch = ""
     @State private var memoryFilter: EntityType?
+    @State private var usagePeriod: UsagePeriod = .day
+    @State private var usageAnchor: Date?
 
     var body: some View {
         @Bindable var appState = appState
@@ -31,6 +33,8 @@ struct RootView: View {
                         HistoryView(filter: $historyFilter, search: $historySearch)
                     case .memory:
                         MemoryView(search: $memorySearch, filter: $memoryFilter)
+                    case .usage:
+                        UsageView(period: $usagePeriod, anchor: $usageAnchor)
                     }
                 }
                 .id(appState.destination)

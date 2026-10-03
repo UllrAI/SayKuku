@@ -12,12 +12,13 @@ enum LocalStoreError: LocalizedError {
 
 actor LocalStore {
     struct Snapshot: Codable {
-        static let currentVersion = 1
+        static let currentVersion = 2
 
         var version = Snapshot.currentVersion
         var history: [HistoryEntry] = []
         var entities: [MemoryEntity] = []
         var corrections: [CorrectionRecord] = []
+        var usage: UsageStatistics?
     }
 
     /// How a damaged `store.json` was handled at launch. The original bytes are never overwritten.
@@ -251,7 +252,7 @@ private struct TolerantSnapshot: Decodable {
     let skippedCount: Int
 
     private enum CodingKeys: String, CodingKey {
-        case version, history, entities, corrections
+        case version, history, entities, corrections, usage
     }
 
     init(from decoder: Decoder) throws {
@@ -262,12 +263,15 @@ private struct TolerantSnapshot: Decodable {
             skipped += decoded.filter { $0.value == nil }.count
             return decoded.compactMap(\.value)
         }
+        let usage = try container.decodeIfPresent(Lossy<UsageStatistics>.self, forKey: .usage)
+        if let usage, usage.value == nil { skipped += 1 }
         snapshot = try LocalStore.Snapshot(
             // Files written before versioning have no version and count as version 1.
             version: container.decodeIfPresent(Int.self, forKey: .version) ?? 1,
             history: records(.history),
             entities: records(.entities),
-            corrections: records(.corrections)
+            corrections: records(.corrections),
+            usage: usage?.value
         )
         skippedCount = skipped
     }

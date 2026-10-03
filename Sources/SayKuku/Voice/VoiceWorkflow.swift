@@ -94,6 +94,8 @@ final class VoiceWorkflow {
     @ObservationIgnored private var sessions: [AgentSession] = []
     @ObservationIgnored private var activeAgentSessions: [AgentSession] = []
     @ObservationIgnored private var lastVerifiedWrite: VerifiedWrite?
+    /// Keep the original dictation through Agent revisions, and separately track what Undo reverses.
+    @ObservationIgnored private var lastWriteUsage = WriteUsage()
     @ObservationIgnored private var pendingAnswerTarget: TextTargetSnapshot?
     private var pendingExternalAction: PendingExternalAction?
     @ObservationIgnored private var executingActionHistoryID: UUID?
@@ -107,6 +109,11 @@ final class VoiceWorkflow {
     private static let recordingLimit: Duration = .seconds(210)
     private static let recordingLimitWarning: Duration = .seconds(15)
     private static let successDisplayDuration: Duration = .seconds(2)
+
+    private struct WriteUsage {
+        var origin: DictationUsageReceipt?
+        var undo: (receipt: DictationUsageReceipt, wasRemoval: Bool)?
+    }
 
     init(settings: AppSettings, data: LocalData, dependencies: AppState.Dependencies) {
         self.settings = settings
@@ -287,10 +294,15 @@ final class VoiceWorkflow {
         isWriting = true
         defer { isWriting = false }
         let generation = workflowGeneration
+        let usageAdjustment = lastWriteUsage.undo
         do {
             let replacement = try textInteraction.replacementSnapshot(for: lastVerifiedWrite)
             let outcome = try await textInteraction.write(lastVerifiedWrite.target.selectedText, to: replacement)
+            if outcome == .verified, let adjustment = usageAdjustment {
+                data.adjustDictationUsage(adjustment.receipt, subtract: !adjustment.wasRemoval)
+            }
             guard self.lastVerifiedWrite?.id == lastVerifiedWrite.id else { return }
+            lastWriteUsage = WriteUsage()
             self.lastVerifiedWrite = nil
             guard generation == workflowGeneration else { return }
             if dictationPhase == .success { dictationPhase = .idle }
@@ -350,6 +362,7 @@ final class VoiceWorkflow {
                 try await self.actionExecutor(action, engine)
                 guard generation == self.workflowGeneration else { return }
                 self.data.updateHistory(historyID, status: .completed)
+                self.data.recordAgentUsage(action)
                 self.analyticsHandler?(.voiceAgent, 0)
                 if let session { self.sessions = AgentSession.appending(session, to: self.sessions) }
                 self.executingActionHistoryID = nil
@@ -373,6 +386,7 @@ final class VoiceWorkflow {
             let outcome = try await textInteraction.write(answer, to: snapshot)
             guard generation == workflowGeneration, pendingAnswerText == answer else { return }
             lastVerifiedWrite = outcome == .verified ? VerifiedWrite(target: snapshot, text: answer) : nil
+            lastWriteUsage = WriteUsage()
             dismissAnswer()
             showOverlayFeedback(localized("Inserted"), symbol: "checkmark")
         } catch {
@@ -720,10 +734,13 @@ final class VoiceWorkflow {
             do {
                 let outcome = try await textInteraction.write(raw, to: snapshot)
                 data.updateHistory(historyID, status: .completed)
+                let receipt = outcome == .verified
+                    ? data.recordDictationUsage(text: raw, duration: recording.duration, snapshot: snapshot) : nil
                 try Task.checkCancellation()
                 guard generation == workflowGeneration else { throw CancellationError() }
                 let verifiedWrite = outcome == .verified ? VerifiedWrite(target: snapshot, text: raw) : nil
                 lastVerifiedWrite = verifiedWrite
+                lastWriteUsage = WriteUsage(origin: receipt, undo: receipt.map { (receipt: $0, wasRemoval: false) })
                 if let verifiedWrite {
                     observeCorrection(writtenText: raw, snapshot: snapshot, writeID: verifiedWrite.id)
                 }
@@ -882,10 +899,17 @@ final class VoiceWorkflow {
                         } else {
                             writeTarget = snapshot
                         }
+                        let priorOrigin = response.target == .previous ? lastWriteUsage.origin : nil
                         let outcome = try await textInteraction.write(text, to: writeTarget)
+                        let removedReceipt = outcome == .verified && response.deletesPrevious ? priorOrigin : nil
+                        if let removedReceipt { data.adjustDictationUsage(removedReceipt, subtract: true) }
                         try Task.checkCancellation()
                         guard generation == workflowGeneration else { throw CancellationError() }
                         lastVerifiedWrite = outcome == .verified ? VerifiedWrite(target: writeTarget, text: text) : nil
+                        lastWriteUsage = WriteUsage(
+                            origin: outcome == .verified && !response.deletesPrevious ? priorOrigin : nil,
+                            undo: removedReceipt.map { (receipt: $0, wasRemoval: true) }
+                        )
                         resultCanUndo = outcome == .verified
                     } catch let error as TextInteractionError {
                         // A deletion has no text to copy instead.
@@ -925,6 +949,7 @@ final class VoiceWorkflow {
                 status: actionToConfirm == nil ? .completed : .awaitingConfirmation
             )
             if actionToConfirm == nil {
+                data.recordAgentUsage(response)
                 analyticsHandler?(.voiceAgent, response.action == .writeText || response.action == .answer ? output.count : 0)
             }
             if actionToConfirm == nil, let session { sessions = AgentSession.appending(session, to: sessions) }

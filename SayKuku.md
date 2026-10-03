@@ -40,7 +40,7 @@ App 图标不放文字，使用珊瑚红圆角底板与暖白 Lucide Bird 线稿
 
 ## 0. 当前实现进度与界面基线
 
-> 最后更新：2026-09-25。`✅ 已完成` 表示已经进入当前可运行 App；`🟡 部分完成` 表示已有可用实现，但仍有明确范围尚未完成；`⬜ 待实现` 表示尚未开始生产实现；`⏸ 后续版本` 表示不进入 MVP。
+> 最后更新：2026-10-03。`✅ 已完成` 表示已经进入当前可运行 App；`🟡 部分完成` 表示已有可用实现，但仍有明确范围尚未完成；`⬜ 待实现` 表示尚未开始生产实现；`⏸ 后续版本` 表示不进入 MVP。
 
 | 模块 | 状态 | 当前已经完成 | 下一步 |
 | --- | --- | --- | --- |
@@ -52,6 +52,7 @@ App 图标不放文字，使用珊瑚红圆角底板与暖白 Lucide Bird 线稿
 | 权限引导与麦克风测试 | ✅ 已完成 | 启动时缺失权限自动展示引导；麦克风与辅助功能实时状态、快捷开启，辅助功能授权后自动恢复，回到 App 也会复查；设置页可重新打开；AVAudioEngine 实时输入电平测试 | 增加多输入设备切换回归测试 |
 | 首页与两种浮层 | ✅ 已完成 | Voice Input / Voice Agent 的真实录音、识别、自动执行与结果状态，以及跨桌面非激活浮层 | — |
 | History | ✅ 已完成 | 停止录音即创建历史；原始语音优先落盘；识别或 Agent 失败仍保留输入及失败状态；支持回放、搜索、筛选、星标、删除、清空和按期限清理；列表支持键盘选择、Delete 删除、⌘C 复制结果、⌘F 搜索；本地数据损坏时先备份再恢复 | — |
+| 使用统计 | ✅ 已完成 | 日 / 周 / 月听写字数、次数、说话时长、活跃日、每日趋势、常用应用和助手用途；仅确认写入的听写计入输入量，确认撤销会扣回；独立本地汇总，不回填旧历史，不随历史清理；隐私设置可暂停或单独清除，⌘4 打开 | — |
 | 记忆 | ✅ 已完成 | 手动添加、模型抽取、PII 预过滤、分段、归一化、去重、实体 Review、本地存储，以及作为模型 Prompt 的结构化知识块；写回后检测到的纠正在浮层里当场确认（记住 / 以后再说，同一纠正最多问两次），没回答的留在页面顶部「建议」区，学错的自动条目会自愈改名；Agent 最近对话在 30 分钟 TTL 内只存内存；列表支持键盘选择、Return 编辑、Delete 删除、⌘C 复制名称、⌘F 搜索 | — |
 | Settings 与中英文 | ✅ 已完成 | 独立设置窗口（⌘,，不拉起主窗口，隐藏 Dock 图标时也不恢复）、左侧分类导航、语言、输入模式、浮层位置、隐私开关、菜单栏、登录项、关闭窗口后的 Dock 行为、快捷键状态和持久化；界面文案在 String Catalog（英文源语言 + 简体中文），界面语言写入 `AppleLanguages`，重新打开后与系统菜单、对话框和日期一起切换 | — |
 | Qwen Realtime / Omni | ✅ 已完成 | Realtime WebSocket、Omni 请求式 API、批处理音频 fallback、错误与超时 | — |
@@ -87,7 +88,7 @@ Memory      All / People / Organizations / Projects / Terms
 Settings    左侧：General / Voice Input / Voice Agent / History / Privacy / Qwen Connection
 ```
 
-侧栏只有 首页 / 历史 / 记忆 三个一级页面；Settings 是独立窗口，不在侧栏里重复这些页面。设置分组使用 `KukuGroup`，每一行使用 `KukuRow` 撑满卡片宽度并左对齐（放不进 `KukuRow` 的行用 `.kukuRowFrame()` 保持相同的内边距与行高），行之间用 `KukuDivider` 分隔；只有明确的右侧值、Picker 或 Toggle 才使用尾部对齐。每个页头、sheet 底栏或卡片最多一个主按钮，列表行内的操作一律使用次按钮。
+侧栏包含 首页 / 历史 / 记忆 / 使用统计 四个一级页面；Settings 是独立窗口，不在侧栏里重复这些页面。设置分组使用 `KukuGroup`，每一行使用 `KukuRow` 撑满卡片宽度并左对齐（放不进 `KukuRow` 的行用 `.kukuRowFrame()` 保持相同的内边距与行高），行之间用 `KukuDivider` 分隔；只有明确的右侧值、Picker 或 Toggle 才使用尾部对齐。每个页头、sheet 底栏或卡片最多一个主按钮，列表行内的操作一律使用次按钮。
 
 ### 0.2 权限引导与输入测试标准
 
@@ -1440,7 +1441,7 @@ QwenReasoningClient
 SayKukuApp / AppState             // 导航、首次运行向导、Toast、窗口、权限、Qwen 连接测试
 │
 ├── AppSettings                   // UserDefaults 中的偏好与 Keychain 中的 API Key
-├── LocalData                     // History、记忆与纠正建议的读写
+├── LocalData                     // History、记忆、纠正建议与本地使用统计的读写
 ├── VoiceWorkflow                 // Voice Input / Voice Agent 状态机与浮层反馈
 │
 ├── ShortcutController            // Carbon 组合键 + AppKit Fn 与单修饰键监听
@@ -1463,7 +1464,7 @@ SayKukuApp / AppState             // 导航、首次运行向导、Toast、窗�
 │
 └── UI
     ├── HomeView / FloatingOverlayController / DictationPill / AgentPill
-    ├── HistoryView / MemoryView（记忆）
+    ├── HistoryView / MemoryView（记忆）/ UsageView（使用统计）
     └── SettingsView / PermissionGuideView / DomainOnboardingView / QwenSetupView
 ```
 
@@ -1834,7 +1835,7 @@ Meeting
 录音管理
 大而全 Library
 Speaker Diarization
-统计面板
+大型分析面板、排行榜与打卡
 复杂 Workflow Builder
 Agent Marketplace
 全电脑自动化

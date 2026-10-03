@@ -8,13 +8,14 @@ import SwiftUI
 @Observable
 final class AppState {
     enum Destination: String, CaseIterable, Identifiable {
-        case home = "Home", history = "History", memory = "Memory"
+        case home = "Home", history = "History", memory = "Memory", usage = "Usage"
         var id: String { rawValue }
         var symbol: String {
             switch self {
             case .home: "house"
             case .history: "clock.arrow.circlepath"
             case .memory: "books.vertical"
+            case .usage: "chart.bar.xaxis"
             }
         }
         var title: String {
@@ -22,6 +23,7 @@ final class AppState {
             case .home: localized("Home")
             case .history: localized("History")
             case .memory: localized("Memory")
+            case .usage: localized("Usage")
             }
         }
     }
@@ -111,6 +113,7 @@ final class AppState {
         data.toastHandler = { [weak self] text, symbol in self?.showToast(text, symbol: symbol) }
         settings.globalShortcutChangeHandler = { [weak self] in self?.shortcutController?.reloadHotKeys() }
         settings.analyticsEnabledHandler = { [weak self] in self?.analytics?.start() }
+        settings.localStatisticsEnabledHandler = { [weak self] in self?.data.updateUsagePreference() }
         workflow.analyticsHandler = { [weak self] event, characters in
             switch event {
             case .voiceInput: self?.analytics?.completedVoiceInput(characters: characters)
