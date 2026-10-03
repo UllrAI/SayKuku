@@ -357,6 +357,8 @@ final class AppState {
         alert.informativeText = [localized("You’re using \(currentVersion)."), feed.shortNotes]
             .compactMap { $0 }
             .joined(separator: "\n\n")
+        // A zero-height accessory gives the native alert more room for release notes.
+        alert.accessoryView = NSView(frame: NSRect(x: 0, y: 0, width: 300, height: 0))
         alert.addButton(withTitle: localized("Download"))
         alert.addButton(withTitle: localized("Skip This Version"))
         alert.addButton(withTitle: localized("Later"))
