@@ -29,7 +29,7 @@ You can also use configurable global shortcuts. The defaults are `⌃⌘V` for V
 
 ## Get started
 
-You need macOS 15 or newer, an internet connection for Qwen processing, and your own Qwen API key. Model usage may incur charges.
+You need macOS 14 or newer, an internet connection for Qwen processing, and your own Qwen API key. Model usage may incur charges.
 
 1. [Download the signed, notarized DMG](https://say.anikuku.com/en/download/) and drag SayKuku into Applications.
 2. Open the app and allow **Microphone** and **Accessibility** access when guided. Accessibility supports Fn and single-modifier gestures, reading an allowed selection, and writing to another app.
@@ -61,7 +61,7 @@ SayKuku blocks recording and content access in secure text fields and known pass
 
 ## Build and contribute
 
-The project uses Swift 6, SwiftUI, AppKit, and Swift Package Manager, with no third-party Swift package dependencies. It targets macOS 15+; packaging requires Xcode 26 or newer for the macOS 26 SDK.
+The project uses Swift 6, SwiftUI, AppKit, and Swift Package Manager, with no third-party Swift package dependencies. It targets macOS 14+; packaging requires Xcode 26 or newer for the macOS 26 SDK.
 
 ```bash
 swift test

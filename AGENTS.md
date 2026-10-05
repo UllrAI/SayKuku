@@ -4,7 +4,7 @@
 
 ## 项目概况
 
-- 原生 macOS 15+ 应用，Swift 6、SwiftUI、AppKit，使用 Swift Package Manager；需要 Xcode 26 或更新（打包脚本会检查 SDK 版本）。
+- 原生 macOS 14+ 应用，Swift 6、SwiftUI、AppKit，使用 Swift Package Manager；需要 Xcode 26 或更新（打包脚本会检查 SDK 版本）。
 - 主 Target：`Sources/SayKuku/`，按领域分为 `Voice/`、`Memory/`、`Qwen/`、`Persistence/`、`Shortcuts/`、`UI/`、`DesignSystem/`，`AppState`、`AppSettings` 等 App 级类型在根目录；测试：`Tests/SayKukuTests/`。
 - App Bundle 由 `Scripts/package-app.sh` 生成，权限声明位于 `Scripts/Resources/SayKuku.entitlements`。
 - `README.md` 是仓库入口；产品说明集中在 `SayKuku.md`；本机发布流程见 `docs/LOCAL_PACKAGING.md`。

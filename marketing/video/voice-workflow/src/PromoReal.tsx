@@ -707,7 +707,7 @@ export function PromoReal() {
               color: "#aab1af",
             }}
           >
-            macOS 15+ · 自备 Qwen API Key · 模型调用按账号计费
+            macOS 14+ · 自备 Qwen API Key · 模型调用按账号计费
           </div>
         </AbsoluteFill>
       )}

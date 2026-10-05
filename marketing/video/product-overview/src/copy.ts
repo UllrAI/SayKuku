@@ -35,7 +35,7 @@ const zh = {
   finale: {
     line: '让想法，脱口而出。',
     url: 'say.anikuku.com',
-    meta: 'macOS 15+ · App 免费开源 · 自备 Qwen API Key',
+    meta: 'macOS 14+ · App 免费开源 · 自备 Qwen API Key',
   },
   disclaimer: '界面为功能示意，非实际录屏',
 };
@@ -76,7 +76,7 @@ const en: Copy = {
   finale: {
     line: 'Just Say It.',
     url: 'say.anikuku.com',
-    meta: 'macOS 15+ · Free and open source · Bring your own Qwen API key',
+    meta: 'macOS 14+ · Free and open source · Bring your own Qwen API key',
   },
   disclaimer: 'Simulated UI, not a screen recording',
 };
