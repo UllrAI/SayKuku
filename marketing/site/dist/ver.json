@@ -1,5 +1,5 @@
 {
-  "version": "1.0.6",
+  "version": "1.0.7",
   "url": "https://say.anikuku.com/download/",
-  "notes": "SayKuku 1.0.6：新增本地使用统计，按日、周、月查看听写字数、次数、说话时长、常用应用与 Voice Agent 用途；统计可独立暂停或清除，确认撤销会调整听写总量；移除菜单栏下拉菜单中的邮件反馈入口；移除 Apple 语音处理，避免轻声或低语被削弱。"
+  "notes": "SayKuku 1.0.7：最低系统版本降至 macOS 14，支持 Apple 芯片与 Intel；加宽更新提示窗口，方便阅读完整说明。欢迎 macOS 14 用户测试并反馈。"
 }
