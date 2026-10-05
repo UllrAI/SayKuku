@@ -29,7 +29,7 @@ SayKuku 是免费的原生 macOS 语音应用。按 **Fn**，在光标处语音�
 
 ## 开始使用
 
-需要 macOS 15 或更新版本、可访问 Qwen 的网络，以及自己的 Qwen API Key。模型调用可能产生费用。
+需要 macOS 14 或更新版本、可访问 Qwen 的网络，以及自己的 Qwen API Key。模型调用可能产生费用。
 
 1. 从[官网下载经过签名与公证的 DMG](https://say.anikuku.com/download/)，将 SayKuku 拖进“应用程序”。
 2. 打开 App，按引导授予**麦克风**与**辅助功能**权限。辅助功能用于识别 Fn 手势、读取获准使用的选区，以及向其他 App 写入文字。
@@ -59,7 +59,7 @@ SayKuku 是免费的原生 macOS 语音应用。按 **Fn**，在光标处语音�
 
 ## 开发与贡献
 
-项目使用 Swift 6、SwiftUI、AppKit 和 Swift Package Manager，没有第三方 Swift Package 依赖。运行目标为 macOS 15+；打包需要 Xcode 26 或更新版本提供的 macOS 26 SDK。
+项目使用 Swift 6、SwiftUI、AppKit 和 Swift Package Manager，没有第三方 Swift Package 依赖。运行目标为 macOS 14+；打包需要 Xcode 26 或更新版本提供的 macOS 26 SDK。
 
 ```bash
 swift test

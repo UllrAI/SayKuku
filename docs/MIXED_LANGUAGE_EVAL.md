@@ -30,7 +30,7 @@
 
 准备：
 
-- macOS 15+、Xcode 26。
+- App 最低运行版本为 macOS 14；本机评估需运行 Xcode 26 或更新版本支持的 macOS。
 - Qwen API Key 存在开发版 Keychain 服务 `com.saykuku.dev.secure-storage` 中，与 `QwenRequestContractTests` 的实时测试读取同一处。用 `Scripts/package-app.sh debug` 打出的开发包在设置里保存一次即可；首次读取时 macOS 可能会询问是否允许访问钥匙串。
 - 一个普通话语音。优先使用 Tingting，没有时使用本机列出的第一个 `zh_CN` 语音；都没有时，到「系统设置 > 辅助功能 > 朗读内容 > 系统语音」里添加。
 

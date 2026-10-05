@@ -50,7 +50,7 @@ BUILD_NUMBER="$(git -C "$ROOT_DIR" rev-list --count HEAD)" || {
 }
 
 BUILD_ARGS=(-c "$CONFIGURATION")
-# macOS 15 still runs on Intel, so release builds ship a universal binary.
+# Supported macOS versions include Intel, so release builds ship a universal binary.
 if [[ "$CONFIGURATION" == "release" ]]; then
     BUILD_ARGS+=(--arch arm64 --arch x86_64)
 fi
@@ -119,7 +119,7 @@ if [[ -d "$ICON_SOURCE" ]]; then
     rm -rf "$ICON_WORK_DIR"
     mkdir -p "$ICON_WORK_DIR"
     # The .icon basename must match --app-icon. Target macOS 26 so actool
-    # does not bake legacy renditions that would replace AppIcon.icns on 15.
+    # does not bake legacy renditions that would replace AppIcon.icns on older systems.
     if xcrun actool "$ICON_SOURCE" --compile "$ICON_WORK_DIR" \
             --output-format human-readable-text --notices --warnings --errors \
             --output-partial-info-plist "$ICON_PARTIAL_PLIST" \

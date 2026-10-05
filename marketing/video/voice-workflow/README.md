@@ -56,7 +56,7 @@ NODE_OPTIONS="--require=$PWD/scripts/loopback-fallback.cjs" npm run render
 
 演示假定已启用自动 Agent 写回。没有展示不存在的剪贴板看板、虚构任务卡片、记忆仪表盘或翻译答案大卡片。中性文本窗口是用于说明输入的场景，并非另一款产品的录屏。浮动 UI 是依据公开 SwiftUI 源码还原的交互动画，影片中有明确标注；它不是安装后实录。
 
-macOS15+，用户需要自己的 Qwen API Key，模型调用按账号计费。
+macOS14+，用户需要自己的 Qwen API Key，模型调用按账号计费。
 
 ## 渲染与音乐
 

@@ -34,7 +34,7 @@ Logo 组合可使用鸟形图标与带视觉句点的字标。图标固定使用
 [Bird Icon] SayKuku.
 ```
 
-App 图标不放文字，使用珊瑚红圆角底板与暖白 Lucide Bird 线稿；图形保持足够安全边距。菜单栏使用同一鸟形的无底、无边框单色 template 版本，由 macOS 自动适配明暗、选中和按下状态。App 图标有两份：macOS 26 使用 Icon Composer 分层图标 `Scripts/Resources/AppIcon.icon`（珊瑚红自动渐变底色加鸟形图层），macOS 15 使用 `Scripts/Resources/AppIcon.icns`，打包方式见 `docs/LOCAL_PACKAGING.md`。菜单栏矢量资源位于 `Sources/SayKuku/Resources/MenuBarIcon.svg`。
+App 图标不放文字，使用珊瑚红圆角底板与暖白 Lucide Bird 线稿；图形保持足够安全边距。菜单栏使用同一鸟形的无底、无边框单色 template 版本，由 macOS 自动适配明暗、选中和按下状态。App 图标有两份：macOS 26 使用 Icon Composer 分层图标 `Scripts/Resources/AppIcon.icon`（珊瑚红自动渐变底色加鸟形图层），macOS 14 / 15 使用 `Scripts/Resources/AppIcon.icns`，打包方式见 `docs/LOCAL_PACKAGING.md`。菜单栏矢量资源位于 `Sources/SayKuku/Resources/MenuBarIcon.svg`。
 
 ---
 

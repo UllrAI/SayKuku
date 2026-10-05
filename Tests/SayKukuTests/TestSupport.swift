@@ -1,5 +1,5 @@
 import Foundation
-import Synchronization
+import os
 @testable import SayKuku
 
 /// Isolated defaults, storage folder, and Keychain service for building `AppState` in tests.
@@ -89,7 +89,7 @@ final class FakeAudioCapturing: AudioCapturing {
     let recording: AudioCapture.Recording
     let startError: (any Error)?
     let startDelay: Duration
-    private let starts = Mutex<Int>(0)
+    private let starts = OSAllocatedUnfairLock(initialState: 0)
 
     var startCount: Int { starts.withLock { $0 } }
 
@@ -192,7 +192,7 @@ final class FakeReasoning: Reasoning {
         var agentMemoryPrompts: [String] = []
     }
 
-    private let state: Mutex<State>
+    private let state: OSAllocatedUnfairLock<State>
     private let agentReply: Result<AgentResponse, QwenError>
 
     init(
@@ -200,7 +200,7 @@ final class FakeReasoning: Reasoning {
         agentReply: Result<AgentResponse, QwenError> = .failure(.invalidResponse)
     ) {
         precondition(!transcriptions.isEmpty)
-        state = Mutex(State(transcriptions: transcriptions))
+        state = OSAllocatedUnfairLock(initialState: State(transcriptions: transcriptions))
         self.agentReply = agentReply
     }
 

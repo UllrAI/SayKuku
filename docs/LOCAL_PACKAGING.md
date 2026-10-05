@@ -1,6 +1,6 @@
 # SayKuku 本地打包与发布
 
-本文记录 SayKuku macOS App 的本地构建、Developer ID 签名、公证、装订、验证、DMG 制作、版本号文件 `ver.json` 生成和发布流程。默认在 macOS 15+、仓库根目录执行。
+本文记录 SayKuku macOS App 的本地构建、Developer ID 签名、公证、装订、验证、DMG 制作、版本号文件 `ver.json` 生成和发布流程。App 最低运行版本为 macOS 14；构建与发布仍需在支持 Xcode 26 或更新版本的 macOS 上、仓库根目录执行。
 
 发布链路如下：
 
@@ -248,7 +248,7 @@ App 带两份图标，各给不同系统用：
 | 源文件 | 打进 App 的形式 | Info.plist 键 | 谁在用 |
 | --- | --- | --- | --- |
 | `Scripts/Resources/AppIcon.icon` | `Contents/Resources/Assets.car` | `CFBundleIconName = AppIcon` | macOS 26 及以后，显示为分层（Liquid Glass）图标 |
-| `Scripts/Resources/AppIcon.icns` | `Contents/Resources/AppIcon.icns` | `CFBundleIconFile = AppIcon` | macOS 15 |
+| `Scripts/Resources/AppIcon.icns` | `Contents/Resources/AppIcon.icns` | `CFBundleIconFile = AppIcon` | macOS 14 / 15 |
 
 `AppIcon.icon` 是 Icon Composer 的文件包：`icon.json` 描述底色和分组，`Assets/Bird.svg` 是鸟形图层。底色用珊瑚红 `#F04A3A` 的自动渐变，鸟形沿用 `SayKuku.svg` 的 Lucide Bird 路径和 `.icns` 里的比例。要调整时在 Mac 上用 Icon Composer（Xcode › Open Developer Tool › Icon Composer）打开这个包修改并保存，文件名保持 `AppIcon`，因为它必须和 `actool --app-icon` 的名字一致。
 

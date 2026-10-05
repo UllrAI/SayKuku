@@ -8,17 +8,17 @@ SayKuku 是免费的原生 Mac 语音工具：按 Fn 在光标处输入，连按
 
 ## 短介绍
 
-Typeless 降低额度后，作者试了几款替代品，觉得都不顺手，于是 Vibe Coding 了 SayKuku。它让用户留在当前输入框，按 Fn 把话写到光标处；连按两次 Fn，则可向 Voice Agent 说出要求。不选文字也能提问、起草内容或继续对话；选中文字可改写或翻译。SayKuku 是 macOS 15+ 原生应用，App 免费，通用安装包 4.9 MB；当前使用 Qwen3.8 Omni Flash 系列处理音频，用户需自行配置 API Key 并承担模型费用。源代码已在 [GitHub](https://github.com/UllrAI/SayKuku) 公开，采用 Apache-2.0 许可。
+Typeless 降低额度后，作者试了几款替代品，觉得都不顺手，于是 Vibe Coding 了 SayKuku。它让用户留在当前输入框，按 Fn 把话写到光标处；连按两次 Fn，则可向 Voice Agent 说出要求。不选文字也能提问、起草内容或继续对话；选中文字可改写或翻译。SayKuku 是 macOS 14+ 原生应用，App 免费，通用安装包大小以官网下载页为准；当前使用 Qwen3.8 Omni Flash 系列处理音频，用户需自行配置 API Key 并承担模型费用。源代码已在 [GitHub](https://github.com/UllrAI/SayKuku) 公开，采用 Apache-2.0 许可。
 
 ## English
 
-SayKuku is a free, native macOS voice app born after its maker tried alternatives when Typeless reduced its allowance. Press Fn to dictate at the cursor; double press Fn to tell Voice Agent what you need. Ask, draft, or follow up without a selection; select text to rewrite or translate it. The macOS 15+ installer is 4.9 MB. Bring your own Qwen API key for cloud model use. The source is available on [GitHub](https://github.com/UllrAI/SayKuku) under Apache 2.0.
+SayKuku is a free, native macOS voice app born after its maker tried alternatives when Typeless reduced its allowance. Press Fn to dictate at the cursor; double press Fn to tell Voice Agent what you need. Ask, draft, or follow up without a selection; select text to rewrite or translate it. macOS 14 support starts with 1.0.7; see the download page for the current installer size. Bring your own Qwen API key for cloud model use. The source is available on [GitHub](https://github.com/UllrAI/SayKuku) under Apache 2.0.
 
 ## 准确事实
 
 | 项目 | 内容 |
 | --- | --- |
-| 系统与安装包 | macOS 15+，Apple 芯片与 Intel 通用；1.0.4 DMG 为 4,921,258 字节，约 4.9 MB |
+| 系统与安装包 | 1.0.7 起支持 macOS 14+，Apple 芯片与 Intel 通用；当前版本与安装包大小以官网下载页为准 |
 | Fn | Voice Input，可在设置中选择按住或单击 |
 | Fn Fn | Voice Agent，无需选区即可提问、起草内容或继续对话；选中文字可改写或翻译 |
 | 记忆 | 手动添加、从粘贴文字中挑选、确认纠正后保存人名/项目/术语；可编辑删除 |
@@ -41,6 +41,6 @@ SayKuku is a free, native macOS voice app born after its maker tried alternative
 2. 选中刚写的句子，连按两次 Fn，说「短一点」，展示实际 Voice Agent 结果。
 3. 取消选区，在桌面连按两次 Fn，问「Swift 是什么」，展示实际回答卡片；再继续追问。
 4. 在空输入框里连按两次 Fn，说「帮我写一句回复，说明周四上午可以」，展示实际生成与写入。
-5. 最后露出 macOS 15+、免费 App、自备 Qwen API Key 和权限说明入口。
+5. 最后露出 macOS 14+、免费 App、自备 Qwen API Key 和权限说明入口。
 
 不剪掉真实等待时间，也不使用真实聊天、联系人或 API Key 画面。

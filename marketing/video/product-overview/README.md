@@ -47,7 +47,7 @@ npm run storyboard  # 两张关键帧分镜图
 - 录音时输入框里没有实时文字。飘起的大字表示说话的声音，录音结束、识别后才落进光标。
 - 连按两次是同一枚键按两次，画面里没有并排的两个 Fn 键。
 - Agent 无需选中文字；本片演示的是选中后改写这一种用法。「改写、翻译、起草、提问」与官网口径一致：选中文字可改写或翻译，不选也能起草、提问。
-- 使用条件与 `marketing/strategy/positioning.md` 一致：macOS 15+，App 免费开源，自备 Qwen API Key。
+- 使用条件与 `marketing/strategy/positioning.md` 一致：macOS 14+，App 免费开源，自备 Qwen API Key。
 
 ## 源码
 
