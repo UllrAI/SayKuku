@@ -8,7 +8,7 @@
 
 最低运行版本为 macOS 14.0，Apple 芯片与 Intel 均在编译目标范围内。构建仍要求 Xcode 26 或更新版本；新系统的玻璃效果使用既有版本检查，macOS 14 / 15 使用材质回退。
 
-2026-10-05 的本机验证环境为 macOS 27.0.1、Xcode 27.0 / Swift 6.4：默认测试通过。发布时还需核对通用 App 两个架构的 Mach-O 最低版本与 `LSMinimumSystemVersion` 均为 14.0，并完成签名、公证与装订验证。
+2026-10-05 的本机验证环境为 macOS 27.0.1、Xcode 27.0 / Swift 6.4：默认测试共 28 个 suite、263 个测试通过；签名开发包的启动、主窗口、设置窗口与本地化通过本机检查。正式通用 App 的 arm64 / x86_64 最低运行版本和 `LSMinimumSystemVersion` 均为 14.0；App 与 DMG 均已通过 Developer ID 签名、公证、装订及 Gatekeeper 验证。Xcode 27 构建仍会提示 Intel 架构弃用，macOS 27 的 `hdiutil attach` 也有弃用提示，实际产物保留两个架构。
 
 macOS 14 的实际运行结果仍待测试，不能用上述编译和本机测试结果代替。收到反馈时记录具体系统版本、芯片、App 版本与复现步骤，至少覆盖：
 
