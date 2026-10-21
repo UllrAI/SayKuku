@@ -36,6 +36,8 @@
 
 普通 `swift test` 会运行 `DictationPolishRuleTests`：检查字段与各类条数，`spoken` 不重复且只有一行，`expected` 能通过自己的检查，`mustNotContain` 都在 `spoken` 里，要求整理或排列表的样本原样照抄 `spoken` 时会失败；另有计分函数的单元测试。增删样本时要同步修改测试里的条数。
 
+Prompt 里的示例句不能取自评测集，否则测到的是记忆而不是规则：示例要换领域、换句式，`DictationPromptTests` 会检查示例句与两套评测集的 `spoken`、`expected` 互不包含（只能发现照抄，句式雷同要靠改 Prompt 时自查）。
+
 ## 怎么跑
 
 ```bash

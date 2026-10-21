@@ -25,11 +25,17 @@ struct DictationPromptTests {
     @Test("light cleanup spells out self-corrections, lists, and the no-expansion rule")
     func lightCleanupRules() {
         let rules = DictationCleanup.light.promptInstruction
-        for cue in ["不对", "我是说", "算了", "\"I mean\"", "\"scratch that\"", "\"make that\""] {
+        for cue in ["不对", "我是说", "算了", "\"I mean\"", "\"no wait\"", "\"scratch that\"", "\"make that\"", "\"or rather\""] {
             #expect(rules.contains(cue), "missing cue \(cue)")
         }
+        // Too often ordinary words to treat as a correction or a filler.
+        for risky in ["应该是", "改成、", "\"like\"", "\"sorry\"", "\"actually\" (when"] {
+            #expect(!rules.contains(risky), "risky cue \(risky)")
+        }
+        #expect(rules.contains("Merge only when the speaker replaces something they just said"))
+        #expect(rules.contains("that states a contrast or clarification without taking back anything just said"))
         #expect(rules.contains("keep everything else that was said and not contradicted"))
-        #expect(rules.contains("when it is unclear what it replaces, write the words as spoken"))
+        #expect(rules.contains("When it is unclear whether or what the speaker is replacing, write the words as spoken"))
         #expect(rules.contains("three or more parallel items"))
         #expect(rules.contains("each item on its own line as \"1. \""))
         #expect(rules.contains("Exactly two items always stay in one sentence"))
@@ -84,6 +90,7 @@ struct DictationPromptTests {
         let verbatim = QwenRealtimeClient.makeDictationInstructions(memoryPrompt: "", cleanup: .verbatim)
         #expect(verbatim.contains("Verbatim: keep fillers, repetitions"))
         #expect(verbatim.contains("never turn speech into a list"))
+        #expect(!verbatim.contains("Pauses and hesitation"))
         #expect(!verbatim.contains("Light cleanup"))
         #expect(!verbatim.contains("Self-corrections:"))
         #expect(!verbatim.contains("Lists:"))
@@ -108,12 +115,46 @@ struct DictationPromptTests {
             memoryPrompt: memory, targetApp: "微信 (com.tencent.xinWeChat)"
         )
         #expect(toned.contains("Tone: the text will be inserted into 微信 (com.tencent.xinWeChat)."))
-        #expect(toned.contains("Never end the message with 。 or ."))
+        #expect(toned.contains("A short message (one or two short sentences) stays on one line, never a list, with no 。 or . at the end (keep ？ or ！"))
+        #expect(toned.contains("A longer message follows the punctuation and list rules."))
         #expect(toned.contains("If you are not sure what kind of app it is, use full punctuation."))
         let cleanup = try #require(toned.range(of: "Light cleanup"))
         let tone = try #require(toned.range(of: "Tone:"))
         #expect(cleanup.upperBound < tone.lowerBound)
         #expect(toned.hasSuffix(memory))
+
+        // Without ending punctuation, chat is not told to keep a final ？ or ！ the setting then removes.
+        let bare = QwenRealtimeClient.makeDictationInstructions(
+            memoryPrompt: "", targetApp: "微信 (com.tencent.xinWeChat)", keepEndingPunctuation: false
+        )
+        #expect(bare.contains("with no 。 or . at the end. A longer message"))
+        #expect(!bare.contains("keep ？ or ！"))
+        #expect(bare.contains("Final punctuation setting: do not add a period, question mark, or exclamation mark"))
+    }
+
+    @Test("prompt examples are not eval sentences")
+    func examplesAvoidEvalFixtures() throws {
+        let prompt = QwenRealtimeClient.makeDictationInstructions(memoryPrompt: "", targetApp: "微信 (com.tencent.xinWeChat)")
+        let pairs = try Regex(#""([^"\n]+)" → "([^"\n]+)""#)
+        let asides = try Regex(#"\("([^"\n]+)"\)"#)
+        var examples: [String] = []
+        for match in prompt.matches(of: pairs) {
+            examples += [match.output[1].substring, match.output[2].substring].compactMap { $0.map(String.init) }
+        }
+        for match in prompt.matches(of: asides) {
+            examples += [match.output[1].substring].compactMap { $0.map(String.init) }
+        }
+        #expect(examples.count >= 10)
+
+        let samples = try DictationPolishSample.loadFixture().flatMap { [$0.spoken, $0.expected] }
+            + MixedLanguageSample.loadFixture().flatMap { [$0.spoken, $0.expected] }
+        // Letters, digits and Han characters only, so punctuation or spacing can't hide a copy.
+        let normalize = { (text: String) in String(text.lowercased().filter { $0.isLetter || $0.isNumber }) }
+        for example in examples.map(normalize) {
+            for sample in samples.map(normalize) {
+                #expect(!sample.contains(example) && !example.contains(sample), "\(example) overlaps \(sample)")
+            }
+        }
     }
 
     @Test("light cleanup removes accidental repeats and formats Chinese punctuation")

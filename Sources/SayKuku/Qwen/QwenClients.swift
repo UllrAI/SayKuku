@@ -95,7 +95,6 @@ actor QwenRealtimeClient: RealtimeTranscribing {
 
         Transcription:
         - Keep the spoken language, meaningful words, and intent. Add punctuation, but do not paraphrase, add words that were not spoken, or turn a statement into a question.
-        - Pauses and hesitation get a comma or nothing, never "……", "...", or a dash, including before a self-correction. Write an ellipsis only when the speaker clearly trails off or says one.
         - \(PromptRules.punctuation)
         - \(recognitionLanguage.promptInstruction)
         - \(numberFormat.promptInstruction)
@@ -107,7 +106,9 @@ actor QwenRealtimeClient: RealtimeTranscribing {
 
         \(cleanup.promptInstruction)
         """
-        if let targetApp { instructions += "\n\n" + toneInstruction(for: targetApp) }
+        if let targetApp {
+            instructions += "\n\n" + toneInstruction(for: targetApp, keepEndingPunctuation: keepEndingPunctuation)
+        }
         if !keepEndingPunctuation {
             instructions += "\n\nFinal punctuation setting: do not add a period, question mark, or exclamation mark at the very end. Keep internal punctuation, quoted speech, and ellipses intact."
         }
@@ -139,10 +140,12 @@ actor QwenRealtimeClient: RealtimeTranscribing {
     }
 
     /// Tone shapes only punctuation, sentence endings and tone particles, so it stays within light cleanup.
-    private nonisolated static func toneInstruction(for targetApp: String) -> String {
-        """
+    /// Without ending punctuation the final punctuation setting drops ？ and ！ too, so chat is not told to keep them.
+    private nonisolated static func toneInstruction(for targetApp: String, keepEndingPunctuation: Bool) -> String {
+        let keptMarks = keepEndingPunctuation ? " (keep ？ or ！ when the speaker's tone asks for it)" : ""
+        return """
         Tone: the text will be inserted into \(targetApp). Match how people write in that kind of app, without changing the meaning, adding words, or dropping words that carry meaning:
-        - Chat and messaging apps: write it like a chat message. Never end the message with 。 or . (keep ？ or ！ when the speaker's tone asks for it), and keep the speaker's tone particles (吧、呢、哈、啦). Keep a short message as one line, never as a list.
+        - Chat and messaging apps: keep the speaker's tone particles (吧、呢、哈、啦). A short message (one or two short sentences) stays on one line, never a list, with no 。 or . at the end\(keptMarks). A longer message follows the punctuation and list rules.
         - Email, documents, and notes: complete sentences with full punctuation.
         - Code editors, terminals, search fields, and command bars: plain text with no punctuation added at the end.
         - If you are not sure what kind of app it is, use full punctuation.
