@@ -192,13 +192,17 @@ struct DictationPromptTests {
         #expect(clean("下午，嗯，3 点开会") == "下午 3 点开会")
         #expect(clean("We can, 嗯, ship it") == "We can ship it")
 
-        // At the start of a sentence 呃、额、唔 go; 嗯 may be assent, so the model decides.
+        // At the start of a sentence 呃、额、唔 go, and 嗯 goes when a pause and more words follow it.
         #expect(clean("呃，那就这么定了") == "那就这么定了")
         #expect(clean("好的。额，明天再说") == "好的。明天再说")
         #expect(clean("好的。\n唔，明天再说") == "好的。\n明天再说")
         #expect(clean("好的。呃。明天再说") == "好的。明天再说")
-        #expect(clean("嗯，好的") == "嗯，好的")
-        #expect(clean("好的。嗯，明天见") == "好的。嗯，明天见")
+        #expect(clean("嗯，我觉得可以") == "我觉得可以")
+        #expect(clean("嗯嗯，好的") == "好的")
+        #expect(clean("嗯，好的") == "好的")
+        #expect(clean("好的。嗯，明天见") == "好的。明天见")
+        #expect(clean("嗯好的") == "嗯好的")
+        #expect(clean("嗯。好的") == "嗯。好的")
 
         // 额、唔、呃 inside a word, 嗯 used as a verb, and tone particles stay.
         #expect(clean("金额，还要再核对") == "金额，还要再核对")
@@ -210,7 +214,7 @@ struct DictationPromptTests {
         #expect(clean("好啊，走吧，你呢，来啦，哦，哈") == "好啊，走吧，你呢，来啦，哦，哈")
 
         // A reply that is only the sound, quoted speech, and verbatim cleanup are left alone.
-        for whole in ["嗯", "嗯。", "嗯嗯", "呃，嗯"] {
+        for whole in ["嗯", "嗯。", "嗯嗯", "嗯嗯。", "呃，嗯", "嗯，", "那个，", "就是，", "Um,"] {
             #expect(clean(whole) == whole)
         }
         #expect(try SpeechDisfluencyCleaner.dictation("嗯。", mode: .light) == "嗯。")
@@ -220,13 +224,71 @@ struct DictationPromptTests {
         #expect(SpeechDisfluencyCleaner.clean(spoken, mode: .verbatim) == spoken)
     }
 
+    @Test("light cleanup drops 那个 and 就是 used as pauses, English fillers, and restarted chunks")
+    func fillerWordsAndRestarts() throws {
+        let clean = { (text: String) in SpeechDisfluencyCleaner.clean(text, mode: .light) }
+        // 那个 between pauses or opening a sentence before a pause is hesitation; 那个方案 is not.
+        #expect(clean("这个 PR，那个，我晚上再看") == "这个 PR 我晚上再看")
+        #expect(clean("这份文档，那个，下午再改") == "这份文档下午再改")
+        #expect(clean("那个，明天的会改到下午") == "明天的会改到下午")
+        #expect(clean("好的。那个，明天见") == "好的。明天见")
+        #expect(clean("那个方案，然后提交") == "那个方案，然后提交")
+        #expect(clean("我要那个，不要这个") == "我要那个，不要这个")
+        #expect(clean("就选，那个方案") == "就选，那个方案")
+
+        // 就是 goes only when it opens a sentence before a pause, also after a dropped 那个.
+        #expect(clean("就是，明天的会改到下午") == "明天的会改到下午")
+        #expect(clean("那个，就是，明天的会") == "明天的会")
+        #expect(clean("嗯，那个，我们用 TypeScript 重写") == "我们用 TypeScript 重写")
+        #expect(clean("问题就是，我们没时间") == "问题就是，我们没时间")
+        #expect(clean("就是这个意思") == "就是这个意思")
+        #expect(clean("然后，我们再开会") == "然后，我们再开会")
+
+        // English fillers open a sentence before a comma or sit between commas.
+        #expect(clean("You know, the demo is, um, almost ready") == "The demo is almost ready")
+        #expect(clean("Um, let's start") == "Let's start")
+        #expect(clean("uh, maybe later") == "maybe later")
+        #expect(clean("It works, uh, most of the time.") == "It works most of the time.")
+        #expect(clean("The build, you know, takes an hour") == "The build takes an hour")
+        #expect(clean("这个版本，um，下周发") == "这个版本下周发")
+        #expect(clean("Do you know him?") == "Do you know him?")
+        #expect(clean("Do you know, Sam?") == "Do you know, Sam?")
+        #expect(clean("The umbrella, uhm, is wet") == "The umbrella, uhm, is wet")
+        #expect(clean("Yum, tasty") == "Yum, tasty")
+
+        // A chunk said again after a pause collapses when the sentence goes on; deliberate repeats stay.
+        #expect(clean("客户，客户那边已经同意了") == "客户那边已经同意了")
+        #expect(clean("我们先，我们先把预算定下来") == "我们先把预算定下来")
+        #expect(clean("用，用 GitHub 管理") == "用，用 GitHub 管理")
+        #expect(clean("这个文档，这个文档 v2 版") == "这个文档 v2 版")
+        #expect(clean("谢谢，谢谢。") == "谢谢，谢谢。")
+        #expect(clean("谢谢，谢谢") == "谢谢，谢谢")
+        #expect(clean("好好学习") == "好好学习")
+        #expect(clean("谢谢谢谢") == "谢谢谢谢")
+
+        // Quoted speech and verbatim cleanup keep every word.
+        #expect(clean("他说“那个，就是，客户，客户那边”") == "他说“那个，就是，客户，客户那边”")
+        let spoken = "嗯，那个，客户，客户那边，就是，同意了。Um, you know, OK"
+        #expect(SpeechDisfluencyCleaner.clean(spoken, mode: .verbatim) == spoken)
+    }
+
+    @Test("light cleanup leaves every reference rendering of the eval fixtures as it is")
+    func cleanupKeepsFixtureReferences() throws {
+        let references = try DictationPolishSample.loadFixture().map(\.expected)
+            + MixedLanguageSample.loadFixture().map(\.expected)
+        for reference in references {
+            #expect(SpeechDisfluencyCleaner.clean(reference, mode: .light) == reference)
+        }
+    }
+
     @Test("the light cleanup prompt always deletes hesitation sounds inside a sentence")
     func interjectionPrompt() {
         let prompt = QwenRealtimeClient.makeDictationInstructions(memoryPrompt: "")
         #expect(prompt.contains("嗯、呃、额、唔 (also doubled, as in 嗯嗯)"))
         #expect(prompt.contains("Inside a sentence, always delete every one together with the commas or 、 around it"))
         #expect(prompt.contains("never keep one because you are unsure"))
-        #expect(prompt.contains("Keep 嗯 only when it is the whole message, or when it opens a chat reply as assent"))
+        #expect(prompt.contains("Keep 嗯 only when it is the whole message."))
+        #expect(!prompt.contains("assent"))
         #expect(prompt.contains("this never applies to 嗯、呃、额、唔、uh, or um"))
     }
 

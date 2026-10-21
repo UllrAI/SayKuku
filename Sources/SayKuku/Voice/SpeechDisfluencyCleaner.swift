@@ -16,8 +16,8 @@ enum SpeechDisfluencyCleaner {
     )
 
     static func clean(_ text: String, mode: DictationCleanup) -> String {
-        // A reply that is only 嗯 or 呃 is what the speaker said, not a pause inside a sentence.
-        let dropsInterjections = mode == .light
+        // A reply that is only 嗯 or 呃 is what the speaker said, not a pause before the rest.
+        let dropsFillers = mode == .light
             && !text.filter { !interjections.contains($0) }.trimmingCharacters(in: nonSpeech).isEmpty
         var result = ""
         var segment = ""
@@ -30,7 +30,7 @@ enum SpeechDisfluencyCleaner {
                 if character == quote { closingQuote = nil }
             } else if let close = quotes[character] {
                 result += cleanSegment(
-                    segment, mode: mode, dropsInterjections: dropsInterjections,
+                    segment, mode: mode, dropsFillers: dropsFillers,
                     before: result.last, after: character
                 )
                 segment = ""
@@ -41,7 +41,7 @@ enum SpeechDisfluencyCleaner {
             }
         }
         result += cleanSegment(
-            segment, mode: mode, dropsInterjections: dropsInterjections, before: result.last, after: nil
+            segment, mode: mode, dropsFillers: dropsFillers, before: result.last, after: nil
         )
         return result
     }
@@ -58,14 +58,16 @@ enum SpeechDisfluencyCleaner {
     }
 
     private static func cleanSegment(
-        _ segment: String, mode: DictationCleanup, dropsInterjections: Bool,
+        _ segment: String, mode: DictationCleanup, dropsFillers: Bool,
         before: Character?, after: Character?
     ) -> String {
         var text = segment
-        if dropsInterjections { text = withoutInterjections(text, before: before, after: after) }
+        if dropsFillers { text = withoutFillers(text, before: before, after: after) }
         if mode == .light {
-            let range = NSRange(text.startIndex..<text.endIndex, in: text)
-            text = repeatedLeadIn.stringByReplacingMatches(in: text, range: range, withTemplate: "$1")
+            for pattern in [repeatedLeadIn, restartedChunk] {
+                let range = NSRange(text.startIndex..<text.endIndex, in: text)
+                text = pattern.stringByReplacingMatches(in: text, range: range, withTemplate: "$1")
+            }
         }
         let characters = Array(text)
         return String(characters.indices.map { index in
@@ -88,37 +90,86 @@ enum SpeechDisfluencyCleaner {
 
     private static let interjections: Set<Character> = ["嗯", "呃", "额", "唔"]
     private static let pauses: Set<Character> = ["，", ",", "、", " ", "\t"]
+    private static let pauseMarks: Set<Character> = ["，", ",", "、"]
     private static let sentenceEnds: Set<Character> = ["。", "！", "？", ".", "!", "?", "\n"]
     private static let clauseEnds = sentenceEnds.union(["；", ";", "：", ":", "…"])
+    private static let englishFillers = ["you know", "um", "uh"]
 
-    /// Drops hesitation sounds the model left in, with the pause marks around them, so
-    /// "现在，嗯，也会" reads "现在也会". 嗯 opening a sentence may be assent, so that one stays
-    /// for the model to judge. 额 and 唔 also appear inside words (金额, 唔该), so they go only
-    /// when nothing but pauses or punctuation touches them. `before` and `after` are the characters
-    /// next to the segment, nil at either end of the text.
-    private static func withoutInterjections(_ segment: String, before: Character?, after: Character?) -> String {
-        let characters = Array(segment)
-        var output: [Character] = []
-        var index = 0
-        while index < characters.count {
-            guard interjections.contains(characters[index]) else {
-                output.append(characters[index])
-                index += 1
-                continue
-            }
+    /// "客户，客户那边": a chunk said again after a pause, when the sentence goes on after it.
+    /// "谢谢，谢谢。" and 好好学习 are said that way on purpose.
+    private static let restartedChunk = try! NSRegularExpression(
+        pattern: #"(\p{Han}{2,6})[ \t]*[，,][ \t]*\1(?=[ \t]*[\p{L}\p{N}])"#
+    )
+
+    private enum Filler {
+        /// 嗯、呃、额、唔, alone or doubled.
+        case sound(onlyEn: Bool)
+        case nage
+        case jiushi
+        /// you know, um, uh; `capitalized` when it opened the sentence with a capital.
+        case english(capitalized: Bool)
+    }
+
+    /// The filler starting at `index` and its length, or the length of a word to keep as it is.
+    private static func filler(
+        at index: Int, in characters: [Character], before: Character?, after: Character?
+    ) -> (length: Int, filler: Filler?)? {
+        let character = characters[index]
+        let previous = index > 0 ? characters[index - 1] : before
+        if interjections.contains(character) {
             var end = index
             while end < characters.count, interjections.contains(characters[end]) { end += 1 }
             let run = characters[index..<end]
-            let touchingLeft = index > 0 ? characters[index - 1] : before
             let touchingRight = end < characters.count ? characters[end] : after
             let onlyEn = run.allSatisfy { $0 == "嗯" }
-            let standsAlone = !isWordCharacter(touchingLeft) && !isWordCharacter(touchingRight)
-            // 他嗯了一声 uses 嗯 as a verb; 呃逆 is the one word with 呃.
+            // 他嗯了一声 uses 嗯 as a verb; 呃逆 is the one word with 呃. 额 and 唔 also appear
+            // inside words (金额, 唔该), so they count only when no letter touches them.
             let isSound = run.allSatisfy { $0 == "嗯" || $0 == "呃" }
                 ? !(onlyEn && touchingRight == "了") && !(run.last == "呃" && touchingRight == "逆")
-                : standsAlone
-            guard isSound else {
-                output += run
+                : !isWordCharacter(previous) && !isWordCharacter(touchingRight)
+            return (run.count, isSound ? .sound(onlyEn: onlyEn) : nil)
+        }
+        if index + 1 < characters.count {
+            let pair = String(characters[index...index + 1])
+            if pair == "那个" { return (2, .nage) }
+            if pair == "就是" { return (2, .jiushi) }
+        }
+        guard character.isASCII, character.isLetter, !(previous?.isLetter ?? false) else { return nil }
+        for phrase in englishFillers where index + phrase.count < characters.count {
+            let word = characters[index..<index + phrase.count]
+            guard String(word).lowercased() == phrase, [",", "，"].contains(characters[index + phrase.count]) else {
+                continue
+            }
+            return (phrase.count, .english(capitalized: character.isUppercase))
+        }
+        return nil
+    }
+
+    /// Drops fillers the model left in, with the pause marks around them, so "现在，嗯，也会" reads
+    /// "现在也会" and "那个，明天的会" reads "明天的会". A sentence-initial 嗯 goes only when more
+    /// follows its pause. `before` and `after` are the characters next to the segment, nil at
+    /// either end of the text.
+    private static func withoutFillers(_ segment: String, before: Character?, after: Character?) -> String {
+        let characters = Array(segment)
+        var output: [Character] = []
+        var capitalizeNext = false
+        var index = 0
+        while index < characters.count {
+            guard let (length, filler) = filler(at: index, in: characters, before: before, after: after) else {
+                let character = characters[index]
+                if capitalizeNext, character.isASCII, character.isLowercase {
+                    output += character.uppercased()
+                } else {
+                    output.append(character)
+                }
+                capitalizeNext = false
+                index += 1
+                continue
+            }
+            let end = index + length
+            guard let filler else {
+                output += characters[index..<end]
+                capitalizeNext = false
                 index = end
                 continue
             }
@@ -129,26 +180,43 @@ enum SpeechDisfluencyCleaner {
             var next = end
             while next < characters.count, pauses.contains(characters[next]) { next += 1 }
             let right = next < characters.count ? characters[next] : after
+            let startsSentence = left.map(sentenceEnds.contains) ?? true
+            let pausedBefore = output[leftPauses...].contains(where: pauseMarks.contains)
+            let pausedAfter = end < characters.count && pauseMarks.contains(characters[end])
+            // More of the message follows the pause after the filler.
+            let goesOn = next > end && right.map { !sentenceEnds.contains($0) } ?? false
 
-            if left.map(sentenceEnds.contains) ?? true {
-                if onlyEn {
-                    output += run
-                    index = end
-                    continue
-                }
+            let drop: Bool
+            switch (filler, startsSentence) {
+            case (.sound(onlyEn: true), true): drop = goesOn
+            case (.sound(onlyEn: false), true):
                 // "好的。呃。" has nothing left of the second sentence.
                 if next < characters.count, sentenceEnds.contains(characters[next]) { next += 1 }
-                index = next
+                drop = true
+            case (.sound, false): drop = true
+            case (.nage, true), (.jiushi, true): drop = pausedAfter && goesOn
+            case (.nage, false): drop = pausedBefore && pausedAfter
+            case (.jiushi, false): drop = false
+            case (.english(let capitalized), true):
+                drop = goesOn
+                if drop, capitalized { capitalizeNext = true }
+            case (.english, false): drop = pausedBefore
+            }
+            guard drop else {
+                output += characters[index..<end]
+                capitalizeNext = false
+                index = end
                 continue
             }
-
-            let pausedWithEnumerationComma = output[leftPauses...].contains("、")
-            output.removeSubrange(leftPauses...)
-            if let right, !clauseEnds.contains(right) {
-                if pausedWithEnumerationComma {
-                    output.append("、")
-                } else if let left, needsSpace(between: left, and: right) {
-                    output.append(" ")
+            if !startsSentence {
+                let pausedWithEnumerationComma = output[leftPauses...].contains("、")
+                output.removeSubrange(leftPauses...)
+                if let right, !clauseEnds.contains(right) {
+                    if pausedWithEnumerationComma {
+                        output.append("、")
+                    } else if let left, needsSpace(between: left, and: right) {
+                        output.append(" ")
+                    }
                 }
             }
             index = next
