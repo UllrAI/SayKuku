@@ -64,7 +64,9 @@ enum SpeechDisfluencyCleaner {
         var text = segment
         if dropsFillers { text = withoutFillers(text, before: before, after: after) }
         if mode == .light {
-            for pattern in [repeatedLeadIn, restartedChunk] {
+            // The segment opens a clause unless it follows quoted speech in the same clause.
+            let opensClause = before.map { sentenceEnds.union(pauseMarks).contains($0) } ?? true
+            for pattern in [repeatedLeadIn, restartedClause] + (opensClause ? [restartedOpening] : []) {
                 let range = NSRange(text.startIndex..<text.endIndex, in: text)
                 text = pattern.stringByReplacingMatches(in: text, range: range, withTemplate: "$1")
             }
@@ -95,11 +97,14 @@ enum SpeechDisfluencyCleaner {
     private static let clauseEnds = sentenceEnds.union(["；", ";", "：", ":", "…"])
     private static let englishFillers = ["you know", "um", "uh"]
 
-    /// "客户，客户那边": a chunk said again after a pause, when the sentence goes on after it.
-    /// "谢谢，谢谢。" and 好好学习 are said that way on purpose.
-    private static let restartedChunk = try! NSRegularExpression(
-        pattern: #"(\p{Han}{2,6})[ \t]*[，,][ \t]*\1(?=[ \t]*[\p{L}\p{N}])"#
+    /// "客户，客户那边": a whole clause of two to six characters said again to open the next one,
+    /// when the sentence goes on after it. "这是好人，好人有好报" repeats only the end of its clause on
+    /// purpose, and so do "谢谢，谢谢。" and 好好学习.
+    private static let restartedChunk = #"(\p{Han}{2,6})[ \t]*[，,][ \t]*\1(?=[ \t]*[\p{L}\p{N}])"#
+    private static let restartedClause = try! NSRegularExpression(
+        pattern: #"(?<=[，,、。！？.!?；;：:\n])"# + restartedChunk
     )
+    private static let restartedOpening = try! NSRegularExpression(pattern: "^" + restartedChunk)
 
     private enum Filler {
         /// 嗯、呃、额、唔, alone or doubled.
