@@ -669,8 +669,8 @@ struct QwenReasoningClient: Reasoning {
         )
     }
 
-    /// Always `DictationRefinement.model`, whatever the reasoning model setting. The request gives up
-    /// with the refinement deadline; `DictationRefinement.refine` enforces that deadline itself.
+    /// Always `DictationRefinement.model`, whatever the reasoning model setting. `DictationRefinement.refine`
+    /// cancels the request at its deadline, which also ends a retry's wait.
     func refineDictation(
         apiKey: String, configuration: QwenConfiguration, instructions: String, userMessage: String
     ) async throws -> String {
@@ -681,8 +681,7 @@ struct QwenReasoningClient: Reasoning {
             messages: [
                 ["role": "system", "content": instructions],
                 ["role": "user", "content": userMessage]
-            ],
-            timeout: DictationRefinement.requestTimeout
+            ]
         )
     }
 

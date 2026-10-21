@@ -872,11 +872,11 @@ Voice Input 的 Realtime `session.instructions` 和批处理 fallback 的 `syste
 
 听写二次整理（`Qwen/DictationRefinement.swift`，设置“听写后再整理一遍措辞”，默认开启）：
 
-- 只在轻整理时进行，原样模式和 Voice Agent 不走。Realtime、Realtime 失败后的批处理 fallback 和整段批处理识别的结果都在 `SpeechDisfluencyCleaner` 之后进入这一步；重新转写历史录音时也走，同样不带 App 和表达偏好。
+- 只在轻整理时进行（包括应用专属格式设为轻整理的 App，所以这个开关不随全局整理方式置灰），原样模式和 Voice Agent 不走；第一步结果为空或只有空白时不发请求。Realtime、Realtime 失败后的批处理 fallback 和整段批处理识别的结果都在 `SpeechDisfluencyCleaner` 之后进入这一步；重新转写历史录音时也走，同样不带 App 和表达偏好。
 - 模型固定为 `qwen3.8-flash`，不跟随“识别模型”设置；文本请求，关闭 thinking。评测中 qwen-flash 和 qwen-plus 会执行口述的“翻译成英文”、把句中英文译成中文，所以不选。
 - `system` 只描述要修的几类问题（犹豫词、半词重启、改口与自我修正、无意重复）和不许动的部分（有意义的词与语序、语气词、不确定的说法、对比句、不翻译、不总结、不扩写、列表和换行原样、结尾原样、代码与引文原样），再接 `PromptRules` 的标点与中英混排规则、数字格式、按 App 调整语气的同一段 Tone、关闭结尾标点时的同一句说明、表达偏好和记忆（`MemoryPrompt` 的 `refinement` 用途：只用来改正已出现的名称与术语的写法和大小写）。不带光标附近的文字。不使用评测句或与评测句形状相同的示例，`DictationRefinementTests` 检查。
-- 设置不变时 `system` 逐字节相同，不含每次请求的 id，便于服务端前缀缓存；表达偏好是用户自己写的设置，用不带 id 的 `<expression_preference>` 标签。第一步文字放在 `user` 消息里的 `<transcript id="…">` 中，id 每次请求随机生成。
-- 整个第二步最多等 2 秒（含一次重试），由任务组和计时任务竞速实现；取消听写会一并取消这次请求。超时、网络或服务错误、回复为空、回复里出现 transcript 标签或 id、去掉空白后的长度不在第一步的 0.4–1.5 倍之间（评测中真实改口最短到 0.44，翻译最长到 3.4），或第一步里的英文单词有一半以上不见了（疑似翻译），都插入第一步的结果；只记原因和耗时，不记正文。回复照样经过 `SpeechDisfluencyCleaner` 轻整理和结尾标点设置。
+- 设置不变时 `system` 逐字节相同，不含每次请求的 id，便于服务端前缀缓存；表达偏好放在 `<expression_preference id="…">` 里，id 取偏好文字 SHA-256 的前 16 位十六进制（不用每次启动都会变的 `hashValue`），同样的偏好得到同样的 id，偏好文字里也不可能出现自己的闭合标签。第一步文字放在 `user` 消息里的 `<transcript id="…">` 中，id 每次请求随机生成。
+- 整个第二步最多等 2 秒，由任务组和计时任务竞速实现，请求本身不另设超时；请求内部的一次重试只能在这 2 秒内完成。到时或取消听写都会取消这次请求（`URLSession` 的请求和重试前的等待都响应取消）。超时、网络或服务错误、回复为空、回复里出现 transcript 标签或 id、去掉空白后的长度不在第一步的 0.4–1.5 倍之间（评测中真实改口最短到 0.44，翻译最长到 3.4），或回复里的 ASCII 字母不到第一步的一半（疑似翻译；按字母数而不是按单词比，所以 “get hub” → “GitHub”、“iPhone15” → “iPhone 15” 这类拼写修正不受影响），都插入第一步的结果；只记原因和耗时，不记正文。回复照样经过 `SpeechDisfluencyCleaner` 轻整理和结尾标点设置。
 - 期间 Pill 保持 processing；本地用量统计按每次听写计数，不受这一步影响。
 
 Voice Agent 的 `system` Prompt 按“动作 → 字段 → target 与源文本 → 不可信数据 → 输出文本 → JSON”分节：

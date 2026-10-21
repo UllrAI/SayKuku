@@ -126,12 +126,11 @@ private struct VoiceInputSettings: View {
                 KukuToggleRow(
                     title: localized("Refine wording after dictation"),
                     caption: localized(
-                        "With light cleanup, sends the transcribed text to a Qwen text model once more to settle restarts and self-corrections. If that takes too long or fails, you get the first result."
+                        "Applies wherever Light cleanup is used, including apps with their own format below. Sends the transcribed text to a Qwen text model once more to settle restarts and self-corrections; if that takes too long or fails, you get the first result."
                     ),
                     isOn: $settings.refineDictation
                 )
-                // Verbatim keeps restarts and self-corrections, so there is nothing to refine.
-                .disabled(appState.settings.dictationCleanup == .verbatim)
+                // Always enabled: an app's own format can choose Light cleanup while the default is Verbatim.
                 KukuDivider()
                 KukuToggleRow(
                     title: localized("Use text near the cursor"),

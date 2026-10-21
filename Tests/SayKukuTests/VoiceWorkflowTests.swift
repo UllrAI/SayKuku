@@ -840,6 +840,28 @@ struct VoiceWorkflowTests {
         #expect(reasoning.refineCount == 0)
     }
 
+    @Test("a first pass the cleaner empties sends no refinement, in dictation or from History")
+    func emptyFirstPassNotRefined() async throws {
+        // Only hesitation: the cleaner drops all of it.
+        let hesitation = "嗯那个，呃"
+        #expect(try SpeechDisfluencyCleaner.dictation(hesitation, mode: .light).isEmpty)
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let audio = FakeAudioCapturing(recording: AudioCapture.Recording(wav: Data(count: 64), duration: 1, hasSpeech: true))
+        let reasoning = FakeReasoning(transcriptions: [.text(hesitation)], refinements: [.text("changed")])
+        let text = FakeTextWriting()
+        let state = try makeState(environment, .fake(audio: audio, reasoning: reasoning, text: text))
+
+        try await startListening(state)
+        state.workflow.finishDictation()
+        #expect(await eventually { state.data.historyEntries.first?.status == .failed })
+        let id = try #require(state.data.historyEntries.first?.id)
+        await state.workflow.retryDictation(id)
+        #expect(reasoning.transcribeCount == 2)
+        #expect(reasoning.refineCount == 0)
+        #expect(text.writes.isEmpty)
+    }
+
     @Test("a failed or doubtful refinement inserts the first pass unchanged")
     func refinementFallsBack() async throws {
         let replies: [FakeReasoning.Refinement] = [

@@ -52,23 +52,22 @@ Scripts/eval-dictation.sh dictation-polish 2>&1 | tee Build/eval-polish-before.t
 逐条输出，换行写成 `\n`，方便前后两次逐行 diff：
 
 ```text
-[23] list FAIL (list: 0/3 items)
-  spoken:   周末要做三件事，第一，打扫房间，第二，去超市买菜，第三，给爸妈打个电话
-  expected: 周末要做 3 件事：\n1. 打扫房间\n2. 去超市买菜\n3. 给爸妈打个电话
-  pass 1:   周末要做 3 件事：第一，打扫房间；第二，去超市买菜；第三，给爸妈打个电话。
-  actual:   周末要做 3 件事：第一，打扫房间；第二，去超市买菜；第三，给爸妈打个电话。
+[18] selfCorrection FAIL (mustNotContain: Friday, scratch that)
+  spoken:   The deadline is Friday, scratch that, Monday next week
+  expected: The deadline is Monday next week.
+  pass 1:   The deadline is Friday... scratch that, Monday next week.  (kept: timeout)
+  actual:   The deadline is Friday... scratch that, Monday next week.
 ```
-
-`pass 1` 是二次整理前的结果；二次整理没被采用时后面注明原因，如 `(kept: timeout)`。关闭二次整理时它与 `actual` 相同。
+`pass 1` 是二次整理前的结果；二次整理没被采用时后面注明原因，如上例的 `(kept: timeout)`，这时 `actual` 就是第一步结果。关闭二次整理时它与 `actual` 相同。
 
 `FAIL (…)` 里列出每项失败的检查及涉及的短语；`ERROR (…)` 表示请求失败，出现任何 `ERROR` 测试都会失败，这一次的结果不能拿来对比。
 
 最后是汇总：
 
 ```text
-Polish eval: 31/50 passed (62.0%), 0 errors; fillers 9/10, selfCorrection 8/12, list 3/10, noExpansion 9/10, chatTone 2/8
-Check failures: mustContain 3, mustNotContain 4, list 7, length 1, trailingPeriod 5, spacing 0, punctuation 1
-Exact matches: 12/50
+Polish eval: 49/58 passed (84.5%), 0 errors; fillers 10/11, selfCorrection 14/19, list 8/10, noExpansion 10/10, chatTone 7/8
+Check failures: mustContain 4, mustNotContain 4, list 2, length 0, trailingPeriod 1, spacing 1, punctuation 0
+Exact matches: 41/58
 Refinement: changed 19/58, kept the first pass 3 (timeout 3); p50 745 / p90 1484 / max 2013 ms
 ```
 
