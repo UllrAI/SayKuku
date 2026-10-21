@@ -80,6 +80,7 @@ The debug package requires a stable Apple Development signing identity. `swift r
 | App analytics and privacy boundaries | [`docs/APP_ANALYTICS.md`](docs/APP_ANALYTICS.md) |
 | Compatibility test plan | [`docs/COMPATIBILITY.md`](docs/COMPATIBILITY.md) |
 | Mixed-language evaluation | [`docs/MIXED_LANGUAGE_EVAL.md`](docs/MIXED_LANGUAGE_EVAL.md) |
+| Dictation polish evaluation | [`docs/DICTATION_POLISH_EVAL.md`](docs/DICTATION_POLISH_EVAL.md) |
 | Contributor and agent guidance | [`AGENTS.md`](AGENTS.md) |
 
 Release builds are signed, notarized, and packaged locally through `Scripts/release.sh`; the repository does not use GitHub Actions for macOS release validation. Follow the [local release guide](docs/LOCAL_PACKAGING.md) rather than running a Release package step on its own.

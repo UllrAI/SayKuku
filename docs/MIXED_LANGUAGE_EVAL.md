@@ -1,6 +1,6 @@
 # 中英混说评测
 
-> 每次修改听写 Prompt（`QwenRealtimeClient.makeDictationInstructions`、`PromptRules`，或 `RecognitionLanguage`、`DictationNumberFormat`、`DictationCleanup` 的 `promptInstruction`），或者更换默认模型，都要在 Mac 上重跑本评测，并把改动前后两次的汇总贴进 PR。
+> 每次修改听写 Prompt（`QwenRealtimeClient.makeDictationInstructions`、`PromptRules`，或 `RecognitionLanguage`、`DictationNumberFormat`、`DictationCleanup` 的 `promptInstruction`），或者更换默认模型，都要在 Mac 上重跑本评测，并把改动前后两次的汇总贴进 PR。口头禅、改口、列表、防扩写和目标 App 语气由 [听写润色评测](DICTATION_POLISH_EVAL.md) 衡量，同样要前后各跑一次。
 
 写法规则见 [SayKuku.md](../SayKuku.md)「Dictation 与 Agent 必须严格分开」一节下 Fn Dictation 的「中英混合写法规则」。
 
@@ -40,6 +40,8 @@
 mkdir -p Build
 Scripts/eval-mixed-language.sh 2>&1 | tee Build/eval-before.txt
 ```
+
+`Scripts/eval-mixed-language.sh` 等同于 `Scripts/eval-dictation.sh mixed-language`；两套评测共用 `Scripts/eval-dictation.sh`，音频分目录缓存。
 
 可选环境变量：`SAYKUKU_TEST_REGION`（`beijing` 或 `singapore`，默认 `beijing`）、`SAYKUKU_TEST_WORKSPACE_ID`（批处理识别不需要，可以不设）。
 

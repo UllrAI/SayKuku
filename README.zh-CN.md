@@ -78,6 +78,7 @@ open Build/SayKuku.app
 | App 统计及隐私边界 | [`docs/APP_ANALYTICS.md`](docs/APP_ANALYTICS.md) |
 | 写入兼容性测试计划 | [`docs/COMPATIBILITY.md`](docs/COMPATIBILITY.md) |
 | 中英混说评测 | [`docs/MIXED_LANGUAGE_EVAL.md`](docs/MIXED_LANGUAGE_EVAL.md) |
+| 听写润色评测 | [`docs/DICTATION_POLISH_EVAL.md`](docs/DICTATION_POLISH_EVAL.md) |
 | 开发与 Agent 约定 | [`AGENTS.md`](AGENTS.md) |
 
 正式版由 `Scripts/release.sh` 在本机完成签名、公证和打包；仓库不使用 GitHub Actions 验证 macOS 发布包。请遵循[本机发布说明](docs/LOCAL_PACKAGING.md)，不要单独运行内部 Release 打包步骤作为发布流程。
