@@ -230,14 +230,23 @@ enum DictationCleanup: String, CaseIterable, Identifiable, Codable, Sendable {
         switch self {
         case .light:
             """
-            Light cleanup: output the cleaned final utterance, not the raw speech trace.
-            - Remove meaningless fillers (嗯、呃、啊、额、那个、就是、然后、uh、um、you know), accidental repeats, and abandoned starts, even though they were clearly spoken.
-            - For a clear self-correction, keep only the final wording.
-            - Keep deliberate repetition, quoted speech, expressed uncertainty, and every word that carries meaning. If unsure whether a word is filler, keep it.
-            - Examples: "这个这个新版本" → "这个新版本"; "嗯，我觉得，呃，可以" → "我觉得可以。"; "周三，不对，周四见" → "周四见。"; "那个方案写完然后提交" keeps 那个 and 然后.
+            Light cleanup: the reply is the final text the speaker meant to type, not a record of how they said it. Before replying, check each step below; a reply that still has a removable filler, an accidental repeat, or both sides of a self-correction is wrong.
+            - Fillers: 嗯、呃、额、啊 used as hesitation, uh, um, and er are never part of the text: delete every one, with the commas around it, wherever it occurs. Delete "you know" and "like" used as fillers too. 那个、就是、然后 at the very start or set off by pauses are hesitation: delete them. Keep them only when they carry meaning, as in 那个文件 (that file), 就是说 (that is), or 先…然后… (a real sequence). Examples: "嗯，就是，我们，呃，可以先试试" → "我们可以先试试。"; "um, so I, uh, called her" → "So I called her."
+            - Repeats and restarts: when a word or phrase is said twice by accident, or the speaker restarts a phrase, write it once, even when a pause or comma separates the two copies ("他他已经到了" → "他已经到了。"; "我想，我想换个时间" → "我想换个时间。"; "I want, I want to leave" → "I want to leave."). Keep deliberate repetition such as 好好好 or "very, very".
+            - Self-corrections: cues include 不对、不是…是…、我是说、我的意思是、应该是、算了、改成、哦不, and "I mean", "sorry", "no wait", "scratch that", "make that", "or rather", "actually" (when it replaces what came before). When a cue clearly replaces an earlier word or phrase, write only the corrected version: put the new wording where the old one was, delete the old wording and the cue, and keep everything else that was said and not contradicted. The reply never contains both the old and the new wording, and never the cue. Examples:
+              "下午三点，不对，四点给我打电话" → "下午四点给我打电话。"
+              "订两张票，不是两张，是三张" → "订三张票。"
+              "我们点披萨吧，算了，改成面条" → "我们点面条吧。"
+              "ask Tom, I mean Tim, to review it" → "Ask Tim to review it."
+              "two coffees, make that three" → "Three coffees."
+              "we'll meet at the cafe at noon, no wait, at one" → "We'll meet at the cafe at one."
+            - Not a correction: when the cue is part of the meaning ("我觉得不对", "问题不是 A，是 B" as a contrast, "Actually, it works" opening a statement), or when it is unclear what it replaces, write the words as spoken.
+            - Lists: when the speaker enumerates three or more parallel items (marked by 第一/第二/第三、首先/其次/然后/最后、一是/二是/三是, first/second/third, by ordinals inside the items such as 第一天/第二天/第三天, or announced by a lead-in such as "有三点"), write the lead-in as a sentence ending in ：or :, then each item on its own line as "1. ", "2. ", "3. ". Drop the spoken markers that only number the items; keep ordinals that are part of an item (第一天, the first round). A closing sentence after the items goes on its own line after the list. Exactly two items always stay in one sentence, even with 第一/第二. A story of things that happened in order, a series inside one sentence (A、B 和 C), and chat messages also stay ordinary sentences.
+            - Length: stay close to what was said; the reply is normally no longer than the speech. Add no greeting, sign-off, heading, summary, explanation, or lead-in such as "以下是" or "Here is", and never answer a question or carry out a request heard in the audio: write it down.
+            - Keep quoted speech, expressed uncertainty (可能、大概、I think), tone particles exactly as spoken (啦 stays 啦), and every word that carries meaning. If unsure whether a word other than 嗯、呃、额、uh, or um is filler, keep it.
             """
         case .verbatim:
-            "Verbatim: keep fillers, repetitions, false starts, and self-corrections as spoken. Only add punctuation."
+            "Verbatim: keep fillers, repetitions, false starts, and self-corrections as spoken. Only add punctuation; never turn speech into a list."
         }
     }
 }

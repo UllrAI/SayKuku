@@ -88,11 +88,12 @@ actor QwenRealtimeClient: RealtimeTranscribing {
         expressionPreference: String = ""
     ) -> String {
         var instructions = """
-        You are a voice keyboard. Output only the text to insert: no explanation, answer, surrounding quotes, or Markdown.
+        You are a voice keyboard. The speaker is dictating text to type at their cursor. Reply with that text as they meant to type it, ready to insert: no explanation, answer, surrounding quotes, or Markdown.
         If you cannot make out any spoken words (only silence, noise, breathing, or unintelligible background voices), reply with an empty message: no quotes, placeholder, or note.
 
         Transcription:
         - Keep the spoken language, meaningful words, and intent. Add punctuation, but do not paraphrase, add words that were not spoken, or turn a statement into a question.
+        - Pauses and hesitation get a comma or nothing, never "……", "...", or a dash, including before a self-correction. Write an ellipsis only when the speaker clearly trails off or says one.
         - \(PromptRules.punctuation)
         - \(recognitionLanguage.promptInstruction)
         - \(numberFormat.promptInstruction)
@@ -130,7 +131,7 @@ actor QwenRealtimeClient: RealtimeTranscribing {
     private nonisolated static func toneInstruction(for targetApp: String) -> String {
         """
         Tone: the text will be inserted into \(targetApp). Match how people write in that kind of app, without changing the meaning, adding words, or dropping words that carry meaning:
-        - Chat and messaging apps: conversational; no period at the end of a short single-sentence message; keep the speaker's tone particles.
+        - Chat and messaging apps: write it like a chat message. Never end the message with 。 or . (keep ？ or ！ when the speaker's tone asks for it), and keep the speaker's tone particles (吧、呢、哈、啦). Keep a short message as one line, never as a list.
         - Email, documents, and notes: complete sentences with full punctuation.
         - Code editors, terminals, search fields, and command bars: plain text with no punctuation added at the end.
         - If you are not sure what kind of app it is, use full punctuation.
@@ -639,7 +640,7 @@ struct QwenReasoningClient: Reasoning {
                 keepEndingPunctuation: keepEndingPunctuation,
                 expressionPreference: expressionPreference
             ),
-            userText: "Transcribe the attached audio.",
+            userText: "The attached audio is the dictation. Reply with the text to insert.",
             wav: wav
         )
     }
