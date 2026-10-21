@@ -85,6 +85,8 @@ final class VoiceWorkflow {
     @ObservationIgnored private var chunkContinuation: AsyncStream<Data>.Continuation?
     @ObservationIgnored private var targetSnapshot: TextTargetSnapshot?
     @ObservationIgnored private var activeDictationFormat: EffectiveDictationFormat?
+    /// Read once from the captured target, so realtime, its batch fallback and batch-only dictation send the same text.
+    @ObservationIgnored private var activeCursorContext: DictationCursorContext?
     /// A tap starts one capture immediately; the second tap can reuse it for Voice Agent.
     @ObservationIgnored private var fnTapDictation = false
     @ObservationIgnored private var fnTapConfirmed = false
@@ -215,6 +217,8 @@ final class VoiceWorkflow {
         let snapshot = targetSnapshot
         let format = activeDictationFormat ?? settings.dictationFormat(for: snapshot?.bundleID)
         activeDictationFormat = nil
+        let cursorContext = activeCursorContext
+        activeCursorContext = nil
         let upload = uploadTask
         let realtimeSession = realtimeSessionID
         targetSnapshot = nil
@@ -223,7 +227,8 @@ final class VoiceWorkflow {
         workflowTask = Task { [weak self] in
             await self?.completeDictation(
                 recording, historyID: historyID, snapshot: snapshot,
-                upload: upload, realtimeSession: realtimeSession, format: format, generation: generation
+                upload: upload, realtimeSession: realtimeSession, format: format,
+                cursorContext: cursorContext, generation: generation
             )
         }
     }
@@ -546,6 +551,9 @@ final class VoiceWorkflow {
     private func prepareWorkflow(mode: VoiceWorkflowMode, snapshot: TextTargetSnapshot) {
         targetSnapshot = snapshot
         activeDictationFormat = mode == .dictation ? settings.dictationFormat(for: snapshot.bundleID) : nil
+        // `DictationCursorContext` itself refuses sensitive targets.
+        activeCursorContext = mode == .dictation && settings.cursorContextAllowed
+            ? DictationCursorContext(snapshot: snapshot) : nil
         liveTranscript = ""
         inputLevel = 0
         pendingCopyText = ""
@@ -603,7 +611,7 @@ final class VoiceWorkflow {
         let selectedRecognitionLanguage = settings.recognitionLanguage
         let format = activeDictationFormat ?? settings.dictationFormat(for: targetSnapshot?.bundleID)
         let targetApp = format.targetAppName(for: targetSnapshot)
-        let cursorContext = dictationCursorContext(for: targetSnapshot)
+        let cursorContext = activeCursorContext
         let memoryPrompt = renderMemoryPrompt(.transcription)
         let realtimeSession = UUID()
         realtimeSessionID = realtimeSession
@@ -719,13 +727,14 @@ final class VoiceWorkflow {
     private func completeDictation(
         _ recording: AudioCapture.Recording, historyID: UUID?,
         snapshot: TextTargetSnapshot?, upload: Task<Void, Error>?,
-        realtimeSession: UUID, format: EffectiveDictationFormat, generation: Int
+        realtimeSession: UUID, format: EffectiveDictationFormat,
+        cursorContext: DictationCursorContext?, generation: Int
     ) async {
         await persistHistoryAudio(recording, historyID: historyID)
         do {
             let transcript = try await transcribe(
                 recording, upload: upload, realtimeSession: realtimeSession,
-                targetApp: format.targetAppName(for: snapshot), cursorContext: dictationCursorContext(for: snapshot),
+                targetApp: format.targetAppName(for: snapshot), cursorContext: cursorContext,
                 format: format, generation: generation
             )
             try Task.checkCancellation()
@@ -870,11 +879,6 @@ final class VoiceWorkflow {
             memoryPrompt: renderMemoryPrompt(.transcription)
         )
         return try SpeechDisfluencyCleaner.dictation(result, mode: format.cleanup)
-    }
-
-    /// Nil when the setting is off; `DictationCursorContext` itself refuses sensitive targets.
-    private func dictationCursorContext(for snapshot: TextTargetSnapshot?) -> DictationCursorContext? {
-        settings.cursorContextAllowed ? DictationCursorContext(snapshot: snapshot) : nil
     }
 
     /// Saved memory and domain presets for dictation.
@@ -1043,6 +1047,7 @@ final class VoiceWorkflow {
         targetSnapshot = nil
         activeAgentSessions = []
         activeDictationFormat = nil
+        activeCursorContext = nil
         pendingCopyText = ""
         pendingAnswerText = ""
         pendingAnswerStatus = nil
@@ -1081,6 +1086,7 @@ final class VoiceWorkflow {
         uploadTask?.cancel()
         if agent { agentPhase = .hidden } else { dictationPhase = .idle }
         targetSnapshot = nil
+        activeCursorContext = nil
         let message = localizedError(error)
         let symbol = (error as? QwenError)?.symbol ?? "exclamationmark"
         if (error as? QwenError) == .noSpeech {

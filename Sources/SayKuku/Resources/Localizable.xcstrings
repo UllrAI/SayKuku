@@ -5200,13 +5200,13 @@
         }
       }
     },
-    "Sends up to 800 characters before and 200 after the cursor with your speech, so names, terms, and similar-sounding words match what you’re writing. Never read from password fields." : {
+    "Sends a short stretch of text before and after the cursor with your speech, so names, terms, and similar-sounding words match what you’re writing. Never read from password fields." : {
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "随语音一并发送光标前最多 800 字、后最多 200 字，让人名、术语和同音字跟正在写的内容一致。密码框中不读取。"
+            "value" : "随语音一并发送光标前后的一小段文字，让人名、术语和同音字跟正在写的内容一致。密码框中不读取。"
           }
         }
       }
