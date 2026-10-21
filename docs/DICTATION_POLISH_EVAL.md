@@ -45,7 +45,7 @@ mkdir -p Build
 Scripts/eval-dictation.sh dictation-polish 2>&1 | tee Build/eval-polish-before.txt
 ```
 
-音频缓存在 `Build/eval-audio-polish/NN.wav`，与中英混说评测的 `Build/eval-audio` 分开，规则相同：句子没变就复用，换了语音全部重新合成。之后运行 `SAYKUKU_LIVE_QWEN_TEST=1 swift test --filter DictationPolishEvalTests`：逐条调用批处理 `transcribeAudio`（`chatTone` 传入 `targetApp`，其余用默认设置；都不带光标附近的文字），再经过 `SpeechDisfluencyCleaner.dictation` 整理。
+音频缓存在 `Build/eval-audio-polish/NN.wav`，与中英混说评测的 `Build/eval-audio` 分开，规则相同：句子没变就复用，换了语音全部重新合成。之后运行 `SAYKUKU_LIVE_QWEN_TEST=1 swift test --filter DictationPolishEvalTests`：逐条调用批处理 `transcribeAudio`（`chatTone` 传入 `targetApp`，其余用默认设置；都不带光标附近的文字），再经过 `SpeechDisfluencyCleaner.dictation` 整理，最后和 App 一样走一遍听写二次整理（`DictationRefinement.refine`，带同样的 `targetApp`）。设 `SAYKUKU_EVAL_TWO_PASS=0` 可跳过二次整理，作为单步对照。
 
 ## 怎么读结果
 
@@ -55,8 +55,11 @@ Scripts/eval-dictation.sh dictation-polish 2>&1 | tee Build/eval-polish-before.t
 [23] list FAIL (list: 0/3 items)
   spoken:   周末要做三件事，第一，打扫房间，第二，去超市买菜，第三，给爸妈打个电话
   expected: 周末要做 3 件事：\n1. 打扫房间\n2. 去超市买菜\n3. 给爸妈打个电话
+  pass 1:   周末要做 3 件事：第一，打扫房间；第二，去超市买菜；第三，给爸妈打个电话。
   actual:   周末要做 3 件事：第一，打扫房间；第二，去超市买菜；第三，给爸妈打个电话。
 ```
+
+`pass 1` 是二次整理前的结果；二次整理没被采用时后面注明原因，如 `(kept: timeout)`。关闭二次整理时它与 `actual` 相同。
 
 `FAIL (…)` 里列出每项失败的检查及涉及的短语；`ERROR (…)` 表示请求失败，出现任何 `ERROR` 测试都会失败，这一次的结果不能拿来对比。
 
@@ -66,6 +69,9 @@ Scripts/eval-dictation.sh dictation-polish 2>&1 | tee Build/eval-polish-before.t
 Polish eval: 31/50 passed (62.0%), 0 errors; fillers 9/10, selfCorrection 8/12, list 3/10, noExpansion 9/10, chatTone 2/8
 Check failures: mustContain 3, mustNotContain 4, list 7, length 1, trailingPeriod 5, spacing 0, punctuation 1
 Exact matches: 12/50
+Refinement: changed 19/58, kept the first pass 3 (timeout 3); p50 745 / p90 1484 / max 2013 ms
 ```
+
+`Refinement` 一行统计二次整理改动了几条、几条因超时、出错或兜底检查保留了第一步结果，以及这一步的耗时。
 
 对比方法与中英混说评测的「前后对比」一节相同：同一份音频、改 Prompt 前后各跑一次，按类别看变化，差一两条不足以下结论。

@@ -114,7 +114,8 @@ struct DictationPolishRuleTests {
 
 @Suite("Dictation polish eval")
 struct DictationPolishEvalTests {
-    /// Measures the prompt rather than gating on it: failed checks are reported, and only errors fail the test.
+    /// Measures the prompts rather than gating on them: failed checks are reported, and only errors fail the test.
+    /// The refinement pass runs as in the app; `SAYKUKU_EVAL_TWO_PASS=0` leaves it out.
     @Test("live batch dictation of the polish fixture")
     func liveEval() async throws {
         guard let live = try LiveDictationEval(suite: "dictation-polish", audioFolder: "eval-audio-polish") else { return }
@@ -125,19 +126,21 @@ struct DictationPolishEvalTests {
         var checkFailures: [DictationPolishCheck: Int] = [:]
         var errors = 0
         var exact = 0
+        var runs: [LiveDictationEval.Dictation] = []
 
         for (index, sample) in samples.enumerated() {
             let (name, wav) = try live.recording(at: index, spoken: sample.spoken)
             total[sample.category, default: 0] += 1
 
             var actual = ""
+            var firstPass = ""
             var failure: String?
             do {
-                // Default dictation settings plus the sample's target app, cleaned as the app does before writing.
-                let reply = try await client.transcribeAudio(
-                    apiKey: live.apiKey, configuration: live.configuration, wav: wav, targetApp: sample.targetApp
-                )
-                actual = try SpeechDisfluencyCleaner.dictation(reply, mode: .light)
+                // Default dictation settings plus the sample's target app, finished as the app does before writing.
+                let run = try await live.dictate(wav, targetApp: sample.targetApp, client: client)
+                runs.append(run)
+                actual = run.text
+                firstPass = run.firstPass + (run.fallback.map { "  (kept: \($0.rawValue))" } ?? "")
             } catch {
                 failure = error.localizedDescription
             }
@@ -157,12 +160,13 @@ struct DictationPolishEvalTests {
                     verdict = "FAIL (\(failed.map(\.description).joined(separator: "; ")))"
                 }
             }
-            // Newlines are escaped so every sample prints as four lines and two runs diff line by line.
+            // Newlines are escaped so every sample prints as five lines and two runs diff line by line.
             let escape = { (text: String) in text.replacingOccurrences(of: "\n", with: "\\n") }
             print("""
             [\(name)] \(sample.category.rawValue) \(verdict)
               spoken:   \(sample.spoken)
               expected: \(escape(sample.expected))
+              pass 1:   \(escape(firstPass))
               actual:   \(escape(actual))
             """)
         }
@@ -178,6 +182,7 @@ struct DictationPolishEvalTests {
         Polish eval: \(passedCount)/\(samples.count) passed (\(rate)%), \(errors) errors; \(categories.joined(separator: ", "))
         Check failures: \(checks.joined(separator: ", "))
         Exact matches: \(exact)/\(samples.count)
+        \(LiveDictationEval.refinementSummary(runs))
         """)
         #expect(errors == 0, "Requests failed, so this run can't be compared with another")
     }

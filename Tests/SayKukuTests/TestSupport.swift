@@ -403,6 +403,50 @@ struct LiveDictationEval {
             .appendingPathComponent("Build/\(audioFolder)")
     }
 
+    /// What the app would insert for one recording, and how the refinement pass went.
+    struct Dictation {
+        var firstPass: String
+        var text: String
+        /// Nil when the refinement replaced the first pass, or did not run.
+        var fallback: DictationRefinement.Fallback?
+        var refinementMilliseconds: Int?
+    }
+
+    /// The refinement pass runs unless `SAYKUKU_EVAL_TWO_PASS=0`, which gives the one-pass control.
+    var refines: Bool { ProcessInfo.processInfo.environment["SAYKUKU_EVAL_TWO_PASS"] != "0" }
+
+    /// Batch dictation with default settings plus `targetApp`, finished as `VoiceWorkflow` finishes light
+    /// dictation before writing: cleaned, then refined unless `refines` is off. Ending punctuation is kept.
+    func dictate(_ wav: Data, targetApp: String?, client: QwenReasoningClient) async throws -> Dictation {
+        let reply = try await client.transcribeAudio(apiKey: apiKey, configuration: configuration, wav: wav, targetApp: targetApp)
+        let firstPass = try SpeechDisfluencyCleaner.dictation(reply, mode: .light)
+        guard refines else { return Dictation(firstPass: firstPass, text: firstPass) }
+        let started = ContinuousClock.now
+        let outcome = try await DictationRefinement.refine(
+            firstPass, settings: DictationRefinement.Settings(targetApp: targetApp),
+            apiKey: apiKey, configuration: configuration, client: client
+        )
+        return Dictation(
+            firstPass: firstPass, text: outcome.text, fallback: outcome.fallback,
+            refinementMilliseconds: Int((started.duration(to: .now) / .milliseconds(1)).rounded())
+        )
+    }
+
+    /// One line on the refinement pass across `runs`, for the end of an eval.
+    static func refinementSummary(_ runs: [Dictation]) -> String {
+        let latencies = runs.compactMap(\.refinementMilliseconds).sorted()
+        guard !latencies.isEmpty else { return "Refinement: off (SAYKUKU_EVAL_TWO_PASS=0)" }
+        let percentile = { (p: Double) in latencies[Int((Double(latencies.count - 1) * p).rounded())] }
+        let fallbacks = DictationRefinement.Fallback.allCases.compactMap { reason -> String? in
+            let count = runs.filter { $0.fallback == reason }.count
+            return count == 0 ? nil : "\(reason.rawValue) \(count)"
+        }
+        let changed = runs.filter { $0.text != $0.firstPass }.count
+        return "Refinement: changed \(changed)/\(runs.count), kept the first pass \(runs.filter { $0.fallback != nil }.count)"
+            + (fallbacks.isEmpty ? "" : " (\(fallbacks.joined(separator: ", ")))")
+            + "; p50 \(percentile(0.5)) / p90 \(percentile(0.9)) / max \(latencies.last!) ms"
+    }
+
     /// `NN.wav` for zero-based sample `index`, after `NN.txt` confirms it was spoken from `spoken`.
     func recording(at index: Int, spoken: String) throws -> (name: String, wav: Data) {
         let name = String(format: "%02d", index + 1)
