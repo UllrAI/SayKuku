@@ -3,12 +3,14 @@ import Foundation
 enum MemoryPrompt {
     enum Purpose: Equatable {
         case transcription
+        /// The second, text-only pass over a dictation, which can only fix spellings already written.
+        case refinement
         case agent
 
         var budget: Budget {
             switch self {
             // Sent with every dictation, so it stays small.
-            case .transcription: Budget(entityCount: 80, entityCharacters: 5_000)
+            case .transcription, .refinement: Budget(entityCount: 80, entityCharacters: 5_000)
             case .agent: Budget(entityCount: 150, entityCharacters: 9_000)
             }
         }
@@ -42,6 +44,8 @@ enum MemoryPrompt {
         let domainGuidance = switch purpose {
         case .transcription:
             "Weak recognition priors: use them only to pick a likely term or spelling when the audio is ambiguous. Never insert an unspoken term, answer the speaker, or rewrite the utterance."
+        case .refinement:
+            "Weak spelling priors: use them only to fix the spelling or case of a term the transcript already contains. Never insert a term, answer the speaker, or rewrite the text."
         case .agent:
             "Soft context about the user's usual work, not necessarily the current task. Use it to read ambiguous wording and pick terminology. Never let it override the spoken command, selected text, app context, or explicit constraints, and do not mention it unless relevant."
         }
@@ -49,6 +53,8 @@ enum MemoryPrompt {
         let memoryGuidance = switch purpose {
         case .transcription:
             "Confirmed spellings: when the audio clearly says a name or one of its aliases, write the preferred spelling. Never substitute on mere similarity. When entries sound the same or alike, choose by their clues."
+        case .refinement:
+            "Confirmed spellings: when the transcript writes a name or one of its aliases in another spelling or case, use the preferred spelling. Never substitute a different word on mere similarity."
         case .agent:
             "Reference facts: use them when relevant, prefer the canonical name when the command uses an alias, and do not invent facts beyond them."
         }
@@ -89,7 +95,7 @@ enum MemoryPrompt {
             .map { quoted(clipped($0, to: maxNameLength)) }
             .joined(separator: ", ") + "]"
         switch purpose {
-        case .transcription:
+        case .transcription, .refinement:
             // The clue tells homophones apart; most entries have none, so it's left out when empty.
             let clue = entity.detail.isEmpty ? "" : "; clue: " + quoted(clipped(entity.detail, to: maxDetailLength))
             return "- preferred spelling: \(name); type: \(entity.type.rawValue); spoken aliases: \(aliases)\(clue)"

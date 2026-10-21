@@ -178,7 +178,8 @@ actor FakeRealtime: RealtimeTranscribing {
     func cancel(session: UUID) {}
 }
 
-/// Batch transcription takes the next queued reply, repeating the last one; the Agent always gets `agentReply`.
+/// Batch transcription and refinement each take the next queued reply, repeating the last one;
+/// the Agent always gets `agentReply`.
 final class FakeReasoning: Reasoning {
     enum Transcription: Sendable {
         case text(String)
@@ -187,9 +188,23 @@ final class FakeReasoning: Reasoning {
         case lateText(String)
     }
 
+    enum Refinement: Sendable {
+        /// Replies with the transcript it was sent.
+        case echo
+        case text(String)
+        case failure(QwenError)
+        /// Waits until the caller is cancelled, then returns the text anyway.
+        case lateText(String)
+    }
+
     private struct State {
         var transcriptions: [Transcription]
+        var refinements: [Refinement]
         var transcribeCount = 0
+        var refineCount = 0
+        var refineCancelled = false
+        var refinementInstructions: [String] = []
+        var refinementMessages: [String] = []
         var targetApps: [String?] = []
         var cursorContexts: [DictationCursorContext?] = []
         var formats: [(DictationNumberFormat, DictationCleanup, Bool, String)] = []
@@ -202,14 +217,20 @@ final class FakeReasoning: Reasoning {
 
     init(
         transcriptions: [Transcription] = [.text("Hello world.")],
+        refinements: [Refinement] = [.echo],
         agentReply: Result<AgentResponse, QwenError> = .failure(.invalidResponse)
     ) {
-        precondition(!transcriptions.isEmpty)
-        state = OSAllocatedUnfairLock(initialState: State(transcriptions: transcriptions))
+        precondition(!transcriptions.isEmpty && !refinements.isEmpty)
+        state = OSAllocatedUnfairLock(initialState: State(transcriptions: transcriptions, refinements: refinements))
         self.agentReply = agentReply
     }
 
     var transcribeCount: Int { state.withLock { $0.transcribeCount } }
+    var refineCount: Int { state.withLock { $0.refineCount } }
+    /// Whether a late refinement saw its caller cancelled.
+    var refineCancelled: Bool { state.withLock { $0.refineCancelled } }
+    var refinementInstructions: [String] { state.withLock { $0.refinementInstructions } }
+    var refinementMessages: [String] { state.withLock { $0.refinementMessages } }
     var targetApps: [String?] { state.withLock { $0.targetApps } }
     var cursorContexts: [DictationCursorContext?] { state.withLock { $0.cursorContexts } }
     var formats: [(DictationNumberFormat, DictationCleanup, Bool, String)] { state.withLock { $0.formats } }
@@ -262,6 +283,31 @@ final class FakeReasoning: Reasoning {
             $0.agentMemoryPrompts.append(memoryPrompt)
         }
         return try agentReply.get()
+    }
+
+    func refineDictation(
+        apiKey: String, configuration: QwenConfiguration, instructions: String, userMessage: String
+    ) async throws -> String {
+        let reply = state.withLock { current in
+            current.refineCount += 1
+            current.refinementInstructions.append(instructions)
+            current.refinementMessages.append(userMessage)
+            return current.refinements.count > 1 ? current.refinements.removeFirst() : current.refinements[0]
+        }
+        switch reply {
+        case .echo:
+            // The transcript sits between the opening and closing tag lines.
+            return userMessage.split(separator: "\n", omittingEmptySubsequences: false)
+                .dropFirst().dropLast().joined(separator: "\n")
+        case .text(let text):
+            return text
+        case .failure(let error):
+            throw error
+        case .lateText(let text):
+            try? await Task.sleep(for: .seconds(60))
+            if Task.isCancelled { state.withLock { $0.refineCancelled = true } }
+            return text
+        }
     }
 
     func extractMemory(apiKey: String, configuration: QwenConfiguration, text: String) async throws -> [ProposedEntity] {
