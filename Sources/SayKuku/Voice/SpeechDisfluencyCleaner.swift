@@ -93,7 +93,7 @@ enum SpeechDisfluencyCleaner {
 
     /// Drops hesitation sounds the model left in, with the pause marks around them, so
     /// "现在，嗯，也会" reads "现在也会". 嗯 opening a sentence may be assent, so that one stays
-    /// for the model to judge. 额, 呃 and 唔 also appear inside words (金额, 唔该), so they go only
+    /// for the model to judge. 额 and 唔 also appear inside words (金额, 唔该), so they go only
     /// when nothing but pauses or punctuation touches them. `before` and `after` are the characters
     /// next to the segment, nil at either end of the text.
     private static func withoutInterjections(_ segment: String, before: Character?, after: Character?) -> String {
@@ -113,8 +113,11 @@ enum SpeechDisfluencyCleaner {
             let touchingRight = end < characters.count ? characters[end] : after
             let onlyEn = run.allSatisfy { $0 == "嗯" }
             let standsAlone = !isWordCharacter(touchingLeft) && !isWordCharacter(touchingRight)
-            // 他嗯了一声: 嗯 used as a verb.
-            guard onlyEn ? touchingRight != "了" : standsAlone else {
+            // 他嗯了一声 uses 嗯 as a verb; 呃逆 is the one word with 呃.
+            let isSound = run.allSatisfy { $0 == "嗯" || $0 == "呃" }
+                ? !(onlyEn && touchingRight == "了") && !(run.last == "呃" && touchingRight == "逆")
+                : standsAlone
+            guard isSound else {
                 output += run
                 index = end
                 continue

@@ -178,6 +178,7 @@ struct DictationPromptTests {
         #expect(clean("现在嗯也会") == "现在也会")
         #expect(clean("现在 嗯 也会") == "现在也会")
         #expect(clean("方案，呃，还可以") == "方案还可以")
+        #expect(clean("方案呃还可以") == "方案还可以")
         #expect(clean("方案，嗯嗯，还可以，呃呃，再改") == "方案还可以再改")
         #expect(clean("可以，嗯。") == "可以。")
         #expect(clean("可以，嗯") == "可以")
@@ -204,6 +205,8 @@ struct DictationPromptTests {
         #expect(clean("这个额度不够") == "这个额度不够")
         #expect(clean("余额。") == "余额。")
         #expect(clean("他嗯了一声") == "他嗯了一声")
+        #expect(clean("一直呃逆") == "一直呃逆")
+        #expect(clean("现在唔该也") == "现在唔该也")
         #expect(clean("好啊，走吧，你呢，来啦，哦，哈") == "好啊，走吧，你呢，来啦，哦，哈")
 
         // A reply that is only the sound, quoted speech, and verbatim cleanup are left alone.
