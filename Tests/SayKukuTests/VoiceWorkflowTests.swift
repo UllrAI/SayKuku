@@ -784,6 +784,123 @@ struct VoiceWorkflowTests {
         #expect(text.writes == ["Hello world.", ""])
         #expect(state.workflow.dictationPhase == .idle)
     }
+
+    @Test("light dictation is refined after realtime, its batch fallback, and batch alone, then ends as set")
+    func dictationRefined() async throws {
+        let firstPass = "我们下周去上，上海出差。"
+        let refinedText = "我们下周去上海出差。"
+        for path in ["realtime", "fallback", "batch"] {
+            let environment = AppStateTestEnvironment()
+            defer { environment.clean() }
+            let realtime = path == "fallback" ? FakeRealtime(commitError: .timeout) : FakeRealtime(transcript: firstPass)
+            let reasoning = FakeReasoning(transcriptions: [.text(firstPass)], refinements: [.text(refinedText)])
+            let text = FakeTextWriting()
+            let state = try makeState(environment, .fake(realtime: realtime, reasoning: reasoning, text: text))
+            if path != "batch" { state.settings.qwenWorkspaceID = "llm-test" }
+            state.settings.keepEndingPunctuation = false
+            #expect(state.settings.refineDictation)
+
+            try await startListening(state)
+            state.workflow.finishDictation()
+            #expect(await eventually { state.workflow.dictationPhase == .success }, "\(path)")
+            #expect(text.writes == ["我们下周去上海出差"], "\(path)")
+            #expect(state.data.historyEntries.first?.input == refinedText, "\(path)")
+            #expect(reasoning.transcribeCount == (path == "realtime" ? 0 : 1), "\(path)")
+            #expect(reasoning.refineCount == 1, "\(path)")
+            #expect(reasoning.refinementMessages.first?.contains("\n\(firstPass)\n") == true, "\(path)")
+            #expect(reasoning.refinementInstructions.first?.contains("Final punctuation setting") == true, "\(path)")
+        }
+    }
+
+    @Test("verbatim cleanup, the setting turned off, and Voice Agent never refine")
+    func refinementSkipped() async throws {
+        for skip in ["verbatim", "off"] {
+            let environment = AppStateTestEnvironment()
+            defer { environment.clean() }
+            let reasoning = FakeReasoning(transcriptions: [.text("呃，我们周三开会。")], refinements: [.text("changed")])
+            let text = FakeTextWriting()
+            let state = try makeState(environment, .fake(reasoning: reasoning, text: text))
+            if skip == "verbatim" { state.settings.dictationCleanup = .verbatim } else { state.settings.refineDictation = false }
+
+            try await startListening(state)
+            state.workflow.finishDictation()
+            #expect(await eventually { state.workflow.dictationPhase == .success }, "\(skip)")
+            #expect(reasoning.refineCount == 0, "\(skip)")
+            #expect(text.writes.first?.contains("changed") == false, "\(skip)")
+        }
+
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let answer = AgentResponse(transcript: "Swift 是什么", action: .answer, intent: "回答", output: "A programming language.")
+        let reasoning = FakeReasoning(agentReply: .success(answer))
+        let state = try makeState(environment, .fake(reasoning: reasoning))
+        try await startAgentListening(state)
+        state.workflow.finishAgentListening()
+        #expect(await eventually { state.workflow.agentPhase == .answerReady })
+        #expect(reasoning.refineCount == 0)
+    }
+
+    @Test("a failed or doubtful refinement inserts the first pass unchanged")
+    func refinementFallsBack() async throws {
+        let replies: [FakeReasoning.Refinement] = [
+            .failure(.server(status: 503, message: "busy")), .text(""), .text("这个改动看起来不错。")
+        ]
+        for reply in replies {
+            let environment = AppStateTestEnvironment()
+            defer { environment.clean() }
+            let reasoning = FakeReasoning(transcriptions: [.text("这个改动 looks good to me。")], refinements: [reply])
+            let text = FakeTextWriting()
+            let state = try makeState(environment, .fake(reasoning: reasoning, text: text))
+
+            try await startListening(state)
+            state.workflow.finishDictation()
+            #expect(await eventually { state.workflow.dictationPhase == .success }, "\(reply)")
+            #expect(text.writes == ["这个改动 looks good to me。"], "\(reply)")
+            #expect(state.data.historyEntries.first?.status == .completed, "\(reply)")
+        }
+    }
+
+    @Test("cancelling during refinement cancels its request and writes nothing")
+    func refinementCancelled() async throws {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let reasoning = FakeReasoning(refinements: [.lateText("Hello world.")])
+        let text = FakeTextWriting()
+        let state = try makeState(environment, .fake(reasoning: reasoning, text: text))
+
+        try await startListening(state)
+        state.workflow.finishDictation()
+        try #require(await eventually { reasoning.refineCount == 1 })
+        #expect(state.workflow.dictationPhase == .processing)
+        state.workflow.cancelDictation()
+        #expect(await eventually { state.data.historyEntries.first?.status == .cancelled })
+        #expect(await eventually { reasoning.refineCancelled })
+        #expect(text.writes.isEmpty)
+    }
+
+    @Test("transcribing again from History refines the new transcript too")
+    func retryRefined() async throws {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let audio = FakeAudioCapturing(recording: AudioCapture.Recording(wav: Data(count: 64), duration: 1, hasSpeech: true))
+        let reasoning = FakeReasoning(
+            transcriptions: [.failure(.invalidResponse), .text("我们下周去上，上海出差。")],
+            refinements: [.text("我们下周去上海出差。")]
+        )
+        let state = try makeState(environment, .fake(audio: audio, reasoning: reasoning))
+
+        try await startListening(state)
+        state.workflow.finishDictation()
+        #expect(await eventually { state.data.historyEntries.first?.status == .failed })
+        let id = try #require(state.data.historyEntries.first?.id)
+        #expect(reasoning.refineCount == 0)
+
+        await state.workflow.retryDictation(id)
+        #expect(state.data.historyEntries.first?.status == .completed)
+        #expect(state.data.historyEntries.first?.output == "我们下周去上海出差。")
+        #expect(reasoning.refineCount == 1)
+        #expect(reasoning.refinementInstructions.first?.contains("Tone:") == false)
+    }
 }
 
 /// No sound cues and a saved key, so a workflow can start.

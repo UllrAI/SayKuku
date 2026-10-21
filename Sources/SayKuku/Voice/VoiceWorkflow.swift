@@ -436,7 +436,16 @@ final class VoiceWorkflow {
                 cursorContext: nil,
                 memoryPrompt: renderMemoryPrompt(.transcription)
             )
-            let cleaned = try SpeechDisfluencyCleaner.dictation(result, mode: settings.dictationCleanup)
+            // Refined like the dictation it replays, with the same History-only settings as above.
+            let cleaned = try await refined(
+                SpeechDisfluencyCleaner.dictation(result, mode: settings.dictationCleanup),
+                cleanup: settings.dictationCleanup,
+                settings: DictationRefinement.Settings(
+                    numberFormat: settings.dictationNumberFormat,
+                    keepEndingPunctuation: settings.keepEndingPunctuation,
+                    memoryPrompt: renderMemoryPrompt(.refinement)
+                )
+            )
             let output = settings.keepEndingPunctuation
                 ? cleaned : SpeechDisfluencyCleaner.withoutEndingPunctuation(cleaned)
             data.updateHistory(id, input: cleaned, output: output, status: .completed)
@@ -732,10 +741,25 @@ final class VoiceWorkflow {
     ) async {
         await persistHistoryAudio(recording, historyID: historyID)
         do {
-            let transcript = try await transcribe(
+            let targetApp = format.targetAppName(for: snapshot)
+            let firstPass = try await transcribe(
                 recording, upload: upload, realtimeSession: realtimeSession,
-                targetApp: format.targetAppName(for: snapshot), cursorContext: cursorContext,
+                targetApp: targetApp, cursorContext: cursorContext,
                 format: format, generation: generation
+            )
+            try Task.checkCancellation()
+            guard generation == workflowGeneration else { throw CancellationError() }
+            // Realtime, its batch fallback, and batch-only dictation all arrive here; the pill stays on processing.
+            let transcript = try await refined(
+                firstPass,
+                cleanup: format.cleanup,
+                settings: DictationRefinement.Settings(
+                    numberFormat: format.numberFormat,
+                    targetApp: targetApp,
+                    keepEndingPunctuation: format.keepEndingPunctuation,
+                    expressionPreference: format.expressionPreference,
+                    memoryPrompt: renderMemoryPrompt(.refinement)
+                )
             )
             try Task.checkCancellation()
             guard generation == workflowGeneration else { throw CancellationError() }
@@ -879,6 +903,18 @@ final class VoiceWorkflow {
             memoryPrompt: renderMemoryPrompt(.transcription)
         )
         return try SpeechDisfluencyCleaner.dictation(result, mode: format.cleanup)
+    }
+
+    /// The second pass, for light cleanup with the setting on. Never throws for a failed refinement, which
+    /// keeps `text`; throws `CancellationError` when the workflow is cancelled, which cancels the request.
+    private func refined(
+        _ text: String, cleanup: DictationCleanup, settings refinement: DictationRefinement.Settings
+    ) async throws -> String {
+        guard cleanup == .light, settings.refineDictation else { return text }
+        return try await DictationRefinement.refine(
+            text, settings: refinement, apiKey: settings.apiKey,
+            configuration: settings.configuration, client: reasoningClient
+        ).text
     }
 
     /// Saved memory and domain presets for dictation.

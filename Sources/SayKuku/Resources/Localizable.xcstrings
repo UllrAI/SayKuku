@@ -4638,6 +4638,17 @@
         }
       }
     },
+    "Refine wording after dictation" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "听写后再整理一遍措辞"
+          }
+        }
+      }
+    },
     "Region" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6738,6 +6749,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "窗口标题"
+          }
+        }
+      }
+    },
+    "With light cleanup, sends the transcribed text to a Qwen text model once more to settle restarts and self-corrections. If that takes too long or fails, you get the first result." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "轻度整理时，把转写好的文字再发给 Qwen 文本模型整理一次，处理重说和改口。超时或出错时，直接使用第一次的结果。"
           }
         }
       }
