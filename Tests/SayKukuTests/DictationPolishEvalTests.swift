@@ -4,7 +4,7 @@ import Testing
 
 @Suite("Dictation polish fixture and scoring checks")
 struct DictationPolishRuleTests {
-    @Test("the fixture has 51 distinct samples whose checks are well formed and measure something")
+    @Test("the fixture has 58 distinct samples whose checks are well formed and measure something")
     func fixtureFormat() throws {
         let data = try Data(contentsOf: DictationPolishSample.fixtureURL)
         let objects = try #require(try JSONSerialization.jsonObject(with: data) as? [[String: Any]])
@@ -19,7 +19,7 @@ struct DictationPolishRuleTests {
 
         let samples = try DictationPolishSample.loadFixture()
         let counts = Dictionary(grouping: samples, by: \.category).mapValues(\.count)
-        #expect(counts == [.fillers: 11, .selfCorrection: 12, .list: 10, .noExpansion: 10, .chatTone: 8])
+        #expect(counts == [.fillers: 11, .selfCorrection: 19, .list: 10, .noExpansion: 10, .chatTone: 8])
         #expect(Set(samples.map(\.spoken)).count == samples.count)
 
         for sample in samples {

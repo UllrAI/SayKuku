@@ -54,5 +54,13 @@
   {"category": "chatTone", "targetApp": "微信 (com.tencent.xinWeChat)", "spoken": "呃，那就这么定了吧", "expected": "那就这么定了吧", "noTrailingPeriod": true, "mustContain": ["那就这么定了吧"], "mustNotContain": ["呃"]},
   {"category": "chatTone", "targetApp": "微信 (com.tencent.xinWeChat)", "spoken": "Sounds good, see you tomorrow", "expected": "Sounds good, see you tomorrow", "noTrailingPeriod": true, "mustContain": ["sounds good", "see you tomorrow"]},
 
-  {"category": "fillers", "spoken": "可以先测试一下，这个客户端有对应的变更。然后客户端现在，嗯，也会自动登录 Web 端了", "expected": "可以先测试一下，这个客户端有对应的变更。然后客户端现在也会自动登录 Web 端了。", "mustContain": ["客户端现在也会自动登录"], "mustNotContain": ["嗯"]}
+  {"category": "fillers", "spoken": "可以先测试一下，这个客户端有对应的变更。然后客户端现在，嗯，也会自动登录 Web 端了", "expected": "可以先测试一下，这个客户端有对应的变更。然后客户端现在也会自动登录 Web 端了。", "mustContain": ["客户端现在也会自动登录"], "mustNotContain": ["嗯"]},
+
+  {"category": "selfCorrection", "spoken": "可以先测试一下这个，这客户端有对应的变更，然后客户端现在也会自动登录 Web 了，Web 端了", "expected": "可以先测试一下这个客户端有对应的变更，然后客户端现在也会自动登录 Web 端了。", "mustContain": ["客户端有对应的变更", "自动登录Web端了"], "mustNotContain": ["这个这", "Web了Web"]},
+  {"category": "selfCorrection", "spoken": "我已经把代码提交了，提交到测试分支了", "expected": "我已经把代码提交到测试分支了。", "mustContain": ["把代码提交到测试分支了"], "mustNotContain": ["提交了提交"]},
+  {"category": "selfCorrection", "spoken": "服务器已经重启了，重启完了，现在可以访问", "expected": "服务器已经重启完了，现在可以访问。", "mustContain": ["重启完了", "现在可以访问"], "mustNotContain": ["重启了重启"]},
+  {"category": "selfCorrection", "spoken": "你把那个，那份合同再打印一下", "expected": "你把那份合同再打印一下。", "mustContain": ["那份合同再打印一下"], "mustNotContain": ["那个那"]},
+  {"category": "selfCorrection", "spoken": "我们下周去上，上海出差", "expected": "我们下周去上海出差。", "mustContain": ["下周去上海出差"], "mustNotContain": ["去上上海"]},
+  {"category": "selfCorrection", "spoken": "客户反馈说登录页面的加，加载速度太慢了", "expected": "客户反馈说登录页面的加载速度太慢了。", "mustContain": ["登录页面的加载速度太慢了"], "mustNotContain": ["加加载"]},
+  {"category": "selfCorrection", "spoken": "We should, we need to update the docs before the release", "expected": "We need to update the docs before the release.", "mustContain": ["we need to update the docs before the release"], "mustNotContain": ["we should"]}
 ]
