@@ -157,13 +157,16 @@ enum SpeechDisfluencyCleaner {
     /// Drops fillers the model left in, with the pause marks around them, so "现在，嗯，也会" reads
     /// "现在也会" and "那个，明天的会" reads "明天的会". A sentence-initial 嗯 goes only when more
     /// follows its pause. `before` and `after` are the characters next to the segment, nil at
-    /// either end of the text.
+    /// either end of the text. A filler with a pause on one side only leaves that pause behind;
+    /// with pauses on both sides the clauses join.
     private static func withoutFillers(_ segment: String, before: Character?, after: Character?) -> String {
         let characters = Array(segment)
         var output: [Character] = []
         var capitalizeNext = false
-        // The last filler was dropped from between pauses, so the next one still counts as paused.
-        var pauseCarried = false
+        // The last filler was dropped from next to a pause, so the next one still counts as paused.
+        // This is that pause mark.
+        var carriedPause: Character?
+        var pauseCarried: Bool { carriedPause != nil }
         var index = 0
         while index < characters.count {
             guard let (length, filler) = filler(at: index, in: characters, before: before, after: after) else {
@@ -174,7 +177,7 @@ enum SpeechDisfluencyCleaner {
                     output.append(character)
                 }
                 capitalizeNext = false
-                pauseCarried = false
+                carriedPause = nil
                 index += 1
                 continue
             }
@@ -182,7 +185,7 @@ enum SpeechDisfluencyCleaner {
             guard let filler else {
                 output += characters[index..<end]
                 capitalizeNext = false
-                pauseCarried = false
+                carriedPause = nil
                 index = end
                 continue
             }
@@ -198,6 +201,8 @@ enum SpeechDisfluencyCleaner {
             let leftMarks = output[leftPauses...].filter(pauseMarks.contains)
             let rightMarks = characters[end..<next].filter(pauseMarks.contains)
             let pausedBefore = !leftMarks.isEmpty || pauseCarried
+            let leftMark = leftMarks.first ?? carriedPause
+            let rightMark = rightMarks.first
             let pausedAfter = end < characters.count && pauseMarks.contains(characters[end])
             // More of the message follows the filler, and after its pause.
             let followed = right.map { !sentenceEnds.contains($0) } ?? false
@@ -223,7 +228,7 @@ enum SpeechDisfluencyCleaner {
             guard drop else {
                 output += characters[index..<end]
                 capitalizeNext = false
-                pauseCarried = false
+                carriedPause = nil
                 index = end
                 continue
             }
@@ -239,13 +244,18 @@ enum SpeechDisfluencyCleaner {
                     } else if english, leftMarks.contains(",") && opensWithOneWord(output) {
                         // "Well, uh, I think so": the comma belongs to the opening word.
                         output += ", "
+                    } else if let kept = (leftMark == nil ? rightMark : rightMark == nil ? leftMark : nil),
+                              isWordCharacter(left) {
+                        // A pause on one side only is still a pause: "你好，嗯我觉得行" keeps its comma.
+                        output.append(kept)
+                        if kept == ",", isASCIIAlphanumeric(right), !isChinese(left) { output.append(" ") }
                     } else if leftMarks.contains("、") {
                         output.append("、")
                     } else if let left, needsSpace(between: left, and: right) {
                         output.append(" ")
                     }
                 }
-                pauseCarried = pausedBefore || !rightMarks.isEmpty
+                carriedPause = leftMarks.first ?? (pausedBefore ? carriedPause : nil) ?? rightMarks.first
             }
             index = next
         }

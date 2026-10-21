@@ -319,6 +319,29 @@ struct DictationPromptTests {
         #expect(clean("好的。嗯我们走") == "好的。我们走")
         #expect(clean("嗯嗯") == "嗯嗯")
         #expect(clean("嗯。好的") == "嗯。好的")
+
+        // A pause on one side only stays; pauses on both sides join the clause.
+        #expect(clean("你好，嗯我觉得行") == "你好，我觉得行")
+        #expect(clean("我觉得嗯，可以") == "我觉得，可以")
+        #expect(clean("现在嗯也会") == "现在也会")
+        #expect(clean("现在，嗯，也会") == "现在也会")
+        #expect(clean("价格是1.5 嗯，大概") == "价格是1.5，大概")
+        #expect(clean("好的\n- 嗯，买牛奶") == "好的\n- 买牛奶")
+        #expect(clean("- um, buy milk") == "- buy milk")
+        #expect(clean("嗯嗯，好的") == "好的")
+        #expect(clean("嗯，嗯，好") == "好")
+        #expect(clean("Hi,um,there") == "Hi, there")
+        #expect(clean("买苹果，苹果很好吃的") == "买苹果，苹果很好吃的")
+    }
+
+    @Test("verbatim cleanup leaves fillers and their pauses as spoken")
+    func verbatimKeepsFillers() {
+        for text in [
+            "你好，嗯我觉得行", "我觉得嗯，可以", "现在嗯也会", "现在，嗯，也会", "价格是1.5 嗯，大概",
+            "好的\n- 嗯，买牛奶", "- um, buy milk", "嗯嗯，好的", "嗯，嗯，好", "Hi,um,there", "买苹果，苹果很好吃的",
+        ] {
+            #expect(SpeechDisfluencyCleaner.clean(text, mode: .verbatim) == text)
+        }
     }
 
     @Test("light cleanup leaves every reference rendering of the eval fixtures as it is")
