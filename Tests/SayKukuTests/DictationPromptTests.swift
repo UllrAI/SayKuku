@@ -168,6 +168,65 @@ struct DictationPromptTests {
         #expect(SpeechDisfluencyCleaner.clean(source, mode: .verbatim) == "我们今天讲这个这个新版本的好不好？")
     }
 
+    @Test("light cleanup drops hesitation sounds and the pauses around them")
+    func interjections() throws {
+        let clean = { (text: String) in SpeechDisfluencyCleaner.clean(text, mode: .light) }
+        #expect(clean("可以先测试一下，这个客户端有对应的变更。然后客户端现在，嗯，也会自动登录 Web 端了")
+            == "可以先测试一下，这个客户端有对应的变更。然后客户端现在也会自动登录 Web 端了")
+        #expect(try SpeechDisfluencyCleaner.dictation("然后客户端现在，嗯，也会自动登录 Web 端了。", mode: .light)
+            == "然后客户端现在也会自动登录 Web 端了。")
+        #expect(clean("现在嗯也会") == "现在也会")
+        #expect(clean("现在 嗯 也会") == "现在也会")
+        #expect(clean("方案，呃，还可以") == "方案还可以")
+        #expect(clean("方案，嗯嗯，还可以，呃呃，再改") == "方案还可以再改")
+        #expect(clean("可以，嗯。") == "可以。")
+        #expect(clean("可以，嗯") == "可以")
+        #expect(clean("步骤如下，嗯\n1. 安装") == "步骤如下\n1. 安装")
+        #expect(clean("苹果、嗯、香蕉") == "苹果、香蕉")
+        #expect(clean("然后，嗯，然后我们再开会") == "然后我们再开会")
+
+        // Chinese next to an English word or a digit keeps its one space; two Chinese words get none.
+        #expect(clean("用，嗯，GitHub 管理") == "用 GitHub 管理")
+        #expect(clean("用 GitHub，呃，管理") == "用 GitHub 管理")
+        #expect(clean("下午，嗯，3 点开会") == "下午 3 点开会")
+        #expect(clean("We can, 嗯, ship it") == "We can ship it")
+
+        // At the start of a sentence 呃、额、唔 go; 嗯 may be assent, so the model decides.
+        #expect(clean("呃，那就这么定了") == "那就这么定了")
+        #expect(clean("好的。额，明天再说") == "好的。明天再说")
+        #expect(clean("好的。\n唔，明天再说") == "好的。\n明天再说")
+        #expect(clean("好的。呃。明天再说") == "好的。明天再说")
+        #expect(clean("嗯，好的") == "嗯，好的")
+        #expect(clean("好的。嗯，明天见") == "好的。嗯，明天见")
+
+        // 额、唔、呃 inside a word, 嗯 used as a verb, and tone particles stay.
+        #expect(clean("金额，还要再核对") == "金额，还要再核对")
+        #expect(clean("这个额度不够") == "这个额度不够")
+        #expect(clean("余额。") == "余额。")
+        #expect(clean("他嗯了一声") == "他嗯了一声")
+        #expect(clean("好啊，走吧，你呢，来啦，哦，哈") == "好啊，走吧，你呢，来啦，哦，哈")
+
+        // A reply that is only the sound, quoted speech, and verbatim cleanup are left alone.
+        for whole in ["嗯", "嗯。", "嗯嗯", "呃，嗯"] {
+            #expect(clean(whole) == whole)
+        }
+        #expect(try SpeechDisfluencyCleaner.dictation("嗯。", mode: .light) == "嗯。")
+        #expect(clean("他说“现在，嗯，也会”，嗯，然后走了") == "他说“现在，嗯，也会”然后走了")
+        #expect(clean("写上「呃」两个字") == "写上「呃」两个字")
+        let spoken = "客户端现在，嗯，也会登录。呃，就这样"
+        #expect(SpeechDisfluencyCleaner.clean(spoken, mode: .verbatim) == spoken)
+    }
+
+    @Test("the light cleanup prompt always deletes hesitation sounds inside a sentence")
+    func interjectionPrompt() {
+        let prompt = QwenRealtimeClient.makeDictationInstructions(memoryPrompt: "")
+        #expect(prompt.contains("嗯、呃、额、唔 (also doubled, as in 嗯嗯)"))
+        #expect(prompt.contains("Inside a sentence, always delete every one together with the commas or 、 around it"))
+        #expect(prompt.contains("never keep one because you are unsure"))
+        #expect(prompt.contains("Keep 嗯 only when it is the whole message, or when it opens a chat reply as assent"))
+        #expect(prompt.contains("this never applies to 嗯、呃、额、唔、uh, or um"))
+    }
+
     @Test("ending punctuation removal keeps internal marks, quoted speech, ellipses, and tokens")
     func endingPunctuation() {
         #expect(SpeechDisfluencyCleaner.withoutEndingPunctuation("第一句。第二句？！") == "第一句。第二句")

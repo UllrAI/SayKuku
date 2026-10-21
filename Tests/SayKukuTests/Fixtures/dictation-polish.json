@@ -52,5 +52,7 @@
   {"category": "chatTone", "targetApp": "微信 (com.tencent.xinWeChat)", "spoken": "收到，明天见", "expected": "收到，明天见", "noTrailingPeriod": true, "mustContain": ["收到", "明天见"]},
   {"category": "chatTone", "targetApp": "微信 (com.tencent.xinWeChat)", "spoken": "文件我已经发你邮箱了，你查收一下哈", "expected": "文件我已经发你邮箱了，你查收一下哈", "noTrailingPeriod": true, "mustContain": ["发你邮箱了", "查收一下哈"]},
   {"category": "chatTone", "targetApp": "微信 (com.tencent.xinWeChat)", "spoken": "呃，那就这么定了吧", "expected": "那就这么定了吧", "noTrailingPeriod": true, "mustContain": ["那就这么定了吧"], "mustNotContain": ["呃"]},
-  {"category": "chatTone", "targetApp": "微信 (com.tencent.xinWeChat)", "spoken": "Sounds good, see you tomorrow", "expected": "Sounds good, see you tomorrow", "noTrailingPeriod": true, "mustContain": ["sounds good", "see you tomorrow"]}
+  {"category": "chatTone", "targetApp": "微信 (com.tencent.xinWeChat)", "spoken": "Sounds good, see you tomorrow", "expected": "Sounds good, see you tomorrow", "noTrailingPeriod": true, "mustContain": ["sounds good", "see you tomorrow"]},
+
+  {"category": "fillers", "spoken": "可以先测试一下，这个客户端有对应的变更。然后客户端现在，嗯，也会自动登录 Web 端了", "expected": "可以先测试一下，这个客户端有对应的变更。然后客户端现在也会自动登录 Web 端了。", "mustContain": ["客户端现在也会自动登录"], "mustNotContain": ["嗯"]}
 ]
