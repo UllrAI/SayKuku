@@ -444,6 +444,49 @@ struct VoiceWorkflowTests {
         }
     }
 
+    @Test("dictation sends the text around the cursor to realtime and batch only with the setting on")
+    func dictationCursorContext() async throws {
+        let snapshot = TextTargetSnapshot.fake(valueBefore: "请转告张越，明天见", selectedRange: CFRange(location: 5, length: 0))
+        let expected = DictationCursorContext(before: "请转告张越", after: "，明天见")
+        for allowed in [true, false] {
+            let environment = AppStateTestEnvironment()
+            defer { environment.clean() }
+            let reasoning = FakeReasoning()
+            let state = try makeState(environment, .fake(reasoning: reasoning, text: FakeTextWriting(snapshot: snapshot)))
+            #expect(state.settings.cursorContextAllowed)
+            state.settings.cursorContextAllowed = allowed
+
+            try await startListening(state)
+            state.workflow.finishDictation()
+            #expect(await eventually { state.workflow.dictationPhase == .success })
+            #expect(reasoning.cursorContexts == [allowed ? expected : nil])
+        }
+        do {
+            let environment = AppStateTestEnvironment()
+            defer { environment.clean() }
+            let realtime = FakeRealtime(transcript: "Hello world.")
+            let state = try makeState(environment, .fake(realtime: realtime, text: FakeTextWriting(snapshot: snapshot)))
+            state.settings.qwenWorkspaceID = "llm-test"
+
+            try await startListening(state)
+            state.workflow.finishDictation()
+            #expect(await eventually { state.workflow.dictationPhase == .success })
+            #expect(await realtime.cursorContexts == [expected])
+        }
+        do {
+            // A field without readable text sends nothing, even with the setting on.
+            let environment = AppStateTestEnvironment()
+            defer { environment.clean() }
+            let reasoning = FakeReasoning()
+            let state = try makeState(environment, .fake(reasoning: reasoning))
+
+            try await startListening(state)
+            state.workflow.finishDictation()
+            #expect(await eventually { state.workflow.dictationPhase == .success })
+            #expect(reasoning.cursorContexts == [nil])
+        }
+    }
+
     @Test("a recording without speech fails with the Didn’t catch that message")
     func dictationNoSpeech() async throws {
         let environment = AppStateTestEnvironment()

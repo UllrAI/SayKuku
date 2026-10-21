@@ -130,6 +130,7 @@ actor FakeRealtime: RealtimeTranscribing {
     private let commitError: QwenError?
     private var speechStoppedHandler: (@Sendable () -> Void)?
     private(set) var targetApps: [String?] = []
+    private(set) var cursorContexts: [DictationCursorContext?] = []
     private(set) var formats: [(DictationNumberFormat, DictationCleanup, Bool, String)] = []
     private(set) var appendCount = 0
     private(set) var commitCount = 0
@@ -152,9 +153,11 @@ actor FakeRealtime: RealtimeTranscribing {
         targetApp: String?,
         keepEndingPunctuation: Bool,
         expressionPreference: String,
+        cursorContext: DictationCursorContext?,
         memoryPrompt: String
     ) async throws {
         targetApps.append(targetApp)
+        cursorContexts.append(cursorContext)
         formats.append((numberFormat, cleanup, keepEndingPunctuation, expressionPreference))
         speechStoppedHandler = onSpeechStopped
     }
@@ -187,6 +190,7 @@ final class FakeReasoning: Reasoning {
         var transcriptions: [Transcription]
         var transcribeCount = 0
         var targetApps: [String?] = []
+        var cursorContexts: [DictationCursorContext?] = []
         var formats: [(DictationNumberFormat, DictationCleanup, Bool, String)] = []
         var agentContexts: [[ContextItem]] = []
         var agentMemoryPrompts: [String] = []
@@ -206,6 +210,7 @@ final class FakeReasoning: Reasoning {
 
     var transcribeCount: Int { state.withLock { $0.transcribeCount } }
     var targetApps: [String?] { state.withLock { $0.targetApps } }
+    var cursorContexts: [DictationCursorContext?] { state.withLock { $0.cursorContexts } }
     var formats: [(DictationNumberFormat, DictationCleanup, Bool, String)] { state.withLock { $0.formats } }
     var agentContexts: [[ContextItem]] { state.withLock { $0.agentContexts } }
     var agentMemoryPrompts: [String] { state.withLock { $0.agentMemoryPrompts } }
@@ -220,11 +225,13 @@ final class FakeReasoning: Reasoning {
         targetApp: String?,
         keepEndingPunctuation: Bool,
         expressionPreference: String,
+        cursorContext: DictationCursorContext?,
         memoryPrompt: String
     ) async throws -> String {
         let reply = state.withLock { current in
             current.transcribeCount += 1
             current.targetApps.append(targetApp)
+            current.cursorContexts.append(cursorContext)
             current.formats.append((numberFormat, cleanup, keepEndingPunctuation, expressionPreference))
             return current.transcriptions.count > 1 ? current.transcriptions.removeFirst() : current.transcriptions[0]
         }

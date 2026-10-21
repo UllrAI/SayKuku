@@ -423,10 +423,12 @@ final class VoiceWorkflow {
                 recognitionLanguage: settings.recognitionLanguage,
                 numberFormat: settings.dictationNumberFormat,
                 cleanup: settings.dictationCleanup,
-                // A retry lands in History, not in an app, so there is no tone to match.
+                // A retry lands in History, not in an app, so there is no tone to match
+                // and no cursor whose text could help.
                 targetApp: nil,
                 keepEndingPunctuation: settings.keepEndingPunctuation,
                 expressionPreference: "",
+                cursorContext: nil,
                 memoryPrompt: renderMemoryPrompt(.transcription)
             )
             let cleaned = try SpeechDisfluencyCleaner.dictation(result, mode: settings.dictationCleanup)
@@ -601,11 +603,12 @@ final class VoiceWorkflow {
         let selectedRecognitionLanguage = settings.recognitionLanguage
         let format = activeDictationFormat ?? settings.dictationFormat(for: targetSnapshot?.bundleID)
         let targetApp = format.targetAppName(for: targetSnapshot)
+        let cursorContext = dictationCursorContext(for: targetSnapshot)
         let memoryPrompt = renderMemoryPrompt(.transcription)
         let realtimeSession = UUID()
         realtimeSessionID = realtimeSession
         let connectInterval = signposter.beginInterval("realtime connect", id: signposter.makeSignpostID())
-        uploadTask = Task { [weak self, realtimeClient, apiKey = settings.apiKey, configuration = settings.configuration, selectedRecognitionLanguage, format, targetApp, memoryPrompt] in
+        uploadTask = Task { [weak self, realtimeClient, apiKey = settings.apiKey, configuration = settings.configuration, selectedRecognitionLanguage, format, targetApp, cursorContext, memoryPrompt] in
             try await realtimeClient.connect(
                 session: realtimeSession,
                 apiKey: apiKey,
@@ -629,6 +632,7 @@ final class VoiceWorkflow {
                 targetApp: targetApp,
                 keepEndingPunctuation: format.keepEndingPunctuation,
                 expressionPreference: format.expressionPreference,
+                cursorContext: cursorContext,
                 memoryPrompt: memoryPrompt
             )
             self?.signposter.endInterval("realtime connect", connectInterval)
@@ -721,7 +725,8 @@ final class VoiceWorkflow {
         do {
             let transcript = try await transcribe(
                 recording, upload: upload, realtimeSession: realtimeSession,
-                targetApp: format.targetAppName(for: snapshot), format: format, generation: generation
+                targetApp: format.targetAppName(for: snapshot), cursorContext: dictationCursorContext(for: snapshot),
+                format: format, generation: generation
             )
             try Task.checkCancellation()
             guard generation == workflowGeneration else { throw CancellationError() }
@@ -823,7 +828,8 @@ final class VoiceWorkflow {
     /// `upload` is nil when dictation skipped realtime, so the recording goes straight to batch recognition.
     private func transcribe(
         _ recording: AudioCapture.Recording, upload: Task<Void, Error>?,
-        realtimeSession: UUID, targetApp: String?, format: EffectiveDictationFormat, generation: Int
+        realtimeSession: UUID, targetApp: String?, cursorContext: DictationCursorContext?,
+        format: EffectiveDictationFormat, generation: Int
     ) async throws -> String {
         guard recording.hasSpeech else {
             throw QwenError.noSpeech
@@ -860,9 +866,15 @@ final class VoiceWorkflow {
             targetApp: targetApp,
             keepEndingPunctuation: format.keepEndingPunctuation,
             expressionPreference: format.expressionPreference,
+            cursorContext: cursorContext,
             memoryPrompt: renderMemoryPrompt(.transcription)
         )
         return try SpeechDisfluencyCleaner.dictation(result, mode: format.cleanup)
+    }
+
+    /// Nil when the setting is off; `DictationCursorContext` itself refuses sensitive targets.
+    private func dictationCursorContext(for snapshot: TextTargetSnapshot?) -> DictationCursorContext? {
+        settings.cursorContextAllowed ? DictationCursorContext(snapshot: snapshot) : nil
     }
 
     /// Saved memory and domain presets for dictation.

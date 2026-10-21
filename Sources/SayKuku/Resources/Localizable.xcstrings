@@ -5200,6 +5200,17 @@
         }
       }
     },
+    "Sends up to 800 characters before and 200 after the cursor with your speech, so names, terms, and similar-sounding words match what you’re writing. Never read from password fields." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "随语音一并发送光标前最多 800 字、后最多 200 字，让人名、术语和同音字跟正在写的内容一致。密码框中不读取。"
+          }
+        }
+      }
+    },
     "Sent to Qwen with new Voice Input requests for this app. It cannot change the spoken meaning or override a formatting setting." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6419,6 +6430,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "使用"
+          }
+        }
+      }
+    },
+    "Use text near the cursor" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "参考光标附近的文字"
           }
         }
       }
