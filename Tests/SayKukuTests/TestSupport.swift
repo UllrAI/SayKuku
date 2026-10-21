@@ -1,5 +1,6 @@
 import Foundation
 import os
+import Testing
 @testable import SayKuku
 
 /// Isolated defaults, storage folder, and Keychain service for building `AppState` in tests.
@@ -325,5 +326,42 @@ final class FakeTextWriting: TextWriting {
             valueBefore: write.expectedValue,
             selectedRange: CFRange(location: write.target.selectedRange?.location ?? 0, length: (write.text as NSString).length)
         )
+    }
+}
+
+/// What a live dictation eval needs: the fixture recordings `Scripts/eval-dictation.sh <suite>` wrote to
+/// `Build/<audio folder>`, and the Qwen account to send them to.
+struct LiveDictationEval {
+    let apiKey: String
+    let configuration: QwenConfiguration
+    private let suite: String
+    private let audioDirectory: URL
+
+    /// Nil unless `SAYKUKU_LIVE_QWEN_TEST=1`, so a default `swift test` reaches neither the network nor the
+    /// Keychain. The region and Workspace ID come from `SAYKUKU_TEST_REGION` and `SAYKUKU_TEST_WORKSPACE_ID`.
+    init?(suite: String, audioFolder: String) throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["SAYKUKU_LIVE_QWEN_TEST"] == "1" else { return nil }
+        apiKey = try #require(try KeychainStore().string(for: "qwen.apiKey"))
+        configuration = QwenConfiguration(
+            region: environment["SAYKUKU_TEST_REGION"].flatMap(QwenRegion.init(rawValue:)) ?? .beijing,
+            workspaceID: environment["SAYKUKU_TEST_WORKSPACE_ID"] ?? "",
+            realtimeModel: QwenModelCatalog.defaultRealtimeModel,
+            reasoningModel: QwenModelCatalog.defaultReasoningModel
+        )
+        self.suite = suite
+        audioDirectory = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("Build/\(audioFolder)")
+    }
+
+    /// `NN.wav` for zero-based sample `index`, after `NN.txt` confirms it was spoken from `spoken`.
+    func recording(at index: Int, spoken: String) throws -> (name: String, wav: Data) {
+        let name = String(format: "%02d", index + 1)
+        let recorded = try String(contentsOf: audioDirectory.appendingPathComponent("\(name).txt"), encoding: .utf8)
+        try #require(recorded == spoken, "\(name).wav is out of date; run Scripts/eval-dictation.sh \(suite)")
+        return (name, try Data(contentsOf: audioDirectory.appendingPathComponent("\(name).wav")))
     }
 }

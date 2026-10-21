@@ -65,26 +65,10 @@ struct MixedLanguageRuleTests {
 
 @Suite("Mixed-language eval")
 struct MixedLanguageEvalTests {
-    /// `NN.wav` for fixture line NN and `NN.txt` with the text it was spoken from, written by
-    /// `Scripts/eval-mixed-language.sh`.
-    private static let audioDirectory = URL(fileURLWithPath: #filePath)
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-        .appendingPathComponent("Build/eval-audio")
-
     /// Measures the prompt rather than gating on it: mismatches are reported, and only errors fail the test.
     @Test("live batch dictation of the mixed-language fixture")
     func liveEval() async throws {
-        let environment = ProcessInfo.processInfo.environment
-        guard environment["SAYKUKU_LIVE_QWEN_TEST"] == "1" else { return }
-        let key = try #require(try KeychainStore().string(for: "qwen.apiKey"))
-        let configuration = QwenConfiguration(
-            region: environment["SAYKUKU_TEST_REGION"].flatMap(QwenRegion.init(rawValue:)) ?? .beijing,
-            workspaceID: environment["SAYKUKU_TEST_WORKSPACE_ID"] ?? "",
-            realtimeModel: QwenModelCatalog.defaultRealtimeModel,
-            reasoningModel: QwenModelCatalog.defaultReasoningModel
-        )
+        guard let live = try LiveDictationEval(suite: "mixed-language", audioFolder: "eval-audio") else { return }
         let client = QwenReasoningClient()
         let samples = try MixedLanguageSample.loadFixture()
         var passed = 0
@@ -92,16 +76,13 @@ struct MixedLanguageEvalTests {
         var ruleFailures: [MixedLanguageRule: Int] = [:]
 
         for (index, sample) in samples.enumerated() {
-            let name = String(format: "%02d", index + 1)
-            let spoken = try String(contentsOf: Self.audioDirectory.appendingPathComponent("\(name).txt"), encoding: .utf8)
-            try #require(spoken == sample.spoken, "\(name).wav is out of date; run Scripts/eval-mixed-language.sh")
-            let wav = try Data(contentsOf: Self.audioDirectory.appendingPathComponent("\(name).wav"))
+            let (name, wav) = try live.recording(at: index, spoken: sample.spoken)
 
             var actual = ""
             var failure: String?
             do {
                 // Default dictation settings, cleaned and trimmed as the app does before writing a reply.
-                let reply = try await client.transcribeAudio(apiKey: key, configuration: configuration, wav: wav)
+                let reply = try await client.transcribeAudio(apiKey: live.apiKey, configuration: live.configuration, wav: wav)
                 actual = try SpeechDisfluencyCleaner.dictation(reply, mode: .light)
             } catch {
                 failure = error.localizedDescription

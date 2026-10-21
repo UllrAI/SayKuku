@@ -114,26 +114,10 @@ struct DictationPolishRuleTests {
 
 @Suite("Dictation polish eval")
 struct DictationPolishEvalTests {
-    /// `NN.wav` for fixture sample NN and `NN.txt` with the text it was spoken from, written by
-    /// `Scripts/eval-dictation.sh dictation-polish`.
-    private static let audioDirectory = URL(fileURLWithPath: #filePath)
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-        .appendingPathComponent("Build/eval-audio-polish")
-
     /// Measures the prompt rather than gating on it: failed checks are reported, and only errors fail the test.
     @Test("live batch dictation of the polish fixture")
     func liveEval() async throws {
-        let environment = ProcessInfo.processInfo.environment
-        guard environment["SAYKUKU_LIVE_QWEN_TEST"] == "1" else { return }
-        let key = try #require(try KeychainStore().string(for: "qwen.apiKey"))
-        let configuration = QwenConfiguration(
-            region: environment["SAYKUKU_TEST_REGION"].flatMap(QwenRegion.init(rawValue:)) ?? .beijing,
-            workspaceID: environment["SAYKUKU_TEST_WORKSPACE_ID"] ?? "",
-            realtimeModel: QwenModelCatalog.defaultRealtimeModel,
-            reasoningModel: QwenModelCatalog.defaultReasoningModel
-        )
+        guard let live = try LiveDictationEval(suite: "dictation-polish", audioFolder: "eval-audio-polish") else { return }
         let client = QwenReasoningClient()
         let samples = try DictationPolishSample.loadFixture()
         var passed: [DictationPolishSample.Category: Int] = [:]
@@ -143,10 +127,7 @@ struct DictationPolishEvalTests {
         var exact = 0
 
         for (index, sample) in samples.enumerated() {
-            let name = String(format: "%02d", index + 1)
-            let spoken = try String(contentsOf: Self.audioDirectory.appendingPathComponent("\(name).txt"), encoding: .utf8)
-            try #require(spoken == sample.spoken, "\(name).wav is out of date; run Scripts/eval-dictation.sh dictation-polish")
-            let wav = try Data(contentsOf: Self.audioDirectory.appendingPathComponent("\(name).wav"))
+            let (name, wav) = try live.recording(at: index, spoken: sample.spoken)
             total[sample.category, default: 0] += 1
 
             var actual = ""
@@ -154,7 +135,7 @@ struct DictationPolishEvalTests {
             do {
                 // Default dictation settings plus the sample's target app, cleaned as the app does before writing.
                 let reply = try await client.transcribeAudio(
-                    apiKey: key, configuration: configuration, wav: wav, targetApp: sample.targetApp
+                    apiKey: live.apiKey, configuration: live.configuration, wav: wav, targetApp: sample.targetApp
                 )
                 actual = try SpeechDisfluencyCleaner.dictation(reply, mode: .light)
             } catch {
