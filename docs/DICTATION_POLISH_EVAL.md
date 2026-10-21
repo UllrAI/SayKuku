@@ -43,7 +43,7 @@ mkdir -p Build
 Scripts/eval-dictation.sh dictation-polish 2>&1 | tee Build/eval-polish-before.txt
 ```
 
-音频缓存在 `Build/eval-audio-polish/NN.wav`，与中英混说评测的 `Build/eval-audio` 分开，规则相同：句子没变就复用，换了语音全部重新合成。之后运行 `SAYKUKU_LIVE_QWEN_TEST=1 swift test --filter DictationPolishEvalTests`：逐条调用批处理 `transcribeAudio`（`chatTone` 传入 `targetApp`，其余用默认设置），再经过 `SpeechDisfluencyCleaner.dictation` 整理。
+音频缓存在 `Build/eval-audio-polish/NN.wav`，与中英混说评测的 `Build/eval-audio` 分开，规则相同：句子没变就复用，换了语音全部重新合成。之后运行 `SAYKUKU_LIVE_QWEN_TEST=1 swift test --filter DictationPolishEvalTests`：逐条调用批处理 `transcribeAudio`（`chatTone` 传入 `targetApp`，其余用默认设置；都不带光标附近的文字），再经过 `SpeechDisfluencyCleaner.dictation` 整理。
 
 ## 怎么读结果
 
