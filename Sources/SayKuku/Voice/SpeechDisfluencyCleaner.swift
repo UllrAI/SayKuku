@@ -65,7 +65,7 @@ enum SpeechDisfluencyCleaner {
         if dropsFillers { text = withoutFillers(text, before: before, after: after) }
         if mode == .light {
             // The segment opens a clause unless it follows quoted speech in the same clause.
-            let opensClause = before.map { sentenceEnds.union(pauseMarks).contains($0) } ?? true
+            let opensClause = before.map { clauseBreaks.contains($0) } ?? true
             for pattern in [repeatedLeadIn, restartedClause] + (opensClause ? [restartedOpening] : []) {
                 let range = NSRange(text.startIndex..<text.endIndex, in: text)
                 text = pattern.stringByReplacingMatches(in: text, range: range, withTemplate: "$1")
@@ -96,13 +96,17 @@ enum SpeechDisfluencyCleaner {
     private static let sentenceEnds: Set<Character> = ["。", "！", "？", ".", "!", "?", "\n"]
     private static let clauseEnds = sentenceEnds.union(["；", ";", "：", ":", "…"])
     private static let englishFillers = ["you know", "um", "uh"]
+    private static let closers: Set<Character> = ["”", "」", "』", "\"", "`", "’", ")", "）", "]", "】", "》"]
+    private static let openers: Set<Character> = ["“", "「", "『", "\"", "`", "‘", "(", "（", "[", "【", "《"]
 
-    /// "客户，客户那边": a whole clause of two to six characters said again to open the next one,
-    /// when the sentence goes on after it. "这是好人，好人有好报" repeats only the end of its clause on
-    /// purpose, and so do "谢谢，谢谢。" and 好好学习.
-    private static let restartedChunk = #"(\p{Han}{2,6})[ \t]*[，,][ \t]*\1(?=[ \t]*[\p{L}\p{N}])"#
+    /// "我们先，我们先把预算": a whole clause of three to six characters said again to open the next
+    /// one, when the sentence goes on after it. Shorter repeats are often a question or a list
+    /// ("你好，你好吗", "香蕉，香蕉很好吃"); "这是好人，好人有好报" repeats only the end of its clause on
+    /// purpose, and so do "谢谢，谢谢。" and 好好学习. 、 separates list items, not clauses.
+    private static let restartedChunk = #"(\p{Han}{3,6})[ \t]*[，,][ \t]*\1(?=[ \t]*[\p{L}\p{N}])"#
+    private static let clauseBreaks: Set<Character> = ["，", ",", "。", "！", "？", ".", "!", "?", "；", ";", "：", ":", "\n"]
     private static let restartedClause = try! NSRegularExpression(
-        pattern: #"(?<=[，,、。！？.!?；;：:\n])"# + restartedChunk
+        pattern: #"(?<=[，,。！？.!?；;：:\n])"# + restartedChunk
     )
     private static let restartedOpening = try! NSRegularExpression(pattern: "^" + restartedChunk)
 
@@ -158,6 +162,8 @@ enum SpeechDisfluencyCleaner {
         let characters = Array(segment)
         var output: [Character] = []
         var capitalizeNext = false
+        // The last filler was dropped from between pauses, so the next one still counts as paused.
+        var pauseCarried = false
         var index = 0
         while index < characters.count {
             guard let (length, filler) = filler(at: index, in: characters, before: before, after: after) else {
@@ -168,6 +174,7 @@ enum SpeechDisfluencyCleaner {
                     output.append(character)
                 }
                 capitalizeNext = false
+                pauseCarried = false
                 index += 1
                 continue
             }
@@ -175,6 +182,7 @@ enum SpeechDisfluencyCleaner {
             guard let filler else {
                 output += characters[index..<end]
                 capitalizeNext = false
+                pauseCarried = false
                 index = end
                 continue
             }
@@ -185,15 +193,19 @@ enum SpeechDisfluencyCleaner {
             var next = end
             while next < characters.count, pauses.contains(characters[next]) { next += 1 }
             let right = next < characters.count ? characters[next] : after
-            let startsSentence = left.map(sentenceEnds.contains) ?? true
-            let pausedBefore = output[leftPauses...].contains(where: pauseMarks.contains)
+            let startsSentence = (left.map(sentenceEnds.contains) ?? true)
+                || followsListMarker(output, segmentOpensLine: before.map { $0 == "\n" } ?? true)
+            let leftMarks = output[leftPauses...].filter(pauseMarks.contains)
+            let rightMarks = characters[end..<next].filter(pauseMarks.contains)
+            let pausedBefore = !leftMarks.isEmpty || pauseCarried
             let pausedAfter = end < characters.count && pauseMarks.contains(characters[end])
-            // More of the message follows the pause after the filler.
-            let goesOn = next > end && right.map { !sentenceEnds.contains($0) } ?? false
+            // More of the message follows the filler, and after its pause.
+            let followed = right.map { !sentenceEnds.contains($0) } ?? false
+            let goesOn = next > end && followed
 
             let drop: Bool
             switch (filler, startsSentence) {
-            case (.sound(onlyEn: true), true): drop = goesOn
+            case (.sound(onlyEn: true), true): drop = followed
             case (.sound(onlyEn: false), true):
                 // "好的。呃。" has nothing left of the second sentence.
                 if next < characters.count, sentenceEnds.contains(characters[next]) { next += 1 }
@@ -201,7 +213,8 @@ enum SpeechDisfluencyCleaner {
             case (.sound, false): drop = true
             case (.nage, true), (.jiushi, true): drop = pausedAfter && goesOn
             case (.nage, false): drop = pausedBefore && pausedAfter
-            case (.jiushi, false): drop = false
+            // 问题就是，我们没时间: 就是 inside a sentence is a word unless a dropped filler led to it.
+            case (.jiushi, false): drop = pauseCarried && pausedAfter
             case (.english(let capitalized), true):
                 drop = goesOn
                 if drop, capitalized { capitalizeNext = true }
@@ -210,23 +223,53 @@ enum SpeechDisfluencyCleaner {
             guard drop else {
                 output += characters[index..<end]
                 capitalizeNext = false
+                pauseCarried = false
                 index = end
                 continue
             }
             if !startsSentence {
-                let pausedWithEnumerationComma = output[leftPauses...].contains("、")
                 output.removeSubrange(leftPauses...)
                 if let right, !clauseEnds.contains(right) {
-                    if pausedWithEnumerationComma {
+                    let english: Bool
+                    if case .english = filler { english = left?.isASCII ?? false } else { english = false }
+                    let mark = (leftMarks + rightMarks).first
+                    if let mark, left.map(closers.contains) ?? false || openers.contains(right) {
+                        // 他说“好”，嗯，走吧: the quote still needs its pause.
+                        output += mark == "," ? ", " : String(mark)
+                    } else if english, leftMarks.contains(",") && opensWithOneWord(output) {
+                        // "Well, uh, I think so": the comma belongs to the opening word.
+                        output += ", "
+                    } else if leftMarks.contains("、") {
                         output.append("、")
                     } else if let left, needsSpace(between: left, and: right) {
                         output.append(" ")
                     }
                 }
+                pauseCarried = pausedBefore || !rightMarks.isEmpty
             }
             index = next
         }
         return String(output)
+    }
+
+    /// The clause so far is a single word, such as Well or However.
+    private static func opensWithOneWord(_ output: [Character]) -> Bool {
+        let start = output.lastIndex(where: clauseBreaks.contains).map { $0 + 1 } ?? 0
+        let clause = output[start...].drop { $0 == " " || $0 == "\t" }
+        return !clause.isEmpty && clause.allSatisfy(\.isLetter)
+    }
+
+    /// "- 嗯，买牛奶": the line so far is a list marker and a space, so a sentence starts here.
+    private static func followsListMarker(_ output: [Character], segmentOpensLine: Bool) -> Bool {
+        let lineStart = output.lastIndex(of: "\n").map { $0 + 1 }
+        guard lineStart != nil || segmentOpensLine else { return false }
+        let line = output[(lineStart ?? 0)...]
+        guard let last = line.last, last == " " || last == "\t" else { return false }
+        let marker = String(line).trimmingCharacters(in: .whitespaces)
+        if ["-", "*", "•"].contains(marker) { return true }
+        guard let close = marker.last, ".)、）".contains(close) else { return false }
+        let number = marker.dropLast()
+        return !number.isEmpty && number.allSatisfy { $0.isASCII && $0.isNumber }
     }
 
     /// Chinese next to an English word or a digit, or two English words, keep one space between them.

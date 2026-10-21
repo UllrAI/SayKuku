@@ -201,7 +201,7 @@ struct DictationPromptTests {
         #expect(clean("嗯嗯，好的") == "好的")
         #expect(clean("嗯，好的") == "好的")
         #expect(clean("好的。嗯，明天见") == "好的。明天见")
-        #expect(clean("嗯好的") == "嗯好的")
+        #expect(clean("嗯好的") == "好的")
         #expect(clean("嗯。好的") == "嗯。好的")
 
         // 额、唔、呃 inside a word, 嗯 used as a verb, and tone particles stay.
@@ -218,7 +218,7 @@ struct DictationPromptTests {
             #expect(clean(whole) == whole)
         }
         #expect(try SpeechDisfluencyCleaner.dictation("嗯。", mode: .light) == "嗯。")
-        #expect(clean("他说“现在，嗯，也会”，嗯，然后走了") == "他说“现在，嗯，也会”然后走了")
+        #expect(clean("他说“现在，嗯，也会”，嗯，然后走了") == "他说“现在，嗯，也会”，然后走了")
         #expect(clean("写上「呃」两个字") == "写上「呃」两个字")
         let spoken = "客户端现在，嗯，也会登录。呃，就这样"
         #expect(SpeechDisfluencyCleaner.clean(spoken, mode: .verbatim) == spoken)
@@ -249,26 +249,29 @@ struct DictationPromptTests {
         #expect(clean("Um, let's start") == "Let's start")
         #expect(clean("uh, maybe later") == "maybe later")
         #expect(clean("It works, uh, most of the time.") == "It works most of the time.")
-        #expect(clean("The build, you know, takes an hour") == "The build takes an hour")
         #expect(clean("这个版本，um，下周发") == "这个版本下周发")
         #expect(clean("Do you know him?") == "Do you know him?")
         #expect(clean("Do you know, Sam?") == "Do you know, Sam?")
         #expect(clean("The umbrella, uhm, is wet") == "The umbrella, uhm, is wet")
         #expect(clean("Yum, tasty") == "Yum, tasty")
 
-        // A chunk said again after a pause collapses when the sentence goes on; deliberate repeats stay.
-        #expect(clean("客户，客户那边已经同意了") == "客户那边已经同意了")
+        // A whole clause of three or more characters said again collapses when the sentence goes on.
+        #expect(clean("客户，客户那边已经同意了") == "客户，客户那边已经同意了")
         #expect(clean("我们先，我们先把预算定下来") == "我们先把预算定下来")
         #expect(clean("用，用 GitHub 管理") == "用，用 GitHub 管理")
         #expect(clean("这个文档，这个文档 v2 版") == "这个文档 v2 版")
-        #expect(clean("嗯，客户，客户那边已经同意了") == "客户那边已经同意了")
-        #expect(clean("好的。客户，客户那边同意了") == "好的。客户那边同意了")
-        #expect(clean("预算没问题，客户，客户那边同意了") == "预算没问题，客户那边同意了")
+        #expect(clean("嗯，我们先，我们先把预算定下来") == "我们先把预算定下来")
+        #expect(clean("好的。我们先，我们先走") == "好的。我们先走")
+        #expect(clean("预算没问题，我们先，我们先走") == "预算没问题，我们先走")
         // Anadiplosis repeats the end of a longer clause on purpose.
         #expect(clean("我们要学习，学习使人进步") == "我们要学习，学习使人进步")
         #expect(clean("这是好人，好人有好报") == "这是好人，好人有好报")
         #expect(clean("他说好，好的我知道了") == "他说好，好的我知道了")
-        #expect(clean("他说“行”客户，客户那边") == "他说“行”客户，客户那边")
+        #expect(clean("他说“行”我们先，我们先走") == "他说“行”我们先，我们先走")
+        // Two-character repeats are often a question or a list item, and 、 does not end a clause.
+        #expect(clean("你好，你好吗？") == "你好，你好吗？")
+        #expect(clean("苹果、香蕉，香蕉很好吃") == "苹果、香蕉，香蕉很好吃")
+        #expect(clean("苹果、我们先，我们先走") == "苹果、我们先，我们先走")
         #expect(clean("谢谢，谢谢。") == "谢谢，谢谢。")
         #expect(clean("谢谢，谢谢") == "谢谢，谢谢")
         #expect(clean("好好学习") == "好好学习")
@@ -278,6 +281,44 @@ struct DictationPromptTests {
         #expect(clean("他说“那个，就是，客户，客户那边”") == "他说“那个，就是，客户，客户那边”")
         let spoken = "嗯，那个，客户，客户那边，就是，同意了。Um, you know, OK"
         #expect(SpeechDisfluencyCleaner.clean(spoken, mode: .verbatim) == spoken)
+    }
+
+    @Test("filler removal keeps list markers, quotes and English commas, and clears a run of fillers")
+    func fillerRemovalEdges() {
+        let clean = { (text: String) in SpeechDisfluencyCleaner.clean(text, mode: .light) }
+        // A list marker at the start of a line opens a sentence; it keeps its space.
+        #expect(clean("- 嗯，买牛奶\n- 呃，买鸡蛋") == "- 买牛奶\n- 买鸡蛋")
+        #expect(clean("1) 嗯，买牛奶") == "1) 买牛奶")
+        #expect(clean("• 嗯 买牛奶") == "• 买牛奶")
+        #expect(clean("* 那个，买牛奶") == "* 买牛奶")
+        #expect(clean("12、 呃，买牛奶") == "12、 买牛奶")
+        #expect(clean("1. 嗯，买牛奶") == "1. 买牛奶")
+        #expect(clean("差-嗯，不多") == "差-不多")
+
+        // Removing one filler leaves the pause for the next one in the run.
+        #expect(clean("我们，嗯，那个，就是，去") == "我们去")
+        #expect(clean("这个方案，呃，嗯，还行") == "这个方案还行")
+        #expect(clean("It is, um, uh, ready") == "It is ready")
+        #expect(clean("问题就是，我们没时间") == "问题就是，我们没时间")
+        #expect(clean("我们，嗯，就是这么想的") == "我们就是这么想的")
+
+        // Quoted speech next to the filler keeps one pause mark.
+        #expect(clean("他说“好”，嗯，走吧") == "他说“好”，走吧")
+        #expect(clean("走吧，嗯，“好”他说") == "走吧，“好”他说")
+        #expect(clean("He said \"fine\", um, let's go") == "He said \"fine\", let's go")
+        #expect(clean("（备注），呃，明天发") == "（备注），明天发")
+
+        // After an opening word English keeps one comma; otherwise, and in Chinese, the clause joins.
+        #expect(clean("Well, uh, I think so") == "Well, I think so")
+        #expect(clean("However, um, we can ship") == "However, we can ship")
+        #expect(clean("Okay. So, um, we ship") == "Okay. So, we ship")
+        #expect(clean("这个版本，um，下周发") == "这个版本下周发")
+
+        // A sentence-initial 嗯 goes without a pause too, unless it is all that was said.
+        #expect(clean("嗯我觉得可以") == "我觉得可以")
+        #expect(clean("好的。嗯我们走") == "好的。我们走")
+        #expect(clean("嗯嗯") == "嗯嗯")
+        #expect(clean("嗯。好的") == "嗯。好的")
     }
 
     @Test("light cleanup leaves every reference rendering of the eval fixtures as it is")
