@@ -164,6 +164,8 @@ actor QwenRealtimeClient: RealtimeTranscribing {
     private var sessionTimeoutTask: Task<Void, Never>?
     private var sessionContinuation: CheckedContinuation<Void, Error>?
     private var sessionReady = false
+    /// The provider's ID for the session, from `session.created`, for the log.
+    private var serverSessionID = "unknown"
     private var transcript = ""
     /// Deltas keep arriving until `response.text.done`; only then is `transcript` final.
     private var transcriptDone = false
@@ -320,6 +322,7 @@ actor QwenRealtimeClient: RealtimeTranscribing {
         audioCommitted = false
         sessionError = nil
         sessionReady = false
+        serverSessionID = "unknown"
     }
 
     private func waitForSession(_ session: UUID) async throws {
@@ -339,7 +342,7 @@ actor QwenRealtimeClient: RealtimeTranscribing {
 
     private func timeOutSession(_ session: UUID) {
         guard currentSession == session else { return }
-        Log.qwen.error("Realtime session setup timed out")
+        Log.qwen.error("Realtime session \(self.serverSessionID, privacy: .public) setup timed out")
         failSession(QwenError.timeout)
     }
 
@@ -368,7 +371,7 @@ actor QwenRealtimeClient: RealtimeTranscribing {
     /// Never settles for the partial transcript: it would be inserted and saved as complete.
     private func timeOutTranscript(_ session: UUID) {
         guard currentSession == session else { return }
-        Log.qwen.error("Realtime transcript timed out")
+        Log.qwen.error("Realtime session \(self.serverSessionID, privacy: .public) transcript timed out")
         failTranscript(QwenError.timeout)
     }
 
@@ -396,7 +399,7 @@ actor QwenRealtimeClient: RealtimeTranscribing {
                     let failure = Self.transportError(error, socket: socket)
                     let closeCode = socket.closeCode.rawValue
                     Log.qwen.error(
-                        "Realtime connection closed: \(Log.describe(failure), privacy: .public), close code \(closeCode, privacy: .public)"
+                        "Realtime session \(self.serverSessionID, privacy: .public) connection closed: \(Log.describe(failure), privacy: .public), close code \(closeCode, privacy: .public)"
                     )
                     fail(failure)
                 }
@@ -416,8 +419,10 @@ actor QwenRealtimeClient: RealtimeTranscribing {
               let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let type = object["type"] as? String else { return }
         switch type {
+        case "session.created":
+            if let id = (object["session"] as? [String: Any])?["id"] as? String { serverSessionID = id }
         case "session.updated":
-            Log.qwen.info("Realtime session ready")
+            Log.qwen.notice("Realtime session \(self.serverSessionID, privacy: .public) ready")
             sessionReady = true
             sessionContinuation?.resume()
             sessionContinuation = nil
@@ -441,7 +446,7 @@ actor QwenRealtimeClient: RealtimeTranscribing {
         case "error":
             let error = object["error"] as? [String: Any]
             let code = error?["code"] as? String ?? "unknown"
-            Log.qwen.error("Realtime server error: \(code, privacy: .public)")
+            Log.qwen.error("Realtime session \(self.serverSessionID, privacy: .public) server error: \(code, privacy: .public)")
             fail(QwenError.protocolError(error?["message"] as? String ?? "Qwen realtime request failed"))
         default:
             break
@@ -865,10 +870,11 @@ struct QwenReasoningClient: Reasoning {
         request.timeoutInterval = timeout
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let model = model ?? configuration.reasoningModel
         request.httpBody = try JSONSerialization.data(withJSONObject: Self.requestBody(
-            model: model ?? configuration.reasoningModel, messages: messages, jsonResponse: jsonResponse
+            model: model, messages: messages, jsonResponse: jsonResponse
         ))
-        let (data, response) = try await perform(request)
+        let (data, response) = try await perform(request, model: model)
         return try parseCompletion(data: data, response: response)
     }
 
@@ -900,10 +906,20 @@ struct QwenReasoningClient: Reasoning {
         )
     }
 
-    private func perform(_ request: URLRequest) async throws -> (Data, URLResponse) {
+    /// Logs every attempt with its time and the provider's request ID, which its support can look up.
+    private func perform(_ request: URLRequest, model: String) async throws -> (Data, URLResponse) {
+        let bytes = request.httpBody?.count ?? 0
         for attempt in 0..<2 {
+            let started = ContinuousClock.now
             do {
                 let result = try await URLSession.shared.data(for: request)
+                let milliseconds = WorkflowTrace.milliseconds(started.duration(to: .now))
+                if let response = result.1 as? HTTPURLResponse {
+                    let requestID = response.value(forHTTPHeaderField: "x-request-id") ?? "none"
+                    Log.qwen.notice(
+                        "Chat request model=\(model, privacy: .public) HTTP \(response.statusCode, privacy: .public) in \(milliseconds, privacy: .public) ms, attempt \(attempt + 1, privacy: .public), sent \(bytes, privacy: .public) bytes, request id \(requestID, privacy: .public)"
+                    )
+                }
                 if attempt == 0,
                    let response = result.1 as? HTTPURLResponse,
                    Self.retryableStatusCodes.contains(response.statusCode) {
@@ -911,13 +927,15 @@ struct QwenReasoningClient: Reasoning {
                     try await Task.sleep(for: .milliseconds(Self.retryDelay(response)))
                     continue
                 }
-                if let response = result.1 as? HTTPURLResponse, !(200..<300).contains(response.statusCode) {
-                    Log.qwen.error(
-                        "Chat request failed: HTTP \(response.statusCode, privacy: .public) on attempt \(attempt + 1, privacy: .public)"
-                    )
-                }
                 return result
             } catch {
+                let milliseconds = WorkflowTrace.milliseconds(started.duration(to: .now))
+                // A cancel is the caller's choice, such as the refinement deadline, not a failure.
+                let cancelled = error is CancellationError || (error as? URLError)?.code == .cancelled
+                Log.qwen.log(
+                    level: cancelled ? .info : .error,
+                    "Chat request model=\(model, privacy: .public) ended after \(milliseconds, privacy: .public) ms, attempt \(attempt + 1, privacy: .public): \(Log.describe(error), privacy: .public)"
+                )
                 guard attempt == 0, Self.isRetryableNetworkError(error) else { throw error }
                 Log.qwen.notice("Chat request hit \(Log.describe(error), privacy: .public); retrying")
                 try await Task.sleep(for: .milliseconds(350))

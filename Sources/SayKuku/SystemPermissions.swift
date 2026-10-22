@@ -124,7 +124,7 @@ final class SystemPermissionController {
     ) {
         guard old != new else { return }
         let change = "\(kind.rawValue) \(old) -> \(new)"
-        Log.permissions.info("Permission changed: \(change, privacy: .public)")
+        Log.permissions.notice("Permission changed: \(change, privacy: .public)")
     }
 
     private func accessibilityDidChange() {

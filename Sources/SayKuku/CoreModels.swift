@@ -367,12 +367,14 @@ struct HistoryEntry: Identifiable, Codable, Equatable {
     var isStarred: Bool
     var status: HistoryStatus
     var errorMessage: String?
+    /// Where the time went after the recording stopped; nil before it finishes and for older entries.
+    var timing: WorkflowTiming?
 
     init(
         id: UUID = UUID(), mode: HistoryMode, app: String, createdAt: Date = .now,
         durationSeconds: Double, input: String, output: String,
         audioFilename: String? = nil, isStarred: Bool = false,
-        status: HistoryStatus = .completed, errorMessage: String? = nil
+        status: HistoryStatus = .completed, errorMessage: String? = nil, timing: WorkflowTiming? = nil
     ) {
         self.id = id
         self.mode = mode
@@ -385,6 +387,7 @@ struct HistoryEntry: Identifiable, Codable, Equatable {
         self.isStarred = isStarred
         self.status = status
         self.errorMessage = errorMessage
+        self.timing = timing
     }
 
     var hasAudio: Bool { audioFilename != nil }
@@ -395,7 +398,7 @@ struct HistoryEntry: Identifiable, Codable, Equatable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, mode, app, createdAt, durationSeconds, input, output, audioFilename, isStarred, status, errorMessage
+        case id, mode, app, createdAt, durationSeconds, input, output, audioFilename, isStarred, status, errorMessage, timing
     }
 
     init(from decoder: Decoder) throws {
@@ -411,6 +414,8 @@ struct HistoryEntry: Identifiable, Codable, Equatable {
         isStarred = try container.decode(Bool.self, forKey: .isStarred)
         status = try container.decodeIfPresent(HistoryStatus.self, forKey: .status) ?? .completed
         errorMessage = try container.decodeIfPresent(String.self, forKey: .errorMessage)
+        // Diagnostics only: a timing this build can't read must not cost the entry or the store.
+        timing = try? container.decodeIfPresent(WorkflowTiming.self, forKey: .timing)
     }
 }
 
