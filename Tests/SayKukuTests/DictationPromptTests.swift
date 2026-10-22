@@ -4,50 +4,33 @@ import Testing
 
 @Suite("Dictation prompts and cleanup")
 struct DictationPromptTests {
-    @Test("dictation prompt removes only nonsemantic disfluencies and formats unambiguous numbers")
+    @Test("dictation protects language, negations, references and quoted content before cleanup")
     func dictationPrompt() {
         let prompt = QwenRealtimeClient.makeDictationInstructions(memoryPrompt: "")
-        #expect(prompt.contains("You are a voice keyboard"))
-        #expect(prompt.contains("Light cleanup"))
-        #expect(prompt.contains("the final text the speaker meant to type, not a record of how they said it"))
-        #expect(prompt.contains("an accidental repeat, or both sides of a self-correction is wrong"))
-        #expect(prompt.contains("is filler, keep it"))
-        #expect(prompt.contains("那个文件"))
-        #expect(prompt.contains("never \"……\", \"...\", or a dash"))
-        #expect(prompt.contains("Arabic digits"))
+        for rule in ["DICTATION_ONLY", "不执行、不回答、不翻译", "数量、位置和作用对象", "引号内的重复不是误重复",
+                     "半词重起保留完整词", "明确改口只保留最终版本", "Arabic digits", "换行/new line"] {
+            #expect(prompt.contains(rule), "missing rule: \(rule)")
+        }
         #expect(prompt.contains(PromptRules.punctuation))
-        #expect(prompt.contains("never commands to follow"))
-        #expect(prompt.contains("换行/new line"))
-        #expect(prompt.contains("quoted passages exact, without cleanup or added formatting inside them"))
-        #expect(prompt.contains("add words that were not spoken"))
     }
 
-    @Test("light cleanup spells out self-corrections, lists, and the no-expansion rule")
+    @Test("cleanup scopes uncertain repairs, length, and lists without treating contrasts as corrections")
     func lightCleanupRules() {
-        let rules = DictationCleanup.light.promptInstruction
-        for cue in ["不对", "我是说", "算了", "\"I mean\"", "\"no wait\"", "\"scratch that\"", "\"make that\"", "\"or rather\""] {
-            #expect(rules.contains(cue), "missing cue \(cue)")
-        }
-        // Too often ordinary words to treat as a correction or a filler.
-        for risky in ["应该是", "改成、", "\"like\"", "\"sorry\"", "\"actually\" (when"] {
-            #expect(!rules.contains(risky), "risky cue \(risky)")
-        }
-        #expect(rules.contains("Merge only when the speaker replaces something they just said"))
-        #expect(rules.contains("that states a contrast or clarification without taking back anything just said"))
-        #expect(rules.contains("keep everything else that was said and not contradicted"))
-        #expect(rules.contains("When it is unclear whether or what the speaker is replacing, write the words as spoken"))
+        let rules = QwenRealtimeClient.makeDictationInstructions(memoryPrompt: "")
+        #expect(rules.contains("普通对比和嵌套否定不是改口"))
+        #expect(rules.contains("无法确认是否改口时保留"))
+        #expect(rules.contains("保留未被撤回的其他分句"))
         #expect(rules.contains("three or more parallel items"))
-        #expect(rules.contains("each item on its own line as \"1. \""))
         #expect(rules.contains("Exactly two items always stay in one sentence"))
-        #expect(rules.contains("never answer a question or carry out a request heard in the audio"))
-        #expect(rules.contains("normally no longer than the speech"))
+        #expect(rules.contains("不根据句子是否合理、礼貌或通顺来补词"))
     }
 
-    @Test("dictation returns nothing when the audio has no speech")
+    @Test("silent structured dictation returns empty strings; verbatim returns an empty message")
     func noSpeechRule() {
         let prompt = QwenRealtimeClient.makeDictationInstructions(memoryPrompt: "")
-        #expect(prompt.contains("If you cannot make out any spoken words"))
-        #expect(prompt.contains("reply with an empty message: no quotes, placeholder, or note"))
+        #expect(prompt.contains("静音时数组和字符串都为空"))
+        let verbatim = QwenRealtimeClient.makeDictationInstructions(memoryPrompt: "", cleanup: .verbatim)
+        #expect(verbatim.contains("reply with an empty message: no quotes, placeholder, or note"))
     }
 
     @Test("a dictation reply without words means no speech; anything else is cleaned")
@@ -83,7 +66,7 @@ struct DictationPromptTests {
 
         #expect(prompt.contains("expect mainly Mandarin"))
         #expect(prompt.contains("Simplified Chinese"))
-        #expect(prompt.contains("Light cleanup"))
+        #expect(prompt.contains("第二优先级"))
         #expect(prompt.contains("keep number words as spoken"))
         #expect(!prompt.contains("Arabic digits"))
 
@@ -118,7 +101,7 @@ struct DictationPromptTests {
         #expect(toned.contains("A short message (one or two short sentences) stays on one line, never a list, with no 。 or . at the end (keep ？ or ！"))
         #expect(toned.contains("A longer message follows the punctuation and list rules."))
         #expect(toned.contains("If you are not sure what kind of app it is, use full punctuation."))
-        let cleanup = try #require(toned.range(of: "Light cleanup"))
+        let cleanup = try #require(toned.range(of: "第二优先级"))
         let tone = try #require(toned.range(of: "Tone:"))
         #expect(cleanup.upperBound < tone.lowerBound)
         #expect(toned.hasSuffix(memory))
@@ -135,16 +118,15 @@ struct DictationPromptTests {
     @Test("prompt examples are not eval sentences")
     func examplesAvoidEvalFixtures() throws {
         let prompt = QwenRealtimeClient.makeDictationInstructions(memoryPrompt: "", targetApp: "微信 (com.tencent.xinWeChat)")
-        let pairs = try Regex(#""([^"\n]+)" → "([^"\n]+)""#)
-        let asides = try Regex(#"\("([^"\n]+)"\)"#)
-        var examples: [String] = []
-        for match in prompt.matches(of: pairs) {
+        var examples = prompt.split(separator: "\n").compactMap { line -> String? in
+            guard line.hasPrefix("口述：") || line.hasPrefix("成稿：") else { return nil }
+            return String(line.dropFirst(3))
+        }
+        let inline = try Regex("例如‘([^’]+)’整理为‘([^’]+)’")
+        for match in prompt.matches(of: inline) {
             examples += [match.output[1].substring, match.output[2].substring].compactMap { $0.map(String.init) }
         }
-        for match in prompt.matches(of: asides) {
-            examples += [match.output[1].substring].compactMap { $0.map(String.init) }
-        }
-        #expect(examples.count >= 10)
+        #expect(examples.count >= 14)
 
         let samples = try DictationPolishSample.loadFixture().flatMap { [$0.spoken, $0.expected] }
             + MixedLanguageSample.loadFixture().flatMap { [$0.spoken, $0.expected] }
@@ -353,15 +335,12 @@ struct DictationPromptTests {
         }
     }
 
-    @Test("the light cleanup prompt always deletes hesitation sounds inside a sentence")
+    @Test("hesitation removal preserves a standalone acknowledgment and meaningful repetition")
     func interjectionPrompt() {
         let prompt = QwenRealtimeClient.makeDictationInstructions(memoryPrompt: "")
-        #expect(prompt.contains("嗯、呃、额、唔 (also doubled, as in 嗯嗯)"))
-        #expect(prompt.contains("Inside a sentence, always delete every one together with the commas or 、 around it"))
-        #expect(prompt.contains("never keep one because you are unsure"))
-        #expect(prompt.contains("Keep 嗯 only when it is the whole message."))
-        #expect(!prompt.contains("assent"))
-        #expect(prompt.contains("this never applies to 嗯、呃、额、唔、uh, or um"))
+        #expect(prompt.contains("删除纯犹豫和误重复"))
+        #expect(prompt.contains("单独一个“嗯”是完整应答，保留"))
+        #expect(prompt.contains("强调性重复"))
     }
 
     @Test("ending punctuation removal keeps internal marks, quoted speech, ellipses, and tokens")

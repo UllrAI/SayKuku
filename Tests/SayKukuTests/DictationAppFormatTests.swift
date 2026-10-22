@@ -60,10 +60,8 @@ struct DictationAppFormatTests {
         }
     }
 
-    @Test("two-pass cleanup uses the released light prompt and first-pass cleaner")
+    @Test("both cleanup choices use the same local disfluency cleaner")
     func firstPassUnchanged() throws {
-        #expect(QwenRealtimeClient.makeDictationInstructions(memoryPrompt: "", cleanup: .refined)
-            == QwenRealtimeClient.makeDictationInstructions(memoryPrompt: "", cleanup: .light))
         for sample in try DictationPolishSample.loadFixture() {
             #expect(SpeechDisfluencyCleaner.clean(sample.spoken, mode: .refined)
                 == SpeechDisfluencyCleaner.clean(sample.spoken, mode: .light))

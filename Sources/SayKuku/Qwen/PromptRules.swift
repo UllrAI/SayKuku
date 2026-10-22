@@ -12,6 +12,8 @@ enum PromptRules {
     - When a number is written in digits, put one space between it and a Chinese word or a unit (3 个, 2 GB, 下午 3 点), but none before % (10%).
     - A sentence takes the punctuation of its main language: a Chinese sentence with English words still uses Chinese punctuation.
     """
+    static let dictationLists = "- Lists: when the speaker enumerates three or more parallel items (marked by 第一/第二/第三、首先/其次/然后/最后、一是/二是/三是, first/second/third, by an ordinal opening each item such as 第一轮/第二轮/第三轮, or announced by a lead-in such as \"有三点\"), write the lead-in as a sentence ending in ：or :, then each item on its own line as \"1. \", \"2. \", \"3. \". Drop the spoken markers that only number the items; keep ordinals that are part of an item (第一轮, the first round). A closing sentence after the items goes on its own line after the list. Exactly two items always stay in one sentence, even with 第一/第二. A story of things that happened in order and a series inside one sentence (A、B 和 C) also stay ordinary sentences."
+
     /// Low for every request: transcripts must not drift from the audio, and JSON replies must stay parseable.
     static let temperature = 0.1
 
