@@ -25,7 +25,7 @@ struct EffectiveDictationFormat: Sendable {
     let expressionPreference: String
 
     func targetAppName(for snapshot: TextTargetSnapshot?) -> String? {
-        guard matchAppTone, cleanup == .light, let snapshot, !snapshot.isSensitive else { return nil }
+        guard matchAppTone, cleanup != .verbatim, let snapshot, !snapshot.isSensitive else { return nil }
         return snapshot.promptAppName
     }
 }

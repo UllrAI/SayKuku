@@ -17,7 +17,7 @@ enum SpeechDisfluencyCleaner {
 
     static func clean(_ text: String, mode: DictationCleanup) -> String {
         // A reply that is only 嗯 or 呃 is what the speaker said, not a pause before the rest.
-        let dropsFillers = mode == .light
+        let dropsFillers = mode != .verbatim
             && !text.filter { !interjections.contains($0) }.trimmingCharacters(in: nonSpeech).isEmpty
         var result = ""
         var segment = ""
@@ -63,7 +63,7 @@ enum SpeechDisfluencyCleaner {
     ) -> String {
         var text = segment
         if dropsFillers { text = withoutFillers(text, before: before, after: after) }
-        if mode == .light {
+        if mode != .verbatim {
             // The segment opens a clause unless it follows quoted speech in the same clause.
             let opensClause = before.map { clauseBreaks.contains($0) } ?? true
             for pattern in [repeatedLeadIn, restartedClause] + (opensClause ? [restartedOpening] : []) {

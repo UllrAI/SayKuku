@@ -469,6 +469,17 @@
         }
       }
     },
+    "After light cleanup, sends the text for another cleanup pass. May take longer; uses the first result if it times out or fails." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "轻度整理后，再发送文字整理一次。可能稍慢；超时或失败时使用首次结果。"
+          }
+        }
+      }
+    },
     "API Key unavailable" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -785,17 +796,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "适用于语音输入和语音助手"
-          }
-        }
-      }
-    },
-    "Applies wherever Light cleanup is used, including apps with their own format below. Sends the transcribed text to a Qwen text model once more to settle restarts and self-corrections; if that takes too long or fails, you get the first result." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "凡是使用轻整理的地方都会生效，包括下方设置了应用专属格式的应用。把转写好的文字再发给 Qwen 文本模型整理一次，处理重说和改口；超时或出错时，直接使用第一次的结果。"
           }
         }
       }
@@ -1126,6 +1126,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "在“设置 › 历史”里选择保留期限即可重新记录。"
+          }
+        }
+      }
+    },
+    "Cleans up fillers, accidental repeats, and self-corrections during recognition." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "识别时去掉无意义口头词，整理重复和改口。"
           }
         }
       }
@@ -2519,13 +2530,13 @@
         }
       }
     },
-    "Follow global (current: %@)" : {
+    "Follow global" : {
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "跟随全局（当前：%@）"
+            "value" : "跟随全局"
           }
         }
       }
@@ -3129,6 +3140,17 @@
         }
       }
     },
+    "Keeps fillers, repeats, and self-corrections; only adds punctuation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留口头词、重复和改口，只补标点。"
+          }
+        }
+      }
+    },
     "Kept for %@. Starred items are never deleted automatically." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3289,18 +3311,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "轻整理"
-          }
-        }
-      }
-    },
-    "Light cleanup removes fillers and accidental repeats. Verbatim keeps hesitations and repeats." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "轻整理会去掉无意义口癖和紧邻重复；原样保留说话时的停顿与重复。"
+            "value" : "轻度整理"
           }
         }
       }
@@ -4700,17 +4711,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld 秒后自动结束录音"
-          }
-        }
-      }
-    },
-    "Refine wording after dictation" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "听写后再整理一遍措辞"
           }
         }
       }
@@ -6456,6 +6456,17 @@
         }
       }
     },
+    "Two-pass cleanup" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "二次整理"
+          }
+        }
+      }
+    },
     "Types what you say, without changing what you mean." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6616,7 +6627,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "原样"
+            "value" : "原样保留"
           }
         }
       }

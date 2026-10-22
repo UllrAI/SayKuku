@@ -1,9 +1,75 @@
+import Foundation
 import Testing
 @testable import SayKuku
 
 @Suite("App-specific Voice Input formatting")
 @MainActor
 struct DictationAppFormatTests {
+    @Test("legacy global and per-app cleanup preserve their effective behavior after migration")
+    func legacyCleanupMigration() throws {
+        for refines: Bool? in [nil, false, true] {
+            for global: DictationCleanup? in [nil, .verbatim, .light] {
+                let environment = AppStateTestEnvironment()
+                defer { environment.clean() }
+                if let refines { environment.defaults.set(refines, forKey: "dictation.refine") }
+                if let global { environment.defaults.set(global.rawValue, forKey: "dictation.cleanup") }
+                let rules = [
+                    DictationAppFormat(bundleID: "inherit", numberFormat: .spoken),
+                    DictationAppFormat(bundleID: "light", cleanup: .light, expressionPreference: "自然口语"),
+                    DictationAppFormat(bundleID: "verbatim", cleanup: .verbatim)
+                ]
+                environment.defaults.set(try JSONEncoder().encode(rules), forKey: "dictation.appFormats")
+                let settings = environment.makeState().settings
+                let expectedLight: DictationCleanup = (refines ?? true) ? .refined : .light
+                let expectedGlobal = global == .verbatim ? .verbatim : expectedLight
+                #expect(settings.dictationCleanup == expectedGlobal)
+                #expect(settings.dictationFormat(for: "inherit").cleanup == expectedGlobal)
+                #expect(settings.dictationFormat(for: "inherit").numberFormat == .spoken)
+                #expect(settings.dictationFormat(for: "light").cleanup == expectedLight)
+                #expect(settings.dictationFormat(for: "light").expressionPreference == "自然口语")
+                #expect(settings.dictationFormat(for: "verbatim").cleanup == .verbatim)
+                #expect(settings.dictationAppFormats.first { $0.bundleID == "inherit" }?.cleanup == nil)
+                #expect(environment.defaults.object(forKey: "dictation.refine") == nil)
+                #expect(environment.makeState().settings.dictationAppFormats == settings.dictationAppFormats)
+
+                // Once migrated, single-pass choices must survive the next launch.
+                settings.dictationCleanup = .light
+                settings.saveDictationAppFormat(.init(bundleID: "light", cleanup: .light))
+                let reloaded = environment.makeState().settings
+                #expect(reloaded.dictationCleanup == .light)
+                #expect(reloaded.dictationFormat(for: "light").cleanup == .light)
+            }
+        }
+    }
+
+    @Test("all cleanup choices persist independently of global changes")
+    func cleanupPersistence() {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let settings = environment.makeState().settings
+        #expect(settings.dictationCleanup == .refined)
+        for cleanup in DictationCleanup.allCases {
+            settings.dictationCleanup = cleanup
+            settings.saveDictationAppFormat(.init(bundleID: "app", cleanup: cleanup))
+            let reloaded = environment.makeState().settings
+            #expect(reloaded.dictationCleanup == cleanup)
+            reloaded.dictationCleanup = cleanup == .refined ? .verbatim : .refined
+            #expect(reloaded.dictationFormat(for: "app").cleanup == cleanup)
+            reloaded.saveDictationAppFormat(.init(bundleID: "app", numberFormat: .spoken))
+            #expect(reloaded.dictationFormat(for: "app").cleanup == reloaded.dictationCleanup)
+        }
+    }
+
+    @Test("two-pass cleanup uses the released light prompt and first-pass cleaner")
+    func firstPassUnchanged() throws {
+        #expect(QwenRealtimeClient.makeDictationInstructions(memoryPrompt: "", cleanup: .refined)
+            == QwenRealtimeClient.makeDictationInstructions(memoryPrompt: "", cleanup: .light))
+        for sample in try DictationPolishSample.loadFixture() {
+            #expect(SpeechDisfluencyCleaner.clean(sample.spoken, mode: .refined)
+                == SpeechDisfluencyCleaner.clean(sample.spoken, mode: .light))
+        }
+    }
+
     @Test("optional overrides follow changing global values, while explicit values stay fixed")
     func precedenceAndPersistence() {
         let environment = AppStateTestEnvironment()
