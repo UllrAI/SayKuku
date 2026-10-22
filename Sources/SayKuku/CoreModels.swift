@@ -214,8 +214,9 @@ enum DictationNumberFormat: String, CaseIterable, Identifiable, Codable, Sendabl
 }
 
 enum DictationCleanup: String, CaseIterable, Identifiable, Codable, Sendable {
-    case light
     case verbatim
+    case light
+    case refined
 
     var id: String { rawValue }
 
@@ -223,12 +224,24 @@ enum DictationCleanup: String, CaseIterable, Identifiable, Codable, Sendable {
         switch self {
         case .light: localized("Light cleanup")
         case .verbatim: localized("Verbatim")
+        case .refined: localized("Two-pass cleanup")
+        }
+    }
+
+    var caption: String {
+        switch self {
+        case .verbatim:
+            localized("Keeps fillers, repeats, and self-corrections; only adds punctuation.")
+        case .light:
+            localized("Cleans up fillers, accidental repeats, and self-corrections during recognition.")
+        case .refined:
+            localized("After light cleanup, sends the text for another cleanup pass. May take longer; uses the first result if it times out or fails.")
         }
     }
 
     var promptInstruction: String {
         switch self {
-        case .light:
+        case .light, .refined:
             """
             Light cleanup: the reply is the final text the speaker meant to type, not a record of how they said it. Before replying, check each step below; a reply that still has a removable filler, an accidental repeat, or both sides of a self-correction is wrong.
             - Fillers: 嗯、呃、额、唔 (also doubled, as in 嗯嗯), 啊 used as hesitation, uh, um, and er are pauses for thought, never part of the text. Inside a sentence, always delete every one together with the commas or 、 around it and join the words before and after into one normal sentence; never keep one because you are unsure. Keep 嗯 only when it is the whole message. Delete "you know" used as a filler too. 那个、就是、然后 at the very start or set off by pauses are hesitation: delete them. Keep them only when they carry meaning, as in 那个文件 (that file), 就是说 (that is), or 先…然后… (a real sequence). Examples: "钥匙放在，呃，门口的柜子里" → "钥匙放在门口的柜子里。"; "快递下午，嗯，会送到前台" → "快递下午会送到前台。"; "we need more, um, chairs for the hall" → "We need more chairs for the hall."

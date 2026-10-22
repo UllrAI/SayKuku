@@ -146,6 +146,11 @@ private struct DictationAppFormatEditor: View {
                         KukuDivider()
                         choiceRow(localized("Speech cleanup"), selection: $draft.cleanup,
                                   global: settings.dictationCleanup, values: DictationCleanup.allCases) { $0.title }
+                        Text(effectiveCleanup.caption)
+                            .font(.kuku(.subheadline))
+                            .foregroundStyle(KukuColor.textSecondary)
+                            .padding(.horizontal, KukuLayout.rowPadding)
+                            .padding(.bottom, KukuSpacing.md)
                         KukuDivider()
                         choiceRow(localized("Number format"), selection: $draft.numberFormat,
                                   global: settings.dictationNumberFormat, values: DictationNumberFormat.allCases) { $0.title }
@@ -204,7 +209,7 @@ private struct DictationAppFormatEditor: View {
         KukuRow(title, caption: selection.wrappedValue == nil
                 ? localized("Current global value: \(label(global))") : nil) {
             KukuPicker(title, options: [nil] + values.map(Optional.some), selection: selection) { value in
-                value.map(label) ?? localized("Follow global (current: \(label(global)))")
+                value.map(label) ?? localized("Follow global")
             }
         }
     }

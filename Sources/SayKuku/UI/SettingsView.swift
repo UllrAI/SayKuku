@@ -101,11 +101,11 @@ private struct VoiceInputSettings: View {
                 ) { cleanup in
                     cleanup.title
                 }
-                Text(localized("Light cleanup removes fillers and accidental repeats. Verbatim keeps hesitations and repeats."))
-                .font(.kuku(.subheadline))
-                .foregroundStyle(KukuColor.textSecondary)
-                .padding(.horizontal, KukuLayout.rowPadding)
-                .padding(.bottom, KukuSpacing.md)
+                Text(settings.dictationCleanup.caption)
+                    .font(.kuku(.subheadline))
+                    .foregroundStyle(KukuColor.textSecondary)
+                    .padding(.horizontal, KukuLayout.rowPadding)
+                    .padding(.bottom, KukuSpacing.md)
                 KukuDivider()
                 KukuToggleRow(
                     title: localized("Keep ending punctuation"),
@@ -122,15 +122,6 @@ private struct VoiceInputSettings: View {
                 )
                 // Verbatim only adds punctuation, so there is no tone to adjust.
                 .disabled(appState.settings.dictationCleanup == .verbatim)
-                KukuDivider()
-                KukuToggleRow(
-                    title: localized("Refine wording after dictation"),
-                    caption: localized(
-                        "Applies wherever Light cleanup is used, including apps with their own format below. Sends the transcribed text to a Qwen text model once more to settle restarts and self-corrections; if that takes too long or fails, you get the first result."
-                    ),
-                    isOn: $settings.refineDictation
-                )
-                // Always enabled: an app's own format can choose Light cleanup while the default is Verbatim.
                 KukuDivider()
                 KukuToggleRow(
                     title: localized("Use text near the cursor"),

@@ -952,13 +952,13 @@ final class VoiceWorkflow {
         return try SpeechDisfluencyCleaner.dictation(result, mode: format.cleanup)
     }
 
-    /// The second pass, for light cleanup with the setting on and some text to refine. Never throws for a
+    /// The second pass, only for two-pass cleanup with some text to refine. Never throws for a
     /// failed refinement, which keeps `text`; throws `CancellationError` when the workflow is cancelled,
     /// which cancels the request.
     private func refined(
         _ text: String, format: EffectiveDictationFormat, targetApp: String?, trace: WorkflowTrace? = nil
     ) async throws -> String {
-        guard format.cleanup == .light, settings.refineDictation,
+        guard format.cleanup == .refined,
               !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return text }
         let refinement = DictationRefinement.Settings(
             numberFormat: format.numberFormat,
