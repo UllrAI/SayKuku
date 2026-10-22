@@ -1,6 +1,6 @@
 # 中英混说评测
 
-> 每次修改听写 Prompt（`QwenRealtimeClient.makeDictationInstructions`、`PromptRules`，或 `RecognitionLanguage`、`DictationNumberFormat`、`DictationCleanup` 的 `promptInstruction`），或者更换默认模型，都要在 Mac 上重跑本评测，并把改动前后两次的汇总贴进 PR。
+> 每次修改听写 Prompt（`QwenRealtimeClient.makeDictationInstructions`、`PromptRules`，或 `RecognitionLanguage`、`DictationNumberFormat`、`DictationCleanup` 的 `promptInstruction`），或者更换默认模型，都要在 Mac 上重跑本评测，并把改动前后两次的汇总贴进 PR。口头禅、改口、列表、防扩写和目标 App 语气由 [听写润色评测](DICTATION_POLISH_EVAL.md) 衡量，同样要前后各跑一次。
 
 写法规则见 [SayKuku.md](../SayKuku.md)「Dictation 与 Agent 必须严格分开」一节下 Fn Dictation 的「中英混合写法规则」。
 
@@ -22,7 +22,7 @@
 | 纯中文句（确认规则没有副作用） | 4 |
 | 口语填充词（叠加轻度整理） | 4 |
 
-`expected` 按默认听写设置书写：自动识别语言、优先数字、轻度整理、没有目标 App（使用完整标点）、没有记忆条目或领域预设。
+`expected` 按默认听写设置书写：自动识别语言、优先数字、轻度整理、没有目标 App（使用完整标点）、没有光标附近的文字、没有记忆条目或领域预设。
 
 普通 `swift test` 会检查评测集的格式：正好 40 句，只有这两个字段，`spoken` 不重复，首尾没有空白，并且每句 `expected` 本身能通过下面的规则检查。增删句子时要同步修改测试里的句数。
 
@@ -40,6 +40,8 @@
 mkdir -p Build
 Scripts/eval-mixed-language.sh 2>&1 | tee Build/eval-before.txt
 ```
+
+`Scripts/eval-mixed-language.sh` 等同于 `Scripts/eval-dictation.sh mixed-language`；两套评测共用 `Scripts/eval-dictation.sh`，音频分目录缓存。
 
 可选环境变量：`SAYKUKU_TEST_REGION`（`beijing` 或 `singapore`，默认 `beijing`）、`SAYKUKU_TEST_WORKSPACE_ID`（批处理识别不需要，可以不设）。
 

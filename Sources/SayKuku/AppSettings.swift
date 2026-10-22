@@ -26,6 +26,8 @@ final class AppSettings {
         didSet { defaults.set(keepEndingPunctuation, forKey: Keys.keepEndingPunctuation) }
     }
     var matchAppTone = true { didSet { defaults.set(matchAppTone, forKey: Keys.matchAppTone) } }
+    /// Sends the text around the cursor with dictation, so names and homophones match the document.
+    var cursorContextAllowed = true { didSet { defaults.set(cursorContextAllowed, forKey: Keys.cursorContext) } }
     private(set) var dictationAppFormats: [DictationAppFormat] = [] {
         didSet {
             if let data = try? JSONEncoder().encode(dictationAppFormats) {
@@ -237,6 +239,7 @@ final class AppSettings {
         autoStop = storedBool(Keys.autoStop, default: false)
         keepEndingPunctuation = storedBool(Keys.keepEndingPunctuation, default: true)
         matchAppTone = storedBool(Keys.matchAppTone, default: true)
+        cursorContextAllowed = storedBool(Keys.cursorContext, default: true)
         if let data = defaults.data(forKey: Keys.dictationAppFormats),
            let rules = try? JSONDecoder().decode([DictationAppFormat].self, from: data) {
             dictationAppFormats = rules
@@ -279,7 +282,7 @@ final class AppSettings {
         static let recognitionLanguage = "dictation.recognitionLanguage", dictationNumberFormat = "dictation.numberFormat"
         static let dictationCleanup = "dictation.cleanup", soundCues = "voice.soundCues"
         static let keepEndingPunctuation = "dictation.keepEndingPunctuation", matchAppTone = "dictation.matchAppTone"
-        static let dictationAppFormats = "dictation.appFormats"
+        static let dictationAppFormats = "dictation.appFormats", cursorContext = "dictation.cursorContext"
         static let selectedDomains = "dictation.selectedDomains", legacyCustomTerms = "dictation.customDomainTerms"
         static let didCompleteOnboarding = "onboarding.completed"
         static let continuousConversation = "continuousConversation", learnCorrections = "learnFromCorrections"

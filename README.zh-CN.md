@@ -50,6 +50,7 @@ SayKuku 是免费的原生 macOS 语音应用。按 **Fn**，在光标处语音�
 | --- | --- |
 | 麦克风 | 只在语音输入、Voice Agent 或麦克风音量测试时采集。语音音频发往所选 Qwen 地域；音量测试不保存、不上传。 |
 | Voice Agent 上下文 | 默认允许读取选中文字、当前 App、窗口标题与当前窗口可见文字；剪贴板和 Safari/Chrome 页面网址默认关闭。每项均可在**设置 → 隐私**单独控制。可见文字最多 2000 字，只随当次请求发送，不写入历史或日志；语音输入不读取屏幕文字。 |
+| 语音输入上下文 | “参考光标附近的文字”默认开启：语音输入会附带当前输入框里光标前最多 800 字、后最多 200 字（不含选中的文字），让人名、术语和同音字跟正在写的内容一致。只随当次请求发送，不写入历史或日志；可在**设置 → 语音输入**关闭。密码框、安全输入和密码管理器一律不读取。 |
 | 本机数据 | API Key 存在钥匙串。历史、记忆和纠正建议保存在 Application Support 的 `store.json`，已保存录音在 `Audio/*.wav`；这些 JSON/WAV 文件没有额外加密。 |
 | 历史默认值 | 新历史默认保留 30 天，保存录音默认开启；已加星标的记录不会自动删除。选择**设置 → 历史 → 不保存**后，不再新增历史和录音，但不会自动删除旧记录。 |
 | 使用统计 | 正式版默认向自部署的 Umami 发送随机安装 ID、App 版本、固定事件名及完成内容的字符数；不发送语音、文字内容、窗口标题、网址或 API Key。可在**设置 → 隐私**关闭；开发版和测试不发送。 |
@@ -78,6 +79,7 @@ open Build/SayKuku.app
 | App 统计及隐私边界 | [`docs/APP_ANALYTICS.md`](docs/APP_ANALYTICS.md) |
 | 写入兼容性测试计划 | [`docs/COMPATIBILITY.md`](docs/COMPATIBILITY.md) |
 | 中英混说评测 | [`docs/MIXED_LANGUAGE_EVAL.md`](docs/MIXED_LANGUAGE_EVAL.md) |
+| 听写润色评测 | [`docs/DICTATION_POLISH_EVAL.md`](docs/DICTATION_POLISH_EVAL.md) |
 | 开发与 Agent 约定 | [`AGENTS.md`](AGENTS.md) |
 
 正式版由 `Scripts/release.sh` 在本机完成签名、公证和打包；仓库不使用 GitHub Actions 验证 macOS 发布包。请遵循[本机发布说明](docs/LOCAL_PACKAGING.md)，不要单独运行内部 Release 打包步骤作为发布流程。

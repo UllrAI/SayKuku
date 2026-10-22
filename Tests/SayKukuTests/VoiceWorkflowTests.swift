@@ -444,6 +444,93 @@ struct VoiceWorkflowTests {
         }
     }
 
+    @Test("dictation sends the text around the cursor to realtime and batch only with the setting on")
+    func dictationCursorContext() async throws {
+        let snapshot = TextTargetSnapshot.fake(valueBefore: "请转告张越，明天见", selectedRange: CFRange(location: 5, length: 0))
+        let expected = DictationCursorContext(before: "请转告张越", after: "，明天见")
+        for allowed in [true, false] {
+            let environment = AppStateTestEnvironment()
+            defer { environment.clean() }
+            let reasoning = FakeReasoning()
+            let state = try makeState(environment, .fake(reasoning: reasoning, text: FakeTextWriting(snapshot: snapshot)))
+            #expect(state.settings.cursorContextAllowed)
+            state.settings.cursorContextAllowed = allowed
+
+            try await startListening(state)
+            state.workflow.finishDictation()
+            #expect(await eventually { state.workflow.dictationPhase == .success })
+            #expect(reasoning.cursorContexts == [allowed ? expected : nil])
+        }
+        do {
+            let environment = AppStateTestEnvironment()
+            defer { environment.clean() }
+            let realtime = FakeRealtime(transcript: "Hello world.")
+            let state = try makeState(environment, .fake(realtime: realtime, text: FakeTextWriting(snapshot: snapshot)))
+            state.settings.qwenWorkspaceID = "llm-test"
+
+            try await startListening(state)
+            state.workflow.finishDictation()
+            #expect(await eventually { state.workflow.dictationPhase == .success })
+            #expect(await realtime.cursorContexts == [expected])
+        }
+        do {
+            // A field without readable text sends nothing, even with the setting on.
+            let environment = AppStateTestEnvironment()
+            defer { environment.clean() }
+            let reasoning = FakeReasoning()
+            let state = try makeState(environment, .fake(reasoning: reasoning))
+
+            try await startListening(state)
+            state.workflow.finishDictation()
+            #expect(await eventually { state.workflow.dictationPhase == .success })
+            #expect(reasoning.cursorContexts == [nil])
+        }
+    }
+
+    @Test("sensitive targets and the setting keep the text around the cursor from realtime, its fallback, and batch")
+    func dictationCursorContextPrivacy() async throws {
+        let value = "请转告张越，明天见"
+        let range = CFRange(location: 5, length: 0)
+        let expected = DictationCursorContext(before: "请转告张越", after: "，明天见")
+        do {
+            // A secure field never reaches a model, so there is nothing to send the text to.
+            let environment = AppStateTestEnvironment()
+            defer { environment.clean() }
+            let realtime = FakeRealtime(commitError: .timeout)
+            let reasoning = FakeReasoning()
+            let text = FakeTextWriting(snapshot: .fake(valueBefore: value, selectedRange: range, isSensitive: true))
+            let state = try makeState(environment, .fake(realtime: realtime, reasoning: reasoning, text: text))
+            state.settings.qwenWorkspaceID = "llm-test"
+            state.workflow.startDictation()
+            #expect(state.workflow.overlayError == TextInteractionError.sensitiveTarget.localizedDescription)
+            #expect(await realtime.cursorContexts.isEmpty)
+            #expect(reasoning.cursorContexts.isEmpty)
+        }
+        let cases: [(bundleID: String, allowed: Bool, realtime: Bool, expected: DictationCursorContext?)] = [
+            ("com.1password.1password", true, true, nil),
+            ("com.apple.Passwords", true, false, nil),
+            ("com.example.editor", false, true, nil),
+            ("com.example.editor", true, true, expected),
+        ]
+        for testCase in cases {
+            let environment = AppStateTestEnvironment()
+            defer { environment.clean() }
+            // Realtime times out at commit, so the same dictation also goes through the batch fallback.
+            let realtime = FakeRealtime(commitError: .timeout)
+            let reasoning = FakeReasoning(transcriptions: [.text("明天见。")])
+            let text = FakeTextWriting(snapshot: .fake(valueBefore: value, selectedRange: range, bundleID: testCase.bundleID))
+            let state = try makeState(environment, .fake(realtime: realtime, reasoning: reasoning, text: text))
+            if testCase.realtime { state.settings.qwenWorkspaceID = "llm-test" }
+            state.settings.cursorContextAllowed = testCase.allowed
+
+            try await startListening(state)
+            state.workflow.finishDictation()
+            #expect(await eventually { state.workflow.dictationPhase == .success }, "\(testCase.bundleID)")
+            #expect(await realtime.cursorContexts == (testCase.realtime ? [testCase.expected] : []), "\(testCase.bundleID)")
+            #expect(reasoning.cursorContexts == [testCase.expected], "\(testCase.bundleID)")
+        }
+    }
+
     @Test("a recording without speech fails with the Didn’t catch that message")
     func dictationNoSpeech() async throws {
         let environment = AppStateTestEnvironment()

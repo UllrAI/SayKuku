@@ -58,6 +58,7 @@ struct PersistenceTests {
         #expect(state.settings.automaticAgentWriteBack)
         #expect(state.settings.matchAppTone)
         #expect(state.settings.keepEndingPunctuation)
+        #expect(state.settings.cursorContextAllowed)
         state.settings.recognitionLanguage = .english
         state.settings.dictationNumberFormat = .spoken
         state.settings.dictationCleanup = .verbatim
@@ -66,6 +67,7 @@ struct PersistenceTests {
         state.settings.automaticAgentWriteBack = false
         state.settings.matchAppTone = false
         state.settings.keepEndingPunctuation = false
+        state.settings.cursorContextAllowed = false
 
         let reloaded = environment.makeState()
         #expect(reloaded.settings.recognitionLanguage == .english)
@@ -76,6 +78,7 @@ struct PersistenceTests {
         #expect(!reloaded.settings.automaticAgentWriteBack)
         #expect(!reloaded.settings.matchAppTone)
         #expect(!reloaded.settings.keepEndingPunctuation)
+        #expect(!reloaded.settings.cursorContextAllowed)
     }
 
     @Test("menu bar-only close preference persists and keeps a recovery entry")

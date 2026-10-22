@@ -122,6 +122,14 @@ private struct VoiceInputSettings: View {
                 )
                 // Verbatim only adds punctuation, so there is no tone to adjust.
                 .disabled(appState.settings.dictationCleanup == .verbatim)
+                KukuDivider()
+                KukuToggleRow(
+                    title: localized("Use text near the cursor"),
+                    caption: localized(
+                        "Sends a short stretch of text before and after the cursor with your speech, so names, terms, and similar-sounding words match what you’re writing. Never read from password fields."
+                    ),
+                    isOn: $settings.cursorContextAllowed
+                )
             }
 
             DictationAppFormatsSettings()

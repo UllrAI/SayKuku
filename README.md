@@ -51,6 +51,7 @@ If Fn conflicts with a macOS keyboard setting, follow the in-app guidance or use
 | --- | --- |
 | Microphone | Captures audio only for Voice Input, Voice Agent, or a microphone level test. Voice audio goes to the selected Qwen region; the level test is neither saved nor uploaded. |
 | Voice Agent context | Selected text, current app, window title, and visible text in the current window are allowed by default. Clipboard text and the Safari/Chrome page URL are off by default. Each source has a switch in **Settings → Privacy**. Visible text is limited to 2,000 characters and is sent only with that request, without being stored in History or logs. Voice Input does not read screen text. |
+| Voice Input context | With **Use text near the cursor** on (the default), Voice Input sends up to 800 characters before and 200 after the cursor in the focused text field, leaving out any selection, so names, terms, and similar-sounding words match what you are writing. It goes only with that request and is not stored in History or logs. Turn it off in **Settings → Voice Input**. Password fields, secure input, and password managers are never read. |
 | Local data | The API key is stored in this Mac’s Keychain. History, Memory, correction suggestions, and local usage totals are saved in `~/Library/Application Support/SayKuku/store.json`; saved recordings are in `~/Library/Application Support/SayKuku/Audio/*.wav`. |
 | History defaults | New history is kept for 30 days and recording storage is on by default. Starred entries are exempt from automatic deletion. **Settings → History → Don’t keep** stops new history and recordings; it does not delete older entries. |
 | Local usage statistics | Daily totals contain counts, speaking time, app names, and task categories, without text or audio. Collection starts with this feature; older history is not backfilled. Days follow the local time zone at collection and weeks follow regional preferences. Comparisons use equal numbers of complete days with uninterrupted collection. History deletion does not clear totals. Pause or clear them separately in **Settings → Privacy**. Turning off **Current app** omits app names from new statistics. |
@@ -80,6 +81,7 @@ The debug package requires a stable Apple Development signing identity. `swift r
 | App analytics and privacy boundaries | [`docs/APP_ANALYTICS.md`](docs/APP_ANALYTICS.md) |
 | Compatibility test plan | [`docs/COMPATIBILITY.md`](docs/COMPATIBILITY.md) |
 | Mixed-language evaluation | [`docs/MIXED_LANGUAGE_EVAL.md`](docs/MIXED_LANGUAGE_EVAL.md) |
+| Dictation polish evaluation | [`docs/DICTATION_POLISH_EVAL.md`](docs/DICTATION_POLISH_EVAL.md) |
 | Contributor and agent guidance | [`AGENTS.md`](AGENTS.md) |
 
 Release builds are signed, notarized, and packaged locally through `Scripts/release.sh`; the repository does not use GitHub Actions for macOS release validation. Follow the [local release guide](docs/LOCAL_PACKAGING.md) rather than running a Release package step on its own.
