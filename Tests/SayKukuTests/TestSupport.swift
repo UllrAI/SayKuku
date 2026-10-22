@@ -91,8 +91,10 @@ final class FakeAudioCapturing: AudioCapturing {
     let startError: (any Error)?
     let startDelay: Duration
     private let starts = OSAllocatedUnfairLock(initialState: 0)
+    private let cancels = OSAllocatedUnfairLock(initialState: 0)
 
     var startCount: Int { starts.withLock { $0 } }
+    var cancelCount: Int { cancels.withLock { $0 } }
 
     init(
         recording: AudioCapture.Recording = .speech,
@@ -120,9 +122,11 @@ final class FakeAudioCapturing: AudioCapturing {
         }
     }
 
+    func prepare() {}
+
     func stop() -> AudioCapture.Recording { recording }
 
-    func cancel() {}
+    func cancel() { cancels.withLock { $0 += 1 } }
 }
 
 /// Connects at once and either returns `transcript` on commit or throws `commitError`.

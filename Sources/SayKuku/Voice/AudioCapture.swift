@@ -1,4 +1,5 @@
 import AVFoundation
+import CoreAudio
 import Foundation
 import os
 
@@ -16,6 +17,8 @@ enum AudioCaptureError: LocalizedError {
 
 /// The microphone as the voice workflows use it; tests pass a fake.
 protocol AudioCapturing: AnyObject, Sendable {
+    /// Gets the microphone ready ahead of the first recording, so pressing the shortcut starts it quickly.
+    func prepare()
     func start(
         onLevel: @escaping @Sendable (Double) -> Void,
         onChunk: @escaping @Sendable (Data) -> Void,
@@ -32,15 +35,21 @@ final class AudioCapture: AudioCapturing, @unchecked Sendable {
         let hasSpeech: Bool
     }
 
-    /// A fresh engine per recording, with its tap installed; a reused engine can keep a stale input format.
-    /// The engine, its observer and the last input device are only touched on `queue`.
+    /// One engine kept across recordings and only stopped in between, which leaves the microphone idle.
+    /// With a Bluetooth input, building a new engine can block for about three seconds, mostly in its
+    /// first `inputNode` read; starting a built one takes under 100 ms. A reused engine can keep a stale input format, so it is rebuilt when the default
+    /// input device changes, when its format no longer matches the hardware, or when it fails to start.
+    /// The engine, its observer, its input device and the last input device are only touched on `queue`.
     private var engine: AVAudioEngine?
+    private var engineInputDevice: AudioDeviceID?
     private var configurationObserver: NSObjectProtocol?
     private var lastDeviceID: UInt32?
+    private var observesDefaultInput = false
     /// Starting an engine can take hundreds of milliseconds with Bluetooth inputs, so it runs here rather
     /// than on the caller's thread. `stop` and `cancel` go through the same queue, so they always follow
     /// a start that is still in flight and come before the next one.
     private let queue = DispatchQueue(label: "com.saykuku.audio-capture")
+    private let deviceChangeQueue = DispatchQueue(label: "com.saykuku.audio-capture.device-change")
     private let signposter = OSSignposter.performance
     private let lock = NSLock()
     private var pcm = Data()
@@ -56,7 +65,36 @@ final class AudioCapture: AudioCapturing, @unchecked Sendable {
         interleaved: false
     )!
 
-    /// Queues a fresh engine start and returns at once; the task finishes once the engine runs.
+    /// Builds the engine now and again whenever the default input device changes, off the caller's thread.
+    /// Building it does not turn the microphone on. Without microphone access it waits for the first recording.
+    func prepare() {
+        queue.async { [weak self] in
+            guard let self, AVAudioApplication.shared.recordPermission == .granted else { return }
+            if !self.observesDefaultInput {
+                self.observesDefaultInput = true
+                var address = Self.defaultInputAddress
+                // Delivered on its own queue and handed on, so Core Audio never waits on an engine being built.
+                AudioObjectAddPropertyListenerBlock(
+                    AudioObjectID(kAudioObjectSystemObject), &address, self.deviceChangeQueue
+                ) { [weak self] _, _ in
+                    guard let self else { return }
+                    queue.async { self.prewarm() }
+                }
+            }
+            self.prewarm()
+        }
+    }
+
+    /// Runs on `queue`. A recording in progress keeps its engine; the next start replaces it if needed.
+    private func prewarm() {
+        guard !lock.withLock({ running }) else { return }
+        let interval = signposter.beginInterval("audio prewarm")
+        defer { signposter.endInterval("audio prewarm", interval) }
+        // Reading the input node is the slow part; it opens the device without starting it.
+        _ = currentEngine().engine.inputNode
+    }
+
+    /// Queues an engine start and returns at once; the task finishes once the engine runs.
     /// Queuing before returning keeps call order: a later `start`, `stop` or `cancel` always runs after this one.
     /// `onInterruption` fires once, on an arbitrary thread, when an audio device change stops the engine.
     func start(
@@ -86,11 +124,35 @@ final class AudioCapture: AudioCapturing, @unchecked Sendable {
         let interval = signposter.beginInterval("audio start")
         defer { signposter.endInterval("audio start", interval) }
         stopEngine()
-        let engine = AVAudioEngine()
+        let (engine, reused) = currentEngine()
+        do {
+            try run(engine, reused: reused, onLevel: onLevel, onChunk: onChunk, onInterruption: onInterruption)
+        } catch where reused {
+            // The kept engine may have gone stale without telling us; a fresh one decides.
+            Log.audio.error("Reused engine failed to start: \(Log.describe(error), privacy: .public)")
+            discardEngine()
+            let (engine, _) = currentEngine()
+            try run(engine, reused: false, onLevel: onLevel, onChunk: onChunk, onInterruption: onInterruption)
+        }
+    }
+
+    private func run(
+        _ engine: AVAudioEngine,
+        reused: Bool,
+        onLevel: @escaping @Sendable (Double) -> Void,
+        onChunk: @escaping @Sendable (Data) -> Void,
+        onInterruption: @escaping @Sendable () -> Void
+    ) throws {
         let input = engine.inputNode
         let sourceFormat = input.outputFormat(forBus: 0)
         guard sourceFormat.channelCount > 0, sourceFormat.sampleRate > 0 else {
+            discardEngine()
             throw AudioCaptureError.microphoneUnavailable
+        }
+        // A tap in another format than the hardware's raises an exception, so a stale engine must not get one.
+        guard input.inputFormat(forBus: 0).sampleRate == sourceFormat.sampleRate else {
+            discardEngine()
+            throw AudioCaptureError.unsupportedFormat
         }
         guard let converter = AVAudioConverter(from: sourceFormat, to: targetFormat) else {
             throw AudioCaptureError.unsupportedFormat
@@ -110,7 +172,6 @@ final class AudioCapture: AudioCapturing, @unchecked Sendable {
         input.installTap(onBus: 0, bufferSize: 1_024, format: sourceFormat) { [weak self] buffer, _ in
             self?.consume(buffer, sourceFormat: sourceFormat)
         }
-        self.engine = engine
         engine.prepare()
         do {
             try engine.start()
@@ -118,20 +179,32 @@ final class AudioCapture: AudioCapturing, @unchecked Sendable {
             stopEngine()
             throw error
         }
-        // The engine stops itself when the audio hardware changes, so the tap goes quiet.
-        configurationObserver = NotificationCenter.default.addObserver(
-            forName: .AVAudioEngineConfigurationChange, object: engine, queue: nil
-        ) { [weak self] _ in
-            self?.interrupt()
-        }
         let deviceID = input.auAudioUnit.deviceID
         let deviceChanged = lastDeviceID.map { $0 != deviceID } ?? false
         lastDeviceID = deviceID
         let sampleRate = Int(sourceFormat.sampleRate)
         let channels = Int(sourceFormat.channelCount)
         Log.audio.info(
-            "Engine started: \(sampleRate, privacy: .public) Hz, \(channels, privacy: .public) ch, device changed: \(deviceChanged, privacy: .public)"
+            "Engine started: \(sampleRate, privacy: .public) Hz, \(channels, privacy: .public) ch, reused: \(reused, privacy: .public), device changed: \(deviceChanged, privacy: .public)"
         )
+    }
+
+    /// The kept engine while the default input device is the one it was built for, otherwise a new one.
+    private func currentEngine() -> (engine: AVAudioEngine, reused: Bool) {
+        let inputDevice = Self.defaultInputDevice()
+        if let engine, inputDevice == engineInputDevice { return (engine, true) }
+        discardEngine()
+        let engine = AVAudioEngine()
+        // The engine stops itself when the audio hardware changes, so the tap goes quiet. The engine is kept:
+        // Bluetooth headsets can report a change whenever they switch profiles, and the next start checks it.
+        configurationObserver = NotificationCenter.default.addObserver(
+            forName: .AVAudioEngineConfigurationChange, object: engine, queue: nil
+        ) { [weak self] _ in
+            self?.interrupt()
+        }
+        self.engine = engine
+        engineInputDevice = inputDevice
+        return (engine, false)
     }
 
     func stop() -> Recording {
@@ -172,15 +245,38 @@ final class AudioCapture: AudioCapturing, @unchecked Sendable {
         }
     }
 
+    /// Stops the engine and keeps it for the next recording.
     private func stopEngine() {
+        guard let engine else { return }
+        if engine.isRunning { engine.stop() }
+        engine.inputNode.removeTap(onBus: 0)
+    }
+
+    private func discardEngine() {
+        stopEngine()
         if let configurationObserver {
             NotificationCenter.default.removeObserver(configurationObserver)
             self.configurationObserver = nil
         }
-        guard let engine else { return }
-        if engine.isRunning { engine.stop() }
-        engine.inputNode.removeTap(onBus: 0)
-        self.engine = nil
+        engine = nil
+        engineInputDevice = nil
+    }
+
+    private static let defaultInputAddress = AudioObjectPropertyAddress(
+        mSelector: kAudioHardwarePropertyDefaultInputDevice,
+        mScope: kAudioObjectPropertyScopeGlobal,
+        mElement: kAudioObjectPropertyElementMain
+    )
+
+    private static func defaultInputDevice() -> AudioDeviceID? {
+        var address = defaultInputAddress
+        var device = AudioDeviceID(kAudioObjectUnknown)
+        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+        let status = AudioObjectGetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &device
+        )
+        guard status == noErr, device != kAudioObjectUnknown else { return nil }
+        return device
     }
 
     private func interrupt() {
