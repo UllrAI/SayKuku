@@ -898,6 +898,10 @@ struct VoiceWorkflowTests {
         #expect(await eventually { state.data.historyEntries.first?.status == .cancelled })
         #expect(await eventually { reasoning.refineCancelled })
         #expect(text.writes.isEmpty)
+        let timing = try #require(state.data.historyEntries.first?.timing)
+        #expect(timing.result == .cancelled)
+        #expect(timing.milliseconds(.refine) != nil)
+        #expect(timing.milliseconds(.insert) == nil)
     }
 
     @Test("transcribing again from History refines the new transcript too")

@@ -951,11 +951,11 @@ final class VoiceWorkflow {
             memoryPrompt: renderMemoryPrompt(.refinement)
         )
         let started = ContinuousClock.now
+        defer { trace?.record(.refine, since: started) }
         let outcome = try await DictationRefinement.refine(
             text, settings: refinement, apiKey: settings.apiKey,
             configuration: settings.configuration, client: reasoningClient
         )
-        trace?.record(.refine, since: started)
         trace?.setRefinement(outcome.fallback?.rawValue ?? (outcome.text == text ? "unchanged" : "changed"))
         return outcome.text
     }
