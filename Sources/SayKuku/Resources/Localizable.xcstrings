@@ -767,6 +767,17 @@
         }
       }
     },
+    "Applies wherever Light cleanup is used, including apps with their own format below. Sends the transcribed text to a Qwen text model once more to settle restarts and self-corrections; if that takes too long or fails, you get the first result." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "凡是使用轻整理的地方都会生效，包括下方设置了应用专属格式的应用。把转写好的文字再发给 Qwen 文本模型整理一次，处理重说和改口；超时或出错时，直接使用第一次的结果。"
+          }
+        }
+      }
+    },
     "As spoken" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4634,6 +4645,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld 秒后自动结束录音"
+          }
+        }
+      }
+    },
+    "Refine wording after dictation" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "听写后再整理一遍措辞"
           }
         }
       }

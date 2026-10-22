@@ -6,12 +6,12 @@
 
 ## 评测集
 
-`Tests/SayKukuTests/Fixtures/dictation-polish.json` 共 51 条。与中英混说评测按原文完全一致计分不同，这里每条只检查它要测的行为，措辞或标点上的无害差别不算失败。
+`Tests/SayKukuTests/Fixtures/dictation-polish.json` 共 58 条。与中英混说评测按原文完全一致计分不同，这里每条只检查它要测的行为，措辞或标点上的无害差别不算失败。
 
 | 类别 | 条数 | 测什么 |
 | --- | --- | --- |
 | `fillers` | 11 | 去掉嗯、呃、那个、就是、然后、uh、um、you know，意外重复和起头重说；有 1 条“那个”“然后”是内容，必须保留。第 11 条（排在文件末尾，前面各条的缓存音频序号不变）来自真实试用：句中的“嗯”连同两侧逗号去掉，前后连成一句。 |
-| `selfCorrection` | 12 | 中英改口提示词（不对、不是…是、我是说、算了改成、actually、I mean、scratch that、make that）只留最终说法，被放弃部分里没被推翻的信息要保留；3 条中“不对”“不是…是”“actually”是内容，不能合并。 |
+| `selfCorrection` | 19 | 中英改口提示词（不对、不是…是、我是说、算了改成、actually、I mean、scratch that、make that）只留最终说法，被放弃部分里没被推翻的信息要保留；3 条中“不对”“不是…是”“actually”是内容，不能合并。末尾 7 条是没有提示词的重说和自我修正：第 1 条来自真实试用（“这个，这客户端”“登录 Web 了，Web 端了”），其余覆盖“X 了，X Y 了”、“那个，那份”、半个词重说和英文 “we should, we need to”。 |
 | `list` | 10 | 明确枚举 3 项及以上排成编号列表，每项一行，保留引子句和收尾句；2 项、连贯叙述、句内并列保持段落。 |
 | `noExpansion` | 10 | 普通句子和口述的问题、指令（写邮件、翻译、写诗、列方法）只转写，不回答、不执行、不明显变长。 |
 | `chatTone` | 8 | 目标 App 为 `微信 (com.tencent.xinWeChat)`：短消息句末不加句号，保留吧、呢、啦、哈等语气词。 |
@@ -45,27 +45,32 @@ mkdir -p Build
 Scripts/eval-dictation.sh dictation-polish 2>&1 | tee Build/eval-polish-before.txt
 ```
 
-音频缓存在 `Build/eval-audio-polish/NN.wav`，与中英混说评测的 `Build/eval-audio` 分开，规则相同：句子没变就复用，换了语音全部重新合成。之后运行 `SAYKUKU_LIVE_QWEN_TEST=1 swift test --filter DictationPolishEvalTests`：逐条调用批处理 `transcribeAudio`（`chatTone` 传入 `targetApp`，其余用默认设置；都不带光标附近的文字），再经过 `SpeechDisfluencyCleaner.dictation` 整理。
+音频缓存在 `Build/eval-audio-polish/NN.wav`，与中英混说评测的 `Build/eval-audio` 分开，规则相同：句子没变就复用，换了语音全部重新合成。之后运行 `SAYKUKU_LIVE_QWEN_TEST=1 swift test --filter DictationPolishEvalTests`：逐条调用批处理 `transcribeAudio`（`chatTone` 传入 `targetApp`，其余用默认设置；都不带光标附近的文字），再经过 `SpeechDisfluencyCleaner.dictation` 整理，最后和 App 一样走一遍听写二次整理（`DictationRefinement.refine`，带同样的 `targetApp`）。设 `SAYKUKU_EVAL_TWO_PASS=0` 可跳过二次整理，作为单步对照。
 
 ## 怎么读结果
 
 逐条输出，换行写成 `\n`，方便前后两次逐行 diff：
 
 ```text
-[23] list FAIL (list: 0/3 items)
-  spoken:   周末要做三件事，第一，打扫房间，第二，去超市买菜，第三，给爸妈打个电话
-  expected: 周末要做 3 件事：\n1. 打扫房间\n2. 去超市买菜\n3. 给爸妈打个电话
-  actual:   周末要做 3 件事：第一，打扫房间；第二，去超市买菜；第三，给爸妈打个电话。
+[18] selfCorrection FAIL (mustNotContain: Friday, scratch that)
+  spoken:   The deadline is Friday, scratch that, Monday next week
+  expected: The deadline is Monday next week.
+  pass 1:   The deadline is Friday... scratch that, Monday next week.  (kept: timeout)
+  actual:   The deadline is Friday... scratch that, Monday next week.
 ```
+`pass 1` 是二次整理前的结果；二次整理没被采用时后面注明原因，如上例的 `(kept: timeout)`，这时 `actual` 就是第一步结果。关闭二次整理时它与 `actual` 相同。
 
 `FAIL (…)` 里列出每项失败的检查及涉及的短语；`ERROR (…)` 表示请求失败，出现任何 `ERROR` 测试都会失败，这一次的结果不能拿来对比。
 
 最后是汇总：
 
 ```text
-Polish eval: 31/50 passed (62.0%), 0 errors; fillers 9/10, selfCorrection 8/12, list 3/10, noExpansion 9/10, chatTone 2/8
-Check failures: mustContain 3, mustNotContain 4, list 7, length 1, trailingPeriod 5, spacing 0, punctuation 1
-Exact matches: 12/50
+Polish eval: 49/58 passed (84.5%), 0 errors; fillers 10/11, selfCorrection 14/19, list 8/10, noExpansion 10/10, chatTone 7/8
+Check failures: mustContain 4, mustNotContain 4, list 2, length 0, trailingPeriod 1, spacing 1, punctuation 0
+Exact matches: 41/58
+Refinement: changed 19/58, kept the first pass 3 (timeout 3); p50 745 / p90 1484 / max 2013 ms
 ```
+
+`Refinement` 一行统计二次整理改动了几条、几条因超时、出错或兜底检查保留了第一步结果，以及这一步的耗时。
 
 对比方法与中英混说评测的「前后对比」一节相同：同一份音频、改 Prompt 前后各跑一次，按类别看变化，差一两条不足以下结论。

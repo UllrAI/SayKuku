@@ -65,7 +65,8 @@ struct MixedLanguageRuleTests {
 
 @Suite("Mixed-language eval")
 struct MixedLanguageEvalTests {
-    /// Measures the prompt rather than gating on it: mismatches are reported, and only errors fail the test.
+    /// Measures the prompts rather than gating on them: mismatches are reported, and only errors fail the test.
+    /// The refinement pass runs as in the app; `SAYKUKU_EVAL_TWO_PASS=0` leaves it out.
     @Test("live batch dictation of the mixed-language fixture")
     func liveEval() async throws {
         guard let live = try LiveDictationEval(suite: "mixed-language", audioFolder: "eval-audio") else { return }
@@ -74,16 +75,20 @@ struct MixedLanguageEvalTests {
         var passed = 0
         var errors = 0
         var ruleFailures: [MixedLanguageRule: Int] = [:]
+        var runs: [LiveDictationEval.Dictation] = []
 
         for (index, sample) in samples.enumerated() {
             let (name, wav) = try live.recording(at: index, spoken: sample.spoken)
 
             var actual = ""
+            var firstPass = ""
             var failure: String?
             do {
-                // Default dictation settings, cleaned and trimmed as the app does before writing a reply.
-                let reply = try await client.transcribeAudio(apiKey: live.apiKey, configuration: live.configuration, wav: wav)
-                actual = try SpeechDisfluencyCleaner.dictation(reply, mode: .light)
+                // Default dictation settings, finished as the app does before writing a reply.
+                let run = try await live.dictate(wav, targetApp: nil, client: client)
+                runs.append(run)
+                actual = run.text
+                firstPass = run.firstPass + (run.fallback.map { "  (kept: \($0.rawValue))" } ?? "")
             } catch {
                 failure = error.localizedDescription
             }
@@ -104,6 +109,7 @@ struct MixedLanguageEvalTests {
             [\(name)] \(verdict)
               spoken:   \(sample.spoken)
               expected: \(sample.expected)
+              pass 1:   \(firstPass)
               actual:   \(actual)
             """)
         }
@@ -114,6 +120,7 @@ struct MixedLanguageEvalTests {
 
         Mixed-language eval: \(passed)/\(samples.count) passed (\(rate)%), \(errors) errors
         Rule failures: \(rules.joined(separator: ", "))
+        \(LiveDictationEval.refinementSummary(runs))
         """)
         #expect(errors == 0, "Requests failed, so this run can't be compared with another")
     }

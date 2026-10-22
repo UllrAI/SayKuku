@@ -49,7 +49,7 @@ Scripts/eval-mixed-language.sh 2>&1 | tee Build/eval-before.txt
 
 1. 用 `say` 把每句 `spoken` 合成为 AIFF，再用 `afconvert` 转成 16 kHz 单声道 16-bit PCM WAV，与 App 录音上传的格式一致。
 2. 音频缓存在 `Build/eval-audio/NN.wav`，旁边的 `NN.txt` 记着它对应的句子。句子没变就复用；换了语音会全部重新合成。
-3. 运行 `SAYKUKU_LIVE_QWEN_TEST=1 swift test --filter MixedLanguageEvalTests`：逐句调用批处理 `transcribeAudio`（与 Realtime 共用同一份听写指令），再经过 App 写入前同样的 `SpeechDisfluencyCleaner.dictation` 整理。
+3. 运行 `SAYKUKU_LIVE_QWEN_TEST=1 swift test --filter MixedLanguageEvalTests`：逐句调用批处理 `transcribeAudio`（与 Realtime 共用同一份听写指令），再经过 App 写入前同样的 `SpeechDisfluencyCleaner.dictation` 整理和听写二次整理（`DictationRefinement.refine`）。设 `SAYKUKU_EVAL_TWO_PASS=0` 可跳过二次整理，作为单步对照。
 
 不设 `SAYKUKU_LIVE_QWEN_TEST=1` 时，这个测试直接跳过，默认 `swift test` 不会访问网络。
 
@@ -61,8 +61,11 @@ Scripts/eval-mixed-language.sh 2>&1 | tee Build/eval-before.txt
 [07] FAIL (spacing)
   spoken:   这个 feature 下周能 ready 吗
   expected: 这个 feature 下周能 ready 吗？
+  pass 1:   这个feature下周能ready吗？
   actual:   这个feature下周能ready吗？
 ```
+
+`pass 1` 是二次整理前的结果，二次整理没被采用时注明原因，格式与 polish 评测相同。
 
 - `PASS`：去掉首尾空白后与 `expected` 完全一致。
 - `FAIL (…)`：括号里是违反的规则。没有括号表示规则检查都通过，但文字不一致，多半是识别错字、数字写法或标点选择不同。
@@ -73,6 +76,7 @@ Scripts/eval-mixed-language.sh 2>&1 | tee Build/eval-before.txt
 ```text
 Mixed-language eval: 29/40 passed (72.5%), 0 errors
 Rule failures: spacing 4, casing 3, translation 2, punctuation 3
+Refinement: changed 3/40, kept the first pass 0; p50 685 / p90 1243 / max 1995 ms
 ```
 
 规则失败数按句计，一句可以同时计入多条规则：

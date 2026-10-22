@@ -178,7 +178,8 @@ actor FakeRealtime: RealtimeTranscribing {
     func cancel(session: UUID) {}
 }
 
-/// Batch transcription takes the next queued reply, repeating the last one; the Agent always gets `agentReply`.
+/// Batch transcription and refinement each take the next queued reply, repeating the last one;
+/// the Agent always gets `agentReply`.
 final class FakeReasoning: Reasoning {
     enum Transcription: Sendable {
         case text(String)
@@ -187,9 +188,23 @@ final class FakeReasoning: Reasoning {
         case lateText(String)
     }
 
+    enum Refinement: Sendable {
+        /// Replies with the transcript it was sent.
+        case echo
+        case text(String)
+        case failure(QwenError)
+        /// Waits until the caller is cancelled, then returns the text anyway.
+        case lateText(String)
+    }
+
     private struct State {
         var transcriptions: [Transcription]
+        var refinements: [Refinement]
         var transcribeCount = 0
+        var refineCount = 0
+        var refineCancelled = false
+        var refinementInstructions: [String] = []
+        var refinementMessages: [String] = []
         var targetApps: [String?] = []
         var cursorContexts: [DictationCursorContext?] = []
         var formats: [(DictationNumberFormat, DictationCleanup, Bool, String)] = []
@@ -202,14 +217,20 @@ final class FakeReasoning: Reasoning {
 
     init(
         transcriptions: [Transcription] = [.text("Hello world.")],
+        refinements: [Refinement] = [.echo],
         agentReply: Result<AgentResponse, QwenError> = .failure(.invalidResponse)
     ) {
-        precondition(!transcriptions.isEmpty)
-        state = OSAllocatedUnfairLock(initialState: State(transcriptions: transcriptions))
+        precondition(!transcriptions.isEmpty && !refinements.isEmpty)
+        state = OSAllocatedUnfairLock(initialState: State(transcriptions: transcriptions, refinements: refinements))
         self.agentReply = agentReply
     }
 
     var transcribeCount: Int { state.withLock { $0.transcribeCount } }
+    var refineCount: Int { state.withLock { $0.refineCount } }
+    /// Whether a late refinement saw its caller cancelled.
+    var refineCancelled: Bool { state.withLock { $0.refineCancelled } }
+    var refinementInstructions: [String] { state.withLock { $0.refinementInstructions } }
+    var refinementMessages: [String] { state.withLock { $0.refinementMessages } }
     var targetApps: [String?] { state.withLock { $0.targetApps } }
     var cursorContexts: [DictationCursorContext?] { state.withLock { $0.cursorContexts } }
     var formats: [(DictationNumberFormat, DictationCleanup, Bool, String)] { state.withLock { $0.formats } }
@@ -262,6 +283,31 @@ final class FakeReasoning: Reasoning {
             $0.agentMemoryPrompts.append(memoryPrompt)
         }
         return try agentReply.get()
+    }
+
+    func refineDictation(
+        apiKey: String, configuration: QwenConfiguration, instructions: String, userMessage: String
+    ) async throws -> String {
+        let reply = state.withLock { current in
+            current.refineCount += 1
+            current.refinementInstructions.append(instructions)
+            current.refinementMessages.append(userMessage)
+            return current.refinements.count > 1 ? current.refinements.removeFirst() : current.refinements[0]
+        }
+        switch reply {
+        case .echo:
+            // The transcript sits between the opening and closing tag lines.
+            return userMessage.split(separator: "\n", omittingEmptySubsequences: false)
+                .dropFirst().dropLast().joined(separator: "\n")
+        case .text(let text):
+            return text
+        case .failure(let error):
+            throw error
+        case .lateText(let text):
+            try? await Task.sleep(for: .seconds(60))
+            if Task.isCancelled { state.withLock { $0.refineCancelled = true } }
+            return text
+        }
     }
 
     func extractMemory(apiKey: String, configuration: QwenConfiguration, text: String) async throws -> [ProposedEntity] {
@@ -355,6 +401,50 @@ struct LiveDictationEval {
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .appendingPathComponent("Build/\(audioFolder)")
+    }
+
+    /// What the app would insert for one recording, and how the refinement pass went.
+    struct Dictation {
+        var firstPass: String
+        var text: String
+        /// Nil when the refinement replaced the first pass, or did not run.
+        var fallback: DictationRefinement.Fallback?
+        var refinementMilliseconds: Int?
+    }
+
+    /// The refinement pass runs unless `SAYKUKU_EVAL_TWO_PASS=0`, which gives the one-pass control.
+    var refines: Bool { ProcessInfo.processInfo.environment["SAYKUKU_EVAL_TWO_PASS"] != "0" }
+
+    /// Batch dictation with default settings plus `targetApp`, finished as `VoiceWorkflow` finishes light
+    /// dictation before writing: cleaned, then refined unless `refines` is off. Ending punctuation is kept.
+    func dictate(_ wav: Data, targetApp: String?, client: QwenReasoningClient) async throws -> Dictation {
+        let reply = try await client.transcribeAudio(apiKey: apiKey, configuration: configuration, wav: wav, targetApp: targetApp)
+        let firstPass = try SpeechDisfluencyCleaner.dictation(reply, mode: .light)
+        guard refines else { return Dictation(firstPass: firstPass, text: firstPass) }
+        let started = ContinuousClock.now
+        let outcome = try await DictationRefinement.refine(
+            firstPass, settings: DictationRefinement.Settings(targetApp: targetApp),
+            apiKey: apiKey, configuration: configuration, client: client
+        )
+        return Dictation(
+            firstPass: firstPass, text: outcome.text, fallback: outcome.fallback,
+            refinementMilliseconds: Int((started.duration(to: .now) / .milliseconds(1)).rounded())
+        )
+    }
+
+    /// One line on the refinement pass across `runs`, for the end of an eval.
+    static func refinementSummary(_ runs: [Dictation]) -> String {
+        let latencies = runs.compactMap(\.refinementMilliseconds).sorted()
+        guard !latencies.isEmpty else { return "Refinement: off (SAYKUKU_EVAL_TWO_PASS=0)" }
+        let percentile = { (p: Double) in latencies[Int((Double(latencies.count - 1) * p).rounded())] }
+        let fallbacks = DictationRefinement.Fallback.allCases.compactMap { reason -> String? in
+            let count = runs.filter { $0.fallback == reason }.count
+            return count == 0 ? nil : "\(reason.rawValue) \(count)"
+        }
+        let changed = runs.filter { $0.text != $0.firstPass }.count
+        return "Refinement: changed \(changed)/\(runs.count), kept the first pass \(runs.filter { $0.fallback != nil }.count)"
+            + (fallbacks.isEmpty ? "" : " (\(fallbacks.joined(separator: ", ")))")
+            + "; p50 \(percentile(0.5)) / p90 \(percentile(0.9)) / max \(latencies.last!) ms"
     }
 
     /// `NN.wav` for zero-based sample `index`, after `NN.txt` confirms it was spoken from `spoken`.

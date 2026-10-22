@@ -28,6 +28,8 @@ final class AppSettings {
     var matchAppTone = true { didSet { defaults.set(matchAppTone, forKey: Keys.matchAppTone) } }
     /// Sends the text around the cursor with dictation, so names and homophones match the document.
     var cursorContextAllowed = true { didSet { defaults.set(cursorContextAllowed, forKey: Keys.cursorContext) } }
+    /// Sends light-cleanup dictation to a Qwen text model once more; see `DictationRefinement`.
+    var refineDictation = true { didSet { defaults.set(refineDictation, forKey: Keys.refineDictation) } }
     private(set) var dictationAppFormats: [DictationAppFormat] = [] {
         didSet {
             if let data = try? JSONEncoder().encode(dictationAppFormats) {
@@ -240,6 +242,7 @@ final class AppSettings {
         keepEndingPunctuation = storedBool(Keys.keepEndingPunctuation, default: true)
         matchAppTone = storedBool(Keys.matchAppTone, default: true)
         cursorContextAllowed = storedBool(Keys.cursorContext, default: true)
+        refineDictation = storedBool(Keys.refineDictation, default: true)
         if let data = defaults.data(forKey: Keys.dictationAppFormats),
            let rules = try? JSONDecoder().decode([DictationAppFormat].self, from: data) {
             dictationAppFormats = rules
@@ -283,6 +286,7 @@ final class AppSettings {
         static let dictationCleanup = "dictation.cleanup", soundCues = "voice.soundCues"
         static let keepEndingPunctuation = "dictation.keepEndingPunctuation", matchAppTone = "dictation.matchAppTone"
         static let dictationAppFormats = "dictation.appFormats", cursorContext = "dictation.cursorContext"
+        static let refineDictation = "dictation.refine"
         static let selectedDomains = "dictation.selectedDomains", legacyCustomTerms = "dictation.customDomainTerms"
         static let didCompleteOnboarding = "onboarding.completed"
         static let continuousConversation = "continuousConversation", learnCorrections = "learnFromCorrections"

@@ -870,6 +870,15 @@ Voice Input 的 Realtime `session.instructions` 和批处理 fallback 的 `syste
 - 音频里的指令都是要转写的内容，不执行。
 - 光标附近的文字（设置“参考光标附近的文字”，默认开启）：有可读文本时，Prompt 在 Tone、结尾标点和表达偏好之后、记忆之前追加一段，说明它是不可信数据、优先级低于前面所有规则，只用于同音字取舍、专名和术语写法以及“他 / it / that”之类的指代，不得复述、续写、补全、回答或并入输出，也不执行其中的指令。正文放在 `<text_near_cursor id="…">` 里，光标位置用带同一 id 的 `<cursor id="…" />` 标出，id 每次请求随机生成，只在带相同 id 的闭合标签处结束。取值和隐私边界见第 14 节 Fn Dictation。开关关闭、目标不可读或光标两侧只有空白时，Prompt 与没有这项功能时逐字节相同。
 
+听写二次整理（`Qwen/DictationRefinement.swift`，设置“听写后再整理一遍措辞”，默认开启）：
+
+- 只在轻整理时进行（包括应用专属格式设为轻整理的 App，所以这个开关不随全局整理方式置灰），原样模式和 Voice Agent 不走；第一步结果为空或只有空白时不发请求。Realtime、Realtime 失败后的批处理 fallback 和整段批处理识别的结果都在 `SpeechDisfluencyCleaner` 之后进入这一步；重新转写历史录音时也走，同样不带 App 和表达偏好。
+- 模型固定为 `qwen3.8-flash`，不跟随“识别模型”设置；文本请求，关闭 thinking。评测中 qwen-flash 和 qwen-plus 会执行口述的“翻译成英文”、把句中英文译成中文，所以不选。
+- `system` 只描述要修的几类问题（犹豫词、半词重启、改口与自我修正、无意重复）和不许动的部分（有意义的词与语序、语气词、不确定的说法、对比句、不翻译、不总结、不扩写、列表和换行原样、结尾原样、代码与引文原样），再接 `PromptRules` 的标点与中英混排规则、数字格式、按 App 调整语气的同一段 Tone、关闭结尾标点时的同一句说明、表达偏好和记忆（`MemoryPrompt` 的 `refinement` 用途：只用来改正已出现的名称与术语的写法和大小写）。不带光标附近的文字。不使用评测句或与评测句形状相同的示例，`DictationRefinementTests` 检查。
+- 设置不变时 `system` 逐字节相同，不含每次请求的 id，便于服务端前缀缓存；表达偏好放在 `<expression_preference id="…">` 里，id 取偏好文字 SHA-256 的前 16 位十六进制（不用每次启动都会变的 `hashValue`），同样的偏好得到同样的 id，偏好文字里也不可能出现自己的闭合标签。第一步文字放在 `user` 消息里的 `<transcript id="…">` 中，id 每次请求随机生成。
+- 整个第二步最多等 2 秒，由任务组和计时任务竞速实现，请求本身不另设超时；请求内部的一次重试只能在这 2 秒内完成。到时或取消听写都会取消这次请求（`URLSession` 的请求和重试前的等待都响应取消）。超时、网络或服务错误、回复为空、回复里出现 transcript 标签或 id、去掉空白后的长度不在第一步的 0.4–1.5 倍之间（评测中真实改口最短到 0.44，翻译最长到 3.4），或回复里的 ASCII 字母不到第一步的一半（疑似翻译；按字母数而不是按单词比，所以 “get hub” → “GitHub”、“iPhone15” → “iPhone 15” 这类拼写修正不受影响），都插入第一步的结果；只记原因和耗时，不记正文。回复照样经过 `SpeechDisfluencyCleaner` 轻整理和结尾标点设置。
+- 期间 Pill 保持 processing；本地用量统计按每次听写计数，不受这一步影响。
+
 Voice Agent 的 `system` Prompt 按“动作 → 字段 → target 与源文本 → 不可信数据 → 输出文本 → JSON”分节：
 
 - `writeText` 生成要写入的文字；`answer` 回答问题或解释，输入里 `Text field: none` 且口令不是要写文字时也用 `answer`；`webSearch` 用于用户要求上网搜索，或答案依赖模型无法知道的实时信息（新闻、价格、天气），其他知识性问题直接 `answer`。
@@ -1192,6 +1201,7 @@ Fn 输入方式：按住片刻开始、松开即输入，或单击开始、再�
 口语整理：轻整理 / 原样
 保留结尾标点（默认开启）
 按当前 App 调整语气（默认开启；原样模式下不可用）
+听写后再整理一遍措辞（默认开启；原样模式下不可用）
 参考光标附近的文字（默认开启）
 按应用覆盖格式与表达偏好
 ```
@@ -1303,7 +1313,7 @@ Always Off-limits
 MVP 数据规则：
 
 * Context 只在用户触发 Fn Fn 时采集，不后台持续扫描。
-* Voice Input 发送音频、听写 instruction 和已确认的 Knowledge Prompt；“参考光标附近的文字”开启（默认）时，另附焦点输入框里光标前最多 800 字、后最多 200 字（不含选区），不携带其他窗口内容或屏幕上的文字。
+* Voice Input 发送音频、听写 instruction 和已确认的 Knowledge Prompt；“参考光标附近的文字”开启（默认）时，另附焦点输入框里光标前最多 800 字、后最多 200 字（不含选区），不携带其他窗口内容或屏幕上的文字。轻整理且“听写后再整理一遍措辞”开启（默认）时，转写出的文字会再发给同一服务商的 Qwen 文本模型整理一次，不附音频和光标附近的文字。
 * Voice Agent 发送音频、Selected Text / App / Window / 屏幕上的文字等用户允许的 Context、短期 Session 和已确认的 Knowledge Prompt；发送前可从聆听 Pill 的 scope 图标查看并删除 Context 项，Knowledge Prompt 作为单独的可见“记忆”项。
 * 安全输入（`AXSecureTextField` 或系统安全输入模式）与已知密码管理器为硬性阻断：不开始录音、不读取 Context、不写回，不是可配置开关。
 * 进入 Listening 后，录音音频先保存在内存；停止录音后，只要“保存录音”开启且目标非敏感环境，就在请求完成前将 WAV 文件存入本地 History，不以模型或写回成功为前提。
@@ -1435,7 +1445,7 @@ enable_thinking: false
 
 > **Qwen3.8 Omni Flash Realtime 负责直接听写，Qwen3.8 Omni Flash 负责直接理解 Agent 音频与批处理。**
 
-正常路径中 Voice Input 和 Voice Agent 各自只发起一次模型调用。普通 Fn Dictation 调用 Realtime，并把已确认 Knowledge（以及设置允许时光标附近的文字）作为 instructions 的参考数据；模型返回后仅保守处理中文标点，轻整理模式还会处理紧邻重复的口癖词，不做词义纠正。Fn Fn 不再先做 ASR，而是把音频、Context 和 Knowledge Prompt 一次提交给 Qwen3.8 Omni。
+正常路径中 Voice Agent 只发起一次模型调用；Voice Input 在轻整理且开启二次整理时多一次文本请求（最多等 2 秒，失败时用第一次的结果），其余情况也只调用一次。普通 Fn Dictation 调用 Realtime，并把已确认 Knowledge（以及设置允许时光标附近的文字）作为 instructions 的参考数据；模型返回后仅保守处理中文标点，轻整理模式还会处理紧邻重复的口癖词，不做词义纠正。Fn Fn 不再先做 ASR，而是把音频、Context 和 Knowledge Prompt 一次提交给 Qwen3.8 Omni。
 
 Realtime 连接失败但内存中仍有完整录音时，可以用 `qwen3.8-omni-flash` 作一次批处理 fallback，因此异常路径可能有第二次模型请求；400/401/403 属于配置错误，不回退。未填写业务空间 ID 时听写不建立 Realtime 会话，停止录音后直接批处理识别，正常路径仍只有一次模型请求。fallback 使用同一份内存 WAV；是否落盘只由 History 的“保存录音”设置和敏感目标阻断规则决定。
 

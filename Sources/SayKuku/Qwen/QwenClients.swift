@@ -141,7 +141,8 @@ actor QwenRealtimeClient: RealtimeTranscribing {
 
     /// Tone shapes only punctuation, sentence endings and tone particles, so it stays within light cleanup.
     /// Without ending punctuation the final punctuation setting drops ？ and ！ too, so chat is not told to keep them.
-    private nonisolated static func toneInstruction(for targetApp: String, keepEndingPunctuation: Bool) -> String {
+    /// The text-only refinement pass sends the same wording.
+    nonisolated static func toneInstruction(for targetApp: String, keepEndingPunctuation: Bool) -> String {
         let keptMarks = keepEndingPunctuation ? " (keep ？ or ！ when the speaker's tone asks for it)" : ""
         return """
         Tone: the text will be inserted into \(targetApp). Match how people write in that kind of app, without changing the meaning, adding words, or dropping words that carry meaning:
@@ -508,6 +509,10 @@ protocol Reasoning: Sendable {
         matchAppTone: Bool,
         memoryPrompt: String
     ) async throws -> AgentResponse
+    /// The text-only second pass over light dictation; `DictationRefinement` builds both messages.
+    func refineDictation(
+        apiKey: String, configuration: QwenConfiguration, instructions: String, userMessage: String
+    ) async throws -> String
     func extractMemory(apiKey: String, configuration: QwenConfiguration, text: String) async throws -> [ProposedEntity]
     func testConnection(apiKey: String, configuration: QwenConfiguration) async throws -> Duration
 }
@@ -661,6 +666,22 @@ struct QwenReasoningClient: Reasoning {
             ),
             userText: "The attached audio is the dictation. Reply with the text to insert.",
             wav: wav
+        )
+    }
+
+    /// Always `DictationRefinement.model`, whatever the reasoning model setting. `DictationRefinement.refine`
+    /// cancels the request at its deadline, which also ends a retry's wait.
+    func refineDictation(
+        apiKey: String, configuration: QwenConfiguration, instructions: String, userMessage: String
+    ) async throws -> String {
+        try await completion(
+            apiKey: apiKey,
+            configuration: configuration,
+            model: DictationRefinement.model,
+            messages: [
+                ["role": "system", "content": instructions],
+                ["role": "user", "content": userMessage]
+            ]
         )
     }
 
@@ -832,6 +853,7 @@ struct QwenReasoningClient: Reasoning {
     private func completion(
         apiKey: String,
         configuration: QwenConfiguration,
+        model: String? = nil,
         messages: [[String: Any]],
         jsonResponse: Bool = false,
         timeout: TimeInterval = 45
@@ -844,7 +866,7 @@ struct QwenReasoningClient: Reasoning {
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: Self.requestBody(
-            model: configuration.reasoningModel, messages: messages, jsonResponse: jsonResponse
+            model: model ?? configuration.reasoningModel, messages: messages, jsonResponse: jsonResponse
         ))
         let (data, response) = try await perform(request)
         return try parseCompletion(data: data, response: response)
