@@ -281,9 +281,11 @@ final class LocalData {
 
     func updateHistory(
         _ id: UUID?, input: String? = nil, output: String? = nil,
-        audioFilename: String? = nil, status: HistoryStatus? = nil, errorMessage: String? = nil
+        audioFilename: String? = nil, status: HistoryStatus? = nil, errorMessage: String? = nil,
+        timing: WorkflowTiming? = nil
     ) {
         guard let id, let index = historyEntries.firstIndex(where: { $0.id == id }) else { return }
+        if let timing { historyEntries[index].timing = timing }
         if let input { historyEntries[index].input = input }
         if let output { historyEntries[index].output = output }
         if let audioFilename { historyEntries[index].audioFilename = audioFilename }

@@ -130,6 +130,7 @@ actor FakeRealtime: RealtimeTranscribing {
     private let transcript: String
     private let commitError: QwenError?
     private var speechStoppedHandler: (@Sendable () -> Void)?
+    private var deltaHandler: (@Sendable (String) -> Void)?
     private(set) var targetApps: [String?] = []
     private(set) var cursorContexts: [DictationCursorContext?] = []
     private(set) var formats: [(DictationNumberFormat, DictationCleanup, Bool, String)] = []
@@ -161,6 +162,7 @@ actor FakeRealtime: RealtimeTranscribing {
         cursorContexts.append(cursorContext)
         formats.append((numberFormat, cleanup, keepEndingPunctuation, expressionPreference))
         speechStoppedHandler = onSpeechStopped
+        deltaHandler = onDelta
     }
 
     func reportSpeechStopped() { speechStoppedHandler?() }
@@ -169,9 +171,11 @@ actor FakeRealtime: RealtimeTranscribing {
         appendCount += 1
     }
 
+    /// Streams the transcript as one delta before the final text, as the server does after a commit.
     func commit(session: UUID, timeout: Duration) async throws -> String {
         commitCount += 1
         if let commitError { throw commitError }
+        deltaHandler?(transcript)
         return transcript
     }
 

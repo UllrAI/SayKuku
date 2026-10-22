@@ -925,6 +925,140 @@ struct VoiceWorkflowTests {
     }
 }
 
+@Suite("Workflow timing")
+@MainActor
+struct WorkflowTimingTests {
+    @Test("a realtime dictation records each stage, the refinement and the write in History")
+    func realtimeDictation() async throws {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let realtime = FakeRealtime(transcript: "Hello world")
+        let state = try makeState(environment, .fake(realtime: realtime))
+        state.settings.qwenWorkspaceID = "llm-test"
+        try await startListening(state)
+        state.workflow.finishDictation(reason: .autoStop)
+        let timing = try #require(await timing(of: state))
+        #expect(timing.stopReason == .autoStop)
+        #expect(timing.result == .completed)
+        #expect(timing.route == .realtime)
+        #expect(timing.micStartMilliseconds != nil)
+        #expect(timing.steps.map(\.stage) == [.saveRecording, .upload, .firstText, .finalText, .refine, .insert])
+        #expect(timing.refinement == "unchanged")
+        #expect(timing.insertion == "verified")
+        #expect(timing.error == nil)
+        #expect(timing.totalMilliseconds != nil)
+    }
+
+    @Test("batch-only dictation, a realtime fallback and a timed-out refinement keep their routes")
+    func batchAndFallback() async throws {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let reasoning = FakeReasoning(transcriptions: [.text("Hello world")], refinements: [.failure(.timeout)])
+        let state = try makeState(environment, .fake(reasoning: reasoning))
+        try await startListening(state)
+        state.workflow.finishDictation()
+        let batch = try #require(await timing(of: state))
+        #expect(batch.route == .batch)
+        #expect(batch.steps.map(\.stage) == [.saveRecording, .batch, .refine, .insert])
+        #expect(batch.refinement == "timeout")
+
+        let fallbackEnvironment = AppStateTestEnvironment()
+        defer { fallbackEnvironment.clean() }
+        let (fallbackState, _, _) = try await dictateOverRealtime(failingWith: .timeout, in: fallbackEnvironment)
+        let fallback = try #require(await timing(of: fallbackState))
+        #expect(fallback.route == .fallback)
+        #expect(fallback.result == .completed)
+        #expect(fallback.steps.map(\.stage).contains(.batch))
+        #expect(fallback.milliseconds(.finalText) != nil)
+    }
+
+    @Test("copy fallbacks, failures and Agent answers end with their own results")
+    func results() async throws {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let text = FakeTextWriting()
+        text.writeError = .writeFailed
+        let state = try makeState(environment, .fake(text: text))
+        try await startListening(state)
+        state.workflow.finishDictation()
+        #expect(try #require(await timing(of: state)).result == .copied)
+
+        let silentEnvironment = AppStateTestEnvironment()
+        defer { silentEnvironment.clean() }
+        let silent = try makeState(silentEnvironment, .fake(audio: FakeAudioCapturing(recording: .silence)))
+        try await startListening(silent)
+        silent.workflow.finishDictation()
+        let failed = try #require(await timing(of: silent))
+        #expect(failed.result == .failed)
+        #expect(failed.error == "QwenError.noSpeech")
+
+        let agentEnvironment = AppStateTestEnvironment()
+        defer { agentEnvironment.clean() }
+        let answer = AgentResponse(transcript: "What time is it", action: .answer, output: "Noon")
+        let agent = try makeState(agentEnvironment, .fake(reasoning: FakeReasoning(agentReply: .success(answer))))
+        try await startAgentListening(agent)
+        agent.workflow.finishAgentListening()
+        let shown = try #require(await timing(of: agent))
+        #expect(shown.result == .shown)
+        #expect(shown.action == "answer")
+        #expect(shown.steps.map(\.stage) == [.saveRecording, .agent])
+    }
+
+    @Test("a dictation cancelled while it is processed keeps a cancelled timing")
+    func cancelled() async throws {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let reasoning = FakeReasoning(transcriptions: [.lateText("Hello world")])
+        let state = try makeState(environment, .fake(reasoning: reasoning))
+        try await startListening(state)
+        state.workflow.finishDictation()
+        try #require(await eventually { reasoning.transcribeCount == 1 })
+        state.workflow.cancelActiveVoiceWorkflow()
+        #expect(try #require(await timing(of: state)).result == .cancelled)
+    }
+
+    @Test("the log line names every recorded stage and outcome")
+    func summary() {
+        var timing = WorkflowTiming(stopReason: .manual, micStartMilliseconds: 90, connectMilliseconds: 600)
+        timing.steps = [
+            .init(stage: .saveRecording, milliseconds: 6), .init(stage: .finalText, milliseconds: 1_350),
+            .init(stage: .refine, milliseconds: 410), .init(stage: .insert, milliseconds: 95),
+        ]
+        timing.route = .realtime
+        timing.refinement = "changed"
+        timing.insertion = "verified"
+        timing.result = .completed
+        timing.totalMilliseconds = 1_460
+        #expect(timing.summary == "stop=manual result=completed total=1460ms mic=90ms connect=600ms route=realtime saveRecording=6ms finalText=1350ms refine=410ms(changed) insert=95ms(verified)")
+    }
+
+    @Test("History keeps a timing, reads entries without one, and drops one it can't read")
+    func historyCoding() throws {
+        var entry = HistoryEntry(mode: .dictation, app: "Notes", durationSeconds: 2, input: "a", output: "a")
+        entry.timing = WorkflowTiming(stopReason: .limit, steps: [.init(stage: .batch, milliseconds: 800)], result: .completed)
+        let data = try JSONEncoder().encode(entry)
+        #expect(try JSONDecoder().decode(HistoryEntry.self, from: data) == entry)
+
+        var object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        object["timing"] = nil
+        #expect(try decode(object).timing == nil)
+        object["timing"] = ["stopReason": "manual", "steps": [["stage": "teleport", "milliseconds": 1]]]
+        let unreadable = try decode(object)
+        #expect(unreadable.timing == nil)
+        #expect(unreadable.output == "a")
+    }
+
+    private func decode(_ object: [String: Any]) throws -> HistoryEntry {
+        try JSONDecoder().decode(HistoryEntry.self, from: JSONSerialization.data(withJSONObject: object))
+    }
+
+    /// The timing of the newest History entry once its workflow has finished.
+    private func timing(of state: AppState) async -> WorkflowTiming? {
+        _ = await eventually { state.data.historyEntries.first?.timing?.result != nil }
+        return state.data.historyEntries.first?.timing
+    }
+}
+
 /// No sound cues and a saved key, so a workflow can start.
 @MainActor
 private func makeState(_ environment: AppStateTestEnvironment, _ dependencies: AppState.Dependencies) throws -> AppState {

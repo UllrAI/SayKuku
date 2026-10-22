@@ -102,7 +102,9 @@ struct RecordingPill: View {
 
             PillConfirmButton(
                 label: isAgent ? localized("Stop recording and run") : localized("Stop recording and insert"),
-                action: isAgent ? appState.workflow.finishAgentListening : appState.workflow.finishDictation
+                action: { [workflow = appState.workflow] in
+                    if isAgent { workflow.finishAgentListening() } else { workflow.finishDictation() }
+                }
             )
             .disabled(isStarting)
         }

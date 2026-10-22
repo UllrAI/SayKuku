@@ -380,6 +380,17 @@
         }
       }
     },
+    "(kept the first pass)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "（未采用润色结果）"
+          }
+        }
+      }
+    },
     ", " : {
       "generatesSymbol" : false,
       "extractionState" : "manual",
@@ -554,6 +565,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "改正识别错的词后，SayKuku 会问要不要记住，你同意后才保存"
+          }
+        }
+      }
+    },
+    "Agent request" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Agent 请求"
           }
         }
       }
@@ -2420,6 +2442,17 @@
         }
       }
     },
+    "First text" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "首个文字"
+          }
+        }
+      }
+    },
     "Fn and global shortcuts ready" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2949,6 +2982,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已输入"
+          }
+        }
+      }
+    },
+    "Inserting" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "写入"
           }
         }
       }
@@ -4572,6 +4616,17 @@
         }
       }
     },
+    "Realtime recognition failed, so the whole recording was sent again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "实时识别失败，已改为整段重新识别。"
+          }
+        }
+      }
+    },
     "Recent conversation" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4656,6 +4711,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "听写后再整理一遍措辞"
+          }
+        }
+      }
+    },
+    "Refinement" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "润色"
           }
         }
       }
@@ -5024,6 +5090,17 @@
         }
       }
     },
+    "Saving the recording" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存录音"
+          }
+        }
+      }
+    },
     "SayKuku %@ is available" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5218,6 +5295,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "选中文字"
+          }
+        }
+      }
+    },
+    "Sending audio" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "发送音频"
           }
         }
       }
@@ -6148,6 +6236,17 @@
         }
       }
     },
+    "Time after you stopped: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止录音后用时 %@"
+          }
+        }
+      }
+    },
     "To avoid overwriting the file, new changes won’t be saved. Check the file’s permissions or update SayKuku, then reopen it." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6749,6 +6848,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "常用应用"
+          }
+        }
+      }
+    },
+    "Whole-recording recognition" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "整段识别"
           }
         }
       }

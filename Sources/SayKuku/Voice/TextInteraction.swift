@@ -164,7 +164,7 @@ final class TextInteraction: TextWriting {
             ? element.flatMap { element in range.flatMap { caretFrame(of: element, at: $0) } }
             : nil
 
-        Log.text.info(
+        Log.text.notice(
             "Captured target bundle=\(bundleID, privacy: .public) role=\(element.map(self.role(of:)) ?? "unavailable", privacy: .public) focusRole=\(focusedElement.map(self.role(of:)) ?? "unavailable", privacy: .public) readable=\(value != nil, privacy: .public) selectionLength=\(selection.count, privacy: .public)"
         )
         return TextTargetSnapshot(
@@ -287,7 +287,7 @@ final class TextInteraction: TextWriting {
     }
 
     private func logWrite(to snapshot: TextTargetSnapshot, route: String, result: String) {
-        Log.text.info(
+        Log.text.notice(
             "Text write bundle=\(snapshot.bundleID, privacy: .public) route=\(route, privacy: .public) result=\(result, privacy: .public)"
         )
     }
@@ -480,7 +480,7 @@ final class TextInteraction: TextWriting {
 
             guard element != nil else {
                 // Nothing shows where a blind paste landed, so keep the text on the clipboard.
-                Log.text.info("Text pasted without an exposed text field; kept on the clipboard")
+                Log.text.notice("Text pasted without an exposed text field; kept on the clipboard")
                 return .deliveredUnverified
             }
             try? await Task.sleep(for: .milliseconds(350))

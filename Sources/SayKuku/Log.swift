@@ -2,7 +2,9 @@ import Foundation
 import os
 
 /// The app's only loggers, one per area, so `log stream` can filter by subsystem and category.
-/// Messages carry states, error types, bundle IDs, status codes and counts: never text, audio, prompts or keys.
+/// Messages carry states, durations, error types, bundle IDs, status codes, request IDs and counts:
+/// never text, audio, prompts or keys. Only notice and above are kept on disk, info stays in memory for a
+/// short while, so whatever a later investigation needs is logged at notice (see docs/LOGGING.md).
 enum Log {
     fileprivate static let subsystem = Bundle.main.bundleIdentifier ?? "SayKuku"
     static let audio = Logger(subsystem: subsystem, category: "Audio")

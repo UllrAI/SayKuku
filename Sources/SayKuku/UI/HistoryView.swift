@@ -388,6 +388,10 @@ private struct HistoryRow: View {
                     Text(entry.app)
                     Text("·")
                     Text(entry.createdAt.formatted(Date.FormatStyle(date: .omitted, time: .shortened, locale: locale)))
+                    if let timing = entry.timing, let total = timing.totalMilliseconds {
+                        Text("·")
+                        timingLabel(timing, total: total)
+                    }
                 }
                 .font(.kuku(.caption))
                 .foregroundStyle(KukuColor.textSecondary)
@@ -603,6 +607,43 @@ private struct HistoryRow: View {
         withAnimation(Motion.spring) { appState.data.toggleHistoryStar(entry.id) }
     }
 
+    /// The wait after the recording stopped, with each stage in its tooltip.
+    private func timingLabel(_ timing: WorkflowTiming, total: Int) -> some View {
+        let totalText = Self.timeLabel(total, locale: locale)
+        let summary = localized("Time after you stopped: \(totalText)")
+        let stages = timing.steps.map { step in
+            var line = "\(step.stage.title) \(Self.timeLabel(step.milliseconds, locale: locale))"
+            if step.stage == .refine, let refinement = timing.refinement, refinement != "changed", refinement != "unchanged" {
+                line += " " + localized("(kept the first pass)")
+            }
+            return line
+        }
+        var notes: [String] = []
+        if timing.route == .fallback { notes.append(localized("Realtime recognition failed, so the whole recording was sent again.")) }
+        return HStack(spacing: KukuSpacing.xxs) {
+            Image(systemName: "timer")
+                .font(.kukuIcon(.mini))
+            Text(totalText)
+                .monospacedDigit()
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(summary)
+        // After the accessibility element, which would otherwise drop the tooltip text.
+        .help(([summary] + stages + notes).joined(separator: "\n"))
+    }
+
+    /// Milliseconds under a second, otherwise seconds with one decimal, in the interface language.
+    private static func timeLabel(_ milliseconds: Int, locale: Locale) -> String {
+        guard milliseconds >= 1_000 else {
+            return Measurement(value: Double(milliseconds), unit: UnitDuration.milliseconds)
+                .formatted(.measurement(width: .abbreviated, usage: .asProvided).locale(locale))
+        }
+        return Measurement(value: Double(milliseconds) / 1_000, unit: UnitDuration.seconds)
+            .formatted(.measurement(
+                width: .abbreviated, usage: .asProvided, numberFormatStyle: .number.precision(.fractionLength(1))
+            ).locale(locale))
+    }
+
     /// Formats a recording length as m:ss, e.g. 0:04 or 1:25.
     private static func durationLabel(_ seconds: Double) -> String {
         guard seconds > 0 else { return "—" }
@@ -613,6 +654,21 @@ private struct HistoryRow: View {
 
 private extension HistoryEntry {
     var hasCopyableOutput: Bool { status == .completed && !output.isEmpty }
+}
+
+private extension WorkflowTiming.Stage {
+    var title: String {
+        switch self {
+        case .saveRecording: localized("Saving the recording")
+        case .upload: localized("Sending audio")
+        case .firstText: localized("First text")
+        case .finalText: localized("Recognition")
+        case .batch: localized("Whole-recording recognition")
+        case .refine: localized("Refinement")
+        case .agent: localized("Agent request")
+        case .insert: localized("Inserting")
+        }
+    }
 }
 
 extension Date {
