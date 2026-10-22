@@ -699,6 +699,69 @@ struct VoiceWorkflowTests {
     }
 }
 
+@Suite("Microphone test")
+@MainActor
+struct MicrophoneTestTests {
+    @Test("the test runs on the shared capture and releases it only while it holds it")
+    func startAndStop() async throws {
+        let audio = FakeAudioCapturing()
+        let test = MicrophoneTestController(audioCapture: audio, microphoneAllowed: { true })
+        test.start()
+        #expect(test.phase == .starting)
+        try #require(await eventually { test.phase == .running })
+        #expect(audio.startCount == 1)
+        test.stop()
+        #expect(test.phase == .idle)
+        #expect(audio.cancelCount == 1)
+        test.stop()
+        #expect(audio.cancelCount == 1)
+    }
+
+    @Test("start failures and a missing permission show their own reasons")
+    func failures() async throws {
+        let cases: [(any Error, MicrophoneTestFailure)] = [
+            (AudioCaptureError.microphoneUnavailable, .noInputDevice),
+            (AudioCaptureError.unsupportedFormat, .couldNotStart),
+        ]
+        for (error, failure) in cases {
+            let audio = FakeAudioCapturing(startError: error)
+            let test = MicrophoneTestController(audioCapture: audio, microphoneAllowed: { true })
+            test.start()
+            try #require(await eventually { test.phase == .failed(failure) })
+            #expect(audio.cancelCount == 1)
+        }
+        let audio = FakeAudioCapturing()
+        let test = MicrophoneTestController(audioCapture: audio, microphoneAllowed: { false })
+        test.start()
+        #expect(test.phase == .failed(.permissionRequired))
+        #expect(audio.startCount == 0)
+    }
+
+    @Test("a recording takes the microphone from the test, and neither cancels the other's capture")
+    func sharesMicrophoneWithRecordings() async throws {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let audio = FakeAudioCapturing()
+        let state = try makeState(environment, .fake(audio: audio))
+        let test = state.microphoneTest
+
+        // Ending a workflow that holds no microphone leaves the running test alone.
+        test.start()
+        try #require(await eventually { test.phase == .running })
+        state.workflow.cancelDictation()
+        #expect(audio.cancelCount == 0)
+        #expect(test.phase == .running)
+
+        try await startListening(state)
+        #expect(test.phase == .idle)
+        #expect(audio.cancelCount == 1)
+        // Closing the permission guide stops the idle test without ending the recording.
+        state.dismissPermissionGuide()
+        #expect(audio.cancelCount == 1)
+        #expect(state.workflow.dictationPhase == .listening)
+    }
+}
+
 /// No sound cues and a saved key, so a workflow can start.
 @MainActor
 private func makeState(_ environment: AppStateTestEnvironment, _ dependencies: AppState.Dependencies) throws -> AppState {

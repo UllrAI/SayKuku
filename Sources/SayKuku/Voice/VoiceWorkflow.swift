@@ -67,6 +67,8 @@ final class VoiceWorkflow {
     /// Opens the permission guide in the main window.
     @ObservationIgnored var permissionGuideHandler: (@MainActor () -> Void)?
     @ObservationIgnored var analyticsHandler: (@MainActor (AnalyticsEvent, Int) -> Void)?
+    /// Runs just before a recording takes the microphone, so the microphone test can let go of it first.
+    @ObservationIgnored var captureWillStartHandler: (@MainActor () -> Void)?
 
     @ObservationIgnored private let settings: AppSettings
     @ObservationIgnored private let data: LocalData
@@ -80,6 +82,8 @@ final class VoiceWorkflow {
     @ObservationIgnored private let signposter = OSSignposter.performance
     /// The workflow whose microphone is starting; nil once it listens or is cancelled.
     @ObservationIgnored private var startingWorkflow: VoiceWorkflowMode?
+    /// Whether a recording holds the microphone, which the microphone test shares; only the holder cancels it.
+    @ObservationIgnored private var holdsMicrophone = false
     @ObservationIgnored private var workflowTask: Task<Void, Never>?
     @ObservationIgnored private var uploadTask: Task<Void, Error>?
     @ObservationIgnored private var chunkContinuation: AsyncStream<Data>.Continuation?
@@ -124,6 +128,10 @@ final class VoiceWorkflow {
         textInteraction = dependencies.textInteraction
         actionExecutor = dependencies.actionExecutor
         systemPermissions = dependencies.systemPermissions
+    }
+
+    func prepareMicrophone() {
+        audioCapture.prepare()
     }
 
     func startDictation() {
@@ -493,6 +501,7 @@ final class VoiceWorkflow {
                         // The secure-field and target checks have passed. Start the engine on its
                         // queue while Accessibility reads the remaining target details.
                         startingWorkflow = mode
+                        captureWillStartHandler?()
                         engineStart = startAudioCapture(for: mode, onChunk: onChunk)
                         // The pill can appear before optional Accessibility reads finish.
                         if mode == .agent { agentPhase = .starting }
@@ -674,9 +683,16 @@ final class VoiceWorkflow {
         if isRecording { playSoundCue(.stop) }
     }
 
+    private func releaseMicrophone() {
+        guard holdsMicrophone else { return }
+        holdsMicrophone = false
+        audioCapture.cancel()
+    }
+
     private func stopRecording() -> AudioCapture.Recording {
         recordingLimitTask?.cancel()
         recordingLimitTask = nil
+        holdsMicrophone = false
         let recording = audioCapture.stop()
         inputLevel = 0
         chunkContinuation?.finish()
@@ -689,6 +705,7 @@ final class VoiceWorkflow {
         for mode: VoiceWorkflowMode, onChunk: @escaping @Sendable (Data) -> Void
     ) -> Task<Void, Error> {
         let generation = workflowGeneration
+        holdsMicrophone = true
         return audioCapture.start(
             onLevel: { [weak self] level in
                 Task { @MainActor [weak self] in
@@ -1023,7 +1040,7 @@ final class VoiceWorkflow {
         recordingLimitTask = nil
         chunkContinuation?.finish()
         chunkContinuation = nil
-        audioCapture.cancel()
+        releaseMicrophone()
         inputLevel = 0
         // Scoped to the old session, so it cannot close a session started after this call.
         let realtimeSession = realtimeSessionID
@@ -1062,7 +1079,7 @@ final class VoiceWorkflow {
         fnTapConfirmed = false
         fnTapChunks = nil
         finishFnTapWhenReady = false
-        audioCapture.cancel()
+        releaseMicrophone()
         inputLevel = 0
         chunkContinuation?.finish()
         chunkContinuation = nil

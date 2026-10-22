@@ -231,17 +231,23 @@ final class MicrophoneTestController {
     private(set) var level: Double = 0
     private(set) var deviceName = ""
 
-    /// A fresh engine per test, with its tap installed; a reused engine can keep a stale input format.
-    @ObservationIgnored private var engine: AVAudioEngine?
+    /// The capture recordings use, so the test reuses its engine instead of building one on the main thread,
+    /// which takes seconds with a Bluetooth input, and checks the same path a recording takes.
+    @ObservationIgnored private let audioCapture: any AudioCapturing
+    @ObservationIgnored private let microphoneAllowed: @MainActor () -> Bool
+    /// Bumped by every start and stop, so a start or level that arrives late cannot revive a stopped test.
+    @ObservationIgnored private var generation = 0
 
-    init() {
+    init(audioCapture: any AudioCapturing, microphoneAllowed: @escaping @MainActor () -> Bool) {
+        self.audioCapture = audioCapture
+        self.microphoneAllowed = microphoneAllowed
         refreshDeviceName()
     }
 
     var isRunning: Bool { phase == .running }
 
     func start() {
-        guard AVAudioApplication.shared.recordPermission == .granted else {
+        guard microphoneAllowed() else {
             phase = .failed(.permissionRequired)
             return
         }
@@ -249,33 +255,32 @@ final class MicrophoneTestController {
         stop(resetPhase: false)
         refreshDeviceName()
         phase = .starting
-
-        let engine = AVAudioEngine()
-        let input = engine.inputNode
-        let format = input.outputFormat(forBus: 0)
-        guard format.channelCount > 0, format.sampleRate > 0 else {
-            phase = .failed(.noInputDevice)
-            return
-        }
-
-        let levelHandler: @Sendable (AVAudioPCMBuffer, AVAudioTime) -> Void = { [weak self] buffer, _ in
-            guard let self else { return }
-            let value = Self.normalizedLevel(from: buffer)
-            Task { @MainActor [weak self] in
-                guard let self, self.phase == .running else { return }
-                self.level = AudioLevel.smoothed(previous: self.level, next: value)
+        let generation = generation
+        let started = audioCapture.start(
+            onLevel: { [weak self] value in
+                Task { @MainActor [weak self] in
+                    guard let self, self.generation == generation, self.phase == .running else { return }
+                    self.level = AudioLevel.smoothed(previous: self.level, next: value)
+                }
+            },
+            onChunk: { _ in },
+            onInterruption: { [weak self] in
+                Task { @MainActor [weak self] in
+                    guard let self, self.generation == generation else { return }
+                    self.stop()
+                }
             }
-        }
-        input.installTap(onBus: 0, bufferSize: 2_048, format: format, block: levelHandler)
-
-        do {
-            engine.prepare()
-            try engine.start()
-            self.engine = engine
-            phase = .running
-        } catch {
-            input.removeTap(onBus: 0)
-            phase = .failed(.couldNotStart)
+        )
+        Task { [weak self] in
+            let result = await started.result
+            guard let self, self.generation == generation else { return }
+            do {
+                try result.get()
+                phase = .running
+            } catch {
+                audioCapture.cancel()
+                phase = .failed(error as? AudioCaptureError == .microphoneUnavailable ? .noInputDevice : .couldNotStart)
+            }
         }
     }
 
@@ -283,35 +288,15 @@ final class MicrophoneTestController {
         stop(resetPhase: true)
     }
 
+    /// Releases the capture only while the test holds it, so closing the guide never ends a recording.
     private func stop(resetPhase: Bool) {
-        if let engine {
-            if engine.isRunning { engine.stop() }
-            engine.inputNode.removeTap(onBus: 0)
-            self.engine = nil
-        }
+        if phase == .starting || phase == .running { audioCapture.cancel() }
+        generation += 1
         level = 0
         if resetPhase { phase = .idle }
     }
 
     private func refreshDeviceName() {
         deviceName = AVCaptureDevice.default(for: .audio)?.localizedName ?? ""
-    }
-
-    nonisolated private static func normalizedLevel(from buffer: AVAudioPCMBuffer) -> Double {
-        guard let channels = buffer.floatChannelData else { return 0 }
-        let channelCount = max(1, Int(buffer.format.channelCount))
-        let frameCount = Int(buffer.frameLength)
-        guard frameCount > 0 else { return 0 }
-
-        var sum: Float = 0
-        for channel in 0..<channelCount {
-            let samples = channels[channel]
-            for frame in 0..<frameCount {
-                let sample = samples[frame]
-                sum += sample * sample
-            }
-        }
-
-        return AudioLevel.normalized(rms: Double(sqrt(sum / Float(frameCount * channelCount))))
     }
 }

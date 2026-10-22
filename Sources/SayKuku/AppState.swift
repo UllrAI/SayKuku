@@ -50,7 +50,7 @@ final class AppState {
     let data: LocalData
     let workflow: VoiceWorkflow
     let systemPermissions: SystemPermissionController
-    let microphoneTest = MicrophoneTestController()
+    let microphoneTest: MicrophoneTestController
     /// Nil in dev builds and `swift run`, which never check for updates.
     let updateChecker: UpdateChecker?
     /// Nil in development builds and tests.
@@ -103,6 +103,11 @@ final class AppState {
         workflow = VoiceWorkflow(settings: settings, data: data, dependencies: dependencies)
         reasoningClient = dependencies.reasoningClient
         systemPermissions = dependencies.systemPermissions
+        let systemPermissions = dependencies.systemPermissions
+        microphoneTest = MicrophoneTestController(
+            audioCapture: dependencies.audioCapture,
+            microphoneAllowed: { systemPermissions.microphoneStatus.isAuthorized }
+        )
         updateChecker = StorageIdentity() == .release ? UpdateChecker(bundle: .main, settings: settings) : nil
         analytics = StorageIdentity() == .release
             ? AppAnalytics(bundle: .main, settings: settings, defaults: defaults) : nil
@@ -121,6 +126,7 @@ final class AppState {
             }
         }
         workflow.toastHandler = { [weak self] text, symbol in self?.showToast(text, symbol: symbol) }
+        workflow.captureWillStartHandler = { [weak self] in self?.microphoneTest.stop() }
         workflow.settingsHandler = { [weak self] section in self?.showSettings(section: section) }
         workflow.permissionGuideHandler = { [weak self] in
             self?.showPermissionGuide()
@@ -135,6 +141,7 @@ final class AppState {
     func startSystemServices() {
         guard shortcutController == nil else { return }
         workflow.overlayController = FloatingOverlayController(appState: self)
+        workflow.prepareMicrophone()
         let controller = ShortcutController(appState: self)
         shortcutController = controller
         controller.start()
@@ -307,7 +314,9 @@ final class AppState {
         }
     }
     @discardableResult func requestPermission(_ kind: SystemPermissionKind) async -> Bool {
-        let granted = await systemPermissions.request(kind); refreshSystemPermissions(); return granted
+        let granted = await systemPermissions.request(kind); refreshSystemPermissions()
+        if granted, kind == .microphone { workflow.prepareMicrophone() }
+        return granted
     }
     func setLaunchAtLogin(_ enabled: Bool) {
         do {

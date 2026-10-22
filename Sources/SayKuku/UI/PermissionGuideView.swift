@@ -207,7 +207,11 @@ struct MicrophoneTestPanel: View {
                     }
                 }
                 .buttonStyle(.kukuSecondary)
-                .disabled(test.phase == .starting || appState.systemPermissions.requesting != nil)
+                // A recording holds the microphone; starting the test then would take it away.
+                .disabled(
+                    test.phase == .starting || appState.systemPermissions.requesting != nil
+                        || appState.workflow.dictationIsListening || appState.workflow.agentIsListening
+                )
             }
         }
         .padding(KukuLayout.rowPadding)
