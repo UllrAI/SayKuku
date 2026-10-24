@@ -194,7 +194,9 @@ python3 -B -m unittest discover -s Scripts/tests -v
 git diff --check
 ```
 
-当前单次重放要求提前准备 16 kHz 单声道 PCM16 WAV 和外部 JSON 数组。每项至少包含 `id`、`wav`，可选 `typeless`、`expected` 和旧 `verbatim`。`wav` 支持绝对路径或相对于 JSON 文件的路径；三个参考文本字段均不发给模型，旧 `verbatim` 也不是本轮内部 raw。
+当前单次重放要求提前准备 16 kHz 单声道 PCM16 WAV 和外部 JSON 数组。两种 transport 都先读取 `fmt ` 和 `data` chunk，校验 PCM 编码 1、单声道、16,000 Hz、16-bit；缺少格式或不符时在请求前记录错误，不将其他音频误标为 16 kHz。此前已完成的 12/40 条输入已另用 Python `wave` 核实格式正确，这项校验修复不改变其既有 batch 结果。
+
+每项至少包含 `id`、`wav`，可选 `typeless`、`expected` 和旧 `verbatim`。`wav` 支持绝对路径或相对于 JSON 文件的路径；三个参考文本字段均不发给模型，旧 `verbatim` 也不是本轮内部 raw。
 
 ```json
 [
@@ -221,9 +223,17 @@ swift test --filter TypelessSampleEvalTests
 
 批处理独立运行时将 `SAYKUKU_TYPELESS_TRANSPORT` 设为 `batch`，并选择另一个报告文件；它不要求 Realtime Workspace ID，也不作为 Realtime 失败后的静默回退。地域通过 `SAYKUKU_TEST_REGION` 选择，默认北京。`SAYKUKU_TYPELESS_LANGUAGE`、`SAYKUKU_TYPELESS_NUMBER_FORMAT` 默认分别为 `automatic`、`preferDigits`；`SAYKUKU_TYPELESS_DATASET` 默认 `private-recordings`，固定 40 句运行时应改为对应数据集名称。`SAYKUKU_TYPELESS_SOURCE` 可补充本机证据来源标签。
 
-报告记录基线、数据集、传输方式、模型、语言、数字和标点配置；基线应由 `SAYKUKU_TYPELESS_BASELINE_SHA` 显式标记，未设置时写 `unspecified`，不推断代码版本。每条保存实际输出、错误、总耗时及 Realtime 各阶段耗时。有 `expected` 时另记 `exactMatch` 和现有中英规则的失败项。每轮先清空旧结果，再逐条原子落盘；运行中尚无结果的条目不算成功，任一请求错误会在处理完其余样本后使测试失败。控制台只输出匿名 ID、进度与错误类型，全文留在私人报告。
+报告记录基线、数据集、传输方式、模型、语言、数字和标点配置；基线应由 `SAYKUKU_TYPELESS_BASELINE_SHA` 显式标记，未设置时写 `unspecified`，不推断代码版本。每条保存实际输出、错误、总耗时及 Realtime 各阶段耗时。Realtime 提交截止与生产 `VoiceWorkflow` 一致，为 `15 + 音频秒数 / 4` 秒，并以 `realtimeCommitTimeoutSeconds` 逐条记录；未提交的条目不填该字段。有 `expected` 时另记 `exactMatch` 和现有中英规则的失败项。每轮先清空旧结果，再逐条原子落盘；运行中尚无结果的条目不算成功，任一请求错误会在处理完其余样本后使测试失败。控制台只输出匿名 ID、进度与错误类型，全文留在私人报告。
 
 旧两阶段实验的录音重放与旧预设 live probe 只存在于本地 `cdf2e1489b5edbee46222d8d698fccf62d4a0e8a` 快照，并依赖未提交的私人样本与开发环境。复核历史结果必须切到该快照并取得相应材料；当前新增入口重放的是新主线单次路径，不复现旧两阶段结果。
+
+## 本 PR 的离线验证状态
+
+- 输入校验修复前，相关 18 项 Swift 测试通过；修复后运行 `swift test --filter 'TypelessSample|SinglePassDictation|DictationRefinement'`，19 项测试、4 个 suite 通过，包括缺失格式、采样率、声道、编码与位深的拒绝检查，以及可变大小和奇数字节 padding chunk 的合法解析。默认 live 入口跳过，没有因此访问私人文件、Keychain 或网络。
+- `python3 -B -m unittest discover -s Scripts/tests -v` 的 1 项合成导出 fixture 通过；`git diff --check` 通过，无新编译警告。
+- 完整 suite **未通过**：输入校验修复前的 PR 候选运行 328 项测试、38 个 suite，记录 75 个 issue；独立无改动 `39dcc4b` 基线运行 325 项、36 个 suite，也记录相同 75 个 issue，49 个失败测试名称完全一致，没有候选独有失败。问题分布为 Voice workflow 56、Fn 14、Workflow timing 4、Microphone 1。[本机验证证据：`pr-full-tests.log`、`baseline-full-tests.log`]
+
+对照时系统 Secure Input 为开启状态，Voice/Fn 中可见敏感目标检查阻止执行；不能将所有失败都归因为这一因素。Microphone、timing 等是同环境下基线也存在的失败。本 PR 没有修改 App 权限或模式来让 suite 通过；格式与截止修复后仅重跑上述相关离线检查，不宣称完整 suite 已绿。
 
 ## 统计复核
 
