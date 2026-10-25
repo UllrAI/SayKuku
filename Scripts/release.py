@@ -39,7 +39,7 @@ def sha256(file):
 
 
 def read_url(url):
-    request = urllib.request.Request(url, headers={"Cache-Control": "no-cache"})
+    request = urllib.request.Request(url, headers={"Cache-Control": "no-cache", "User-Agent": "SayKuku-Release/1.0"})
     with urllib.request.urlopen(request, timeout=30) as response:
         return response.read()
 
@@ -119,36 +119,54 @@ def prepare(dmg, app, notes, tools, commit):
     destination.mkdir(parents=True, exist_ok=True)
     if (destination / "release.json").exists():
         raise ValueError("A prepared release already exists; use --resume or preserve it before rebuilding")
+    metadata = {
+        "version": version, "build": build, "commit": commit, "dmg": str(dmg.resolve()),
+        "sha256": sha256(dmg), "size": dmg.stat().st_size, "notes": notes,
+        "download_url": DOWNLOADS + dmg.name, "website": WEBSITE,
+        "public_key": info["SUPublicEDKey"],
+    }
+    metadata_file = destination / "release.json"
+    write_metadata(metadata_file, metadata)  # Preserve a resumable checkpoint before any network request.
+    return complete_preparation(metadata_file, tools)
+
+
+def write_metadata(file, metadata):
+    temporary = file.with_suffix(".json.tmp")
+    temporary.write_text(json.dumps(metadata, ensure_ascii=False, indent=2) + "\n")
+    temporary.replace(file)
+
+
+def complete_preparation(metadata_file, tools):
+    metadata = json.loads(metadata_file.read_text())
+    if "appcast_sha256" in metadata:
+        validate(metadata, tools)
+        return metadata_file
+    dmg = Path(metadata["dmg"])
+    if sha256(dmg) != metadata["sha256"] or dmg.stat().st_size != metadata["size"]:
+        raise ValueError("Release archive changed before feed generation")
+    destination = metadata_file.parent
     link = destination / dmg.name
     if link.exists() or link.is_symlink():
         link.unlink()
     link.symlink_to(dmg.resolve())
-    (destination / (dmg.stem + ".md")).write_text(notes)
+    (destination / (dmg.stem + ".md")).write_text(metadata["notes"])
     old_appcast = optional_url(DOWNLOADS + "appcast.xml")
     if old_appcast:
         (destination / "appcast.xml").write_bytes(old_appcast)
     run([tools / "generate_appcast", "--account", ACCOUNT, "--maximum-deltas", "0",
          "--maximum-versions", "0", "--embed-release-notes", "--download-url-prefix", DOWNLOADS, destination])
     appcast = destination / "appcast.xml"
-    channel = ET.parse(appcast).getroot().find("channel")
-    item = next(item for item in channel.findall("item") if item.findtext(f"{{{SPARKLE}}}version") == str(build))
+    items = ET.parse(appcast).getroot().findall("channel/item")
+    item = next(item for item in items if item.findtext(f"{{{SPARKLE}}}version") == str(metadata["build"]))
     enclosure = item.find("enclosure")
-    metadata = {
-        "version": version, "build": build, "commit": commit, "dmg": str(dmg.resolve()),
-        "sha256": sha256(dmg), "size": dmg.stat().st_size, "notes": notes,
-        "download_url": DOWNLOADS + dmg.name, "website": WEBSITE,
-        "appcast": str(appcast.resolve()), "appcast_sha256": sha256(appcast),
-        "ed_signature": enclosure.attrib[f"{{{SPARKLE}}}edSignature"],
-        "public_key": info["SUPublicEDKey"],
-    }
-    if enclosure.attrib["url"] != metadata["download_url"] or int(enclosure.attrib["length"]) != metadata["size"]:
-        raise ValueError("Generated appcast does not match the final archive")
-    legacy = {"version": version, "build": build, "url": WEBSITE + "download/", "notes": notes}
+    metadata.update({"appcast": str(appcast.resolve()), "appcast_sha256": sha256(appcast),
+                     "ed_signature": enclosure.attrib[f"{{{SPARKLE}}}edSignature"]})
+    legacy = {"version": metadata["version"], "build": metadata["build"], "url": WEBSITE + "download/", "notes": metadata["notes"]}
     (destination / "ver.json").write_text(json.dumps(legacy, ensure_ascii=False, indent=2) + "\n")
     metadata["legacy_feed"] = str((destination / "ver.json").resolve())
     metadata["legacy_sha256"] = sha256(destination / "ver.json")
-    metadata_file = destination / "release.json"
-    metadata_file.write_text(json.dumps(metadata, ensure_ascii=False, indent=2) + "\n")
+    validate(metadata, tools)
+    write_metadata(metadata_file, metadata)
     return metadata_file
 
 
@@ -184,8 +202,8 @@ def validate(metadata, tools):
     run([tools / "sign_update", "--account", ACCOUNT, "--verify", dmg, metadata["ed_signature"]])
     head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
     if head != metadata["commit"]:
-        # A resumed publication may already have committed website-only changes.
-        run(["git", "diff", "--exit-code", metadata["commit"], "HEAD", "--", "Sources", "Scripts", "Package.swift", "Package.resolved"], cwd=ROOT)
+        # Publication tools and website can be repaired without rebuilding an unchanged App.
+        run(["git", "diff", "--exit-code", metadata["commit"], "HEAD", "--", "Sources", "Scripts/Resources", "Package.swift", "Package.resolved"], cwd=ROOT)
     tag = "v" + metadata["version"]
     existing = subprocess.run(["git", "rev-parse", "--verify", tag], cwd=ROOT, capture_output=True, text=True)
     if existing.returncode == 0 and existing.stdout.strip() != metadata["commit"]:
@@ -194,7 +212,7 @@ def validate(metadata, tools):
 
 def put_object(file, key, content_type, env):
     run(["wrangler", "r2", "object", "put", "saykuku/" + key, "--file", file,
-         "--content-type", content_type, "--cache-control", "public, max-age=0, must-revalidate", "--remote"], env=env)
+         "--content-type", content_type, "--cache-control", "no-cache", "--remote"], env=env)
 
 
 def upload_archive(metadata, env):
@@ -256,7 +274,8 @@ def publish(metadata_file, tools):
     run(["git", "fetch", "origin", "main", "--tags"], cwd=ROOT)
     run(["git", "merge-base", "--is-ancestor", "origin/main", "HEAD"], cwd=ROOT)
     env = deployment_config()
-    validate(metadata, tools)
+    complete_preparation(metadata_file, tools)
+    metadata = json.loads(metadata_file.read_text())
     current = json.loads(read_url(WEBSITE + "ver.json"))
     if version_parts(current["version"]) > version_parts(metadata["version"]):
         raise ValueError("A newer version is already published; refusing to roll back")
@@ -303,14 +322,17 @@ def main():
     for option in ["dmg", "app", "notes", "tools"]:
         prep.add_argument("--" + option, type=Path, required=True)
     prep.add_argument("--commit", required=True)
-    pub = sub.add_parser("publish")
-    pub.add_argument("metadata", type=Path)
-    pub.add_argument("--tools", type=Path, required=True)
+    for command in ["publish", "complete"]:
+        pub = sub.add_parser(command)
+        pub.add_argument("metadata", type=Path)
+        pub.add_argument("--tools", type=Path, required=True)
     args = parser.parse_args()
     if args.command == "preflight":
         preflight(args.version, args.build)
     elif args.command == "prepare":
         print(prepare(args.dmg, args.app, args.notes.read_text(), args.tools, args.commit))
+    elif args.command == "complete":
+        print(complete_preparation(args.metadata, args.tools))
     else:
         publish(args.metadata, args.tools)
 

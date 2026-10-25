@@ -309,6 +309,8 @@ Build/sparkle-tools-2.10.0/bin/generate_keys --account com.saykuku.app -p
 Scripts/release.sh --resume Dist/releases/1.0.10/release.json
 ```
 
+更新清单生成前就会保存可恢复的 `release.json`；即使读取旧更新源或生成清单失败，也不必重新构建、公证。只恢复本地候选包可运行 `Scripts/release.sh --prepare --resume Dist/releases/1.0.10/release.json`。
+
 恢复时重新验证产物哈希、EdDSA、代码签名、票据、公开版本与提交关系；禁止回滚已发布的新版本。已成功上传的相同 DMG 会复用。若 Git 提交或推送失败，先处理其明确报错，再恢复；不要修改签名后的 DMG 或元数据。
 
 只在本机验证、不触碰线上服务时，可从已提交的功能分支准备候选包：
@@ -503,8 +505,10 @@ Keychain 只保存 API Key。History、纠正建议与记忆（Knowledge）以 J
 - Developer ID 签名身份：必须连同私钥导出为有强密码保护的 `.p12`，保存到密码管理器或加密离线备份。只备份 CSR 或 `.cer` 无法恢复签名能力。
 - App Store Connect `.p8` 私钥：通常只能下载一次，应放入密码管理器或加密离线备份；不放 Git，也不以明文放进共享网盘。
 - Key ID、Issuer ID、Team ID：不是私钥，但应和 `.p8` 的备份说明一起保存。
-- Sparkle Ed25519 私钥：与 Developer ID 不同；account 为 `com.saykuku.app`。通过 `generate_keys --account com.saykuku.app -x /安全临时目录/key` 导出到权限受限的临时文件，立即存入密码管理器或加密离线备份并删除临时文件；不得进入仓库、构建日志或 R2。迁移机器后先核对 `-p` 输出与 Info.plist 公钥一致。当前本机 Keychain 中已有密钥，异地安全备份需要由持有人落实。
+- Sparkle Ed25519 私钥：与 Developer ID 不同；account 为 `com.saykuku.app`。通过 `generate_keys --account com.saykuku.app -x /安全临时目录/key` 导出到权限受限的临时文件，立即存入密码管理器或加密离线备份并删除临时文件；不得进入仓库、构建日志或 R2。迁移机器后先核对 `-p` 输出与 Info.plist 公钥一致。当前本机 Keychain 中已有密钥，异地安全备份需要由持有人落实。Sparkle 工具默认没有启用 iCloud 同步，不能把“保存在钥匙串”当作已有云备份。
 - `SayKuku-Notary` profile：保存在本机钥匙串中，不需要也不应导出到仓库。
+
+私钥丢失时先从备份用 `generate_keys --account com.saykuku.app -f` 恢复，并核对公钥。只有 Sparkle 私钥丢失、原 Developer ID 签名身份仍可用时，[官方允许通过已签名的 DMG 轮换 EdDSA 密钥](https://sparkle-project.org/documentation/#rotating-signing-keys)；我们使用的 DMG 分发和 `SUVerifyUpdateBeforeExtraction` 配置支持这一条件。不要同时更换两种签名凭据；无法延续旧客户端信任链时，提供官网手动安装路径。目前首次 Sparkle 版本尚未公开发布，首发前重新生成密钥只需同步更换公钥，不影响已有旧版客户端。
 
 当前项目的签名脚本是 `Scripts/package-app.sh`（签名身份选择在 `Scripts/signing-identity.sh`），发布脚本是 `Scripts/release.sh`，正式权限声明是 `Scripts/Resources/SayKuku.entitlements`。`Build/` 和 `Dist/` 都是本地产物，不是源代码；但已发布版本的 dSYM 需要另行长期备份。
 

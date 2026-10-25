@@ -46,6 +46,37 @@ class ReleaseTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 release.version_parts(invalid)
 
+    def test_public_requests_identify_the_release_client(self):
+        from unittest.mock import MagicMock
+        response = MagicMock()
+        response.__enter__.return_value.read.return_value = b"feed"
+        with patch.object(release.urllib.request, "urlopen", return_value=response) as open_url:
+            self.assertEqual(release.read_url("https://example.test/feed"), b"feed")
+            request = open_url.call_args.args[0]
+            self.assertEqual(request.get_header("User-agent"), "SayKuku-Release/1.0")
+
+    def test_feed_generation_failure_keeps_a_resumable_archive_checkpoint(self):
+        import plistlib
+        app = self.root / "SayKuku.app"
+        (app / "Contents").mkdir(parents=True)
+        (app / "Contents/Info.plist").write_bytes(plistlib.dumps({
+            "CFBundleShortVersionString": "1.1.0", "CFBundleVersion": "20", "SUPublicEDKey": "public"}))
+        with patch.object(release, "optional_url", side_effect=ConnectionError("offline")):
+            with self.assertRaises(ConnectionError):
+                release.prepare(self.dmg, app, "Release notes", self.root, self.meta["commit"])
+        checkpoint = self.root / "Dist/releases/1.1.0/release.json"
+        metadata = json.loads(checkpoint.read_text())
+        self.assertEqual(metadata["sha256"], release.sha256(self.dmg))
+        def generate(args, **kwargs):
+            self.appcast.replace(checkpoint.parent / "appcast.xml")
+        with patch.object(release, "optional_url", return_value=None), patch.object(release, "run", side_effect=generate) as run, patch.object(release, "validate"):
+            release.complete_preparation(checkpoint, self.root)
+            self.assertEqual(run.call_count, 1)
+            self.assertIn("generate_appcast", str(run.call_args.args[0][0]))
+        completed = json.loads(checkpoint.read_text())
+        self.assertEqual(completed["sha256"], metadata["sha256"])
+        self.assertIn("ed_signature", completed)
+
     def test_preflight_rejects_old_version_and_build_before_authentication(self):
         with patch.object(release, "read_url", return_value=b'{"version":"1.0.9","build":19}'), patch.object(release, "run") as run:
             for version, build in [("1.0.9", 20), ("1.1.0", 19), ("1.1.0", 18)]:

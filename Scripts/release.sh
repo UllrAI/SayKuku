@@ -29,7 +29,7 @@ while (( $# )); do
         *) fail "Usage: Scripts/release.sh [--prepare] --notes FILE | --resume RELEASE_JSON" ;;
     esac
 done
-[[ -z "$RESUME_FILE" || ( "$MODE" == publish && -z "$NOTES_FILE" ) ]] || fail "--resume cannot be combined with --prepare or --notes"
+[[ -z "$RESUME_FILE" || -z "$NOTES_FILE" ]] || fail "--resume cannot be combined with --notes"
 
 cd "$ROOT_DIR"
 
@@ -41,7 +41,9 @@ if [[ "$MODE" == "publish" && "$(git branch --show-current)" != main ]]; then
     fail "Publish from main; --prepare can build a local candidate on another committed branch"
 fi
 if [[ -n "$RESUME_FILE" ]]; then
-    python3 "$ROOT_DIR/Scripts/release.py" publish "$RESUME_FILE" --tools "$SPARKLE_TOOLS"
+    RESUME_COMMAND=publish
+    [[ "$MODE" == prepare ]] && RESUME_COMMAND=complete
+    python3 "$ROOT_DIR/Scripts/release.py" "$RESUME_COMMAND" "$RESUME_FILE" --tools "$SPARKLE_TOOLS"
     exit
 fi
 [[ -f "$NOTES_FILE" ]] || fail "Provide --notes FILE with this release's changes"
