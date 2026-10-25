@@ -111,13 +111,24 @@
         }
       }
     },
-    "Automatic follows the context. Omit removes the final period, question mark, or exclamation mark." : {
+    "Removes the final period, question mark, or exclamation mark." : {
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "自动按语境决定；不保留会去掉末尾的句号、问号和叹号。"
+            "value" : "去掉末尾的句号、问号和叹号。"
+          }
+        }
+      }
+    },
+    "Chooses ending punctuation based on context." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按语境决定是否保留句末标点。"
           }
         }
       }

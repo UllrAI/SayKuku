@@ -126,7 +126,7 @@ private struct VoiceInputSettings: View {
                     )
                     .disabled(settings.dictationCleanup == .verbatim)
                     KukuDivider()
-                    KukuRow(localized("Ending punctuation"), caption: DictationFormatLabels.endingPunctuationCaption) {
+                    KukuRow(localized("Ending punctuation"), caption: DictationFormatLabels.endingPunctuationCaption(settings.keepEndingPunctuation)) {
                         KukuPicker(localized("Ending punctuation"), options: [true, false],
                                    selection: $settings.keepEndingPunctuation, label: DictationFormatLabels.endingPunctuation)
                     }

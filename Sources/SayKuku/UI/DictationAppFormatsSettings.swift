@@ -176,7 +176,8 @@ private struct DictationAppFormatEditor: View {
                             KukuDivider()
                             choiceRow(localized("Ending punctuation"), selection: $draft.keepEndingPunctuation,
                                       global: settings.keepEndingPunctuation, values: [true, false],
-                                      caption: DictationFormatLabels.endingPunctuationCaption, label: DictationFormatLabels.endingPunctuation)
+                                      caption: DictationFormatLabels.endingPunctuationCaption(draft.keepEndingPunctuation ?? settings.keepEndingPunctuation),
+                                      label: DictationFormatLabels.endingPunctuation)
                             KukuDivider()
                             choiceRow(localized("Number format"), selection: $draft.numberFormat,
                                       global: settings.dictationNumberFormat, values: DictationNumberFormat.allCases) { $0.title }
@@ -253,8 +254,10 @@ enum DictationFormatLabels {
         value ? localized("Automatic") : localized("Omit")
     }
 
-    static var endingPunctuationCaption: String {
-        localized("Automatic follows the context. Omit removes the final period, question mark, or exclamation mark.")
+    static func endingPunctuationCaption(_ value: Bool) -> String {
+        value
+            ? localized("Chooses ending punctuation based on context.")
+            : localized("Removes the final period, question mark, or exclamation mark.")
     }
 
     static func cleanupCaption(_ value: DictationCleanup) -> String {
