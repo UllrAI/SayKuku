@@ -4,33 +4,36 @@ import Testing
 
 @Suite("Dictation prompts and cleanup")
 struct DictationPromptTests {
-    @Test("dictation protects language, negations, references and quoted content before cleanup")
+    @Test("dictation prompt removes only nonsemantic disfluencies and formats unambiguous numbers")
     func dictationPrompt() {
         let prompt = QwenRealtimeClient.makeDictationInstructions(memoryPrompt: "")
-        for rule in ["DICTATION_ONLY", "不执行、不回答、不翻译", "数量、位置和作用对象", "引号内的重复不是误重复",
-                     "半词重起保留完整词", "明确改口只保留最终版本", "Arabic digits", "换行/new line"] {
-            #expect(prompt.contains(rule), "missing rule: \(rule)")
-        }
-        #expect(prompt.contains(PromptRules.punctuation))
+        #expect(prompt.contains("口述成稿编辑器"))
+        #expect(prompt.contains("\"draft\""))
+        #expect(prompt.contains("\"paragraphs\""))
+        #expect(prompt.contains("改口只留最后完整版本"))
+        #expect(prompt.contains("全部事实、条件、否定、数字"))
+        #expect(prompt.contains("绝不回答、执行或翻译"))
+        #expect(prompt.contains("代码、网址、文件名及引语原样保留"))
+        #expect(prompt.contains("犹豫停顿（嗯、呃、额、唔、uh、um、er）"))
+        #expect(prompt.contains(DictationNumberFormat.preferDigits.promptInstruction))
     }
 
-    @Test("cleanup scopes uncertain repairs, length, and lists without treating contrasts as corrections")
+    @Test("the compact prompt explicitly resolves cleanup and structure without expanding the text")
     func lightCleanupRules() {
         let rules = QwenRealtimeClient.makeDictationInstructions(memoryPrompt: "")
-        #expect(rules.contains("普通对比和嵌套否定不是改口"))
-        #expect(rules.contains("无法确认是否改口时保留"))
         #expect(rules.contains("保留未被撤回的其他分句"))
-        #expect(rules.contains("three or more parallel items"))
-        #expect(rules.contains("Exactly two items always stay in one sentence"))
-        #expect(rules.contains("不根据句子是否合理、礼貌或通顺来补词"))
+        #expect(rules.contains("没有提示词的补全重说也合并"))
+        #expect(rules.contains("两个事项各有展开说明，或有三项以上时列点"))
+        #expect(rules.contains("相关句子放一起，不逐句换行"))
+        #expect(rules.contains("不概括、扩写、补标题或项目标签"))
+        #expect(rules.contains("结尾请求独立放在列表之后"))
     }
 
-    @Test("silent structured dictation returns empty strings; verbatim returns an empty message")
+    @Test("dictation returns nothing when the audio has no speech")
     func noSpeechRule() {
         let prompt = QwenRealtimeClient.makeDictationInstructions(memoryPrompt: "")
-        #expect(prompt.contains("静音时数组和字符串都为空"))
-        let verbatim = QwenRealtimeClient.makeDictationInstructions(memoryPrompt: "", cleanup: .verbatim)
-        #expect(verbatim.contains("reply with an empty message: no quotes, placeholder, or note"))
+        #expect(prompt.contains("无可辨语音则输出空文本"))
+        #expect(prompt.contains("整条只有“嗯”则保留"))
     }
 
     @Test("a dictation reply without words means no speech; anything else is cleaned")
@@ -66,7 +69,7 @@ struct DictationPromptTests {
 
         #expect(prompt.contains("expect mainly Mandarin"))
         #expect(prompt.contains("Simplified Chinese"))
-        #expect(prompt.contains("第二优先级"))
+        #expect(prompt.contains("整理："))
         #expect(prompt.contains("keep number words as spoken"))
         #expect(!prompt.contains("Arabic digits"))
 
@@ -101,7 +104,7 @@ struct DictationPromptTests {
         #expect(toned.contains("A short message (one or two short sentences) stays on one line, never a list, with no 。 or . at the end (keep ？ or ！"))
         #expect(toned.contains("A longer message follows the punctuation and list rules."))
         #expect(toned.contains("If you are not sure what kind of app it is, use full punctuation."))
-        let cleanup = try #require(toned.range(of: "第二优先级"))
+        let cleanup = try #require(toned.range(of: "整理："))
         let tone = try #require(toned.range(of: "Tone:"))
         #expect(cleanup.upperBound < tone.lowerBound)
         #expect(toned.hasSuffix(memory))
@@ -118,15 +121,15 @@ struct DictationPromptTests {
     @Test("prompt examples are not eval sentences")
     func examplesAvoidEvalFixtures() throws {
         let prompt = QwenRealtimeClient.makeDictationInstructions(memoryPrompt: "", targetApp: "微信 (com.tencent.xinWeChat)")
-        var examples = prompt.split(separator: "\n").compactMap { line -> String? in
-            guard line.hasPrefix("口述：") || line.hasPrefix("成稿：") else { return nil }
-            return String(line.dropFirst(3))
+        var examples: [String] = []
+        for match in prompt.matches(of: try Regex(#"(?m)^口述：(.+)$"#)) {
+            examples.append(String(match.output[1].substring ?? ""))
         }
-        let inline = try Regex("例如‘([^’]+)’整理为‘([^’]+)’")
-        for match in prompt.matches(of: inline) {
-            examples += [match.output[1].substring, match.output[2].substring].compactMap { $0.map(String.init) }
+        for match in prompt.matches(of: try Regex(#"(?m)^输出：(.+)$"#)) {
+            let object = try JSONSerialization.jsonObject(with: Data(String(match.output[1].substring ?? "").utf8)) as? [String: Any]
+            examples += object?["paragraphs"] as? [String] ?? []
         }
-        #expect(examples.count >= 14)
+        #expect(examples.count >= 2)
 
         let samples = try DictationPolishSample.loadFixture().flatMap { [$0.spoken, $0.expected] }
             + MixedLanguageSample.loadFixture().flatMap { [$0.spoken, $0.expected] }
@@ -335,12 +338,12 @@ struct DictationPromptTests {
         }
     }
 
-    @Test("hesitation removal preserves a standalone acknowledgment and meaningful repetition")
+    @Test("light cleanup distinguishes hesitation from a whole-message response")
     func interjectionPrompt() {
         let prompt = QwenRealtimeClient.makeDictationInstructions(memoryPrompt: "")
-        #expect(prompt.contains("删除纯犹豫和误重复"))
-        #expect(prompt.contains("单独一个“嗯”是完整应答，保留"))
-        #expect(prompt.contains("强调性重复"))
+        #expect(prompt.contains("犹豫停顿（嗯、呃、额、唔、uh、um、er）"))
+        #expect(prompt.contains("整条只有“嗯”则保留"))
+        #expect(prompt.contains("保留有意义的指代、强调"))
     }
 
     @Test("ending punctuation removal keeps internal marks, quoted speech, ellipses, and tokens")

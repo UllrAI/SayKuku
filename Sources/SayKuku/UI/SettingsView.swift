@@ -74,62 +74,67 @@ private struct SettingsSidebar: View {
 
 private struct VoiceInputSettings: View {
     @Environment(AppState.self) private var appState
+    @State private var showsWritingFormat = false
 
     var body: some View {
         @Bindable var settings = appState.settings
         SettingsStack(title: localized("Voice Input"), subtitle: localized("Types what you say, without changing what you mean.")) {
-            KukuGroup(localized("Stop & output")) {
+            KukuGroup(localized("Recording and recognition")) {
                 KukuToggleRow(title: localized("Stop after a pause"), caption: autoStopSubtitle, isOn: $settings.autoStop)
                 KukuDivider()
-                SettingsOptionRow(
-                    title: localized("Recognition language"),
-                    selection: $settings.recognitionLanguage
-                ) { language in
-                    language.title
-                }
-                KukuDivider()
-                SettingsOptionRow(
-                    title: localized("Number format"),
-                    selection: $settings.dictationNumberFormat
-                ) { format in
-                    format.title
-                }
-                KukuDivider()
-                SettingsOptionRow(
-                    title: localized("Speech cleanup"),
-                    selection: $settings.dictationCleanup
-                ) { cleanup in
-                    cleanup.title
-                }
-                Text(settings.dictationCleanup.caption)
-                    .font(.kuku(.subheadline))
-                    .foregroundStyle(KukuColor.textSecondary)
-                    .padding(.horizontal, KukuLayout.rowPadding)
-                    .padding(.bottom, KukuSpacing.md)
-                KukuDivider()
-                KukuToggleRow(
-                    title: localized("Keep ending punctuation"),
-                    caption: localized("When off, Voice Input removes a final period, question mark, or exclamation mark."),
-                    isOn: $settings.keepEndingPunctuation
-                )
-                KukuDivider()
-                KukuToggleRow(
-                    title: localized("Match the app’s tone"),
-                    caption: localized(
-                        "Casual in chat, complete sentences in email and documents, no trailing punctuation in code. Sends the current app’s name along with your speech."
-                    ),
-                    isOn: $settings.matchAppTone
-                )
-                // Verbatim only adds punctuation, so there is no tone to adjust.
-                .disabled(appState.settings.dictationCleanup == .verbatim)
+                SettingsOptionRow(title: localized("Recognition language"), selection: $settings.recognitionLanguage) { $0.title }
                 KukuDivider()
                 KukuToggleRow(
                     title: localized("Use text near the cursor"),
-                    caption: localized(
-                        "Sends a short stretch of text before and after the cursor with your speech, so names, terms, and similar-sounding words match what you’re writing. Never read from password fields."
-                    ),
+                    caption: localized("Sends a short stretch of text before and after the cursor with your speech, so names, terms, and similar-sounding words match what you’re writing. Never read from password fields."),
                     isOn: $settings.cursorContextAllowed
                 )
+            }
+
+            KukuGroup(localized("Speech cleanup")) {
+                KukuRow(localized("Cleanup"), caption: DictationFormatLabels.cleanupCaption(settings.dictationCleanup)) {
+                    KukuPicker(localized("Cleanup"), options: DictationCleanup.allCases,
+                               selection: $settings.dictationCleanup) { $0.title }
+                }
+                KukuDivider()
+                KukuToggleRow(
+                    title: localized("Automatic paragraphs and lists"),
+                    caption: localized("Groups related sentences and separates distinct points. When off, only formatting you explicitly dictate is used."),
+                    isOn: $settings.structureDictation
+                )
+                .disabled(settings.dictationCleanup == .verbatim)
+                KukuDivider()
+                KukuRow(localized("Cleanup preference"), caption: DictationFormatLabels.refinementCaption(settings.refineDictation)) {
+                    KukuPicker(localized("Cleanup preference"), options: [true, false],
+                               selection: $settings.refineDictation, label: DictationFormatLabels.refinement)
+                }
+                .disabled(settings.dictationCleanup == .verbatim)
+                if settings.dictationCleanup == .verbatim {
+                    Text(DictationFormatLabels.inactiveCaption)
+                        .font(.kuku(.subheadline))
+                        .foregroundStyle(KukuColor.textSecondary)
+                        .kukuRowFrame()
+                }
+            }
+
+            KukuGroup {
+                DisclosureGroup(localized("Writing format"), isExpanded: $showsWritingFormat) {
+                    KukuToggleRow(
+                        title: localized("Adapt to the app"),
+                        caption: localized("Uses the app’s name to choose a natural tone for chat, email, documents, or code."),
+                        isOn: $settings.matchAppTone
+                    )
+                    .disabled(settings.dictationCleanup == .verbatim)
+                    KukuDivider()
+                    KukuRow(localized("Ending punctuation"), caption: localized("Automatic follows the context; short chat messages may omit a final period. Omit removes the final period, question mark, or exclamation mark.")) {
+                        KukuPicker(localized("Ending punctuation"), options: [true, false],
+                                   selection: $settings.keepEndingPunctuation, label: DictationFormatLabels.endingPunctuation)
+                    }
+                    KukuDivider()
+                    SettingsOptionRow(title: localized("Number format"), selection: $settings.dictationNumberFormat) { $0.title }
+                }
+                .font(.kuku(.body))
+                .kukuRowFrame()
             }
 
             DictationAppFormatsSettings()

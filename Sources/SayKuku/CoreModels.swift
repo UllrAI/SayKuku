@@ -214,28 +214,15 @@ enum DictationNumberFormat: String, CaseIterable, Identifiable, Codable, Sendabl
 }
 
 enum DictationCleanup: String, CaseIterable, Identifiable, Codable, Sendable {
-    case verbatim
     case light
-    case refined
+    case verbatim
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
-        case .light: localized("Light cleanup")
-        case .verbatim: localized("Verbatim")
-        case .refined: localized("Two-pass cleanup")
-        }
-    }
-
-    var caption: String {
-        switch self {
-        case .verbatim:
-            localized("Keeps fillers, repeats, and self-corrections; only adds punctuation.")
-        case .light:
-            localized("Cleans up fillers, accidental repeats, and self-corrections during recognition.")
-        case .refined:
-            localized("After light cleanup, sends the text for another cleanup pass. May take longer; uses the first result if it times out or fails.")
+        case .light: localized("Automatic cleanup")
+        case .verbatim: localized("Keep spoken wording")
         }
     }
 

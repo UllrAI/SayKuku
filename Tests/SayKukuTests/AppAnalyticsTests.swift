@@ -56,7 +56,8 @@ private actor RequestRecorder {
     }
 
     func waitForCount(_ expected: Int) async throws -> [URLRequest] {
-        for _ in 0..<100 {
+        // Other suites can occupy MainActor before the event tasks start.
+        for _ in 0..<500 {
             if requests.count >= expected { return requests }
             try await Task.sleep(for: .milliseconds(10))
         }

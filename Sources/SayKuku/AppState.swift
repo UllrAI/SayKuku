@@ -73,6 +73,11 @@ final class AppState {
         var reasoningClient: any Reasoning
         var textInteraction: any TextWriting
         var systemPermissions: SystemPermissionController
+        var isSensitiveInput: @MainActor () -> Bool = {
+            TextInteraction.isSensitiveWithoutAccessibility(
+                bundleID: NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? ""
+            )
+        }
         var actionExecutor: @MainActor (AgentResponse, SearchEngine) async throws -> Void = {
             try await AgentActionExecutor.execute($0, engine: $1)
         }
