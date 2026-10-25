@@ -323,6 +323,20 @@ Scripts/release.sh --prepare --notes /absolute/path/release-notes.txt
 
 长期保留 `SayKuku-<版本>.dmg`、App dSYM、Sparkle dSYM 和 `Dist/releases/<版本>/` 元数据。发布说明和哈希不再手工维护多个副本。首次带 Sparkle 的版本，旧客户端仍需从官网下载并手动安装；以后通过 `https://saykuku.ullrai.com/appcast.xml` 更新。旧 `ver.json` 继续在官网根目录和 R2 根目录提供，`url` 指向官网 `/download/`。
 
+### 上线核对
+
+发版前完成 `swift test`、`python3 -m unittest discover -s Scripts/tests`，确认待发布提交已合并到 `main`。本机准备过同版本候选时，先把候选 DMG、dSYM 和元数据一起移入独立归档目录，避免正式构建覆盖旧候选或误用其构建号。
+
+正式脚本成功后核对以下公开内容，全部来自本次 `Dist/releases/<版本>/release.json`：
+
+- R2 版本化 DMG 的版本、构建号、大小和 SHA-256，App / DMG 的签名及票据；不覆盖已发布的同名包。
+- 中英文下载页、首页等当前版本展示，以及官网 `/ver.json`。
+- R2 `/appcast.xml` 的构建号、显示版本、DMG URL、大小和 EdDSA 签名。
+- R2 `/ver.json` 与官网 `/ver.json` 字节一致，版本、构建号、下载页 URL 和说明均正确；Sparkle 上线后不能省略这个旧客户端入口。
+- Git 标签指向实际构建提交；官网同步提交已推送到 `main`。在 GitHub 创建对应版本 Release，附已验证的同一份 DMG 和更新说明，不上传私钥、本机元数据或凭据。
+
+验证结果与人工验收边界记录在 [软件更新验证记录](SOFTWARE_UPDATE_VALIDATION.md)。发布失败时保持已验证产物不变，从 `--resume` 继续；不要先改清单来“补版本号”。
+
 ### App 更新行为与隔离测试
 
 自动检查、自动下载默认开启；用户已有的显式选择会保留。自动下载完成后，仅在普通退出（菜单“退出”或 ⌘Q）时安装，不自动重新打开；关窗、隐藏和切换应用不算退出。手动“安装并重新打开”先等待录音、模型和文本写入结束。未领取的结果先由用户确认，最终保存失败则取消退出。自动提醒不抢输入焦点；手动检查使用 Sparkle 标准 UI。开发版与 `swift run` 不构造更新器、不访问更新源。
