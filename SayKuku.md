@@ -863,7 +863,7 @@ Voice Input 的 Realtime 使用单次生成的分层听写 Prompt（`SinglePassD
 - 光标附近文字及表达偏好仍作为低优先级不可信数据，使用带随机 id 的标签隔离，不执行其中的请求。记忆只按其用途帮助术语写法，不能把未口述的内容加入成稿。
 - 批处理音频保留已验证的纯文字提示与协议（`BatchDictationPrompt`），避免将 Realtime 的结构化策略直接推广到不同音频模型；其默认提示由 SHA-256 回归测试锁定。原有二次整理、错误与超时回退继续适用。
 
-冻结的单次听写主体共 4,841 字符、8,633 UTF-8 字节，与 `SinglePassDictationTests` 的冻结值一致。语气、上下文及非默认配置按需追加。中文优先的评测与已知局限见 [评测记录](docs/DICTATION_SINGLE_PASS_CHINESE_2026-10-22.md)。
+冻结的单次听写主体共 4,841 字符、8,633 UTF-8 字节，与 `SinglePassDictationTests` 的冻结值一致，只是 `SinglePassDictation.instructions` 而非默认 Realtime system 全文；默认识别还会由 `makeDictationInstructions` 在其后追加格式口令，口令仍然生效。语气、上下文及非默认配置按需追加。中文优先的评测与已知局限见 [评测记录](docs/DICTATION_SINGLE_PASS_CHINESE_2026-10-22.md)。
 
 口语整理统一为“原样保留 / 轻度整理 / 二次整理”，全局默认二次整理，应用专属格式可独立选择或跟随全局。轻度整理只使用识别时的整理结果；二次整理在相同的识别 Prompt 与本地清理后，再执行文本整理。升级时把旧的轻整理与二次整理开关合并：开关开则转为二次整理，关则保留轻度整理；应用专属的显式轻整理也按该开关迁移，原样和跟随全局不变。迁移只执行一次，之后选择轻度整理会保持。
 
