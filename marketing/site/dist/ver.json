@@ -1,5 +1,6 @@
 {
-  "version": "1.0.9",
+  "version": "1.0.10",
+  "build": 382,
   "url": "https://say.anikuku.com/download/",
-  "notes": "SayKuku 1.0.9：口语整理统一为原样保留、轻度整理和二次整理；轻度整理在一次识别中完成，改善中文重说和改口；应用可独立选择整理方式，升级时会迁移原有设置。"
+  "notes": "- 新增 App 内更新：自动检查并后台下载，正常退出时安装，不会主动打断使用。In-app updates download in the background and install on Quit without interrupting your work.\n- 安装会等待录音、处理和写入完成；保存失败则取消退出。Updates wait for active work and saving; save failures cancel Quit.\n- 优化长短语音的口语整理、改口和分段，支持按应用选择整理方式；未选择过的整理偏好默认速度优先。Improved speech cleanup, self-corrections and paragraph layout, with per-app choices and speed as the default preference.\n- 自动检查和自动下载可分别关闭，保留已有选择；开发版不检查更新。Automatic checks and downloads have separate controls, preserve existing choices, and stay disabled in development builds.\n"
 }
