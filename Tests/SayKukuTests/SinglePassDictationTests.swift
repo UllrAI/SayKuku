@@ -8,10 +8,10 @@ struct SinglePassDictationTests {
     @Test("the single-pass prompt freezes the current structure rules byte for byte")
     func frozenCurrentStructureRules() {
         let prompt = SinglePassDictation.instructions(recognitionLanguage: .automatic, numberFormat: .preferDigits, targetApp: nil, keepEndingPunctuation: true)
-        #expect(prompt.count == 4_617)
-        #expect(prompt.utf8.count == 8_125)
+        #expect(prompt.count == 4_841)
+        #expect(prompt.utf8.count == 8_633)
         let digest = SHA256.hash(data: Data(prompt.utf8)).map { String(format: "%02x", $0) }.joined()
-        #expect(digest == "84f22452756acf618b64ac32040f4d557afbc7085004eee9317f91c1d7844e46")
+        #expect(digest == "e5a030ab99cb0ece78dd5588dd5e634bdf9645a895143cd05cca3a494d521f98")
     }
 
     @Test("both cleanup modes share one prompt and preserve dictated formatting commands")
@@ -26,10 +26,10 @@ struct SinglePassDictationTests {
     @Test("the batch prompt freezes the current structure rules byte for byte")
     func frozenBatchStructureRules() {
         let prompt = QwenRealtimeClient.makeDictationInstructions(memoryPrompt: "", structuredReply: false)
-        #expect(prompt.count == 7_128)
-        #expect(prompt.utf8.count == 8_180)
+        #expect(prompt.count == 7_257)
+        #expect(prompt.utf8.count == 8_425)
         let digest = SHA256.hash(data: Data(prompt.utf8)).map { String(format: "%02x", $0) }.joined()
-        #expect(digest == "39d7af15a79db3c1f5dd4f7f5cd4d51dca64f450778d158d9854b8caa41daaa4")
+        #expect(digest == "4b4e8caf4db5bcd687e54d90fcd37df95542427d0f7baa898ea1fb8ec4ba6b19")
     }
 
     @Test("only the final field is returned, including quoted repeats, escapes, literal JSON, and silence")
@@ -39,6 +39,21 @@ struct SinglePassDictationTests {
             let reply = String(decoding: try JSONSerialization.data(withJSONObject: object), as: UTF8.self)
             #expect(try SinglePassDictation.text(from: reply) == text)
         }
+    }
+
+    @Test("numbered lines and blank lines survive JSON extraction and light cleanup")
+    func numberedLinesAndBlankLinesSurvive() throws {
+        let text = "背景先说完。\n\n1. 闸机开了吗？\n2. 访客牌在哪？"
+        let object: [String: Any] = [
+            "negations": [String](), "transcript": "背景先说完。闸机开了吗？访客牌在哪？", "text": text,
+        ]
+        let reply = String(decoding: try JSONSerialization.data(withJSONObject: object), as: UTF8.self)
+        let extracted = try SinglePassDictation.text(from: reply)
+        #expect(extracted == text)
+        let cleaned = try SpeechDisfluencyCleaner.dictation(extracted, mode: .light)
+        #expect(cleaned == text)
+        #expect(cleaned.contains("\n\n1. "))
+        #expect(cleaned.contains("\n2. "))
     }
 
     @Test("malformed or incomplete structured replies are rejected, never pasted as JSON")
