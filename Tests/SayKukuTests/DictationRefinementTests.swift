@@ -8,6 +8,71 @@ struct DictationRefinementTests {
         region: .beijing, workspaceID: "", realtimeModel: "r", reasoningModel: "omni-model"
     )
 
+    @Test("long refinement uses a compact reasoning profile independent of automatic layout")
+    func profiles() async throws {
+        let text = String(repeating: "所有记录保留原始金额，确认以后再发布。", count: 9)
+        let short = "这个按钮稍后再讨论。"
+        let longPrompt = DictationRefinement.instructions(.init(), longForm: true)
+        #expect(longPrompt.count < 2_000)
+        #expect(longPrompt.contains(PromptRules.mixedLanguage))
+        #expect(longPrompt.contains(DictationNumberFormat.preferDigits.promptInstruction))
+        #expect(longPrompt.contains("否定、数字"))
+        #expect(!longPrompt.contains("no Markdown"))
+        #expect(!longPrompt.contains("Do not create or remove a list"))
+        for (input, structured, expected) in [(text, true, DictationRefinement.Effort.low),
+                                             (text, false, .low), (short, true, .none)] {
+            let client = FakeReasoning()
+            _ = try await DictationRefinement.refine(input, settings: .init(structure: structured), apiKey: "k",
+                configuration: configuration, client: client)
+            #expect(client.refinementEfforts == [expected])
+            if !structured {
+                #expect(client.refinementInstructions[0].contains(DictationStructure.disabledInstruction))
+                #expect(!client.refinementInstructions[0].contains("独立的多项要求、问题或步骤用1.、2.编号"))
+            }
+            #expect(client.refinementInstructions == [DictationRefinement.instructions(.init(structure: structured), longForm: expected == .low)])
+        }
+    }
+
+    @Test("long oral cleanup preserves content while dropping repeated function words")
+    func longContentRetention() {
+        let statements = [
+            "订单号是42，客户名称必须保留。", "库存只读，价格未确认时不能发布。", "每次重试都需要记录原因和时间。",
+            "上传完成以后再发送邮件给运营人员。", "导出文件必须包含原始金额和币种。", "失败的任务要保留日志，不能自动删除。",
+            "最后请把处理结果和待确认问题发给我。", "退款只返回原付款账户，不要转入其他账户。",
+            "审核人和操作人分别记录，不能混为同一字段。", "本轮仅修改测试环境，生产配置保持原样。",
+            "备份文件要保存七天，过期后再按流程清理。"
+        ]
+        let input = statements.enumerated().map { index, text in "这个，" + text + (index == statements.count - 1 ? "" : "然后呢，") }.joined()
+        let output = statements.joined()
+        #expect(input.filter { !$0.isWhitespace }.count >= 200)
+        #expect(DictationRefinement.review(output, input: input, id: "abc", longForm: true) == .success(output))
+        #expect(DictationRefinement.review("处理订单并发送结果。", input: input, id: "abc", longForm: true) == .failure(.lengthChanged))
+        let oral = statements.enumerated().map { index, text in
+            "这个，那个，怎么说呢，就是，" + text + (index == statements.count - 1 ? "" : "然后呢，")
+        }.joined()
+        #expect(DictationRefinement.lengthRatio(output, to: oral) < 0.8)
+        #expect(DictationRefinement.review(output, input: oral, id: "abc", longForm: true) == .success(output))
+
+    }
+
+    @Test("new tool serialization is rejected while literally dictated markup remains text")
+    func toolSerialization() {
+        let input = "请研究一下当前项目的结构。"
+        for marker in ["<function_calls>", "<tool_call>", "<invoke name=\"bash\">"] {
+            #expect(DictationRefinement.review(marker + "run", input: input, id: "abc") == .failure(.echoedTag))
+        }
+        let literal = "保留这个标记 <function_calls>，后面仍然是正文。"
+        #expect(DictationRefinement.review(literal, input: literal, id: "abc") == .success(literal))
+    }
+
+    @Test("refinement cannot add a sentence period to an unpunctuated input")
+    func noAddedPeriod() {
+        #expect(DictationRefinement.review("稍后聊。", input: "稍后聊", id: "abc") == .success("稍后聊"))
+        #expect(DictationRefinement.review("稍后聊。", input: "稍后聊。", id: "abc") == .success("稍后聊。"))
+        #expect(DictationRefinement.review("See you.", input: "See you", id: "abc") == .success("See you"))
+        #expect(DictationRefinement.review("Maybe...", input: "Maybe...", id: "abc") == .success("Maybe..."))
+    }
+
     @Test("the instructions are byte-stable for the same settings and leave the request id to the user message")
     func stablePrefix() {
         let settings = DictationRefinement.Settings(

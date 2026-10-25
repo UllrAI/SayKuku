@@ -19,8 +19,11 @@ final class AppSettings {
     var dictationNumberFormat: DictationNumberFormat = .preferDigits {
         didSet { defaults.set(dictationNumberFormat.rawValue, forKey: Keys.dictationNumberFormat) }
     }
-    var dictationCleanup: DictationCleanup = .refined {
+    var dictationCleanup: DictationCleanup = .light {
         didSet { defaults.set(dictationCleanup.rawValue, forKey: Keys.dictationCleanup) }
+    }
+    var structureDictation = true {
+        didSet { defaults.set(structureDictation, forKey: Keys.structureDictation) }
     }
     var keepEndingPunctuation = true {
         didSet { defaults.set(keepEndingPunctuation, forKey: Keys.keepEndingPunctuation) }
@@ -28,6 +31,8 @@ final class AppSettings {
     var matchAppTone = true { didSet { defaults.set(matchAppTone, forKey: Keys.matchAppTone) } }
     /// Sends the text around the cursor with dictation, so names and homophones match the document.
     var cursorContextAllowed = true { didSet { defaults.set(cursorContextAllowed, forKey: Keys.cursorContext) } }
+    /// Sends light-cleanup dictation to a Qwen text model once more; see `DictationRefinement`.
+    var refineDictation = false { didSet { defaults.set(refineDictation, forKey: Keys.refineDictation) } }
     private(set) var dictationAppFormats: [DictationAppFormat] = [] {
         didSet {
             if let data = try? JSONEncoder().encode(dictationAppFormats) {
@@ -136,6 +141,8 @@ final class AppSettings {
         return EffectiveDictationFormat(
             keepEndingPunctuation: rule?.keepEndingPunctuation ?? keepEndingPunctuation,
             cleanup: rule?.cleanup ?? dictationCleanup,
+            structure: rule?.structure ?? structureDictation,
+            refine: rule?.refine ?? refineDictation,
             numberFormat: rule?.numberFormat ?? dictationNumberFormat,
             matchAppTone: rule?.matchAppTone ?? matchAppTone,
             expressionPreference: rule?.expressionPreference ?? ""
@@ -207,28 +214,31 @@ final class AppSettings {
         return terms
     }
 
-    /// Fold the old global refinement switch into every explicit cleanup choice once.
-    private func migrateDictationCleanupIfNeeded() {
-        guard !defaults.bool(forKey: Keys.dictationCleanupMigrated) else { return }
-        let refines = storedBool(Keys.legacyRefineDictation, default: true)
-        let cleanup = defaults.string(forKey: Keys.dictationCleanup).flatMap(DictationCleanup.init(rawValue:)) ?? .light
-        let migratedCleanup: DictationCleanup = refines && cleanup == .light ? .refined : cleanup
-        defaults.set(migratedCleanup.rawValue, forKey: Keys.dictationCleanup)
-        if let data = defaults.data(forKey: Keys.dictationAppFormats),
-           var rules = try? JSONDecoder().decode([DictationAppFormat].self, from: data) {
-            for index in rules.indices where refines && rules[index].cleanup == .light {
-                rules[index].cleanup = .refined
+    /// Unpack the released three-mode preference without changing effective cleanup or speed.
+    private func migrateCleanupOptionsIfNeeded() {
+        guard !defaults.bool(forKey: Keys.cleanupOptionsSeparated) else { return }
+        let hadCombinedModes = defaults.bool(forKey: Keys.legacyCombinedCleanupMigration)
+        let raw = defaults.string(forKey: Keys.dictationCleanup)
+        let refines = hadCombinedModes ? raw == "refined" : storedBool(Keys.refineDictation, default: false)
+        if raw == "refined" { defaults.set("light", forKey: Keys.dictationCleanup) }
+        defaults.set(refines, forKey: Keys.refineDictation)
+        if hadCombinedModes, let data = defaults.data(forKey: Keys.dictationAppFormats),
+           var rules = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+            for index in rules.indices {
+                if let cleanup = rules[index]["cleanup"] as? String, cleanup != "verbatim" {
+                    rules[index]["refine"] = cleanup == "refined"
+                    if cleanup == "refined" { rules[index]["cleanup"] = "light" }
+                }
             }
-            if let migrated = try? JSONEncoder().encode(rules) {
+            if let migrated = try? JSONSerialization.data(withJSONObject: rules) {
                 defaults.set(migrated, forKey: Keys.dictationAppFormats)
             }
         }
-        defaults.set(true, forKey: Keys.dictationCleanupMigrated)
-        defaults.removeObject(forKey: Keys.legacyRefineDictation)
+        defaults.set(true, forKey: Keys.cleanupOptionsSeparated)
     }
 
     private func loadSettings() {
-        migrateDictationCleanupIfNeeded()
+        migrateCleanupOptionsIfNeeded()
         if let raw = defaults.string(forKey: Keys.inputMode),
            let value = InputMode(rawValue: raw) ?? InputMode.legacyRawValues[raw] { inputMode = value }
         if let raw = defaults.string(forKey: Keys.overlayPlacement),
@@ -261,6 +271,8 @@ final class AppSettings {
         keepEndingPunctuation = storedBool(Keys.keepEndingPunctuation, default: true)
         matchAppTone = storedBool(Keys.matchAppTone, default: true)
         cursorContextAllowed = storedBool(Keys.cursorContext, default: true)
+        refineDictation = storedBool(Keys.refineDictation, default: false)
+        structureDictation = storedBool(Keys.structureDictation, default: true)
         if let data = defaults.data(forKey: Keys.dictationAppFormats),
            let rules = try? JSONDecoder().decode([DictationAppFormat].self, from: data) {
             dictationAppFormats = rules
@@ -304,8 +316,10 @@ final class AppSettings {
         static let dictationCleanup = "dictation.cleanup", soundCues = "voice.soundCues"
         static let keepEndingPunctuation = "dictation.keepEndingPunctuation", matchAppTone = "dictation.matchAppTone"
         static let dictationAppFormats = "dictation.appFormats", cursorContext = "dictation.cursorContext"
-        static let legacyRefineDictation = "dictation.refine"
-        static let dictationCleanupMigrated = "dictation.cleanupModesMigrated"
+        static let refineDictation = "dictation.refine"
+        static let legacyCombinedCleanupMigration = "dictation.cleanupModesMigrated"
+        static let cleanupOptionsSeparated = "dictation.cleanupOptionsSeparated"
+        static let structureDictation = "dictation.structure"
         static let selectedDomains = "dictation.selectedDomains", legacyCustomTerms = "dictation.customDomainTerms"
         static let didCompleteOnboarding = "onboarding.completed"
         static let continuousConversation = "continuousConversation", learnCorrections = "learnFromCorrections"

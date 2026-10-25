@@ -93,6 +93,23 @@ struct VoiceWorkflowTests {
         }
     }
 
+    @Test("sensitive input blocks the microphone before target reads in either mode")
+    func sensitiveInputPreflight() throws {
+        for agent in [false, true] {
+            let environment = AppStateTestEnvironment()
+            defer { environment.clean() }
+            let audio = FakeAudioCapturing()
+            let text = FakeTextWriting()
+            var dependencies = AppState.Dependencies.fake(audio: audio, text: text)
+            dependencies.isSensitiveInput = { true }
+            let state = try makeState(environment, dependencies)
+            if agent { state.workflow.startAgent() }
+            else { state.workflow.startDictation() }
+            #expect(audio.startCount == 0)
+            #expect(state.workflow.overlayError == TextInteractionError.sensitiveTarget.localizedDescription)
+        }
+    }
+
     @Test("a microphone startup failure ends either workflow without sending a recording")
     func microphoneStartupFailure() async throws {
         for agent in [false, true] {
@@ -410,13 +427,11 @@ struct VoiceWorkflowTests {
         }
     }
 
-    @Test("dictation names the target app for tone only with the setting on and either cleanup mode")
+    @Test("dictation names the target app for tone only with the setting on and light cleanup")
     func dictationToneTarget() async throws {
         let cases: [(Bool, DictationCleanup, String?)] = [
             (true, .light, "Editor (com.example.editor)"),
             (false, .light, nil),
-            (true, .refined, "Editor (com.example.editor)"),
-            (false, .refined, nil),
             (true, .verbatim, nil)
         ]
         for (matchAppTone, cleanup, expected) in cases {
@@ -533,15 +548,17 @@ struct VoiceWorkflowTests {
         }
     }
 
-    @Test("a recording without speech fails with the Didn’t catch that message")
-    func dictationNoSpeech() async throws {
+    @Test("all-zero audio is rejected before requesting transcription", arguments: [false, true])
+    func dictationNoSpeech(realtimeEnabled: Bool) async throws {
         let environment = AppStateTestEnvironment()
         defer { environment.clean() }
+        let realtime = FakeRealtime()
         let reasoning = FakeReasoning()
         let text = FakeTextWriting()
         let state = try makeState(
-            environment, .fake(audio: FakeAudioCapturing(recording: .silence), reasoning: reasoning, text: text)
+            environment, .fake(audio: FakeAudioCapturing(recording: .silence), realtime: realtime, reasoning: reasoning, text: text)
         )
+        if realtimeEnabled { state.settings.qwenWorkspaceID = "llm-test" }
 
         try await startListening(state)
         state.workflow.finishDictation()
@@ -549,7 +566,78 @@ struct VoiceWorkflowTests {
         #expect(state.workflow.overlayError == QwenError.noSpeech.localizedDescription)
         #expect(state.workflow.dictationPhase == .idle)
         #expect(reasoning.transcribeCount == 0)
+        #expect(await realtime.commitCount == 0)
         #expect(text.writes.isEmpty)
+    }
+
+    @Test("quiet audio reaches the model through realtime, fallback and batch", arguments: ["realtime", "fallback", "batch"])
+    func quietDictation(route: String) async throws {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        // One minimum-amplitude PCM sample was rejected by the old volume and duration thresholds.
+        let pcm = Data([1, 0])
+        let recording = AudioCapture.Recording(
+            wav: Data(), duration: 1.0 / 16_000,
+            hasNonzeroSamples: AudioCapture.containsNonzeroSamples(in: pcm)
+        )
+        let realtime = FakeRealtime(transcript: "Hello world.", commitError: route == "fallback" ? .timeout : nil)
+        let reasoning = FakeReasoning()
+        let text = FakeTextWriting()
+        let state = try makeState(environment, .fake(
+            audio: FakeAudioCapturing(recording: recording), realtime: realtime, reasoning: reasoning, text: text
+        ))
+        if route != "batch" { state.settings.qwenWorkspaceID = "llm-test" }
+
+        try await startListening(state)
+        state.workflow.finishDictation()
+        #expect(await eventually { state.workflow.dictationPhase == .success })
+        #expect(text.writes == ["Hello world."])
+        #expect(await realtime.commitCount == (route == "batch" ? 0 : 1))
+        #expect(reasoning.transcribeCount == (route == "realtime" ? 0 : 1))
+    }
+
+    @Test("a model's empty transcript still reports no speech", arguments: [false, true])
+    func modelDetectsNoSpeech(realtimeEnabled: Bool) async throws {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let realtime = FakeRealtime(transcript: "")
+        let reasoning = FakeReasoning(transcriptions: [.text("")])
+        let text = FakeTextWriting()
+        let state = try makeState(environment, .fake(realtime: realtime, reasoning: reasoning, text: text))
+        if realtimeEnabled { state.settings.qwenWorkspaceID = "llm-test" }
+
+        try await startListening(state)
+        state.workflow.finishDictation()
+        #expect(await eventually { state.data.historyEntries.first?.status == .failed })
+        #expect(state.workflow.overlayError == QwenError.noSpeech.localizedDescription)
+        #expect(text.writes.isEmpty)
+        #expect(await realtime.commitCount == (realtimeEnabled ? 1 : 0))
+        #expect(reasoning.transcribeCount == (realtimeEnabled ? 0 : 1))
+    }
+
+    @Test("Voice Agent leaves quiet audio to the model and rejects only all-zero audio", arguments: [false, true])
+    func agentAudioSignal(nonzero: Bool) async throws {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let pcm = Data([nonzero ? 1 : 0, 0])
+        let recording = AudioCapture.Recording(
+            wav: Data(), duration: 1.0 / 16_000,
+            hasNonzeroSamples: AudioCapture.containsNonzeroSamples(in: pcm)
+        )
+        let reply = AgentResponse(transcript: "Swift 是什么", action: .answer, output: "A programming language.")
+        let reasoning = FakeReasoning(agentReply: .success(reply))
+        let state = try makeState(environment, .fake(audio: FakeAudioCapturing(recording: recording), reasoning: reasoning))
+
+        try await startAgentListening(state)
+        state.workflow.finishAgentListening()
+        if nonzero {
+            #expect(await eventually { state.workflow.agentPhase == .answerReady })
+            #expect(reasoning.agentContexts.count == 1)
+            #expect(state.workflow.pendingAnswerText == reply.output)
+        } else {
+            #expect(await eventually { state.workflow.overlayError == QwenError.noSpeech.localizedDescription })
+            #expect(reasoning.agentContexts.isEmpty)
+        }
     }
 
     @Test("an Agent answer waits on its card, and Insert writes it and closes the card")
@@ -787,7 +875,7 @@ struct VoiceWorkflowTests {
         #expect(state.workflow.dictationPhase == .idle)
     }
 
-    @Test("two-pass dictation is refined after realtime, its batch fallback, and batch alone, then ends as set")
+    @Test("light dictation is refined after realtime, its batch fallback, and batch alone, then ends as set")
     func dictationRefined() async throws {
         let firstPass = "我们下周去上，上海出差。"
         let refinedText = "我们下周去上海出差。"
@@ -800,7 +888,7 @@ struct VoiceWorkflowTests {
             let state = try makeState(environment, .fake(realtime: realtime, reasoning: reasoning, text: text))
             if path != "batch" { state.settings.qwenWorkspaceID = "llm-test" }
             state.settings.keepEndingPunctuation = false
-            #expect(state.settings.dictationCleanup == .refined)
+            state.settings.refineDictation = true
 
             try await startListening(state)
             state.workflow.finishDictation()
@@ -814,50 +902,62 @@ struct VoiceWorkflowTests {
         }
     }
 
-    @Test("the captured app cleanup controls refinement independently of the global choice on every route")
-    func appCleanupControlsRefinement() async throws {
-        let firstPass = "呃，我们去上，上海。"
-        for path in ["realtime", "fallback", "batch"] {
-            for cleanup in DictationCleanup.allCases {
+    @Test("per-app cleanup, layout and quality use the recording snapshot on every recognition route")
+    func cleanupOptionsSnapshot() async throws {
+        let input = String(repeating: "上线前确认备份完整，测试通过后再发布。", count: 9)
+        for refines in [true, false] {
+            for path in ["realtime", "fallback", "batch"] {
                 let environment = AppStateTestEnvironment()
                 defer { environment.clean() }
-                let realtime = path == "fallback" ? FakeRealtime(commitError: .timeout) : FakeRealtime(transcript: firstPass)
-                let reasoning = FakeReasoning(transcriptions: [.text(firstPass)], refinements: [.text("我们去上海。")])
-                let text = FakeTextWriting()
-                let state = try makeState(environment, .fake(realtime: realtime, reasoning: reasoning, text: text))
+                let realtime = FakeRealtime(transcript: input, commitError: path == "fallback" ? .timeout : nil)
+                let reasoning = FakeReasoning(transcriptions: [.text(input)], refinements: [.text(input)])
+                let state = try makeState(environment, .fake(realtime: realtime, reasoning: reasoning))
                 if path != "batch" { state.settings.qwenWorkspaceID = "llm-test" }
-                state.settings.dictationCleanup = cleanup == .refined ? .verbatim : .refined
-                state.settings.saveDictationAppFormat(.init(bundleID: "com.example.editor", cleanup: cleanup))
+                // An app can enable cleanup even when the global choice keeps spoken wording.
+                state.settings.dictationCleanup = .verbatim
+                state.settings.refineDictation = !refines
+                state.settings.structureDictation = true
+                state.settings.saveDictationAppFormat(.init(
+                    bundleID: "com.example.editor", cleanup: .light, structure: false, refine: refines
+                ))
                 try await startListening(state)
-                // A settings change during recording applies to the next dictation.
                 state.settings.removeDictationAppFormat(for: "com.example.editor")
-                state.settings.dictationCleanup = cleanup == .refined ? .light : .refined
+                state.settings.structureDictation = true
                 state.workflow.finishDictation()
                 try #require(await eventually { state.workflow.dictationPhase == .success })
-                #expect(reasoning.refineCount == (cleanup == .refined ? 1 : 0), "\(path), \(cleanup)")
-                let expected = cleanup == .refined ? "我们去上海。" : try SpeechDisfluencyCleaner.dictation(firstPass, mode: cleanup)
-                #expect(text.writes == [expected], "\(path), \(cleanup)")
-                if path != "batch" { #expect(await realtime.formats.first?.1 == cleanup) }
-                if path != "realtime" { #expect(reasoning.formats.first?.1 == cleanup) }
+                if path != "batch" { #expect(await realtime.structures == [false]) }
+                if path != "realtime" { #expect(reasoning.structures == [false]) }
+                #expect(reasoning.refineCount == (refines ? 1 : 0))
+                if refines {
+                    #expect(reasoning.refinementEfforts == [.low])
+                    #expect(reasoning.refinementInstructions[0].contains(DictationStructure.disabledInstruction))
+                }
             }
         }
     }
 
-    @Test("verbatim cleanup, light cleanup, and Voice Agent never refine")
+    @Test("verbatim cleanup, the setting turned off, and Voice Agent never refine")
     func refinementSkipped() async throws {
-        for cleanup in [DictationCleanup.verbatim, .light] {
+        for skip in ["verbatim", "off", "unset"] {
             let environment = AppStateTestEnvironment()
             defer { environment.clean() }
             let reasoning = FakeReasoning(transcriptions: [.text("呃，我们周三开会。")], refinements: [.text("changed")])
             let text = FakeTextWriting()
             let state = try makeState(environment, .fake(reasoning: reasoning, text: text))
-            state.settings.dictationCleanup = cleanup
+            if skip == "verbatim" {
+                state.settings.dictationCleanup = .verbatim
+                state.settings.refineDictation = true
+            } else if skip == "off" {
+                state.settings.refineDictation = false
+            } else {
+                #expect(!state.settings.refineDictation)
+            }
 
             try await startListening(state)
             state.workflow.finishDictation()
-            #expect(await eventually { state.workflow.dictationPhase == .success }, "\(cleanup)")
-            #expect(reasoning.refineCount == 0, "\(cleanup)")
-            #expect(text.writes.first?.contains("changed") == false, "\(cleanup)")
+            #expect(await eventually { state.workflow.dictationPhase == .success }, "\(skip)")
+            #expect(reasoning.refineCount == 0, "\(skip)")
+            #expect(text.writes.first?.contains("changed") == false, "\(skip)")
         }
 
         let environment = AppStateTestEnvironment()
@@ -878,10 +978,11 @@ struct VoiceWorkflowTests {
         #expect(try SpeechDisfluencyCleaner.dictation(hesitation, mode: .light).isEmpty)
         let environment = AppStateTestEnvironment()
         defer { environment.clean() }
-        let audio = FakeAudioCapturing(recording: AudioCapture.Recording(wav: Data(count: 64), duration: 1, hasSpeech: true))
+        let audio = FakeAudioCapturing(recording: AudioCapture.Recording(wav: Data(count: 64), duration: 1, hasNonzeroSamples: true))
         let reasoning = FakeReasoning(transcriptions: [.text(hesitation)], refinements: [.text("changed")])
         let text = FakeTextWriting()
         let state = try makeState(environment, .fake(audio: audio, reasoning: reasoning, text: text))
+        state.settings.refineDictation = true
 
         try await startListening(state)
         state.workflow.finishDictation()
@@ -904,6 +1005,7 @@ struct VoiceWorkflowTests {
             let reasoning = FakeReasoning(transcriptions: [.text("这个改动 looks good to me。")], refinements: [reply])
             let text = FakeTextWriting()
             let state = try makeState(environment, .fake(reasoning: reasoning, text: text))
+            state.settings.refineDictation = true
 
             try await startListening(state)
             state.workflow.finishDictation()
@@ -920,6 +1022,7 @@ struct VoiceWorkflowTests {
         let reasoning = FakeReasoning(refinements: [.lateText("Hello world.")])
         let text = FakeTextWriting()
         let state = try makeState(environment, .fake(reasoning: reasoning, text: text))
+        state.settings.refineDictation = true
 
         try await startListening(state)
         state.workflow.finishDictation()
@@ -937,10 +1040,10 @@ struct VoiceWorkflowTests {
 
     @Test("History retries follow the global cleanup choice without an app override")
     func retryRefined() async throws {
-        for cleanup in DictationCleanup.allCases {
+        for (cleanup, refines) in [(DictationCleanup.verbatim, true), (.light, false), (.light, true)] {
             let environment = AppStateTestEnvironment()
             defer { environment.clean() }
-            let audio = FakeAudioCapturing(recording: AudioCapture.Recording(wav: Data(count: 64), duration: 1, hasSpeech: true))
+            let audio = FakeAudioCapturing(recording: AudioCapture.Recording(wav: Data(count: 64), duration: 1, hasNonzeroSamples: true))
             let firstPass = "我们下周去上，上海出差。"
             let reasoning = FakeReasoning(
                 transcriptions: [.failure(.invalidResponse), .text(firstPass)],
@@ -948,7 +1051,8 @@ struct VoiceWorkflowTests {
             )
             let state = try makeState(environment, .fake(audio: audio, reasoning: reasoning))
             state.settings.dictationCleanup = cleanup
-            state.settings.saveDictationAppFormat(.init(bundleID: "com.example.editor", cleanup: .refined))
+            state.settings.refineDictation = refines
+            state.settings.saveDictationAppFormat(.init(bundleID: "com.example.editor", cleanup: .light, structure: false, refine: !refines))
             try await startListening(state)
             state.workflow.finishDictation()
             #expect(await eventually { state.data.historyEntries.first?.status == .failed })
@@ -957,8 +1061,8 @@ struct VoiceWorkflowTests {
 
             await state.workflow.retryDictation(id)
             #expect(state.data.historyEntries.first?.status == .completed)
-            #expect(state.data.historyEntries.first?.output == (cleanup == .refined ? "我们下周去上海出差。" : firstPass))
-            #expect(reasoning.refineCount == (cleanup == .refined ? 1 : 0))
+            #expect(state.data.historyEntries.first?.output == (cleanup == .light && refines ? "我们下周去上海出差。" : firstPass))
+            #expect(reasoning.refineCount == (cleanup == .light && refines ? 1 : 0))
             #expect(reasoning.formats.last?.1 == cleanup)
             #expect(reasoning.refinementInstructions.first?.contains("Tone:") != true)
         }
@@ -975,6 +1079,7 @@ struct WorkflowTimingTests {
         defer { environment.clean() }
         let realtime = FakeRealtime(transcript: "Hello world")
         let state = try makeState(environment, .fake(realtime: realtime))
+        state.settings.refineDictation = true
         state.settings.qwenWorkspaceID = "llm-test"
         try await startListening(state)
         state.workflow.finishDictation(reason: .autoStop)
@@ -996,6 +1101,7 @@ struct WorkflowTimingTests {
         defer { environment.clean() }
         let reasoning = FakeReasoning(transcriptions: [.text("Hello world")], refinements: [.failure(.timeout)])
         let state = try makeState(environment, .fake(reasoning: reasoning))
+        state.settings.refineDictation = true
         try await startListening(state)
         state.workflow.finishDictation()
         let batch = try #require(await timing(of: state))

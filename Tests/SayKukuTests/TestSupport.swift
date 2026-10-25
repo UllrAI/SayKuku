@@ -49,15 +49,16 @@ extension AppState.Dependencies {
             realtimeClient: realtime,
             reasoningClient: reasoning,
             textInteraction: text,
-            systemPermissions: SystemPermissionController(microphoneStatus: { .authorized })
+            systemPermissions: SystemPermissionController(microphoneStatus: { .authorized }),
+            isSensitiveInput: { false }
         )
     }
 }
 
 extension AudioCapture.Recording {
     /// Empty WAV data, so nothing is written to the History audio folder.
-    static let speech = AudioCapture.Recording(wav: Data(), duration: 1, hasSpeech: true)
-    static let silence = AudioCapture.Recording(wav: Data(), duration: 1, hasSpeech: false)
+    static let speech = AudioCapture.Recording(wav: Data(), duration: 1, hasNonzeroSamples: true)
+    static let silence = AudioCapture.Recording(wav: Data(), duration: 1, hasNonzeroSamples: false)
 }
 
 extension TextTargetSnapshot {
@@ -136,6 +137,7 @@ actor FakeRealtime: RealtimeTranscribing {
     private var speechStoppedHandler: (@Sendable () -> Void)?
     private var deltaHandler: (@Sendable (String) -> Void)?
     private(set) var targetApps: [String?] = []
+    private(set) var structures: [Bool] = []
     private(set) var cursorContexts: [DictationCursorContext?] = []
     private(set) var formats: [(DictationNumberFormat, DictationCleanup, Bool, String)] = []
     private(set) var appendCount = 0
@@ -156,12 +158,14 @@ actor FakeRealtime: RealtimeTranscribing {
         recognitionLanguage: RecognitionLanguage,
         numberFormat: DictationNumberFormat,
         cleanup: DictationCleanup,
+        structure: Bool,
         targetApp: String?,
         keepEndingPunctuation: Bool,
         expressionPreference: String,
         cursorContext: DictationCursorContext?,
         memoryPrompt: String
     ) async throws {
+        structures.append(structure)
         targetApps.append(targetApp)
         cursorContexts.append(cursorContext)
         formats.append((numberFormat, cleanup, keepEndingPunctuation, expressionPreference))
@@ -212,8 +216,10 @@ final class FakeReasoning: Reasoning {
         var refineCount = 0
         var refineCancelled = false
         var refinementInstructions: [String] = []
+        var refinementEfforts: [DictationRefinement.Effort] = []
         var refinementMessages: [String] = []
         var targetApps: [String?] = []
+        var structures: [Bool] = []
         var cursorContexts: [DictationCursorContext?] = []
         var formats: [(DictationNumberFormat, DictationCleanup, Bool, String)] = []
         var agentContexts: [[ContextItem]] = []
@@ -238,8 +244,10 @@ final class FakeReasoning: Reasoning {
     /// Whether a late refinement saw its caller cancelled.
     var refineCancelled: Bool { state.withLock { $0.refineCancelled } }
     var refinementInstructions: [String] { state.withLock { $0.refinementInstructions } }
+    var refinementEfforts: [DictationRefinement.Effort] { state.withLock { $0.refinementEfforts } }
     var refinementMessages: [String] { state.withLock { $0.refinementMessages } }
     var targetApps: [String?] { state.withLock { $0.targetApps } }
+    var structures: [Bool] { state.withLock { $0.structures } }
     var cursorContexts: [DictationCursorContext?] { state.withLock { $0.cursorContexts } }
     var formats: [(DictationNumberFormat, DictationCleanup, Bool, String)] { state.withLock { $0.formats } }
     var agentContexts: [[ContextItem]] { state.withLock { $0.agentContexts } }
@@ -252,6 +260,7 @@ final class FakeReasoning: Reasoning {
         recognitionLanguage: RecognitionLanguage,
         numberFormat: DictationNumberFormat,
         cleanup: DictationCleanup,
+        structure: Bool,
         targetApp: String?,
         keepEndingPunctuation: Bool,
         expressionPreference: String,
@@ -260,6 +269,7 @@ final class FakeReasoning: Reasoning {
     ) async throws -> String {
         let reply = state.withLock { current in
             current.transcribeCount += 1
+            current.structures.append(structure)
             current.targetApps.append(targetApp)
             current.cursorContexts.append(cursorContext)
             current.formats.append((numberFormat, cleanup, keepEndingPunctuation, expressionPreference))
@@ -294,11 +304,13 @@ final class FakeReasoning: Reasoning {
     }
 
     func refineDictation(
-        apiKey: String, configuration: QwenConfiguration, instructions: String, userMessage: String
+        apiKey: String, configuration: QwenConfiguration, instructions: String, userMessage: String,
+        effort: DictationRefinement.Effort
     ) async throws -> String {
         let reply = state.withLock { current in
             current.refineCount += 1
             current.refinementInstructions.append(instructions)
+            current.refinementEfforts.append(effort)
             current.refinementMessages.append(userMessage)
             return current.refinements.count > 1 ? current.refinements.removeFirst() : current.refinements[0]
         }
@@ -400,7 +412,7 @@ struct LiveDictationEval {
         configuration = QwenConfiguration(
             region: environment["SAYKUKU_TEST_REGION"].flatMap(QwenRegion.init(rawValue:)) ?? .beijing,
             workspaceID: environment["SAYKUKU_TEST_WORKSPACE_ID"] ?? "",
-            realtimeModel: QwenModelCatalog.defaultRealtimeModel,
+            realtimeModel: environment["SAYKUKU_TEST_REALTIME_MODEL"].flatMap { QwenModelCatalog.realtimeModels.contains($0) ? $0 : nil } ?? QwenModelCatalog.defaultRealtimeModel,
             reasoningModel: QwenModelCatalog.defaultReasoningModel
         )
         self.suite = suite
@@ -461,5 +473,27 @@ struct LiveDictationEval {
         let recorded = try String(contentsOf: audioDirectory.appendingPathComponent("\(name).txt"), encoding: .utf8)
         try #require(recorded == spoken, "\(name).wav is out of date; run Scripts/eval-dictation.sh \(suite)")
         return (name, try Data(contentsOf: audioDirectory.appendingPathComponent("\(name).wav")))
+    }
+}
+
+extension LiveDictationEval {
+    /// Experimental model options stay in opt-in evals until a candidate qualifies for production.
+    func completion(model: String, messages: [[String: Any]], effort: String? = nil) async throws -> String {
+        var body = QwenReasoningClient.requestBody(model: model, messages: messages, jsonResponse: false)
+        if let effort {
+            body.removeValue(forKey: "enable_thinking")
+            body["reasoning_effort"] = effort
+        }
+        var request = URLRequest(url: try #require(configuration.chatCompletionsURL))
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let (data, response) = try await URLSession.shared.data(for: request)
+        let status = (response as? HTTPURLResponse)?.statusCode
+        try #require(status.map { (200..<300).contains($0) } == true, "HTTP \(status ?? 0)")
+        let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        let choice = (object?["choices"] as? [[String: Any]])?.first
+        return try #require((choice?["message"] as? [String: Any])?["content"] as? String)
     }
 }
