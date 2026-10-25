@@ -41,6 +41,8 @@ Scripts/release.sh --prepare --notes /absolute/path/release-notes.txt
 Scripts/release.sh --prepare --resume Dist/releases/1.0.10/release.json
 ```
 
-安装测试的历史/记忆标记文件留存；临时测试私钥、独立偏好与缓存清理。没有读取正式用户 store、API Key、麦克风或辅助功能权限，不能把隔离测试当作正式用户 TCC / Keychain 跨版本实测。只读安装位置的系统授权与取消 UI、真实生产官网部署仍需随首发验收；发布前应把 Sparkle 私钥备份到密码管理器或加密离线存储，不能依赖 iCloud 自动同步。
+安装测试的历史/记忆标记文件留存；临时测试私钥、独立偏好与缓存清理。没有读取正式用户 store、API Key、麦克风或辅助功能权限，不能把隔离测试当作正式用户 TCC / Keychain 跨版本实测。只读安装位置的系统授权与取消 UI、真实生产官网部署仍需随首发验收；Sparkle 私钥已按持有人授权在仓库外完成备份，回读公钥一致，系统确认云盘上传完成；钥匙串条目本身仍不依赖 iCloud 自动同步。
+
+已检查当前 247 个 Git 跟踪文件及本 PR 全部提交，未发现导出的私钥、本机部署配置值或常见真实凭据模式；仓库仅保留客户端验证更新所需的公钥。新增私钥、PEM 与环境配置文件忽略规则。
 
 本机原始记录在 `Build/sparkle-*.log`、`Build/updater-*/` 和 `Dist/releases/1.0.10/`，均不提交仓库。发布流程见 [本地打包与发布](LOCAL_PACKAGING.md)。

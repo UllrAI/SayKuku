@@ -505,10 +505,10 @@ Keychain 只保存 API Key。History、纠正建议与记忆（Knowledge）以 J
 - Developer ID 签名身份：必须连同私钥导出为有强密码保护的 `.p12`，保存到密码管理器或加密离线备份。只备份 CSR 或 `.cer` 无法恢复签名能力。
 - App Store Connect `.p8` 私钥：通常只能下载一次，应放入密码管理器或加密离线备份；不放 Git，也不以明文放进共享网盘。
 - Key ID、Issuer ID、Team ID：不是私钥，但应和 `.p8` 的备份说明一起保存。
-- Sparkle Ed25519 私钥：与 Developer ID 不同；account 为 `com.saykuku.app`。通过 `generate_keys --account com.saykuku.app -x /安全临时目录/key` 导出到权限受限的临时文件，立即存入密码管理器或加密离线备份并删除临时文件；不得进入仓库、构建日志或 R2。迁移机器后先核对 `-p` 输出与 Info.plist 公钥一致。当前本机 Keychain 中已有密钥，异地安全备份需要由持有人落实。Sparkle 工具默认没有启用 iCloud 同步，不能把“保存在钥匙串”当作已有云备份。
+- Sparkle Ed25519 私钥：与 Developer ID 不同；account 为 `com.saykuku.app`。通过 `generate_keys --account com.saykuku.app -x /安全临时目录/key` 导出到权限受限的临时文件，立即存入密码管理器或加密离线备份并删除临时文件；不得进入仓库、构建日志或 R2。迁移机器后先核对 `-p` 输出与 Info.plist 公钥一致。已按持有人授权在仓库外的私有存储完成备份，并回读校验公钥一致；2026-10-25 系统已确认云盘上传完成。备份位置不写入公开仓库。Sparkle 工具默认没有启用 iCloud 同步，不能把“保存在钥匙串”当作已有云备份。
 - `SayKuku-Notary` profile：保存在本机钥匙串中，不需要也不应导出到仓库。
 
-私钥丢失时先从备份用 `generate_keys --account com.saykuku.app -f` 恢复，并核对公钥。只有 Sparkle 私钥丢失、原 Developer ID 签名身份仍可用时，[官方允许通过已签名的 DMG 轮换 EdDSA 密钥](https://sparkle-project.org/documentation/#rotating-signing-keys)；我们使用的 DMG 分发和 `SUVerifyUpdateBeforeExtraction` 配置支持这一条件。不要同时更换两种签名凭据；无法延续旧客户端信任链时，提供官网手动安装路径。目前首次 Sparkle 版本尚未公开发布，首发前重新生成密钥只需同步更换公钥，不影响已有旧版客户端。
+私钥丢失时先从备份用 `generate_keys --account com.saykuku.app -f` 恢复，并核对公钥。只有 Sparkle 私钥丢失、原 Developer ID 签名身份仍可用时，[官方允许通过已签名的 DMG 轮换 EdDSA 密钥](https://sparkle-project.org/documentation/#rotating-signing-keys)；我们使用的 DMG 分发和 `SUVerifyUpdateBeforeExtraction` 配置支持这一条件。不要同时更换两种签名凭据；无法延续旧客户端信任链时，提供官网手动安装路径。若首次 Sparkle 版本尚未公开发布，首发前重新生成密钥只需同步更换公钥，不影响已有旧版客户端。
 
 当前项目的签名脚本是 `Scripts/package-app.sh`（签名身份选择在 `Scripts/signing-identity.sh`），发布脚本是 `Scripts/release.sh`，正式权限声明是 `Scripts/Resources/SayKuku.entitlements`。`Build/` 和 `Dist/` 都是本地产物，不是源代码；但已发布版本的 dSYM 需要另行长期备份。
 

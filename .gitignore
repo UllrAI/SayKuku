@@ -17,5 +17,10 @@ xcuserdata/
 # Signing credentials
 *.p8
 *.p12
+*.key
+*.pem
 *.keychain-db
+.env
+.env.*
+!.env.example
 /marketing/video/node_modules
