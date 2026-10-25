@@ -175,13 +175,13 @@ private struct DictationAppFormatEditor: View {
                                 .disabled(effectiveCleanup == .verbatim)
                             KukuDivider()
                             choiceRow(localized("Ending punctuation"), selection: $draft.keepEndingPunctuation,
-                                      global: settings.keepEndingPunctuation, values: [true, false], label: DictationFormatLabels.endingPunctuation)
+                                      global: settings.keepEndingPunctuation, values: [true, false],
+                                      caption: DictationFormatLabels.endingPunctuationCaption, label: DictationFormatLabels.endingPunctuation)
                             KukuDivider()
                             choiceRow(localized("Number format"), selection: $draft.numberFormat,
                                       global: settings.dictationNumberFormat, values: DictationNumberFormat.allCases) { $0.title }
                         }
-                        .font(.kuku(.body))
-                        .kukuRowFrame()
+                        .disclosureGroupStyle(KukuDisclosureGroupStyle())
                     }
                     KukuGroup {
                         DisclosureGroup(localized("Style preference (optional)"), isExpanded: $showsStylePreference) {
@@ -199,9 +199,10 @@ private struct DictationAppFormatEditor: View {
                             .font(.kuku(.subheadline))
                             .foregroundStyle(KukuColor.textSecondary)
                             .padding(.top, KukuSpacing.sm)
+                            .padding(.horizontal, KukuLayout.rowPadding)
+                            .padding(.bottom, KukuSpacing.sm)
                         }
-                        .font(.kuku(.body))
-                        .kukuRowFrame()
+                        .disclosureGroupStyle(KukuDisclosureGroupStyle())
                     }
                 }
                 .padding(.horizontal, KukuLayout.sheetPadding)
@@ -227,10 +228,12 @@ private struct DictationAppFormatEditor: View {
 
     private func choiceRow<Value: Hashable>(
         _ title: String, selection: Binding<Value?>, global: Value, values: [Value],
+        caption: String? = nil,
         label: @escaping (Value) -> String
     ) -> some View {
-        KukuRow(title, caption: selection.wrappedValue == nil
-                ? localized("Default: \(label(global))") : nil) {
+        let captions = [selection.wrappedValue == nil ? localized("Default: \(label(global))") : nil, caption]
+            .compactMap { $0 }
+        return KukuRow(title, caption: captions.isEmpty ? nil : captions.joined(separator: "\n")) {
             KukuPicker(title, options: [nil] + values.map(Optional.some), selection: selection) { value in
                 value.map(label) ?? localized("Follow global")
             }
@@ -248,6 +251,10 @@ enum DictationFormatLabels {
 
     static func endingPunctuation(_ value: Bool) -> String {
         value ? localized("Automatic") : localized("Omit")
+    }
+
+    static var endingPunctuationCaption: String {
+        localized("Automatic lets the model choose. With Adapt to the app on, short chats may omit a period, documents use full punctuation, and code adds no final mark. Omit removes the final period, question mark, or exclamation mark.")
     }
 
     static func cleanupCaption(_ value: DictationCleanup) -> String {

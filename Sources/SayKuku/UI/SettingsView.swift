@@ -126,15 +126,14 @@ private struct VoiceInputSettings: View {
                     )
                     .disabled(settings.dictationCleanup == .verbatim)
                     KukuDivider()
-                    KukuRow(localized("Ending punctuation"), caption: localized("Automatic follows the context; short chat messages may omit a final period. Omit removes the final period, question mark, or exclamation mark.")) {
+                    KukuRow(localized("Ending punctuation"), caption: DictationFormatLabels.endingPunctuationCaption) {
                         KukuPicker(localized("Ending punctuation"), options: [true, false],
                                    selection: $settings.keepEndingPunctuation, label: DictationFormatLabels.endingPunctuation)
                     }
                     KukuDivider()
                     SettingsOptionRow(title: localized("Number format"), selection: $settings.dictationNumberFormat) { $0.title }
                 }
-                .font(.kuku(.body))
-                .kukuRowFrame()
+                .disclosureGroupStyle(KukuDisclosureGroupStyle())
             }
 
             DictationAppFormatsSettings()

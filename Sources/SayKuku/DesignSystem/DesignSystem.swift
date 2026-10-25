@@ -395,6 +395,37 @@ struct KukuDivider: View {
 
 // MARK: - Groups and rows
 
+/// The whole header row toggles disclosure, including its padding and trailing space.
+struct KukuDisclosureGroupStyle: DisclosureGroupStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                configuration.isExpanded.toggle()
+            } label: {
+                HStack(spacing: KukuSpacing.sm) {
+                    Image(systemName: configuration.isExpanded ? "chevron.down" : "chevron.right")
+                        .font(.kukuIcon(.mini, weight: .semibold))
+                        .foregroundStyle(KukuColor.textSecondary)
+                        .accessibilityHidden(true)
+                    configuration.label
+                    Spacer(minLength: 0)
+                }
+                .font(.kuku(.body))
+                .foregroundStyle(KukuColor.textPrimary)
+                .kukuRowFrame(hasCaption: false)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityValue(configuration.isExpanded ? localized("Expanded") : localized("Collapsed"))
+
+            if configuration.isExpanded {
+                KukuDivider()
+                configuration.content
+            }
+        }
+    }
+}
+
 /// An eyebrow over a card of rows, separated by `KukuDivider`.
 struct KukuGroup<Content: View>: View {
     let title: String?
