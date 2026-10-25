@@ -30,6 +30,15 @@ final class VoiceWorkflow {
         var isCancellable: Bool { self == .starting || self == .listening || self == .transcribing || self == .processing }
     }
 
+    var startsPaused = false
+    var hasActiveWork: Bool {
+        dictationPhase.isCancellable || agentPhase.isCancellable || startingWorkflow != nil || isWriting
+    }
+    var hasUnclaimedResult: Bool {
+        pendingAction != nil || (!pendingAnswerText.isEmpty && !hasCopiedPendingText)
+            || (!pendingCopyText.isEmpty && !hasCopiedPendingText)
+    }
+
     var dictationPhase: DictationPhase = .idle { didSet { overlayController?.refresh() } }
     var agentPhase: AgentPhase = .hidden { didSet { overlayController?.refresh() } }
     /// True while the microphone is capturing for either workflow.
@@ -316,6 +325,7 @@ final class VoiceWorkflow {
     var canUndoLastWrite: Bool { lastVerifiedWrite != nil }
 
     func undoLastWrite() async {
+        guard !startsPaused else { return }
         guard !isWriting, let lastVerifiedWrite else { return }
         isWriting = true
         defer { isWriting = false }
@@ -370,6 +380,7 @@ final class VoiceWorkflow {
     }
 
     func confirmPendingAction() {
+        guard !startsPaused else { return }
         guard let pendingExternalAction else { return }
         let action = pendingExternalAction.response
         let historyID = pendingExternalAction.historyID
@@ -403,6 +414,7 @@ final class VoiceWorkflow {
     }
 
     func insertAnswer() async {
+        guard !startsPaused else { return }
         guard !isWriting, let snapshot = pendingAnswerTarget, !pendingAnswerText.isEmpty else { return }
         isWriting = true
         defer { isWriting = false }
@@ -431,6 +443,7 @@ final class VoiceWorkflow {
     }
 
     func retryDictation(_ id: UUID) async {
+        guard !startsPaused else { return }
         guard let index = data.historyEntries.firstIndex(where: { $0.id == id }),
               data.historyEntries[index].canRetryTranscription else { return }
         let entry = data.historyEntries[index]
@@ -477,6 +490,7 @@ final class VoiceWorkflow {
     private enum VoiceWorkflowMode: Sendable { case dictation, agent }
 
     private func beginVoiceWorkflow(mode: VoiceWorkflowMode, pendingFnTap: Bool = false) {
+        guard !startsPaused else { return }
         cancelWorkflow()
         dictationPhase = .idle
         agentPhase = .hidden

@@ -72,6 +72,8 @@ if [[ "$CONFIGURATION" == "release" ]]; then
     DSYM_DIR="$ROOT_DIR/Dist/SayKuku-${VERSION}.dSYM"
     mkdir -p "$ROOT_DIR/Dist"
     rm -rf "$DSYM_DIR"
+    SPARKLE_DSYMS="$ROOT_DIR/.build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/dSYMs"
+    ditto "$SPARKLE_DSYMS" "$ROOT_DIR/Dist/SayKuku-${VERSION}-Sparkle.dSYMs"
     DSYMUTIL_STATUS=0
     DSYMUTIL_OUTPUT="$(dsymutil "$PRODUCT_DIR/SayKuku" -o "$DSYM_DIR" 2>&1)" || DSYMUTIL_STATUS=$?
     if [[ -n "$DSYMUTIL_OUTPUT" ]]; then
@@ -158,6 +160,12 @@ CODESIGN_ARGS=(--force --options runtime "$TIMESTAMP_ARG" --sign "$SIGNING_IDENT
 if [[ -n "$SIGNING_KEYCHAIN" ]]; then
     CODESIGN_ARGS+=(--keychain "$SIGNING_KEYCHAIN")
 fi
+# Preserve the framework's versioned symlinks before signing its nested helpers.
+SPARKLE_FRAMEWORK="$APP_DIR/Contents/Frameworks/Sparkle.framework"
+mkdir -p "$APP_DIR/Contents/Frameworks"
+ditto "$PRODUCT_DIR/Sparkle.framework" "$SPARKLE_FRAMEWORK"
+source "$ROOT_DIR/Scripts/sign-sparkle.sh"
+sign_sparkle_framework "$SPARKLE_FRAMEWORK"
 codesign "${CODESIGN_ARGS[@]}" --entitlements "$ENTITLEMENTS" "$APP_DIR" >/dev/null
 codesign --verify --deep --strict --verbose=2 "$APP_DIR"
 if (( ICON_COMPILED )); then

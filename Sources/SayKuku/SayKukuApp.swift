@@ -148,20 +148,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         // Relaunch flushed the store before opening the new instance.
         if appState.savedForRelaunch { return .terminateNow }
-        Task {
-            let saved = await appState.data.flushPersistence()
-            NSApplication.shared.reply(toApplicationShouldTerminate: saved || confirmQuitWithoutSaving())
-        }
-        return .terminateLater
-    }
-
-    private func confirmQuitWithoutSaving() -> Bool {
-        let alert = NSAlert()
-        alert.alertStyle = .warning
-        alert.messageText = localized("Couldn’t save your latest changes")
-        alert.addButton(withTitle: localized("Quit Anyway"))
-        alert.addButton(withTitle: localized("Cancel"))
-        return alert.runModalInFront() == .alertFirstButtonReturn
+        return appState.termination.shouldTerminate()
     }
 
     func observeMainWindow(_ window: NSWindow?) {
@@ -290,6 +277,11 @@ private struct MenuBarContent: View {
         }
         .keyboardShortcut(",", modifiers: .command)
 
+        if let updater = appState.softwareUpdater {
+            Button(localized("Check for Updates…")) { updater.checkManually() }
+                .disabled(!updater.canCheck)
+        }
+
         Divider()
 
         shortcutStatusItem
@@ -341,11 +333,11 @@ private struct CheckForUpdatesItem: View {
     let appState: AppState
 
     var body: some View {
-        if let checker = appState.updateChecker {
+        if let checker = appState.softwareUpdater {
             Button(localized("Check for Updates…")) {
-                Task { await checker.checkManually() }
+                checker.checkManually()
             }
-            .disabled(checker.isChecking)
+            .disabled(!checker.canCheck)
         }
     }
 }

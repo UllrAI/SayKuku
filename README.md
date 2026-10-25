@@ -85,7 +85,7 @@ The debug package requires a stable Apple Development signing identity. `swift r
 | Dictation polish evaluation | [`docs/DICTATION_POLISH_EVAL.md`](docs/DICTATION_POLISH_EVAL.md) |
 | Contributor and agent guidance | [`AGENTS.md`](AGENTS.md) |
 
-Release builds are signed, notarized, and packaged locally through `Scripts/release.sh`; the repository does not use GitHub Actions for macOS release validation. Follow the [local release guide](docs/LOCAL_PACKAGING.md) rather than running a Release package step on its own.
+Release builds are signed, notarized, and packaged locally and published to the existing R2 bucket and website through `Scripts/release.sh --notes FILE`; the repository does not use GitHub Actions for macOS release validation. Release builds use Sparkle 2 for background downloads and install on normal Quit without relaunching; automatic checks and downloads default to on. Follow the [local release guide](docs/LOCAL_PACKAGING.md) rather than running a Release package step on its own.
 
 ## License
 
