@@ -17,18 +17,34 @@ struct DictationAppFormatTests {
             let settings = environment.makeState().settings
             #expect(settings.dictationCleanup == .verbatim)
             #expect(settings.dictationFormat(for: "app").cleanup == .light)
-            #expect(settings.dictationFormat(for: "app").refine == (refines ?? true))
+            #expect(settings.dictationFormat(for: "app").refine == (refines ?? false))
             #expect(environment.makeState().settings.dictationAppFormats == rules)
+        }
+    }
+
+    @Test("an unset cleanup preference defaults to speed, while explicit choices survive reloads")
+    func speedDefault() {
+        for separated in [false, true] {
+            let environment = AppStateTestEnvironment()
+            defer { environment.clean() }
+            environment.defaults.set(separated, forKey: "dictation.cleanupOptionsSeparated")
+            let settings = environment.makeState().settings
+            #expect(!settings.refineDictation)
+            #expect(!settings.dictationFormat(for: "new.app").refine)
+            settings.refineDictation = true
+            #expect(environment.makeState().settings.refineDictation)
+            settings.refineDictation = false
+            #expect(!environment.makeState().settings.refineDictation)
         }
     }
 
     @Test("released combined modes migrate to independent cleanup and quality options once")
     func combinedModeMigration() throws {
-        for mode in ["verbatim", "light", "refined"] {
+        for mode: String? in [nil, "verbatim", "light", "refined"] {
             let environment = AppStateTestEnvironment()
             defer { environment.clean() }
             environment.defaults.set(true, forKey: "dictation.cleanupModesMigrated")
-            environment.defaults.set(mode, forKey: "dictation.cleanup")
+            if let mode { environment.defaults.set(mode, forKey: "dictation.cleanup") }
             let oldRules: [[String: String]] = [
                 ["bundleID": "one", "cleanup": "light", "expressionPreference": "自然口语"],
                 ["bundleID": "two", "cleanup": "refined", "expressionPreference": ""],
@@ -38,7 +54,7 @@ struct DictationAppFormatTests {
             environment.defaults.set(try JSONSerialization.data(withJSONObject: oldRules), forKey: "dictation.appFormats")
             let settings = environment.makeState().settings
             #expect(settings.dictationCleanup == (mode == "verbatim" ? .verbatim : .light))
-            #expect(settings.refineDictation == (mode != "light"))
+            #expect(settings.refineDictation == (mode == "refined"))
             #expect(!settings.dictationFormat(for: "one").refine)
             #expect(settings.dictationFormat(for: "two").refine)
             #expect(settings.dictationFormat(for: "two").cleanup == .light)
@@ -55,7 +71,7 @@ struct DictationAppFormatTests {
         let environment = AppStateTestEnvironment()
         defer { environment.clean() }
         let settings = environment.makeState().settings
-        #expect(settings.structureDictation && settings.refineDictation)
+        #expect(settings.structureDictation && !settings.refineDictation)
         settings.dictationCleanup = .verbatim
         settings.saveDictationAppFormat(.init(bundleID: "app", cleanup: .light, structure: false, refine: false))
         let reloaded = environment.makeState().settings
