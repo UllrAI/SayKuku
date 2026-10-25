@@ -215,14 +215,28 @@ def put_object(file, key, content_type, env):
          "--content-type", content_type, "--cache-control", "no-cache", "--remote"], env=env)
 
 
-def upload_archive(metadata, env):
-    existing = optional_url(metadata["download_url"])
-    if existing is not None:
-        if len(existing) != metadata["size"] or hashlib.sha256(existing).hexdigest() != metadata["sha256"]:
+def existing_archive_matches(metadata, env):
+    # A public 404 probe can be cached by the CDN even after the upload succeeds.
+    # Inspect the authenticated origin instead; only a verified missing object allows upload.
+    with tempfile.TemporaryDirectory(prefix="saykuku-r2-check-") as folder:
+        downloaded = Path(folder) / "existing.dmg"
+        arguments = ["wrangler", "r2", "object", "get", "saykuku/" + Path(metadata["dmg"]).name,
+                     "--file", str(downloaded), "--remote"]
+        result = subprocess.run(arguments, env=env, capture_output=True, text=True)
+        if result.returncode:
+            if "The specified key does not exist." in result.stderr:
+                return False
+            result.check_returncode()
+        if downloaded.stat().st_size != metadata["size"] or sha256(downloaded) != metadata["sha256"]:
             raise ValueError("A different archive already exists at the versioned public URL")
-        print("Reusing verified public archive", flush=True)
-        return
-    put_object(metadata["dmg"], Path(metadata["dmg"]).name, "application/x-apple-diskimage", env)
+        return True
+
+
+def upload_archive(metadata, env):
+    if existing_archive_matches(metadata, env):
+        print("Reusing verified R2 archive", flush=True)
+    else:
+        put_object(metadata["dmg"], Path(metadata["dmg"]).name, "application/x-apple-diskimage", env)
     verify_public(metadata["download_url"], metadata["sha256"])
 
 

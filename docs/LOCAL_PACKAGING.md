@@ -298,7 +298,7 @@ Build/sparkle-tools-2.10.0/bin/generate_keys --account com.saykuku.app -p
 2. 运行 Swift 测试；备份已有同版本产物；构建通用架构 App 和 dSYM，完整嵌入 Sparkle，所有 helper 由内向外签名并验证架构。
 3. App 签名 → 公证 → staple → Gatekeeper；用装订后的 App 制作 DMG → DMG 签名 → 公证 → staple → Gatekeeper。
 4. 对最终不再修改的 DMG 运行 `generate_appcast --maximum-deltas 0 --maximum-versions 0`，保留历史条目且不生成增量包。生成 `Dist/releases/<版本>/release.json`、`appcast.xml` 与 `ver.json`。
-5. 上传版本化 DMG 到 R2，公开回读大小与 SHA-256。同名文件相同则复用，不同则停止，禁止覆盖已发布版本。
+5. 先通过 Wrangler 的 R2 接口检查版本化对象：同名文件相同则复用，不同则停止，只有明确不存在才上传；避免提前访问公开的不存在 URL 而触发 CDN 404 缓存。上传后公开回读大小与 SHA-256，禁止覆盖已发布版本。
 6. 从同一元数据更新官网版本、链接、实际大小、SHA-256 和更新说明，部署现有 Zeabur 服务；公开校验两种语言下载页和官网 `ver.json`。
 7. 上传 R2 的 `appcast.xml` 和同一份旧 `ver.json`，公开回读校验。官网及清单都只能在 DMG 公开可下载后发布。
 8. 公开校验全部成功后回写本地官网，提交官网变更，为实际构建提交打标签并推送 `main` 与标签；标签已存在时必须指向同一构建提交。
@@ -336,6 +336,8 @@ Scripts/release.sh --prepare --notes /absolute/path/release-notes.txt
 - Git 标签指向实际构建提交；官网同步提交已推送到 `main`。在 GitHub 创建对应版本 Release，附已验证的同一份 DMG 和更新说明，不上传私钥、本机元数据或凭据。
 
 验证结果与人工验收边界记录在 [软件更新验证记录](SOFTWARE_UPDATE_VALIDATION.md)。发布失败时保持已验证产物不变，从 `--resume` 继续；不要先改清单来“补版本号”。
+
+若 R2 对象已存在但公开 URL 仍返回带 `Age` / `CF-Cache-Status: HIT` 的 404，应先在 Cloudflare 的域名缓存配置中自定义清除该文件的精确 URL，再公开回读并恢复发布。Wrangler 的 R2 权限不等于 `Cache Purge` 权限；使用 API 清理需具备对应域名的权限，不能为绕过缓存而覆盖安装包或提前发布清单。
 
 ### App 更新行为与隔离测试
 

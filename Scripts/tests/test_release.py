@@ -96,21 +96,51 @@ class ReleaseTests(unittest.TestCase):
             self.assertEqual(run.call_args_list[-1].args[0][:2], ["hdiutil", "detach"])
 
     def test_archive_conflict_stops_without_writing(self):
-        with patch.object(release, "optional_url", return_value=b"different"), patch.object(release, "put_object") as put:
+        with patch.object(release, "existing_archive_matches", side_effect=ValueError("conflict")), patch.object(release, "put_object") as put:
             with self.assertRaises(ValueError):
                 release.upload_archive(self.meta, {})
             put.assert_not_called()
 
     def test_matching_archive_is_reused(self):
-        with patch.object(release, "optional_url", return_value=self.dmg.read_bytes()), patch.object(release, "put_object") as put:
+        with patch.object(release, "existing_archive_matches", return_value=True), patch.object(release, "put_object") as put, patch.object(release, "verify_public") as verify:
             release.upload_archive(self.meta, {})
             put.assert_not_called()
+            verify.assert_called_once_with(self.meta["download_url"], self.meta["sha256"])
 
     def test_new_archive_is_verified_after_upload(self):
         calls = []
-        with patch.object(release, "optional_url", return_value=None), patch.object(release, "put_object", side_effect=lambda *a: calls.append("upload")), patch.object(release, "verify_public", side_effect=lambda *a: calls.append("verify")):
+        with patch.object(release, "existing_archive_matches", return_value=False), patch.object(release, "put_object", side_effect=lambda *a: calls.append("upload")), patch.object(release, "verify_public", side_effect=lambda *a: calls.append("verify")):
             release.upload_archive(self.meta, {})
         self.assertEqual(calls, ["upload", "verify"])
+
+    def test_existing_archive_is_checked_at_r2_without_public_404_probe(self):
+        def download(args, **kwargs):
+            Path(args[args.index("--file") + 1]).write_bytes(self.dmg.read_bytes())
+            return subprocess.CompletedProcess(args, 0)
+        with patch.object(release.subprocess, "run", side_effect=download) as command, patch.object(release, "read_url") as public:
+            self.assertTrue(release.existing_archive_matches(self.meta, {}))
+            self.assertEqual(command.call_args.args[0][:4], ["wrangler", "r2", "object", "get"])
+            public.assert_not_called()
+
+    def test_origin_conflict_is_rejected_before_any_upload(self):
+        def download(args, **kwargs):
+            Path(args[args.index("--file") + 1]).write_bytes(b"different archive")
+            return subprocess.CompletedProcess(args, 0)
+        with patch.object(release.subprocess, "run", side_effect=download), patch.object(release, "put_object") as put:
+            with self.assertRaisesRegex(ValueError, "different archive"):
+                release.upload_archive(self.meta, {})
+            put.assert_not_called()
+
+    def test_only_origin_not_found_allows_a_new_upload(self):
+        missing = subprocess.CompletedProcess([], 1, stdout="", stderr="The specified key does not exist.")
+        denied = subprocess.CompletedProcess([], 1, stdout="", stderr="Authentication error")
+        with patch.object(release.subprocess, "run", return_value=missing), patch.object(release, "read_url") as public:
+            self.assertFalse(release.existing_archive_matches(self.meta, {}))
+            public.assert_not_called()
+        with patch.object(release.subprocess, "run", return_value=denied), patch.object(release, "put_object") as put:
+            with self.assertRaises(subprocess.CalledProcessError):
+                release.upload_archive(self.meta, {})
+            put.assert_not_called()
 
     def test_site_fields_and_locales_come_from_one_metadata(self):
         output = self.root / "staged"
