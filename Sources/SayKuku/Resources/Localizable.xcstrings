@@ -111,13 +111,13 @@
         }
       }
     },
-    "Automatic lets the model choose. With Adapt to the app on, short chats may omit a period, documents use full punctuation, and code adds no final mark. Omit removes the final period, question mark, or exclamation mark." : {
+    "Automatic follows the context. Omit removes the final period, question mark, or exclamation mark." : {
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "自动：由模型判断。开启“适应应用场景”时，简短聊天可能省略句号，文档使用完整标点，代码不额外添加末尾标点。不保留：去掉末尾的句号、问号或叹号。"
+            "value" : "自动按语境决定；不保留会去掉末尾的句号、问号和叹号。"
           }
         }
       }

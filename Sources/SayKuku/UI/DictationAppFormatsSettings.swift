@@ -254,7 +254,7 @@ enum DictationFormatLabels {
     }
 
     static var endingPunctuationCaption: String {
-        localized("Automatic lets the model choose. With Adapt to the app on, short chats may omit a period, documents use full punctuation, and code adds no final mark. Omit removes the final period, question mark, or exclamation mark.")
+        localized("Automatic follows the context. Omit removes the final period, question mark, or exclamation mark.")
     }
 
     static func cleanupCaption(_ value: DictationCleanup) -> String {
