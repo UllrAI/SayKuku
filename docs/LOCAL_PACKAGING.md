@@ -281,7 +281,11 @@ Dock 会缓存图标。换图标后看到的还是旧样子时，执行 `killall
 Scripts/release.sh --notes /absolute/path/release-notes.txt
 ```
 
-更新说明只输入一次：UTF-8 文本，每行一条，可用 `- ` 开头；会同步到 Sparkle、两个下载页和旧 `ver.json`。两种语言页面共享这份内容，发布时可在同一文件中填写中英双语；HTML 会转义，不能嵌入脚本。
+更新说明使用简短的 UTF-8 文本，通常 3–5 条，每行一条，可用 `- ` 开头。旧版 `ver.json` 客户端只显示一个 `notes` 字段，当前统一使用简短中文；不要逐条拼接中英文，也不要把安装细节写成长段落。HTML 会转义，不能嵌入脚本。
+
+Sparkle 支持在 appcast 的多个 `<description>` 上分别指定 `xml:lang="zh-Hans"` / `xml:lang="en"`，由框架按用户语言选择，两个节点都要明确标注语言；见 [官方本地化说明](https://sparkle-project.org/documentation/publishing/#localization)。1.0.10 已在数据层拆分 Sparkle 和中英文下载页的说明，语言源归档在 `marketing/site/release-notes/1.0.10.json`。当前 `--notes` 仍只接收一份单语言纯文本，不能把这个 JSON 直接传进去；后续版本补齐从语言源自动生成网页和 appcast 的发布工具支持。
+
+已发布版本的文字更正只更新网页和更新清单，并同步发布元数据的说明及清单哈希；保留原版本、构建号、DMG、安装包签名和 Git 标签。完成后回读官网与 R2 的 `ver.json`、appcast 和各语言下载页，确认文字正确且安装包哈希不变。
 
 本机需安装并登录 Wrangler 与 Zeabur（`wrangler whoami`、`npx zeabur@latest auth status -i=false`）。沿用已有 R2 bucket `saykuku` 和官网服务，不创建新服务。`~/.config/saykuku/deploy.env` 应为权限 `600` 的本机文件，提供 `CLOUDFLARE_ACCOUNT_ID`、`ZEABUR_PROJECT_ID`、`ZEABUR_SERVICE_ID`，可选 `ZEABUR_ENVIRONMENT_ID`；环境变量优先，不在仓库保存凭据。
 

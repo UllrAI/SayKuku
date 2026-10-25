@@ -1,0 +1,15 @@
+{
+  "version": "1.0.10",
+  "notes": {
+    "zh-Hans": [
+      "新增 App 内更新：后台下载，正常退出时安装，不打断当前任务。",
+      "改进口语整理、改口与分段，支持按应用设置，未设置时默认速度优先。",
+      "自动检查与下载可分别关闭，并保留已有设置。"
+    ],
+    "en": [
+      "In-app updates download in the background and install on Quit without interrupting your work.",
+      "Improved speech cleanup, self-corrections and paragraphs, with per-app settings and speed as the default preference.",
+      "Automatic update checks and downloads have separate controls and preserve your settings."
+    ]
+  }
+}

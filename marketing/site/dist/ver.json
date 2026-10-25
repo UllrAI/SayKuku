@@ -2,5 +2,5 @@
   "version": "1.0.10",
   "build": 382,
   "url": "https://say.anikuku.com/download/",
-  "notes": "- 新增 App 内更新：自动检查并后台下载，正常退出时安装，不会主动打断使用。In-app updates download in the background and install on Quit without interrupting your work.\n- 安装会等待录音、处理和写入完成；保存失败则取消退出。Updates wait for active work and saving; save failures cancel Quit.\n- 优化长短语音的口语整理、改口和分段，支持按应用选择整理方式；未选择过的整理偏好默认速度优先。Improved speech cleanup, self-corrections and paragraph layout, with per-app choices and speed as the default preference.\n- 自动检查和自动下载可分别关闭，保留已有选择；开发版不检查更新。Automatic checks and downloads have separate controls, preserve existing choices, and stay disabled in development builds.\n"
+  "notes": "- 新增 App 内更新：后台下载，正常退出时安装，不打断当前任务。\n- 改进口语整理、改口与分段，支持按应用设置，未设置时默认速度优先。\n- 自动检查与下载可分别关闭，并保留已有设置。\n"
 }
