@@ -852,7 +852,7 @@ final class VoiceWorkflow {
         do {
             try Task.checkCancellation()
             guard generation == workflowGeneration else { throw CancellationError() }
-            guard recording.hasSpeech else { throw QwenError.noSpeech }
+            guard recording.hasNonzeroSamples else { throw QwenError.noSpeech }
             let memoryPrompt = context
                 .filter { $0.kind == .memory || $0.kind == .domain }
                 .map(\.value)
@@ -902,7 +902,7 @@ final class VoiceWorkflow {
         realtimeSession: UUID, targetApp: String?, cursorContext: DictationCursorContext?,
         format: EffectiveDictationFormat, trace: WorkflowTrace, generation: Int
     ) async throws -> String {
-        guard recording.hasSpeech else {
+        guard recording.hasNonzeroSamples else {
             throw QwenError.noSpeech
         }
         if let upload {

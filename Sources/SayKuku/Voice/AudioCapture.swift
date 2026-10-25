@@ -32,7 +32,7 @@ final class AudioCapture: AudioCapturing, @unchecked Sendable {
     struct Recording: Sendable {
         let wav: Data
         let duration: Double
-        let hasSpeech: Bool
+        let hasNonzeroSamples: Bool
     }
 
     /// One engine kept across recordings and only stopped in between, which leaves the microphone idle.
@@ -224,7 +224,7 @@ final class AudioCapture: AudioCapturing, @unchecked Sendable {
         return Recording(
             wav: Self.makeWAV(pcm16: data, sampleRate: 16_000, channels: 1),
             duration: Double(data.count) / (16_000 * 2),
-            hasSpeech: Self.containsSpeech(in: data)
+            hasNonzeroSamples: Self.containsNonzeroSamples(in: data)
         )
     }
 
@@ -350,25 +350,9 @@ final class AudioCapture: AudioCapturing, @unchecked Sendable {
         return result
     }
 
-    static func containsSpeech(in pcm16: Data) -> Bool {
-        let samplesPerWindow = 320
-        return pcm16.withUnsafeBytes { bytes in
-            let samples = bytes.bindMemory(to: Int16.self)
-            guard samples.count >= samplesPerWindow else { return false }
-            var audibleWindows = 0
-            for start in stride(from: 0, to: samples.count - samplesPerWindow + 1, by: samplesPerWindow) {
-                var squareSum: Double = 0
-                for sample in samples[start..<(start + samplesPerWindow)] {
-                    let normalized = Double(Int16(littleEndian: sample)) / Double(Int16.max)
-                    squareSum += normalized * normalized
-                }
-                if sqrt(squareSum / Double(samplesPerWindow)) >= 0.012 {
-                    audibleWindows += 1
-                    if audibleWindows >= 3 { return true }
-                }
-            }
-            return false
-        }
+    /// Only rejects empty or all-zero PCM; the model decides whether other audio contains speech.
+    static func containsNonzeroSamples(in pcm16: Data) -> Bool {
+        pcm16.contains { $0 != 0 }
     }
 }
 
