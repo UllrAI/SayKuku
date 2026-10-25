@@ -52,7 +52,7 @@ final class AppState {
     let systemPermissions: SystemPermissionController
     let microphoneTest: MicrophoneTestController
     /// Nil in dev builds and `swift run`, which never check for updates.
-    let updateChecker: UpdateChecker?
+    let softwareUpdater: SoftwareUpdater?
     /// Nil in development builds and tests.
     let analytics: AppAnalytics?
 
@@ -63,6 +63,30 @@ final class AppState {
     @ObservationIgnored private var didEvaluateStartupPermissions = false
     @ObservationIgnored private var pendingSetupSteps: [AppSheet] = []
     @ObservationIgnored var savedForRelaunch = false
+
+    @ObservationIgnored lazy var termination: AppTermination = {
+        let termination = AppTermination()
+        termination.isBusy = { [weak self] in self?.workflow.hasActiveWork ?? false }
+        termination.hasPendingResult = { [weak self] in self?.workflow.hasUnclaimedResult ?? false }
+        termination.confirmDiscard = {
+            let alert = NSAlert()
+            alert.messageText = localized("A result is still waiting")
+            alert.informativeText = localized("You have a result or action that hasn’t been finished. Quit anyway?")
+            alert.addButton(withTitle: localized("Quit Anyway"))
+            alert.addButton(withTitle: localized("Cancel"))
+            return alert.runModalInFront() == .alertFirstButtonReturn
+        }
+        termination.save = { [weak self] in await self?.data.flushPersistence() ?? false }
+        termination.pauseNewWork = { [weak self] paused in
+            self?.workflow.startsPaused = paused
+            self?.setGlobalShortcutsPaused(paused)
+            if paused { self?.microphoneTest.stop() }
+        }
+        termination.waitingHandler = { [weak self] in
+            self?.showToast(localized("Finishing your current task before quitting"), symbol: "clock")
+        }
+        return termination
+    }()
 
     static let mainWindowID = "main"
 
@@ -113,7 +137,7 @@ final class AppState {
             audioCapture: dependencies.audioCapture,
             microphoneAllowed: { systemPermissions.microphoneStatus.isAuthorized }
         )
-        updateChecker = StorageIdentity() == .release ? UpdateChecker(bundle: .main, settings: settings) : nil
+        softwareUpdater = StorageIdentity() == .release ? SoftwareUpdater(defaults: defaults) : nil
         analytics = StorageIdentity() == .release
             ? AppAnalytics(bundle: .main, settings: settings, defaults: defaults) : nil
         launchAtLogin = SMAppService.mainApp.status == .enabled
@@ -137,9 +161,8 @@ final class AppState {
             self?.showPermissionGuide()
             self?.showMainWindow()
         }
-        updateChecker?.promptHandler = { feed, currentVersion in AppState.offerUpdate(feed, currentVersion: currentVersion) }
-        if let currentVersion = updateChecker?.currentVersion {
-            updateChecker?.resultHandler = { AppState.reportUpdateCheck($0, currentVersion: currentVersion) }
+        softwareUpdater?.deferInstallation = { [weak self] handler in
+            self?.termination.deferUntilIdle(handler) ?? false
         }
     }
 
@@ -150,7 +173,7 @@ final class AppState {
         let controller = ShortcutController(appState: self)
         shortcutController = controller
         controller.start()
-        updateChecker?.startPeriodicChecks()
+        softwareUpdater?.start()
         analytics?.start()
         Task { await data.loadStoredData() }
         Task { @MainActor [weak self] in
@@ -341,8 +364,20 @@ final class AppState {
     }
     /// Opens a new instance, then quits this one, so a new `appLanguage` takes effect.
     func relaunch() {
+        guard !workflow.startsPaused, !termination.isFinalizing, !savedForRelaunch else { return }
+        if termination.deferUntilIdle({ [weak self] in self?.relaunch() }) { return }
+        // A downloaded update already owns relaunching; use its standard confirmation UI.
+        if softwareUpdater?.installsOnQuit == true {
+            softwareUpdater?.checkManually()
+            return
+        }
+        guard !termination.hasPendingResult() || termination.confirmDiscard() else { return }
+        termination.pauseNewWork(true)
         Task {
-            guard await data.flushPersistence() else { return }
+            guard await data.flushPersistence() else {
+                termination.pauseNewWork(false)
+                return
+            }
             // Release the global shortcuts first: the new instance registers them before this one quits.
             setGlobalShortcutsPaused(true)
             let configuration = NSWorkspace.OpenConfiguration()
@@ -354,7 +389,7 @@ final class AppState {
                         NSApplication.shared.terminate(nil)
                         return
                     }
-                    self.setGlobalShortcutsPaused(false)
+                    self.termination.pauseNewWork(false)
                     Log.workflow.error("Relaunch failed: \(Log.describe(error), privacy: .public)")
                     self.showToast(
                         localized("Couldn’t reopen SayKuku. Quit and open it again."),
@@ -363,42 +398,6 @@ final class AppState {
                 }
             }
         }
-    }
-    /// Brings the app forward, then asks what to do about a new version; Download opens its page.
-    private static func offerUpdate(_ feed: UpdateFeed, currentVersion: String) -> UpdateChecker.Response {
-        let alert = NSAlert()
-        alert.messageText = localized("SayKuku \(feed.version) is available")
-        alert.informativeText = [localized("You’re using \(currentVersion)."), feed.shortNotes]
-            .compactMap { $0 }
-            .joined(separator: "\n\n")
-        // A zero-height accessory gives the native alert more room for release notes.
-        alert.accessoryView = NSView(frame: NSRect(x: 0, y: 0, width: 300, height: 0))
-        alert.addButton(withTitle: localized("Download"))
-        alert.addButton(withTitle: localized("Skip This Version"))
-        alert.addButton(withTitle: localized("Later"))
-        switch alert.runModalInFront() {
-        case .alertFirstButtonReturn:
-            NSWorkspace.shared.open(feed.url)
-            return .download
-        case .alertSecondButtonReturn:
-            return .skip
-        default:
-            return .later
-        }
-    }
-    /// A manual check’s answer, as an alert: Settings and the app menu have no toast.
-    private static func reportUpdateCheck(_ result: UpdateChecker.Decision, currentVersion: String) {
-        let alert = NSAlert()
-        if result == .upToDate {
-            alert.messageText = localized("You’re up to date")
-            alert.informativeText = localized("SayKuku \(currentVersion) is the latest version.")
-        } else {
-            alert.alertStyle = .warning
-            alert.messageText = localized("Couldn’t check for updates")
-            alert.informativeText = localized("Try again later.")
-        }
-        alert.addButton(withTitle: localized("OK"))
-        _ = alert.runModalInFront()
     }
     func showToast(_ text: String, symbol: String) {
         let message = ToastMessage(text: text, symbol: symbol)

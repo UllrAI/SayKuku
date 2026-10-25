@@ -741,25 +741,37 @@ private struct SoftwareUpdateSettings: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
-        @Bindable var settings = appState.settings
-
         KukuGroup(localized("Software Update")) {
             KukuRow(localized("Version"), caption: versionCaption) {
-                if let checker = appState.updateChecker {
+                if let checker = appState.softwareUpdater {
                     Button(localized("Check for Updates…")) {
-                        Task { await checker.checkManually() }
+                        checker.checkManually()
                     }
                     .buttonStyle(.kukuSecondary)
-                    .disabled(checker.isChecking)
+                    .disabled(!checker.canCheck)
                 }
             }
-            if appState.updateChecker != nil {
+            if let updater = appState.softwareUpdater {
+                @Bindable var updater = updater
                 KukuDivider()
                 KukuToggleRow(
                     title: localized("Check for updates automatically"),
-                    caption: localized("Checks at launch, then once a day"),
-                    isOn: $settings.automaticUpdateChecks
+                    caption: localized("Checks for new versions in the background"),
+                    isOn: $updater.automaticChecks
                 )
+                KukuDivider()
+                KukuToggleRow(
+                    title: localized("Download updates automatically"),
+                    caption: localized("Downloads and verifies updates in the background, then installs when you quit. Never interrupts your current task."),
+                    isOn: $updater.automaticDownloads
+                )
+                if let version = updater.availableVersion {
+                    Text(updater.installsOnQuit ? localized("SayKuku \(version) is ready to update")
+                         : localized("SayKuku \(version) is available"))
+                        .font(.kuku(.subheadline))
+                        .foregroundStyle(KukuColor.textSecondary)
+                        .kukuRowFrame()
+                }
             }
         }
     }
@@ -772,7 +784,7 @@ private struct SoftwareUpdateSettings: View {
             return localized("Development build")
         }
         let caption = "\(version) (\(build))"
-        guard appState.updateChecker == nil else { return caption }
+        guard appState.softwareUpdater == nil else { return caption }
         return caption + localized(" · Dev builds don’t check for updates")
     }
 }

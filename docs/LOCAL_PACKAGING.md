@@ -1,6 +1,6 @@
 # SayKuku 本地打包与发布
 
-本文记录 SayKuku macOS App 的本地构建、Developer ID 签名、公证、装订、验证、DMG 制作、版本号文件 `ver.json` 生成和发布流程。App 最低运行版本为 macOS 14；构建与发布仍需在支持 Xcode 26 或更新版本的 macOS 上、仓库根目录执行。
+本文记录 SayKuku macOS App 的本地构建、Developer ID 签名、公证、装订、验证、DMG 制作、Sparkle 更新源和官网的自动发布流程。App 最低运行版本为 macOS 14；构建与发布仍需在支持 Xcode 26 或更新版本的 macOS 上、仓库根目录执行。
 
 发布链路如下：
 
@@ -8,7 +8,8 @@
 测试 → Release 构建 → Developer ID 签名 → 生成公证 ZIP
     → App 公证 → Staple 票据 → Gatekeeper 验证
     → 用装订后的 App 制作 DMG → DMG 签名 → DMG 公证 → Staple → Gatekeeper 验证
-    → 生成 ver.json → 上传 DMG 到 R2 → 更新官网与新旧版本文件
+    → 签名 appcast、生成统一元数据 → 上传并公开校验 DMG
+    → 部署官网 → 发布 appcast 与旧 ver.json → 公开回读校验 → 提交官网、推送标签
 ```
 
 公证 ZIP 只用于上传 Apple；用户下载的是 DMG，它必须用已经装订票据的 `.app` 制作。
@@ -24,7 +25,7 @@ swift run SayKuku
 打包只有两个对外入口。正式发布运行以下命令，得到已公证、装订的 App 和 DMG（前置条件见第 1 节，流程见第 5 节）：
 
 ```bash
-Scripts/release.sh
+Scripts/release.sh --notes /absolute/path/release-notes.txt
 ```
 
 需要测试权限、菜单栏和独立开发版 App 时，只生成开发包：
@@ -36,7 +37,7 @@ open Build/SayKuku.app
 
 开发包的文件路径仍是 `Build/SayKuku.app`，Finder 显示名称为 `SayKuku Dev`。开发版默认使用 `com.saykuku.dev`；正式版固定使用 `com.saykuku.app`，不能混用。日常开发不要覆盖 Bundle ID；给开发构建指定 `com.saykuku.app` 时脚本会直接报错退出。
 
-两条命令都会把本次 App 放在 `Build/SayKuku.app`；正式发布还会在 `Dist/` 留下 `SayKuku-<版本>.dmg`、同版本 dSYM 和 `ver.json`。成功后会清理图标编译目录、临时签名权限文件、DMG 工作目录、公证上传 ZIP 和公证结果 JSON；失败时保留公证结果供排查。`.build/` 是 SwiftPM 编译缓存，不随打包清理。
+两条命令都会把本次 App 放在 `Build/SayKuku.app`；正式发布还会在 `Dist/` 留下 `SayKuku-<版本>.dmg`、同版本 App / Sparkle dSYM，以及 `releases/<版本>/` 内的元数据、appcast 和旧版本文件。成功后会清理图标编译目录、临时签名权限文件、DMG 工作目录、公证上传 ZIP 和公证结果 JSON；失败时保留公证结果供排查。`.build/` 是 SwiftPM 编译缓存，不随打包清理。
 
 ## 1. 一次性准备
 
@@ -120,7 +121,7 @@ git status --short
 - `CFBundleShortVersionString`：用户看到的版本，例如 `1.0.0`。发布者只需要维护这一项。
 - `CFBundleVersion`：构建号，由 `Scripts/package-app.sh` 打包时写入，取值为当前提交的提交数（`git rev-list --count HEAD`）。它随主分支单调递增，同一提交重复打包得到同一个号。仓库里的 `Info.plist` 固定写 `0`，不用手动修改。要在完整（非 shallow）的 Git 仓库里打包，浅克隆会被脚本拒绝。
 
-App 的更新检查只比较 `CFBundleShortVersionString`，不看构建号，所以每次正式发布都必须提高版本号。
+Sparkle 用 `CFBundleVersion` 比较版本；旧客户端仍比较 `CFBundleShortVersionString`。每次正式发布都必须提高显示版本，构建号也必须严格大于线上版本；脚本在构建前检查两者。历史 `ver.json` 没有构建号时，脚本读取已公证的公开旧 DMG 获取实际构建号。
 
 版本号属于源代码。需要变更时应先修改、测试并提交，再生成发布包。提交前检查 `git diff` 和 `git diff --check`，只暂存本次 App 代码、测试、版本号与相关技术文档。官网页面和宣发素材按当次发布要求决定是否提交；即使暂不提交，也要更新并部署实际要交付的页面。
 
@@ -274,89 +275,70 @@ Dock 会缓存图标。换图标后看到的还是旧样子时，执行 `killall
 
 ## 5. 公证、装订与 DMG
 
-完成第 2 节的版本号修改并提交后，在干净的工作区运行：
+完成版本号修改、测试并提交后，在干净的 `main` 工作区运行：
 
 ```bash
-Scripts/release.sh
+Scripts/release.sh --notes /absolute/path/release-notes.txt
 ```
 
-脚本会拒绝任何未提交文件。若官网页面已编辑但本次暂不提交，可在运行脚本前只暂存这些页面的改动，脚本结束后立即恢复；记录并核对原有 stash，避免覆盖其他工作：
+更新说明只输入一次：UTF-8 文本，每行一条，可用 `- ` 开头；会同步到 Sparkle、两个下载页和旧 `ver.json`。两种语言页面共享这份内容，发布时可在同一文件中填写中英双语；HTML 会转义，不能嵌入脚本。
+
+本机需安装并登录 Wrangler 与 Zeabur（`wrangler whoami`、`npx zeabur@latest auth status -i=false`）。沿用已有 R2 bucket `saykuku` 和官网服务，不创建新服务。`~/.config/saykuku/deploy.env` 应为权限 `600` 的本机文件，提供 `CLOUDFLARE_ACCOUNT_ID`、`ZEABUR_PROJECT_ID`、`ZEABUR_SERVICE_ID`，可选 `ZEABUR_ENVIRONMENT_ID`；环境变量优先，不在仓库保存凭据。
+
+Sparkle 固定为 2.10.0，保留完整 framework 和许可证；发布工具按相同版本和官方 SHA-256 下载到 `Build/`。Ed25519 发布私钥保存在登录 Keychain 的 Sparkle 条目中，account 为 `com.saykuku.app`；公钥在 Info.plist。已有钥匙不要重新生成或替换。新机器应从安全备份恢复：
 
 ```bash
-git stash list
-git stash push -m 'site copy for release' -- marketing/site/dist/ marketing/site/README.md
-git status --short
-Scripts/release.sh
-git stash pop
+Build/sparkle-tools-2.10.0/bin/generate_keys --account com.saykuku.app -p
+# 需要恢复时，用 -f 指定密码管理器导出的临时密钥文件，使用后删除临时文件。
 ```
 
-若脚本失败，也先恢复这次暂存的页面，再排查和重跑。新建的未跟踪页面不会被上述 `stash push` 收纳，需单独妥善保存或先完成页面改动。
+发布顺序：
 
-签名身份的选择规则、`SAYKUKU_SIGNING_IDENTITY` 和 `SAYKUKU_KEYCHAIN` 的用法与第 4 节相同。脚本任何一步失败都会立即退出，不重试，也不会等待输入。它按顺序执行：
+1. 检查工作区、分支、显示版本和构建号、签名身份、公证 profile、更新签名公钥与本机私钥是否配对、部署配置和登录状态。
+2. 运行 Swift 测试；备份已有同版本产物；构建通用架构 App 和 dSYM，完整嵌入 Sparkle，所有 helper 由内向外签名并验证架构。
+3. App 签名 → 公证 → staple → Gatekeeper；用装订后的 App 制作 DMG → DMG 签名 → 公证 → staple → Gatekeeper。
+4. 对最终不再修改的 DMG 运行 `generate_appcast --maximum-deltas 0 --maximum-versions 0`，保留历史条目且不生成增量包。生成 `Dist/releases/<版本>/release.json`、`appcast.xml` 与 `ver.json`。
+5. 上传版本化 DMG 到 R2，公开回读大小与 SHA-256。同名文件相同则复用，不同则停止，禁止覆盖已发布版本。
+6. 从同一元数据更新官网版本、链接、实际大小、SHA-256 和更新说明，部署现有 Zeabur 服务；公开校验两种语言下载页和官网 `ver.json`。
+7. 上传 R2 的 `appcast.xml` 和同一份旧 `ver.json`，公开回读校验。官网及清单都只能在 DMG 公开可下载后发布。
+8. 公开校验全部成功后回写本地官网，提交官网变更，为实际构建提交打标签并推送 `main` 与标签；标签已存在时必须指向同一构建提交。
 
-1. 前置检查：`git status --porcelain` 为空、能确定唯一的 Developer ID 签名身份、`v<版本>` 标签尚不存在、`xcrun notarytool history --keychain-profile 'SayKuku-Notary'` 能正常执行、没有已挂载的 `/Volumes/SayKuku`。
-2. 运行 `swift test`。
-3. 若 `Dist/` 已有同版本的公证 ZIP、DMG 或 dSYM，先加时间戳后缀备份。
-4. 调用 `Scripts/package-app.sh release`，生成已签名的 App 和 UUID 已核对的 dSYM。
-5. 把 App 压成公证 ZIP 提交 Apple，然后 `stapler staple`、`stapler validate`，并要求 `spctl` 输出 `source=Notarized Developer ID`。先装订 App，用户从 DMG 拖出来的那份 App 才自带票据，离线首次打开也能通过 Gatekeeper。
-6. 内部调用 `Scripts/make-dmg.sh`：只接受已公证的 App，用同一个 Developer ID 身份制作并签名 DMG，再提交公证、装订、执行 Gatekeeper 和镜像校验。全部成功后才把 DMG 放到 `Dist/` 并输出 SHA-256（见下文“DMG 安装窗口”）。
-7. 生成 `Dist/ver.json`：`version` 为本次版本号，`url` 为 `https://say.anikuku.com/download/`，`notes` 留空供手工填写。
-8. 给构建时的提交打 `v<版本>` 标签。脚本不会推送；完成产物与线上验证后，推送代码提交和标签。
-
-任一次公证状态不是 `Accepted`，脚本都会打印 `notarytool log` 后退出，并保留 `Build/notarization-SayKuku-<版本>-notarization.json`（App）或 `Build/notarization-SayKuku-<版本>.json`（DMG）供排查，里面有 submission `id`。成功后会清理这两个过程文件和提交 Apple 用的 ZIP；一次发布要公证两次，通常共需几分钟到十几分钟。
-
-成功后 `Dist/` 中有：
-
-| 文件 | 用途 |
-| --- | --- |
-| `SayKuku-<版本>.dmg` | 分发给用户的安装包 |
-| `SayKuku-<版本>.dSYM` | 符号化崩溃日志，必须和对应 DMG 一起长期保存 |
-| `ver.json` | 版本号文件，官网发布后同步到官网根目录与旧版读取的 `https://saykuku.ullrai.com/ver.json` |
-
-脚本不修改 `CFBundleShortVersionString`，也不上传任何产物。确认产物无误后按顺序手动发布：
-
-1. 从仅保存在本机的 `~/.config/saykuku/deploy.env` 读取 Cloudflare 账号 ID，把已验证的 DMG 上传到 Cloudflare R2 的 `saykuku` bucket；公开域名是 `saykuku.ullrai.com`：
-
-   ```bash
-   source "$HOME/.config/saykuku/deploy.env"
-   : "${CLOUDFLARE_ACCOUNT_ID:?}"
-   wrangler r2 object put "saykuku/SayKuku-${VERSION}.dmg" \
-     --file "Dist/SayKuku-${VERSION}.dmg" --content-type application/x-apple-diskimage --remote
-   ```
-
-2. 确认公开 DMG 可下载且哈希与本机一致。把官网 `marketing/site/dist/download/` 与 `marketing/site/dist/en/download/` 的版本号、DMG 链接、实际文件大小和 SHA-256 更新为本次版本；同步更新其他显示当前版本的页面。在 `Dist/ver.json` 的 `notes` 中填写更新说明，并将相同内容写入 `marketing/site/dist/ver.json`。用 `python3 -m json.tool` 校验两个 JSON，确认内容一致，再按 `marketing/site/CLAUDE.md` 中的步骤部署 `marketing/site/dist`。
-
-3. 官网 `https://say.anikuku.com/ver.json` 可访问后，把同一份 `ver.json` 上传到 R2 根目录，供 1.0.0 等旧版读取：
-
-   ```bash
-   source "$HOME/.config/saykuku/deploy.env"
-   : "${CLOUDFLARE_ACCOUNT_ID:?}"
-   wrangler r2 object put saykuku/ver.json --file Dist/ver.json \
-     --content-type application/json --cache-control 'no-cache' --remote
-   ```
-
-一定要等 DMG 可以下载且官网版本区可访问后再上传 `ver.json`：已安装的 App 读到更新版本后会打开 `url` 指向的官网。`ver.json` 的格式：
-
-发布结束后，逐项核对两个下载页的版本、链接、大小和哈希，`https://say.anikuku.com/ver.json` 与 `https://saykuku.ullrai.com/ver.json` 的版本与内容，以及公开 DMG 的 SHA-256；再推送发布提交和标签：
+任何一步失败立即停止。上传、公证和部署无需重复执行：保留原产物，修复原因后从干净的 `main` 继续：
 
 ```bash
-git push origin HEAD
-git push origin "v${VERSION}"
+Scripts/release.sh --resume Dist/releases/1.0.10/release.json
 ```
 
-最后检查 `git status --short`，确认留下的只有本次明确不提交的官网或宣发改动，并保留 `Dist/` 中的 DMG、dSYM 和 `ver.json`。
+恢复时重新验证产物哈希、EdDSA、代码签名、票据、公开版本与提交关系；禁止回滚已发布的新版本。已成功上传的相同 DMG 会复用。若 Git 提交或推送失败，先处理其明确报错，再恢复；不要修改签名后的 DMG 或元数据。
 
-```json
-{
-  "version": "1.2.0",
-  "url": "https://say.anikuku.com/download/",
-  "notes": "修复了……"
-}
+只在本机验证、不触碰线上服务时，可从已提交的功能分支准备候选包：
+
+```bash
+Scripts/release.sh --prepare --notes /absolute/path/release-notes.txt
 ```
 
-`version` 与 `url` 必填，`url` 必须是 `https` 地址；`notes` 可选，其他字段忽略。缺少必填字段，或 `version` 不是以 `.` 分隔的纯数字时，App 视为读取失败：自动检查不提示，手动检查提示“无法检查更新”。检查地址写在 `Scripts/Resources/Info.plist` 的 `SayKukuUpdateURL`，换托管地址时只改这个值，并确保旧版本能访问的地址继续可用。
+`--prepare` 完成测试、正式签名、公证、DMG 和更新签名；不部署、上传或打标签。确认候选包后合并源码，再在 `main` 发布；合并引起代码差异时应重新构建，不能拿不对应的提交强行恢复。
 
-上传后，已安装的正式版会在下一次自动检查（启动 10 秒后，之后每 24 小时）时提示新版本，用户也可从 App 菜单或设置 › 关于的“检查更新…”立即检查。
+长期保留 `SayKuku-<版本>.dmg`、App dSYM、Sparkle dSYM 和 `Dist/releases/<版本>/` 元数据。发布说明和哈希不再手工维护多个副本。首次带 Sparkle 的版本，旧客户端仍需从官网下载并手动安装；以后通过 `https://saykuku.ullrai.com/appcast.xml` 更新。旧 `ver.json` 继续在官网根目录和 R2 根目录提供，`url` 指向官网 `/download/`。
+
+### App 更新行为与隔离测试
+
+自动检查、自动下载默认开启；用户已有的显式选择会保留。自动下载完成后，仅在普通退出（菜单“退出”或 ⌘Q）时安装，不自动重新打开；关窗、隐藏和切换应用不算退出。手动“安装并重新打开”先等待录音、模型和文本写入结束。未领取的结果先由用户确认，最终保存失败则取消退出。自动提醒不抢输入焦点；手动检查使用 Sparkle 标准 UI。开发版与 `swift run` 不构造更新器、不访问更新源。
+
+离线验证：
+
+```bash
+swift test
+python3 -m unittest discover -s Scripts/tests
+```
+
+完整安装测试显式开启，使用独立 UUID Bundle ID、临时 Ed25519 密钥、回环 HTTP 更新源、已签名公证的旧/新版测试 App 与 DMG，不读取正式用户数据和权限，也不发布正式更新源：
+
+```bash
+SAYKUKU_UPDATE_INTEGRATION=1 python3 Scripts/tests/test_updater_integration.py
+```
+
+测试日志和票据留在 `Build/updater-*/`。测试退出后删除临时私钥、独立偏好与缓存。测试需要本机 Developer ID、公证 profile 和 Finder 自动化权限；默认测试不会执行这些步骤。它验证真实 Sparkle 替换与正常退出后的下一次手动启动；正式用户的 TCC/Keychain 跨版本延续仍需在真实升级验收中确认，不能用测试包声称已覆盖。
 
 ### DMG 安装窗口
 
@@ -521,6 +503,7 @@ Keychain 只保存 API Key。History、纠正建议与记忆（Knowledge）以 J
 - Developer ID 签名身份：必须连同私钥导出为有强密码保护的 `.p12`，保存到密码管理器或加密离线备份。只备份 CSR 或 `.cer` 无法恢复签名能力。
 - App Store Connect `.p8` 私钥：通常只能下载一次，应放入密码管理器或加密离线备份；不放 Git，也不以明文放进共享网盘。
 - Key ID、Issuer ID、Team ID：不是私钥，但应和 `.p8` 的备份说明一起保存。
+- Sparkle Ed25519 私钥：与 Developer ID 不同；account 为 `com.saykuku.app`。通过 `generate_keys --account com.saykuku.app -x /安全临时目录/key` 导出到权限受限的临时文件，立即存入密码管理器或加密离线备份并删除临时文件；不得进入仓库、构建日志或 R2。迁移机器后先核对 `-p` 输出与 Info.plist 公钥一致。当前本机 Keychain 中已有密钥，异地安全备份需要由持有人落实。
 - `SayKuku-Notary` profile：保存在本机钥匙串中，不需要也不应导出到仓库。
 
 当前项目的签名脚本是 `Scripts/package-app.sh`（签名身份选择在 `Scripts/signing-identity.sh`），发布脚本是 `Scripts/release.sh`，正式权限声明是 `Scripts/Resources/SayKuku.entitlements`。`Build/` 和 `Dist/` 都是本地产物，不是源代码；但已发布版本的 dSYM 需要另行长期备份。

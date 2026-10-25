@@ -1,6 +1,83 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "A result is still waiting" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还有待处理的结果"
+          }
+        }
+      }
+    },
+    "You have a result or action that hasn’t been finished. Quit anyway?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还有尚未处理的结果或操作，仍要退出吗？"
+          }
+        }
+      }
+    },
+    "Finishing your current task before quitting" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当前任务结束后将退出"
+          }
+        }
+      }
+    },
+    "Checks for new versions in the background" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在后台检查新版本"
+          }
+        }
+      }
+    },
+    "Download updates automatically" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自动下载更新"
+          }
+        }
+      }
+    },
+    "Downloads and verifies updates in the background, then installs when you quit. Never interrupts your current task." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "后台下载并校验，退出时自动安装，不会中断当前任务。"
+          }
+        }
+      }
+    },
+    "SayKuku %@ is ready to update" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SayKuku %@ 已准备好，退出时更新"
+          }
+        }
+      }
+    },
     "Automatic" : {
       "extractionState" : "manual",
       "localizations" : {

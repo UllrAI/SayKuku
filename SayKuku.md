@@ -45,7 +45,7 @@ App 图标不放文字，使用珊瑚红圆角底板与暖白 Lucide Bird 线稿
 | 模块 | 状态 | 当前已经完成 | 下一步 |
 | --- | --- | --- | --- |
 | 原生 App 外壳与统一设计系统 | 🟡 部分完成 | SwiftUI 原生窗口、固定侧栏、统一页面宽度；设计 token（颜色、间距、字号、图标、阴影、描边、动效）与共享组件已落在 `Theme.swift` / `DesignSystem.swift` | 逐页替换为新 token 与组件，清零弃用别名 |
-| App 图标与打包 | ✅ 已完成 | Lucide Bird 品牌母形、ICNS 与 macOS 26 分层图标（actool 不可用时回落 ICNS，待 Mac 验收）、菜单栏 template 资源、固定 Bundle ID、开发/正式身份隔离，强制 Developer ID 的 Release 签名脚本，以及更新检查（正式版启动后和每 24 小时读取 `ver.json`，有新版本时弹窗引导下载；App 菜单和设置里的“检查更新…”；发布脚本生成 `Dist/ver.json`） | 每次正式分发按发布文档完成公证、装订、DMG，并上传 `ver.json` |
+| App 图标与打包 | ✅ 已完成 | Lucide Bird 品牌母形、ICNS 与 macOS 26 分层图标（actool 不可用时回落 ICNS，待 Mac 验收）、菜单栏 template 资源、固定 Bundle ID、开发/正式身份隔离，强制 Developer ID 的 Release 签名脚本，以及Sparkle 2 自动检查、后台下载和退出时安装，以及 R2 / 官网 / 更新源的统一自动发布 | 按发布文档运行单入口脚本，保留签名材料安全备份 |
 | 菜单栏常驻入口 | ✅ 已完成 | 18 × 18 pt template 画布内放置约 15 × 13.5 pt Lucide Bird，使用原生 template 渲染自动适配明暗与按下态；包含 Voice Input、Voice Agent、显示主窗口、设置、状态与退出菜单；可选在关闭主窗口后隐藏 Dock 图标，从菜单栏重开时恢复 | 后续增加连接延迟与录音态图标 |
 | 全局快捷键 | ✅ 已完成 | 默认 `⌃⌘V` Voice Input、`⌃⌘A` Voice Agent，可在设置中录制或关闭；语音输入若设为单按修饰键，语音 Agent 可选连按两次同一个键或另录快捷键。组合键拒绝所有只含 ⌘ 或 ⇧⌘ 的组合（留给各个 App 的菜单快捷键），以及 ⌥⌘D、⌃⌘Q、⌃Space 等 macOS 系统组合。组合键通过 Carbon 注册且不需要隐私权限，注册失败时提示冲突；单修饰键依赖辅助功能权限 | — |
 | Fn Gesture Router | 🟡 部分完成 | Hold Fn、Tap Fn、Double Fn、录音或处理中 Esc 取消、组合键取消、录音时长上限、录音开始与结束提示音、睡眠唤醒后重建监听、检测系统“按下 fn 键时”设置并按需提示、全局快捷键 fallback；复用写回所需的辅助功能权限，不申请输入监控 | 不检测 Fn 与其他 App 的冲突；增加真实设备与外接键盘回归测试 |
@@ -1178,7 +1178,7 @@ General | Shortcuts | Audio | Voice Input | Voice Agent | Memory | History | Pri
 
 界面语言保存在本 App 的 `AppleLanguages` 里：简体中文写 `["zh-Hans"]`，English 写 `["en"]`，跟随系统时删除该键。macOS 在启动时据此统一决定 App 文案、系统菜单、对话框和日期格式的语言，所以切换后会提示“重新打开 SayKuku 后生效”，可选“现在重新打开”或“稍后”。文案集中在 `Sources/SayKuku/Resources/Localizable.xcstrings`，以英文为源语言，提供简体中文翻译，数量相关的文案用复数变体。目录不含繁体中文：macOS 不会把 zh-Hant 回落到 zh-Hans，繁体中文系统会显示英文界面；以后补上 zh-Hant 翻译即可支持。发给模型的 Prompt 不做本地化。
 
-软件更新只比较版本号，不在 App 内下载或安装。正式版启动 10 秒后读取一次 `Info.plist` 中 `SayKukuUpdateURL` 指向的 `https://saykuku.ullrai.com/ver.json`，之后运行期间每 24 小时读取一次；请求使用无缓存、无 Cookie 的 GET，10 秒超时。远端 `version` 比本机 `CFBundleShortVersionString` 新时弹窗（按 `.` 分段逐段比较，缺少的段按 0，不比构建号），可选“前往下载”（打开 `url` 指向的 GitHub Release 页面）、“跳过此版本”（自动检查不再为这个版本弹窗，手动检查仍会弹）或“稍后”（本次运行内不再为它弹窗）。自动检查没有新版本、读取失败或超时时什么都不提示；手动检查会弹窗告知“已是最新版本”或“无法检查更新”（设置窗口没有 Toast，所以用弹窗）。更新弹窗常在 App 处于后台时出现，会浮在其他窗口之上，避免被系统隐藏后卡在模态状态。“自动检查更新”保存在 UserDefaults `updates.automaticChecks`（默认开启），跳过的版本保存在 `updates.skippedVersion`。开发版和 `swift run` 不检查更新。
+软件更新使用固定版本 Sparkle 2.10.0 与完整 DMG。自动检查、后台下载默认开启，首次迁移保留旧自动检查的显式选择，后续由 Sparkle 管理偏好、跳过和稍后；清除不能映射到构建号的旧跳过记录。自动提醒不抢输入焦点，手动检查使用标准界面。下载验证完成后在普通退出时安装，不自动重启；关窗或隐藏不安装。手动安装重启和普通退出均先等待录音、转写、整理、Agent 与文本写入完成；最终退出前暂停新任务，未领取结果由用户确认，保存失败取消退出。设置 › 关于可独立控制自动检查、自动下载；App 菜单与菜单栏均可手动检查。开发版和 `swift run` 不构造更新器。Sparkle 用构建号比较版本，发布同时提高显示版本兼容旧客户端；旧 `ver.json` 继续提供。完整发布与隔离测试见 [本地打包与发布](docs/LOCAL_PACKAGING.md)。
 
 首次启动先展示轻量领域 Onboarding，再进入系统权限引导（权限齐全时跳过），最后引导连接 Qwen：按三步说明（打开对应地域的百炼控制台、创建并粘贴 API Key、可选复制以 `llm-` 开头的业务空间 ID）完成填写；“测试连接”是可选的次按钮，连接成功后隐藏；主按钮响应 Return，未填 API Key 时显示为“跳过”；填好的内容在关闭弹窗时即生效，不会丢失；已保存 API Key 时跳过这一步。三个步骤的弹窗尺寸、页头和底栏一致：进行中的步骤主按钮为“继续”，最后一步为“完成”，未完成时可“跳过”；权限在从系统设置返回时自动刷新，全部开启前“继续”不可用。用户可以多选 AI / Vibe Coding、软件开发、产品设计、市场增长等常用领域，选择会持久化为识别上下文，并以“仅用于词汇消歧、不得补写未说内容”的参考数据加入 Voice Input 与 Voice Agent Prompt；以后可在 Memory 设置中重新编辑。同一页也可以手动添加产品名、项目名或技术词，点“继续”或“保存”时逐个作为术语存进记忆（已有同名条目时就地提示），以后在“记忆”页补别名。旧版本存在 UserDefaults `dictation.customDomainTerms` 中的自定义词，会在本地数据加载后一次性迁入记忆（重复的跳过），随后删除该键。
 
@@ -1615,7 +1615,7 @@ Updater
 对应单元测试
 ```
 
-其中 Updater 不移植：正式版只读取 `ver.json` 比较版本号，有新版本时弹窗引导到 GitHub Release 下载，App 菜单和设置 › 关于有“检查更新…”；不做 App 内安装、delta 包和多通道。行为见第 15 节 About，发布步骤见 [本地打包与发布](docs/LOCAL_PACKAGING.md)。
+Updater 使用 Sparkle 2，负责正式版的完整 DMG 校验与安装；不做增量包和多通道。行为见第 15 节 About，发布步骤见 [本地打包与发布](docs/LOCAL_PACKAGING.md)。
 
 Pindrop 是 MIT License，而且目前工程结构已经把 Services、Transcription、Models、UI 等模块拆得比较清楚，所以适合当工程参考。
 
@@ -1750,7 +1750,7 @@ Accessibility 写回，加上 Carbon 普通快捷键与 AppKit Fn event monitor�
 
 ## 22. 依赖策略与当前实现
 
-当前 `Package.swift` 没有第三方依赖。选中文字、写回、上下文采集、全局快捷键、Fn 手势和更新检查均由仓库内实现完成：
+当前 `Package.swift` 仅引入 Sparkle 2.10.0（MIT，随包附带完整许可）负责更新。选中文字、写回、上下文采集、全局快捷键和 Fn 手势由仓库内实现完成：
 
 ```text
 Apple frameworks
@@ -1767,7 +1767,7 @@ SayKuku code
 ├── AudioCapture
 ├── QwenRealtimeClient / QwenReasoningClient
 ├── LocalStore / KeychainStore
-└── UpdateChecker                  // 仅正式版启动
+└── SoftwareUpdater / AppTermination // 仅正式版启动 Sparkle；安全退出复用到所有构建
 ```
 
 下面的库仅是未来需求变化时的候选，不是当前依赖，也没有代码被复制进本仓库。

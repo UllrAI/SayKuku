@@ -1,9 +1,8 @@
 #!/bin/zsh
 set -euo pipefail
 
-# Build, notarize and staple the App, wrap it in a drag-to-install DMG, then
-# sign, notarize and staple the DMG and write ver.json. Fails fast on the first
-# error; nothing is retried and nothing prompts. See docs/LOCAL_PACKAGING.md.
+# Build and verify a release, then publish the package, website and feeds.
+# --resume reuses a verified archive after a publication failure; --prepare stays local.
 
 ROOT_DIR="${0:A:h:h}"
 NOTARY_PROFILE="SayKuku-Notary"
@@ -17,17 +16,41 @@ fail() {
 }
 source "$ROOT_DIR/Scripts/notarization.sh"
 
+source "$ROOT_DIR/Scripts/sparkle-tools.sh"
+SPARKLE_TOOLS="$(resolve_sparkle_tools "$ROOT_DIR")"
+MODE=publish
+NOTES_FILE=""
+RESUME_FILE=""
+while (( $# )); do
+    case "$1" in
+        --prepare) MODE=prepare; shift ;;
+        --notes) NOTES_FILE="${2:?Supply release notes}"; shift 2 ;;
+        --resume) RESUME_FILE="${2:?Supply Dist/releases/VERSION/release.json}"; shift 2 ;;
+        *) fail "Usage: Scripts/release.sh [--prepare] --notes FILE | --resume RELEASE_JSON" ;;
+    esac
+done
+[[ -z "$RESUME_FILE" || ( "$MODE" == publish && -z "$NOTES_FILE" ) ]] || fail "--resume cannot be combined with --prepare or --notes"
+
 cd "$ROOT_DIR"
 
 # 1. Preflight: everything that can be checked before spending time on a build.
 if [[ -n "$(git status --porcelain)" ]]; then
     fail "Working tree must be clean before a release; commit or remove local changes first"
 fi
+if [[ "$MODE" == "publish" && "$(git branch --show-current)" != main ]]; then
+    fail "Publish from main; --prepare can build a local candidate on another committed branch"
+fi
+if [[ -n "$RESUME_FILE" ]]; then
+    python3 "$ROOT_DIR/Scripts/release.py" publish "$RESUME_FILE" --tools "$SPARKLE_TOOLS"
+    exit
+fi
+[[ -f "$NOTES_FILE" ]] || fail "Provide --notes FILE with this release's changes"
 # Resolve once and hand the result to package-app.sh so both use the same identity.
 source "$ROOT_DIR/Scripts/signing-identity.sh"
 SAYKUKU_SIGNING_IDENTITY="$(resolve_signing_identity release)"
 export SAYKUKU_SIGNING_IDENTITY
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$ROOT_DIR/Scripts/Resources/Info.plist")"
+[[ ! -f "$DIST_DIR/releases/$VERSION/release.json" ]] || fail "Prepared release exists; use --resume or preserve it before rebuilding"
 TAG="v${VERSION}"
 COMMIT="$(git rev-parse HEAD)"
 if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
@@ -41,15 +64,22 @@ if [[ -e /Volumes/SayKuku ]]; then
     fail "/Volumes/SayKuku is mounted; eject it before releasing"
 fi
 
+PUBLIC_KEY="$("$SPARKLE_TOOLS/generate_keys" --account com.saykuku.app -p)"
+EXPECTED_KEY="$(/usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' "$ROOT_DIR/Scripts/Resources/Info.plist")"
+[[ "$PUBLIC_KEY" == "$EXPECTED_KEY" ]] || fail "Sparkle signing key does not match the App public key"
+if [[ "$MODE" == "publish" ]]; then
+    python3 "$ROOT_DIR/Scripts/release.py" preflight "$VERSION" "$(git rev-list --count HEAD)"
+fi
 swift test
 
 # Keep earlier artifacts of the same version instead of overwriting them.
 NOTARY_ARCHIVE="$DIST_DIR/SayKuku-${VERSION}-notarization.zip"
 DMG="$DIST_DIR/SayKuku-${VERSION}.dmg"
 DSYM_DIR="$DIST_DIR/SayKuku-${VERSION}.dSYM"
+SPARKLE_DSYM_DIR="$DIST_DIR/SayKuku-${VERSION}-Sparkle.dSYMs"
 mkdir -p "$DIST_DIR"
 BACKUP_SUFFIX="$(date +%Y%m%d-%H%M%S)"
-for ARTIFACT in "$NOTARY_ARCHIVE" "$DMG" "$DSYM_DIR"; do
+for ARTIFACT in "$NOTARY_ARCHIVE" "$DMG" "$DSYM_DIR" "$SPARKLE_DSYM_DIR"; do
     if [[ -e "$ARTIFACT" ]]; then
         mv "$ARTIFACT" "${ARTIFACT:r}-backup-${BACKUP_SUFFIX}.${ARTIFACT:e}"
     fi
@@ -78,25 +108,14 @@ SHA256="$(shasum -a 256 "$DMG" | cut -d ' ' -f 1)"
 # a failed release. Keep the stapled App, DMG and matching dSYM.
 rm "$NOTARY_ARCHIVE" "$ROOT_DIR/Build/notarization-${NOTARY_ARCHIVE:t:r}.json"
 
-# 5. The version file installed apps read. Fill in notes by hand before uploading.
-cat >"$VERSION_FEED" <<JSON
-{
-  "version": "$VERSION",
-  "url": "https://say.anikuku.com/download/",
-  "notes": ""
-}
-JSON
-
-# 6. Tag the commit that was built. Pushing stays a manual decision.
-git tag "$TAG" "$COMMIT"
-
-print -u2 ""
-print -u2 "Released SayKuku $VERSION ($TAG -> ${COMMIT[1,12]})"
-print -u2 "  Build:   $BUILD_NUMBER"
-print -u2 "  DMG:     $DMG"
-print -u2 "  SHA-256: $SHA256"
-print -u2 "  dSYM:    $DSYM_DIR"
-print -u2 "  Feed:    $VERSION_FEED"
-print -u2 "Publish with: upload $DMG to the saykuku R2 bucket, then deploy marketing/site/dist"
-print -u2 "Publish $VERSION_FEED at https://say.anikuku.com/ver.json and mirror it to https://saykuku.ullrai.com/ver.json for older clients"
+# 5. Sign only the final stapled DMG. One metadata file drives every public surface.
+python3 "$ROOT_DIR/Scripts/release.py" prepare --dmg "$DMG" --app "$APP_DIR" \
+    --notes "$NOTES_FILE" --tools "$SPARKLE_TOOLS" --commit "$COMMIT"
+RELEASE_METADATA="$DIST_DIR/releases/$VERSION/release.json"
+if [[ "$MODE" == "publish" ]]; then
+    python3 "$ROOT_DIR/Scripts/release.py" publish "$RELEASE_METADATA" --tools "$SPARKLE_TOOLS"
+else
+    print -u2 "Prepared and verified release: $RELEASE_METADATA"
+    print -u2 "After review, publish from main with Scripts/release.sh --resume $RELEASE_METADATA"
+fi
 print "$DMG"
