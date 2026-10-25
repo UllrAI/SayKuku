@@ -48,6 +48,10 @@ struct DictationAppFormatTests {
         defer { environment.clean() }
         let settings = environment.makeState().settings
         #expect(settings.dictationCleanup == .refined)
+        #expect(settings.refineLongAudioOnly)
+        settings.refineLongAudioOnly = false
+        #expect(!environment.makeState().settings.refineLongAudioOnly)
+        settings.refineLongAudioOnly = true
         for cleanup in DictationCleanup.allCases {
             settings.dictationCleanup = cleanup
             settings.saveDictationAppFormat(.init(bundleID: "app", cleanup: cleanup))

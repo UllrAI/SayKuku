@@ -195,4 +195,17 @@ struct DictationRefinementTests {
         #expect(client.refineCancelled)
     }
 
+    @Test("the second pass is limited to two-pass cleanup and, when asked, to long recordings")
+    func longAudioGate() {
+        let minimum = DictationRefinement.longAudioMinimumSeconds
+        #expect(minimum == 30)
+        for cleanup in DictationCleanup.allCases {
+            #expect(!DictationRefinement.usesSecondPass(cleanup: cleanup, durationSeconds: minimum, longAudioOnly: false) || cleanup == .refined)
+            #expect(DictationRefinement.usesSecondPass(cleanup: cleanup, durationSeconds: 1, longAudioOnly: false) == (cleanup == .refined))
+        }
+        #expect(!DictationRefinement.usesSecondPass(cleanup: .refined, durationSeconds: minimum - 0.1, longAudioOnly: true))
+        #expect(DictationRefinement.usesSecondPass(cleanup: .refined, durationSeconds: minimum, longAudioOnly: true))
+        #expect(!DictationRefinement.usesSecondPass(cleanup: .light, durationSeconds: minimum, longAudioOnly: true))
+    }
+
 }

@@ -22,6 +22,10 @@ final class AppSettings {
     var dictationCleanup: DictationCleanup = .refined {
         didSet { defaults.set(dictationCleanup.rawValue, forKey: Keys.dictationCleanup) }
     }
+    /// When on, two-pass cleanup sends the second pass only for recordings of at least 30 seconds.
+    var refineLongAudioOnly = true {
+        didSet { defaults.set(refineLongAudioOnly, forKey: Keys.refineLongAudioOnly) }
+    }
     var keepEndingPunctuation = true {
         didSet { defaults.set(keepEndingPunctuation, forKey: Keys.keepEndingPunctuation) }
     }
@@ -244,6 +248,7 @@ final class AppSettings {
            let value = DictationNumberFormat(rawValue: raw) { dictationNumberFormat = value }
         if let raw = defaults.string(forKey: Keys.dictationCleanup),
            let value = DictationCleanup(rawValue: raw) { dictationCleanup = value }
+        refineLongAudioOnly = storedBool(Keys.refineLongAudioOnly, default: true)
         selectedDomains = Set((defaults.stringArray(forKey: Keys.selectedDomains) ?? []).compactMap(DomainPreset.init(rawValue:)))
         didCompleteOnboarding = defaults.bool(forKey: Keys.didCompleteOnboarding)
         if let raw = defaults.string(forKey: Keys.historyRetention), let value = HistoryRetention(rawValue: raw) { historyRetention = value }
@@ -302,6 +307,7 @@ final class AppSettings {
         static let overlayPlacement = "overlay.placement"
         static let recognitionLanguage = "dictation.recognitionLanguage", dictationNumberFormat = "dictation.numberFormat"
         static let dictationCleanup = "dictation.cleanup", soundCues = "voice.soundCues"
+        static let refineLongAudioOnly = "dictation.refineLongAudioOnly"
         static let keepEndingPunctuation = "dictation.keepEndingPunctuation", matchAppTone = "dictation.matchAppTone"
         static let dictationAppFormats = "dictation.appFormats", cursorContext = "dictation.cursorContext"
         static let legacyRefineDictation = "dictation.refine"

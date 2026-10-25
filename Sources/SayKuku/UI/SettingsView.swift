@@ -108,6 +108,15 @@ private struct VoiceInputSettings: View {
                     .padding(.bottom, KukuSpacing.md)
                 KukuDivider()
                 KukuToggleRow(
+                    title: localized("Second pass for long audio only"),
+                    caption: localized(
+                        "Recordings shorter than 30 seconds keep the first pass. A recording of 30 seconds or longer gets another cleanup pass."
+                    ),
+                    isOn: $settings.refineLongAudioOnly
+                )
+                .disabled(appState.settings.dictationCleanup != .refined)
+                KukuDivider()
+                KukuToggleRow(
                     title: localized("Keep ending punctuation"),
                     caption: localized("When off, Voice Input removes a final period, question mark, or exclamation mark."),
                     isOn: $settings.keepEndingPunctuation

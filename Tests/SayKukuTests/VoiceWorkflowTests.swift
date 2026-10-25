@@ -800,6 +800,7 @@ struct VoiceWorkflowTests {
             let state = try makeState(environment, .fake(realtime: realtime, reasoning: reasoning, text: text))
             if path != "batch" { state.settings.qwenWorkspaceID = "llm-test" }
             state.settings.keepEndingPunctuation = false
+            state.settings.refineLongAudioOnly = false
             #expect(state.settings.dictationCleanup == .refined)
 
             try await startListening(state)
@@ -811,6 +812,31 @@ struct VoiceWorkflowTests {
             #expect(reasoning.refineCount == 1, "\(path)")
             #expect(reasoning.refinementMessages.first?.contains("\n\(firstPass)\n") == true, "\(path)")
             #expect(reasoning.refinementInstructions.first?.contains("Final punctuation setting") == true, "\(path)")
+        }
+    }
+
+    @Test("two-pass cleanup sends the second pass only when the recording lasts at least 30 seconds")
+    func longRecordingSecondPass() async throws {
+        let firstPass = "我们下周去上，上海出差。"
+        let refinedText = "我们下周去上海出差。"
+        for (seconds, sendsSecondPass) in [(1.0, false), (30.0, true)] {
+            let environment = AppStateTestEnvironment()
+            defer { environment.clean() }
+            let audio = FakeAudioCapturing(
+                recording: AudioCapture.Recording(wav: Data(count: 64), duration: seconds, hasSpeech: true)
+            )
+            let reasoning = FakeReasoning(transcriptions: [.text(firstPass)], refinements: [.text(refinedText)])
+            let text = FakeTextWriting()
+            let state = try makeState(environment, .fake(audio: audio, reasoning: reasoning, text: text))
+            #expect(state.settings.refineLongAudioOnly)
+            #expect(state.settings.dictationCleanup == .refined)
+
+            try await startListening(state)
+            state.workflow.finishDictation()
+            #expect(await eventually { state.workflow.dictationPhase == .success }, "\(seconds)")
+            #expect(reasoning.refineCount == (sendsSecondPass ? 1 : 0), "\(seconds)")
+            let expected = sendsSecondPass ? refinedText : try SpeechDisfluencyCleaner.dictation(firstPass, mode: .light)
+            #expect(text.writes == [expected], "\(seconds)")
         }
     }
 
@@ -826,6 +852,7 @@ struct VoiceWorkflowTests {
                 let text = FakeTextWriting()
                 let state = try makeState(environment, .fake(realtime: realtime, reasoning: reasoning, text: text))
                 if path != "batch" { state.settings.qwenWorkspaceID = "llm-test" }
+                state.settings.refineLongAudioOnly = false
                 state.settings.dictationCleanup = cleanup == .refined ? .verbatim : .refined
                 state.settings.saveDictationAppFormat(.init(bundleID: "com.example.editor", cleanup: cleanup))
                 try await startListening(state)
@@ -904,6 +931,7 @@ struct VoiceWorkflowTests {
             let reasoning = FakeReasoning(transcriptions: [.text("这个改动 looks good to me。")], refinements: [reply])
             let text = FakeTextWriting()
             let state = try makeState(environment, .fake(reasoning: reasoning, text: text))
+            state.settings.refineLongAudioOnly = false
 
             try await startListening(state)
             state.workflow.finishDictation()
@@ -920,6 +948,7 @@ struct VoiceWorkflowTests {
         let reasoning = FakeReasoning(refinements: [.lateText("Hello world.")])
         let text = FakeTextWriting()
         let state = try makeState(environment, .fake(reasoning: reasoning, text: text))
+        state.settings.refineLongAudioOnly = false
 
         try await startListening(state)
         state.workflow.finishDictation()
@@ -947,6 +976,7 @@ struct VoiceWorkflowTests {
                 refinements: [.text("我们下周去上海出差。")]
             )
             let state = try makeState(environment, .fake(audio: audio, reasoning: reasoning))
+            state.settings.refineLongAudioOnly = false
             state.settings.dictationCleanup = cleanup
             state.settings.saveDictationAppFormat(.init(bundleID: "com.example.editor", cleanup: .refined))
             try await startListening(state)
@@ -976,6 +1006,7 @@ struct WorkflowTimingTests {
         let realtime = FakeRealtime(transcript: "Hello world")
         let state = try makeState(environment, .fake(realtime: realtime))
         state.settings.qwenWorkspaceID = "llm-test"
+        state.settings.refineLongAudioOnly = false
         try await startListening(state)
         state.workflow.finishDictation(reason: .autoStop)
         let timing = try #require(await timing(of: state))
@@ -996,6 +1027,7 @@ struct WorkflowTimingTests {
         defer { environment.clean() }
         let reasoning = FakeReasoning(transcriptions: [.text("Hello world")], refinements: [.failure(.timeout)])
         let state = try makeState(environment, .fake(reasoning: reasoning))
+        state.settings.refineLongAudioOnly = false
         try await startListening(state)
         state.workflow.finishDictation()
         let batch = try #require(await timing(of: state))

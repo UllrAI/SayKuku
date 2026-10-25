@@ -10,6 +10,16 @@ enum DictationRefinement {
     /// Bounds the whole pass, including any retry the request makes in that time; cancelling at the deadline
     /// cancels the request. A slower reply would hold up insertion for too little gain.
     static let timeout: Duration = .seconds(2)
+    /// With the long-audio setting, a shorter recording keeps the first pass and never calls this model.
+    static let longAudioMinimumSeconds = 30.0
+
+    /// The second pass runs only for two-pass cleanup. The long-audio setting further requires the
+    /// recording to last at least `longAudioMinimumSeconds`.
+    static func usesSecondPass(cleanup: DictationCleanup, durationSeconds: Double, longAudioOnly: Bool) -> Bool {
+        guard cleanup == .refined else { return false }
+        guard longAudioOnly else { return true }
+        return durationSeconds >= longAudioMinimumSeconds
+    }
     /// Non-whitespace characters of the reply over those of the first pass. Real self-repairs shrank short
     /// sentences to 0.44–0.47 in the evals and no faithful reply grew; translations grew to 3.4.
     static let lengthRatios: ClosedRange<Double> = 0.4...1.5

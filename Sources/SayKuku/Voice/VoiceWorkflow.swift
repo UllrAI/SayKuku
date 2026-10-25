@@ -459,7 +459,8 @@ final class VoiceWorkflow {
             // no app, so no tone and no expression preference.
             let cleaned = try await refined(
                 SpeechDisfluencyCleaner.dictation(result, mode: settings.dictationCleanup),
-                format: settings.dictationFormat(for: nil), targetApp: nil
+                format: settings.dictationFormat(for: nil), durationSeconds: entry.durationSeconds,
+                targetApp: nil
             )
             let output = settings.keepEndingPunctuation
                 ? cleaned : SpeechDisfluencyCleaner.withoutEndingPunctuation(cleaned)
@@ -790,7 +791,10 @@ final class VoiceWorkflow {
             try Task.checkCancellation()
             guard generation == workflowGeneration else { throw CancellationError() }
             // Realtime, its batch fallback, and batch-only dictation all arrive here; the pill stays on processing.
-            let transcript = try await refined(firstPass, format: format, targetApp: targetApp, trace: trace)
+            let transcript = try await refined(
+                firstPass, format: format, durationSeconds: recording.duration,
+                targetApp: targetApp, trace: trace
+            )
             try Task.checkCancellation()
             guard generation == workflowGeneration else { throw CancellationError() }
             guard !transcript.isEmpty else { throw QwenError.invalidResponse }
@@ -956,10 +960,13 @@ final class VoiceWorkflow {
     /// failed refinement, which keeps `text`; throws `CancellationError` when the workflow is cancelled,
     /// which cancels the request.
     private func refined(
-        _ text: String, format: EffectiveDictationFormat, targetApp: String?, trace: WorkflowTrace? = nil
+        _ text: String, format: EffectiveDictationFormat, durationSeconds: Double,
+        targetApp: String?, trace: WorkflowTrace? = nil
     ) async throws -> String {
-        guard format.cleanup == .refined,
-              !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return text }
+        guard DictationRefinement.usesSecondPass(
+            cleanup: format.cleanup, durationSeconds: durationSeconds,
+            longAudioOnly: settings.refineLongAudioOnly
+        ), !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return text }
         let refinement = DictationRefinement.Settings(
             numberFormat: format.numberFormat,
             targetApp: targetApp,

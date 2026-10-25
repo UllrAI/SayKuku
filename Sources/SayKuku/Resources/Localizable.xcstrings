@@ -4715,6 +4715,17 @@
         }
       }
     },
+    "Recordings shorter than 30 seconds keep the first pass. A recording of 30 seconds or longer gets another cleanup pass." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "短于 30 秒的录音只用第一段。满 30 秒才再整理一次。"
+          }
+        }
+      }
+    },
     "Refinement" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5273,6 +5284,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "网页搜索"
+          }
+        }
+      }
+    },
+    "Second pass for long audio only" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "仅长音频二次整理"
           }
         }
       }
