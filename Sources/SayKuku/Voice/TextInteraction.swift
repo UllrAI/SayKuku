@@ -232,16 +232,22 @@ final class TextInteraction: TextWriting {
 
     @discardableResult
     func write(_ text: String, to snapshot: TextTargetSnapshot) async throws -> TextWriteOutcome {
+        let trace = TextWriteTrace(bundleID: snapshot.bundleID)
+        var result: TextWriteOutcome?
+        defer { trace.finish(result) }
         try Task.checkCancellation()
-        if let element = try validate(snapshot),
-           let outcome = try await insertWithAccessibility(text, into: element, snapshot: snapshot) {
+        let element = try trace.measure(.validateTarget) { try validate(snapshot) }
+        if let element,
+           let outcome = try await insertWithAccessibility(text, into: element, snapshot: snapshot, trace: trace) {
+            result = outcome
             logWrite(to: snapshot, route: "accessibility", result: String(describing: outcome))
             return outcome
         }
 
         try Task.checkCancellation()
         do {
-            let outcome = try await paste(text, to: snapshot)
+            let outcome = try await paste(text, to: snapshot, trace: trace)
+            result = outcome
             logWrite(to: snapshot, route: "paste", result: String(describing: outcome))
             return outcome
         } catch {
@@ -252,27 +258,30 @@ final class TextInteraction: TextWriting {
 
     /// Returns nil when the field can't take an Accessibility write or visibly ignored it, so the caller pastes.
     private func insertWithAccessibility(
-        _ text: String, into element: AXUIElement, snapshot: TextTargetSnapshot
+        _ text: String, into element: AXUIElement, snapshot: TextTargetSnapshot, trace: TextWriteTrace
     ) async throws -> TextWriteOutcome? {
         var settable = DarwinBoolean(false)
         // A selection exposed by the focused container may not belong to this text field.
         guard snapshot.selectionElement == nil,
               let expectedValue = Self.expectedValue(afterWriting: text, to: snapshot),
-              AXUIElementIsAttributeSettable(element, kAXSelectedTextAttribute as CFString, &settable) == .success,
+              trace.measure(.axWritable, { AXUIElementIsAttributeSettable(element, kAXSelectedTextAttribute as CFString, &settable) }) == .success,
               settable.boolValue else { return nil }
         try Task.checkCancellation()
-        guard AXUIElementSetAttributeValue(element, kAXSelectedTextAttribute as CFString, text as CFTypeRef) == .success else {
+        guard trace.measure(.axSet, { AXUIElementSetAttributeValue(element, kAXSelectedTextAttribute as CFString, text as CFTypeRef) }) == .success else {
             return nil
         }
+        trace.mark(.axAccepted)
 
         // The text may already be in, so a cancel must not cut verification short (see `paste`).
         return try await Task<TextWriteOutcome?, Error> {
-            if try await waitForExpectedValue(expectedValue, in: element, snapshot: snapshot) { return .verified }
-            let ignored = Self.insertionWasIgnored(
-                caret: selectedRange(of: element),
-                value: currentValue(in: snapshot),
-                snapshot: snapshot
-            )
+            if try await trace.measure(.axVerify, {
+                try await waitForExpectedValue(expectedValue, in: element, snapshot: snapshot, trace: trace, route: .accessibility)
+            }) { return .verified }
+            let ignored = trace.measure(.axFallbackCheck) {
+                Self.insertionWasIgnored(
+                    caret: selectedRange(of: element), value: currentValue(in: snapshot), snapshot: snapshot
+                )
+            }
             return ignored ? nil : .deliveredUnverified
         }.value
     }
@@ -433,28 +442,33 @@ final class TextInteraction: TextWriting {
         return snapshot
     }
 
-    private func paste(_ text: String, to snapshot: TextTargetSnapshot) async throws -> TextWriteOutcome {
-        let element = try validate(snapshot)
+    private func paste(_ text: String, to snapshot: TextTargetSnapshot, trace: TextWriteTrace) async throws -> TextWriteOutcome {
+        let element = try trace.measure(.pasteValidate) { try validate(snapshot) }
         let pasteboard = NSPasteboard.general
-        let previous = Self.snapshot(of: pasteboard)
+        let previous = trace.measure(.clipboardBackup) { Self.snapshot(of: pasteboard) }
+        trace.clipboardItems = previous.count
+        trace.clipboardBytes = previous.reduce(0) { $0 + $1.values.reduce(0) { $0 + $1.count } }
         let sessionID = UUID().uuidString
-        pasteboard.clearContents()
-        let item = NSPasteboardItem()
-        item.setString(text, forType: .string)
-        item.setString(sessionID, forType: Self.pasteSessionType)
-        // Tell clipboard history tools this short-lived, app-generated content is not worth keeping.
-        item.setData(Data(), forType: PasteboardPolicy.transientType)
-        item.setData(Data(), forType: PasteboardPolicy.autoGeneratedType)
-        guard pasteboard.writeObjects([item]), pasteboard.string(forType: .string) == text else {
-            throw TextInteractionError.writeFailed
+        try trace.measure(.clipboardPrepare) {
+            pasteboard.clearContents()
+            let item = NSPasteboardItem()
+            item.setString(text, forType: .string)
+            item.setString(sessionID, forType: Self.pasteSessionType)
+            // Tell clipboard history tools this short-lived, app-generated content is not worth keeping.
+            item.setData(Data(), forType: PasteboardPolicy.transientType)
+            item.setData(Data(), forType: PasteboardPolicy.autoGeneratedType)
+            guard pasteboard.writeObjects([item]), pasteboard.string(forType: .string) == text else {
+                throw TextInteractionError.writeFailed
+            }
         }
 
         do {
-            try await Task.sleep(for: .milliseconds(80))
-            _ = try validate(snapshot)
-            try postPasteCommand()
+            try await trace.measure(.pasteDelay) { try await Task.sleep(for: .milliseconds(80)) }
+            _ = try trace.measure(.pasteRevalidate) { try validate(snapshot) }
+            try trace.measure(.postPaste) { try postPasteCommand() }
+            trace.mark(.pastePosted)
         } catch {
-            restore(previous, ifOwnedBy: sessionID, on: pasteboard)
+            trace.measure(.clipboardRestore) { restore(previous, ifOwnedBy: sessionID, on: pasteboard) }
             throw error
         }
 
@@ -464,17 +478,19 @@ final class TextInteraction: TextWriting {
         return try await Task<TextWriteOutcome, Error> {
             let expectedValue = Self.expectedValue(afterWriting: text, to: snapshot)
             if let element, let expectedValue,
-               try await waitForExpectedValue(expectedValue, in: element, snapshot: snapshot) {
-                try? await Task.sleep(for: .milliseconds(180))
-                restore(previous, ifOwnedBy: sessionID, on: pasteboard)
+               try await trace.measure(.pasteVerify, {
+                   try await waitForExpectedValue(expectedValue, in: element, snapshot: snapshot, trace: trace, route: .paste)
+               }) {
+                try? await trace.measure(.clipboardRestoreDelay) { try await Task.sleep(for: .milliseconds(180)) }
+                trace.measure(.clipboardRestore) { restore(previous, ifOwnedBy: sessionID, on: pasteboard) }
                 return .verified
             }
 
             if expectedValue != nil,
-               let current = currentValue(in: snapshot),
+               let current = trace.measure(.pasteFallbackCheck, { currentValue(in: snapshot) }),
                current == snapshot.valueBefore {
                 Log.text.error("Synthetic paste posted but readable target text did not change")
-                restore(previous, ifOwnedBy: sessionID, on: pasteboard)
+                trace.measure(.clipboardRestore) { restore(previous, ifOwnedBy: sessionID, on: pasteboard) }
                 throw TextInteractionError.writeFailed
             }
 
@@ -483,8 +499,8 @@ final class TextInteraction: TextWriting {
                 Log.text.notice("Text pasted without an exposed text field; kept on the clipboard")
                 return .deliveredUnverified
             }
-            try? await Task.sleep(for: .milliseconds(350))
-            restore(previous, ifOwnedBy: sessionID, on: pasteboard)
+            try? await trace.measure(.clipboardRestoreDelay) { try await Task.sleep(for: .milliseconds(350)) }
+            trace.measure(.clipboardRestore) { restore(previous, ifOwnedBy: sessionID, on: pasteboard) }
             return .deliveredUnverified
         }.value
     }
@@ -511,19 +527,27 @@ final class TextInteraction: TextWriting {
     }
 
     private func waitForExpectedValue(
-        _ expectedValue: String, in element: AXUIElement, snapshot: TextTargetSnapshot
+        _ expectedValue: String, in element: AXUIElement, snapshot: TextTargetSnapshot,
+        trace: TextWriteTrace, route: TextWriteTrace.Verification
     ) async throws -> Bool {
         let expectedLength = (expectedValue as NSString).length
         for (index, delay) in Self.verificationDelays.enumerated() {
             try await Task.sleep(for: .milliseconds(delay))
+            let readStarted = ContinuousClock.now
+            defer { trace.record(route.readStage, duration: readStarted.duration(to: .now)) }
+            trace.verificationAttempt(route)
             // A cheap length check skips reading the whole field while the app is still catching up.
             // The last attempt always does the full read in case an app counts characters differently.
             let isLastAttempt = index == Self.verificationDelays.count - 1
             if !isLastAttempt, let count: NSNumber = copyAttribute(element, kAXNumberOfCharactersAttribute),
                count.intValue != expectedLength {
+                trace.lengthMismatch(route)
                 continue
             }
-            if currentValue(in: snapshot) == expectedValue { return true }
+            if currentValue(in: snapshot) == expectedValue {
+                trace.mark(route == .accessibility ? .axVerified : .pasteVerified)
+                return true
+            }
         }
         return false
     }

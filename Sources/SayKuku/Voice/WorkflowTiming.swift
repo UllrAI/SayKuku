@@ -94,8 +94,11 @@ struct WorkflowTiming: Codable, Equatable, Sendable {
 /// Builds the `WorkflowTiming` of one recording from its stop to its result, then logs it once.
 @MainActor
 final class WorkflowTrace {
+    enum Checkpoint: String { case recognitionReady, textReady, writeStarted, writeFinished, successStateSet }
+
     let mode: HistoryMode
     private let stopped = ContinuousClock.now
+    private let id = UUID().uuidString
     private(set) var timing: WorkflowTiming
     private var commitSent: ContinuousClock.Instant?
     private var firstText: ContinuousClock.Instant?
@@ -126,6 +129,13 @@ final class WorkflowTrace {
     func setInsertion(_ outcome: TextWriteOutcome) { timing.insertion = String(describing: outcome) }
     func setAction(_ action: AgentResponse.Action) { timing.action = action.rawValue }
 
+    /// Processing stays visible through writing; these timestamps distinguish model work from delivery.
+    func mark(_ checkpoint: Checkpoint) {
+        let elapsed = Self.milliseconds(stopped.duration(to: .now))
+        let name = mode == .dictation ? "Dictation" : "Agent"
+        Log.workflow.notice("\(name, privacy: .public) checkpoint: id=\(self.id, privacy: .public) event=\(checkpoint.rawValue, privacy: .public) afterStop=\(elapsed)ms")
+    }
+
     /// The realtime commit is about to be sent; text that arrives from now on counts as its first text.
     func noteCommit() { commitSent = .now }
 
@@ -146,10 +156,12 @@ final class WorkflowTrace {
         timing.totalMilliseconds = Self.milliseconds(stopped.duration(to: .now))
         let summary = timing.summary
         let name = mode == .dictation ? "Dictation" : "Agent"
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "development"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown"
         if result == .failed {
-            Log.workflow.error("\(name, privacy: .public) trace: \(summary, privacy: .public)")
+            Log.workflow.error("\(name, privacy: .public) trace: id=\(self.id, privacy: .public) version=\(version, privacy: .public) build=\(build, privacy: .public) \(summary, privacy: .public)")
         } else {
-            Log.workflow.notice("\(name, privacy: .public) trace: \(summary, privacy: .public)")
+            Log.workflow.notice("\(name, privacy: .public) trace: id=\(self.id, privacy: .public) version=\(version, privacy: .public) build=\(build, privacy: .public) \(summary, privacy: .public)")
         }
         return timing
     }

@@ -805,10 +805,12 @@ final class VoiceWorkflow {
                 targetApp: targetApp, cursorContext: cursorContext,
                 format: format, trace: trace, generation: generation
             )
+            trace.mark(.recognitionReady)
             try Task.checkCancellation()
             guard generation == workflowGeneration else { throw CancellationError() }
             // Realtime, its batch fallback, and batch-only dictation all arrive here; the pill stays on processing.
             let transcript = try await refined(firstPass, format: format, targetApp: targetApp, trace: trace)
+            trace.mark(.textReady)
             try Task.checkCancellation()
             guard generation == workflowGeneration else { throw CancellationError() }
             guard !transcript.isEmpty else { throw QwenError.invalidResponse }
@@ -818,7 +820,11 @@ final class VoiceWorkflow {
             let raw = DictationTextJoiner.join(output, to: snapshot)
             data.updateHistory(historyID, input: transcript, output: raw)
             do {
-                let outcome = try await trace.measure(.insert) { try await textInteraction.write(raw, to: snapshot) }
+                let outcome = try await trace.measure(.insert) {
+                    trace.mark(.writeStarted)
+                    return try await textInteraction.write(raw, to: snapshot)
+                }
+                trace.mark(.writeFinished)
                 trace.setInsertion(outcome)
                 endTrace(trace, .completed, historyID: historyID)
                 data.updateHistory(historyID, status: .completed)
@@ -845,6 +851,7 @@ final class VoiceWorkflow {
                 return
             }
             withAnimation(Motion.spring) { dictationPhase = .success }
+            trace.mark(.successStateSet)
             analyticsHandler?(.voiceInput, raw.count)
             try? await Task.sleep(for: Self.successDisplayDuration)
             if generation == workflowGeneration, dictationPhase == .success {
