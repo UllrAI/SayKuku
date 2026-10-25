@@ -72,6 +72,7 @@ final class VoiceWorkflow {
 
     @ObservationIgnored private let settings: AppSettings
     @ObservationIgnored private let data: LocalData
+    @ObservationIgnored private let isSensitiveInput: @MainActor () -> Bool
     @ObservationIgnored private let systemPermissions: SystemPermissionController
     @ObservationIgnored private let audioCapture: any AudioCapturing
     @ObservationIgnored private let realtimeClient: any RealtimeTranscribing
@@ -136,6 +137,7 @@ final class VoiceWorkflow {
         textInteraction = dependencies.textInteraction
         actionExecutor = dependencies.actionExecutor
         systemPermissions = dependencies.systemPermissions
+        isSensitiveInput = dependencies.isSensitiveInput
     }
 
     func prepareMicrophone() {
@@ -438,6 +440,7 @@ final class VoiceWorkflow {
         }
         data.historyEntries[index].status = .processing
         data.historyEntries[index].errorMessage = nil
+        let format = settings.dictationFormat(for: nil)
         do {
             let wav = try await data.audio(for: entry)
             let result = try await reasoningClient.transcribeAudio(
@@ -445,12 +448,13 @@ final class VoiceWorkflow {
                 configuration: settings.configuration,
                 wav: wav,
                 recognitionLanguage: settings.recognitionLanguage,
-                numberFormat: settings.dictationNumberFormat,
-                cleanup: settings.dictationCleanup,
+                numberFormat: format.numberFormat,
+                cleanup: format.cleanup,
+                structure: format.structure,
                 // A retry lands in History, not in an app, so there is no tone to match
                 // and no cursor whose text could help.
                 targetApp: nil,
-                keepEndingPunctuation: settings.keepEndingPunctuation,
+                keepEndingPunctuation: format.keepEndingPunctuation,
                 expressionPreference: "",
                 cursorContext: nil,
                 memoryPrompt: renderMemoryPrompt(.transcription)
@@ -458,10 +462,10 @@ final class VoiceWorkflow {
             // Refined like the dictation it replays, with the same History-only settings as above:
             // no app, so no tone and no expression preference.
             let cleaned = try await refined(
-                SpeechDisfluencyCleaner.dictation(result, mode: settings.dictationCleanup),
-                format: settings.dictationFormat(for: nil), targetApp: nil
+                SpeechDisfluencyCleaner.dictation(result, mode: format.cleanup),
+                format: format, targetApp: nil
             )
-            let output = settings.keepEndingPunctuation
+            let output = format.keepEndingPunctuation
                 ? cleaned : SpeechDisfluencyCleaner.withoutEndingPunctuation(cleaned)
             data.updateHistory(id, input: cleaned, output: output, status: .completed)
             showToast(localized("Transcribed again"), symbol: "checkmark")
@@ -491,8 +495,7 @@ final class VoiceWorkflow {
         }
         // A hard block: the microphone must not even turn on in a password field or manager.
         // `captureTarget` still checks the focused element for a secure text field.
-        let frontmostBundleID = NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? ""
-        guard !TextInteraction.isSensitiveWithoutAccessibility(bundleID: frontmostBundleID) else {
+        guard !isSensitiveInput() else {
             handleWorkflowError(TextInteractionError.sensitiveTarget, agent: mode == .agent)
             return
         }
@@ -675,6 +678,7 @@ final class VoiceWorkflow {
                 recognitionLanguage: selectedRecognitionLanguage,
                 numberFormat: format.numberFormat,
                 cleanup: format.cleanup,
+                structure: format.structure,
                 targetApp: targetApp,
                 keepEndingPunctuation: format.keepEndingPunctuation,
                 expressionPreference: format.expressionPreference,
@@ -943,6 +947,7 @@ final class VoiceWorkflow {
             recognitionLanguage: settings.recognitionLanguage,
             numberFormat: format.numberFormat,
             cleanup: format.cleanup,
+            structure: format.structure,
             targetApp: targetApp,
             keepEndingPunctuation: format.keepEndingPunctuation,
             expressionPreference: format.expressionPreference,
@@ -958,10 +963,11 @@ final class VoiceWorkflow {
     private func refined(
         _ text: String, format: EffectiveDictationFormat, targetApp: String?, trace: WorkflowTrace? = nil
     ) async throws -> String {
-        guard format.cleanup == .refined,
+        guard format.cleanup == .light, format.refine,
               !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return text }
         let refinement = DictationRefinement.Settings(
             numberFormat: format.numberFormat,
+            structure: format.structure,
             targetApp: targetApp,
             keepEndingPunctuation: format.keepEndingPunctuation,
             expressionPreference: format.expressionPreference,

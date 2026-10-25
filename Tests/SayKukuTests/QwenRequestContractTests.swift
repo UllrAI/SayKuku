@@ -5,6 +5,17 @@ import Testing
 
 @Suite("Qwen request contracts")
 struct QwenRequestContractTests {
+    @Test("reasoning is exclusive to text refinement and never combined with enable_thinking")
+    func refinementReasoning() {
+        let body = QwenReasoningClient.requestBody(model: DictationRefinement.model,
+            messages: [], jsonResponse: false, effort: .low)
+        #expect(body["reasoning_effort"] as? String == "low")
+        #expect(body["enable_thinking"] == nil)
+        let json = QwenReasoningClient.requestBody(model: "m", messages: [], jsonResponse: true, effort: .low)
+        #expect(json["reasoning_effort"] == nil)
+        #expect(json["enable_thinking"] as? Bool == false)
+    }
+
     @Test("only short-lived network failures are retried")
     func retryPolicy() {
         #expect(QwenReasoningClient.isRetryableNetworkError(URLError(.networkConnectionLost)))
@@ -53,7 +64,7 @@ struct QwenRequestContractTests {
     func partialTranscriptTimesOut() async throws {
         let client = QwenRealtimeClient()
         let session = UUID()
-        await client.begin(session: session, send: { _ in }, cleanup: .verbatim)
+        await client.begin(session: session, send: { _ in }, structuredOutput: false)
         try await client.handle(serverEvent(["type": "response.text.delta", "delta": "明天下午"]), session: session)
         await #expect(throws: QwenError.timeout) {
             try await client.commit(session: session, timeout: .milliseconds(50))
@@ -65,7 +76,7 @@ struct QwenRequestContractTests {
         let client = QwenRealtimeClient()
         let sent = SentEvents()
         let session = UUID()
-        await client.begin(session: session, send: { await sent.record($0) }, cleanup: .verbatim)
+        await client.begin(session: session, send: { await sent.record($0) }, structuredOutput: false)
         try await client.handle(serverEvent(["type": "response.text.delta", "delta": "明天下午"]), session: session)
         async let transcript = client.commit(session: session, timeout: .seconds(5))
         // Let commit send its events and start waiting before the response finishes.
@@ -79,22 +90,22 @@ struct QwenRequestContractTests {
         let client = QwenRealtimeClient()
         let session = UUID()
         let deltas = OSAllocatedUnfairLock(initialState: [String]())
-        await client.begin(session: session, send: { _ in }, onDelta: { value in deltas.withLock { $0.append(value) } }, cleanup: .light)
-        try await client.handle(serverEvent(["type": "response.text.delta", "delta": "{\"negations\":[],\"transcript\":\"原话"]), session: session)
+        await client.begin(session: session, send: { _ in }, onDelta: { value in deltas.withLock { $0.append(value) } }, structuredOutput: true)
+        try await client.handle(serverEvent(["type": "response.text.delta", "delta": "{\"draft\":\"原话"]), session: session)
         #expect(deltas.withLock { $0 } == [""])
-        let reply = "{\"negations\":[],\"transcript\":\"原话重起\",\"text\":\"只输入成稿。\"}"
+        let reply = "{\"draft\":\"原话重起\",\"paragraphs\":[\"只输入成稿。\"]}"
         try await client.handle(serverEvent(["type": "response.text.done", "text": reply]), session: session)
         #expect(try await client.commit(session: session, timeout: .seconds(1)) == "只输入成稿。")
         #expect(deltas.withLock { $0 } == ["", "只输入成稿。"])
 
         let malformed = UUID()
-        await client.begin(session: malformed, send: { _ in }, cleanup: .light)
+        await client.begin(session: malformed, send: { _ in }, structuredOutput: true)
         try await client.handle(serverEvent(["type": "response.text.done", "text": "{\"text\":\"incomplete\"}"]), session: malformed)
         await #expect(throws: QwenError.invalidResponse) { try await client.commit(session: malformed, timeout: .seconds(1)) }
 
         // Neither the output format nor a late event from a past session can leak into a new session.
         let verbatim = UUID()
-        await client.begin(session: verbatim, send: { _ in }, cleanup: .verbatim)
+        await client.begin(session: verbatim, send: { _ in }, structuredOutput: false)
         try await client.handle(serverEvent(["type": "response.text.done", "text": reply]), session: session)
         try await client.handle(serverEvent(["type": "response.text.done", "text": "嗯，原话。"]), session: verbatim)
         #expect(try await client.commit(session: verbatim, timeout: .seconds(1)) == "嗯，原话。")
@@ -105,13 +116,13 @@ struct QwenRequestContractTests {
         let client = QwenRealtimeClient()
         let sent = SentEvents()
         let handStopped = UUID()
-        await client.begin(session: handStopped, send: { await sent.record($0) }, cleanup: .verbatim)
+        await client.begin(session: handStopped, send: { await sent.record($0) }, structuredOutput: false)
         try await client.handle(serverEvent(["type": "response.text.done", "text": "好的"]), session: handStopped)
         #expect(try await client.commit(session: handStopped, timeout: .seconds(5)) == "好的")
         #expect(await sent.types == ["input_audio_buffer.commit", "response.create"])
 
         let vadStopped = UUID()
-        await client.begin(session: vadStopped, send: { await sent.record($0) }, cleanup: .verbatim)
+        await client.begin(session: vadStopped, send: { await sent.record($0) }, structuredOutput: false)
         try await client.handle(serverEvent(["type": "input_audio_buffer.speech_stopped"]), session: vadStopped)
         try await client.handle(serverEvent(["type": "response.text.done", "text": "好的"]), session: vadStopped)
         #expect(try await client.commit(session: vadStopped, timeout: .seconds(5)) == "好的")
@@ -124,7 +135,7 @@ struct QwenRequestContractTests {
         let sent = SentEvents()
         let session = UUID()
         let rateLimited = QwenError.protocolError("Requests rate limit exceeded")
-        await client.begin(session: session, send: { await sent.record($0) }, cleanup: .verbatim)
+        await client.begin(session: session, send: { await sent.record($0) }, structuredOutput: false)
         try await client.handle(serverEvent(["type": "input_audio_buffer.speech_stopped"]), session: session)
         try await client.handle(
             serverEvent(["type": "error", "error": ["message": "Requests rate limit exceeded"]]),
@@ -143,7 +154,7 @@ struct QwenRequestContractTests {
     func nonJSONFramesSkipped() async throws {
         let client = QwenRealtimeClient()
         let session = UUID()
-        await client.begin(session: session, send: { _ in }, cleanup: .verbatim)
+        await client.begin(session: session, send: { _ in }, structuredOutput: false)
         await client.handle(Data("pong".utf8), session: session)
         await client.handle(Data([0xFF, 0x00]), session: session)
         try await client.handle(serverEvent(["type": "response.text.done", "text": "你好"]), session: session)

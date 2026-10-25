@@ -44,8 +44,8 @@ struct DictationAppFormatsSettings: View {
     }
 
     var body: some View {
-        KukuGroup(localized("App-specific formatting")) {
-            Text(localized("Items not set for an app follow the global settings above."))
+        KukuGroup(localized("Per-app settings")) {
+            Text(localized("Customize cleanup and writing format for each app. Unchanged options follow the defaults above."))
                 .font(.kuku(.subheadline))
                 .foregroundStyle(KukuColor.textSecondary)
                 .kukuRowFrame()
@@ -89,15 +89,19 @@ struct DictationAppFormatsSettings: View {
 
     private func summary(for rule: DictationAppFormat) -> String {
         var items: [String] = []
-        if let value = rule.keepEndingPunctuation {
-            items.append("\(localized("Keep ending punctuation")): \(value ? localized("On") : localized("Off"))")
+        if let value = rule.cleanup { items.append(value.title) }
+        if let value = rule.structure {
+            items.append("\(localized("Automatic paragraphs and lists")): \(value ? localized("On") : localized("Off"))")
         }
-        if let value = rule.cleanup { items.append("\(localized("Speech cleanup")): \(value.title)") }
+        if let value = rule.refine { items.append(DictationFormatLabels.refinement(value)) }
+        if let value = rule.keepEndingPunctuation {
+            items.append("\(localized("Ending punctuation")): \(DictationFormatLabels.endingPunctuation(value))")
+        }
         if let value = rule.numberFormat { items.append("\(localized("Number format")): \(value.title)") }
         if let value = rule.matchAppTone {
-            items.append("\(localized("Match the app’s tone")): \(value ? localized("On") : localized("Off"))")
+            items.append("\(localized("Adapt to the app")): \(value ? localized("On") : localized("Off"))")
         }
-        if !rule.expressionPreference.isEmpty { items.append(localized("Expression preference")) }
+        if !rule.expressionPreference.isEmpty { items.append(localized("Style preference")) }
         return items.joined(separator: localized(", "))
     }
 
@@ -118,6 +122,8 @@ private struct DictationAppFormatEditor: View {
     @Environment(\.dismiss) private var dismiss
     let app: DictationAppIdentity
     let settings: AppSettings
+    @State private var showsWritingFormat = false
+    @State private var showsStylePreference = false
     @State private var draft: DictationAppFormat
 
     init(app: DictationAppIdentity, settings: AppSettings) {
@@ -140,44 +146,61 @@ private struct DictationAppFormatEditor: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: KukuSpacing.lg) {
-                    KukuGroup(localized("Formatting")) {
-                        choiceRow(localized("Keep ending punctuation"), selection: $draft.keepEndingPunctuation,
-                                  global: settings.keepEndingPunctuation, values: [true, false]) { booleanTitle($0) }
-                        KukuDivider()
-                        choiceRow(localized("Speech cleanup"), selection: $draft.cleanup,
+                    KukuGroup(localized("Speech cleanup")) {
+                        choiceRow(localized("Cleanup"), selection: $draft.cleanup,
                                   global: settings.dictationCleanup, values: DictationCleanup.allCases) { $0.title }
-                        Text(effectiveCleanup.caption)
+                        Text(DictationFormatLabels.cleanupCaption(effectiveCleanup))
                             .font(.kuku(.subheadline))
                             .foregroundStyle(KukuColor.textSecondary)
                             .padding(.horizontal, KukuLayout.rowPadding)
                             .padding(.bottom, KukuSpacing.md)
                         KukuDivider()
-                        choiceRow(localized("Number format"), selection: $draft.numberFormat,
-                                  global: settings.dictationNumberFormat, values: DictationNumberFormat.allCases) { $0.title }
-                        KukuDivider()
-                        choiceRow(localized("Match the app’s tone"), selection: $draft.matchAppTone,
-                                  global: settings.matchAppTone, values: [true, false]) { booleanTitle($0) }
+                        choiceRow(localized("Automatic paragraphs and lists"), selection: $draft.structure,
+                                  global: settings.structureDictation, values: [true, false], label: booleanTitle)
                             .disabled(effectiveCleanup == .verbatim)
-                        if effectiveCleanup == .verbatim {
-                            Text(localized("Verbatim keeps the spoken words. App tone has no effect; expression preference can only affect punctuation and paragraphs."))
-                                .font(.kuku(.subheadline))
-                                .foregroundStyle(KukuColor.textSecondary)
-                                .kukuRowFrame()
-                        }
+                        KukuDivider()
+                        choiceRow(localized("Cleanup preference"), selection: $draft.refine,
+                                  global: settings.refineDictation, values: [true, false], label: DictationFormatLabels.refinement)
+                            .disabled(effectiveCleanup == .verbatim)
+                        Text(effectiveCleanup == .verbatim ? DictationFormatLabels.inactiveCaption
+                             : DictationFormatLabels.refinementCaption(draft.refine ?? settings.refineDictation))
+                            .font(.kuku(.subheadline))
+                            .foregroundStyle(KukuColor.textSecondary)
+                            .kukuRowFrame()
                     }
-                    KukuGroup(localized("Expression preference (optional)")) {
-                        VStack(alignment: .leading, spacing: KukuSpacing.sm) {
-                            TextEditor(text: $draft.expressionPreference)
-                                .frame(height: 90)
-                                .onChange(of: draft.expressionPreference) { _, newValue in
-                                    if newValue.count > 300 { draft.expressionPreference = String(newValue.prefix(300)) }
-                                }
-                            Text(localized("Example: Write naturally in chat and keep tone particles; break long sentences by meaning."))
-                            Text(localized("Sent to Qwen with new Voice Input requests for this app. It cannot change the spoken meaning or override a formatting setting."))
-                            Text(localized("\(draft.expressionPreference.count) / 300 characters"))
+                    KukuGroup {
+                        DisclosureGroup(localized("Writing format"), isExpanded: $showsWritingFormat) {
+                            choiceRow(localized("Adapt to the app"), selection: $draft.matchAppTone,
+                                      global: settings.matchAppTone, values: [true, false], label: booleanTitle)
+                                .disabled(effectiveCleanup == .verbatim)
+                            KukuDivider()
+                            choiceRow(localized("Ending punctuation"), selection: $draft.keepEndingPunctuation,
+                                      global: settings.keepEndingPunctuation, values: [true, false], label: DictationFormatLabels.endingPunctuation)
+                            KukuDivider()
+                            choiceRow(localized("Number format"), selection: $draft.numberFormat,
+                                      global: settings.dictationNumberFormat, values: DictationNumberFormat.allCases) { $0.title }
                         }
-                        .font(.kuku(.subheadline))
-                        .foregroundStyle(KukuColor.textSecondary)
+                        .font(.kuku(.body))
+                        .kukuRowFrame()
+                    }
+                    KukuGroup {
+                        DisclosureGroup(localized("Style preference (optional)"), isExpanded: $showsStylePreference) {
+                            VStack(alignment: .leading, spacing: KukuSpacing.sm) {
+                                TextEditor(text: $draft.expressionPreference)
+                                    .accessibilityLabel(localized("Style preference"))
+                                    .frame(height: 90)
+                                    .onChange(of: draft.expressionPreference) { _, newValue in
+                                        if newValue.count > 300 { draft.expressionPreference = String(newValue.prefix(300)) }
+                                    }
+                                Text(localized("Example: Use a natural, relaxed tone in chat and keep tone particles."))
+                                Text(localized("Sent with voice input for this app. The options above take priority; spoken meaning and details are preserved."))
+                                Text(localized("\(draft.expressionPreference.count) / 300 characters"))
+                            }
+                            .font(.kuku(.subheadline))
+                            .foregroundStyle(KukuColor.textSecondary)
+                            .padding(.top, KukuSpacing.sm)
+                        }
+                        .font(.kuku(.body))
                         .kukuRowFrame()
                     }
                 }
@@ -185,7 +208,7 @@ private struct DictationAppFormatEditor: View {
             }
             KukuSheetFooter {
                 if settings.dictationAppFormats.contains(where: { $0.bundleID == app.bundleID }) {
-                    Button(localized("Delete this app rule"), role: .destructive) {
+                    Button(localized("Use default settings"), role: .destructive) {
                         settings.removeDictationAppFormat(for: app.bundleID)
                         dismiss()
                     }
@@ -199,7 +222,7 @@ private struct DictationAppFormatEditor: View {
                 .buttonStyle(.kukuPrimary)
             }
         }
-        .frame(width: 610, height: 620)
+        .frame(width: 650, height: 680)
     }
 
     private func choiceRow<Value: Hashable>(
@@ -207,7 +230,7 @@ private struct DictationAppFormatEditor: View {
         label: @escaping (Value) -> String
     ) -> some View {
         KukuRow(title, caption: selection.wrappedValue == nil
-                ? localized("Current global value: \(label(global))") : nil) {
+                ? localized("Default: \(label(global))") : nil) {
             KukuPicker(title, options: [nil] + values.map(Optional.some), selection: selection) { value in
                 value.map(label) ?? localized("Follow global")
             }
@@ -215,4 +238,31 @@ private struct DictationAppFormatEditor: View {
     }
 
     private func booleanTitle(_ value: Bool) -> String { value ? localized("On") : localized("Off") }
+}
+
+/// Shared labels keep global settings and app overrides consistent without changing stored values.
+enum DictationFormatLabels {
+    static func refinement(_ value: Bool) -> String {
+        value ? localized("Prefer quality") : localized("Prefer speed")
+    }
+
+    static func endingPunctuation(_ value: Bool) -> String {
+        value ? localized("Automatic") : localized("Omit")
+    }
+
+    static func cleanupCaption(_ value: DictationCleanup) -> String {
+        value == .light
+            ? localized("Removes fillers and accidental repeats; self-corrections keep only the final wording.")
+            : localized("Keeps fillers, repeats, and self-corrections; only adds punctuation.")
+    }
+
+    static func refinementCaption(_ value: Bool) -> String {
+        value
+            ? localized("Checks the first result again. May add a few seconds and uses an extra model request; keeps the first result if it fails.")
+            : localized("Cleans up speech and applies your layout settings during recognition, without an extra check.")
+    }
+
+    static var inactiveCaption: String {
+        localized("Automatic layout, extra checks, and app tone are inactive with Keep spoken wording. Your choices are saved.")
+    }
 }

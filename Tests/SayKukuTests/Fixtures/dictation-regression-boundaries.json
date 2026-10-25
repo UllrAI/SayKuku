@@ -1,0 +1,222 @@
+[
+  {
+    "category": "noExpansion",
+    "spoken": "这个 setup 已经完成了",
+    "expected": "这个 setup 已经完成了。",
+    "mustContain": [
+      "setup",
+      "已经完成"
+    ],
+    "mustNotContain": [
+      "set up"
+    ]
+  },
+  {
+    "category": "noExpansion",
+    "spoken": "请先 set up the workspace 再运行脚本",
+    "expected": "请先 set up the workspace 再运行脚本。",
+    "mustContain": [
+      "set up the workspace",
+      "运行脚本"
+    ],
+    "mustNotContain": [
+      "setup the workspace"
+    ]
+  },
+  {
+    "category": "noExpansion",
+    "spoken": "每天的 backup 都会保留七天",
+    "expected": "每天的 backup 都会保留 7 天。",
+    "mustContain": [
+      "backup",
+      "保留",
+      "7天"
+    ],
+    "mustNotContain": [
+      "back up"
+    ]
+  },
+  {
+    "category": "noExpansion",
+    "spoken": "请先 back up these files 然后再升级",
+    "expected": "请先 back up these files，然后再升级。",
+    "mustContain": [
+      "back up these files",
+      "再升级"
+    ],
+    "mustNotContain": [
+      "backup these files"
+    ]
+  },
+  {
+    "category": "noExpansion",
+    "spoken": "这个 checkout 流程需要重新检查",
+    "expected": "这个 checkout 流程需要重新检查。",
+    "mustContain": [
+      "checkout",
+      "重新检查"
+    ],
+    "mustNotContain": [
+      "check out"
+    ]
+  },
+  {
+    "category": "noExpansion",
+    "spoken": "Please check out the latest branch before testing",
+    "expected": "Please check out the latest branch before testing.",
+    "mustContain": [
+      "check out the latest branch",
+      "before testing"
+    ],
+    "mustNotContain": [
+      "checkout the latest branch"
+    ]
+  },
+  {
+    "category": "chatTone",
+    "targetApp": "Messages (com.apple.MobileSMS)",
+    "spoken": "可以，稍后再讨论",
+    "expected": "可以，稍后再讨论",
+    "mustContain": [
+      "可以",
+      "稍后再讨论"
+    ],
+    "noTrailingPeriod": true
+  },
+  {
+    "category": "chatTone",
+    "targetApp": "TextEdit (com.apple.TextEdit)",
+    "spoken": "我会稍后给你答复",
+    "expected": "我会稍后给你答复。",
+    "mustContain": [
+      "我会",
+      "稍后给你答复"
+    ],
+    "noTrailingPeriod": false
+  },
+  {
+    "category": "noExpansion",
+    "spoken": "这次讨论的是工厂的加工流程。现有的质量管理制度比较健全，但是员工培训和原料验收还需要完善。请把每一步的操作人员、开始时间和完成时间记录清楚，遇到异常就暂停当前工序并通知负责人。新员工必须先接受培训，再独立处理设备。验收标准还没有确认的原料先不要入库，也不要修改已经登记的账目。",
+    "expected": "这次讨论的是工厂的加工流程。现有的质量管理制度比较健全，但是员工培训和原料验收还需要完善。请把每一步的操作人员、开始时间和完成时间记录清楚，遇到异常就暂停当前工序并通知负责人。新员工必须先接受培训，再独立处理设备。验收标准还没有确认的原料先不要入库，也不要修改已经登记的账目。",
+    "mustContain": [
+      "加工",
+      "健全",
+      "培训",
+      "验收",
+      "暂停",
+      "不要入库",
+      "不要修改",
+      "账目"
+    ],
+    "mustNotContain": [
+      "鉴权",
+      "架构"
+    ]
+  },
+  {
+    "category": "noExpansion",
+    "spoken": "项目的人员管理制度需要健全，这里讨论的不是技术接口",
+    "expected": "项目的人员管理制度需要健全，这里讨论的不是技术接口。",
+    "mustContain": [
+      "人员管理制度",
+      "健全",
+      "不是技术接口"
+    ],
+    "mustNotContain": [
+      "鉴权"
+    ]
+  },
+  {
+    "category": "noExpansion",
+    "spoken": "Please stand up before the exercise",
+    "expected": "Please stand up before the exercise.",
+    "mustContain": [
+      "stand up",
+      "before the exercise"
+    ],
+    "mustNotContain": [
+      "standup"
+    ]
+  },
+  {
+    "category": "noExpansion",
+    "spoken": "明天的 standup 改到下午三点，地点不变",
+    "expected": "明天的 standup 改到下午 3 点，地点不变。",
+    "mustContain": [
+      "standup",
+      "下午3点",
+      "地点不变"
+    ],
+    "mustNotContain": [
+      "stand up"
+    ]
+  },
+  {
+    "category": "noExpansion",
+    "spoken": "我没听懂你的问题，这个术语用英语应该怎么说呢",
+    "expected": "我没听懂你的问题，这个术语用英语应该怎么说呢？",
+    "mustContain": [
+      "没听懂",
+      "术语",
+      "怎么说呢"
+    ]
+  },
+  {
+    "category": "selfCorrection",
+    "spoken": "The release is scheduled for Thursday, I mean Friday. Keep the old backup until the new copy is verified. Do not delete the original files. Please send the final report to the operations team after the verification finishes.",
+    "expected": "The release is scheduled for Friday. Keep the old backup until the new copy is verified. Do not delete the original files. Please send the final report to the operations team after the verification finishes.",
+    "mustContain": [
+      "Friday",
+      "old backup",
+      "verified",
+      "not delete",
+      "original files",
+      "operations team",
+      "after"
+    ],
+    "mustNotContain": [
+      "Thursday",
+      "I mean"
+    ]
+  },
+  {
+    "category": "noExpansion",
+    "spoken": "Could you explain why the latest build still fails after the cache is cleared? I do not want you to change any code yet. First review the logs and compare the results, then send me a short explanation in English.",
+    "expected": "Could you explain why the latest build still fails after the cache is cleared? I do not want you to change any code yet. First review the logs and compare the results, then send me a short explanation in English.",
+    "mustContain": [
+      "Could you explain",
+      "latest build",
+      "cache",
+      "do not want",
+      "change any code",
+      "review the logs",
+      "compare the results",
+      "in English"
+    ]
+  },
+  {
+    "category": "noExpansion",
+    "spoken": "打开哪份表格？那份表格我还没有确认，先别改内容",
+    "expected": "打开哪份表格？那份表格我还没有确认，先别改内容。",
+    "mustContain": [
+      "打开哪份表格",
+      "那份表格",
+      "没有确认",
+      "先别改"
+    ],
+    "mustNotContain": [
+      "打开那份表格"
+    ]
+  },
+  {
+    "category": "noExpansion",
+    "spoken": "这个文件应该放在哪里？那个目录我还没有确认，先不要移动",
+    "expected": "这个文件应该放在哪里？那个目录我还没有确认，先不要移动。",
+    "mustContain": [
+      "放在哪里",
+      "那个目录",
+      "没有确认",
+      "先不要移动"
+    ]
+  }
+]

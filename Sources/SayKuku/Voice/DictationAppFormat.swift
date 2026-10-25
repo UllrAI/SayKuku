@@ -5,6 +5,8 @@ struct DictationAppFormat: Codable, Equatable, Identifiable {
     var bundleID: String
     var keepEndingPunctuation: Bool?
     var cleanup: DictationCleanup?
+    var structure: Bool?
+    var refine: Bool?
     var numberFormat: DictationNumberFormat?
     var matchAppTone: Bool?
     var expressionPreference = ""
@@ -13,13 +15,16 @@ struct DictationAppFormat: Codable, Equatable, Identifiable {
 
     var isEmpty: Bool {
         keepEndingPunctuation == nil && cleanup == nil && numberFormat == nil
-            && matchAppTone == nil && expressionPreference.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && structure == nil && refine == nil && matchAppTone == nil
+            && expressionPreference.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 }
 
 struct EffectiveDictationFormat: Sendable {
     let keepEndingPunctuation: Bool
     let cleanup: DictationCleanup
+    let structure: Bool
+    let refine: Bool
     let numberFormat: DictationNumberFormat
     let matchAppTone: Bool
     let expressionPreference: String

@@ -57,6 +57,12 @@ enum SpeechDisfluencyCleaner {
         return result
     }
 
+    /// Removes a sentence period only; questions, exclamations and ellipses keep their meaning.
+    static func withoutEndingPeriod(_ text: String) -> String {
+        guard text.hasSuffix("。") || (text.hasSuffix(".") && !text.hasSuffix("...")) else { return text }
+        return String(text.dropLast())
+    }
+
     private static func cleanSegment(
         _ segment: String, mode: DictationCleanup, dropsFillers: Bool,
         before: Character?, after: Character?

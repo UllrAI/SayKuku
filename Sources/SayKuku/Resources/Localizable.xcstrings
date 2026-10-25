@@ -1,6 +1,325 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Automatic" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自动"
+          }
+        }
+      }
+    },
+    "Adapt to the app" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "适应应用场景"
+          }
+        }
+      }
+    },
+    "Automatic cleanup" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自动清理"
+          }
+        }
+      }
+    },
+    "Automatic follows the context; short chat messages may omit a final period. Omit removes the final period, question mark, or exclamation mark." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自动：根据语境决定，简短聊天可能省略句号。不保留：去掉末尾的句号、问号或叹号。"
+          }
+        }
+      }
+    },
+    "Automatic layout, extra checks, and app tone are inactive with Keep spoken wording. Your choices are saved." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留口语时，自动排版、进一步检查和应用语气暂不生效，已有选择会保留。"
+          }
+        }
+      }
+    },
+    "Automatic paragraphs and lists" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自动分段与列点"
+          }
+        }
+      }
+    },
+    "Checks the first result again. May add a few seconds and uses an extra model request; keeps the first result if it fails." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "对首次结果再检查一次，可能多等几秒，并增加一次模型调用；失败时保留首次结果。"
+          }
+        }
+      }
+    },
+    "Cleans up speech and applies your layout settings during recognition, without an extra check." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "识别时直接清理口语，并按设置排版，不再额外检查。"
+          }
+        }
+      }
+    },
+    "Cleanup" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "口语清理"
+          }
+        }
+      }
+    },
+    "Cleanup preference" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "整理偏好"
+          }
+        }
+      }
+    },
+    "Customize cleanup and writing format for each app. Unchanged options follow the defaults above." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "为不同应用设置口语整理和书写格式。未单独设置的选项沿用上方默认值。"
+          }
+        }
+      }
+    },
+    "Default: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "默认：%@"
+          }
+        }
+      }
+    },
+    "Ending punctuation" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "句末标点"
+          }
+        }
+      }
+    },
+    "Example: Use a natural, relaxed tone in chat and keep tone particles." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "例如：聊天时自然轻松，保留语气词。"
+          }
+        }
+      }
+    },
+    "Follow default" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "沿用默认"
+          }
+        }
+      }
+    },
+    "Groups related sentences and separates distinct points. When off, only formatting you explicitly dictate is used." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按语义分段，将独立事项列成要点。关闭后，只在你明确口述时换行或列点。"
+          }
+        }
+      }
+    },
+    "Keep spoken wording" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留口语"
+          }
+        }
+      }
+    },
+    "Omit" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不保留"
+          }
+        }
+      }
+    },
+    "Per-app settings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按应用设置"
+          }
+        }
+      }
+    },
+    "Prefer quality" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "优先质量"
+          }
+        }
+      }
+    },
+    "Prefer speed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "优先速度"
+          }
+        }
+      }
+    },
+    "Recording and recognition" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "录音与识别"
+          }
+        }
+      }
+    },
+    "Removes fillers and accidental repeats; self-corrections keep only the final wording." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "去掉口癖和无意重复，改口只保留最终说法。"
+          }
+        }
+      }
+    },
+    "Sent with voice input for this app. The options above take priority; spoken meaning and details are preserved." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "会随该应用的语音输入一起发送。以上选项优先，保留原意和细节。"
+          }
+        }
+      }
+    },
+    "Style preference" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "表达偏好"
+          }
+        }
+      }
+    },
+    "Style preference (optional)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "表达偏好（可选）"
+          }
+        }
+      }
+    },
+    "Use default settings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "恢复默认设置"
+          }
+        }
+      }
+    },
+    "Uses the app’s name to choose a natural tone for chat, email, documents, or code." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "根据应用名称，适应聊天、邮件、文档或代码的表达习惯。"
+          }
+        }
+      }
+    },
+    "Writing format" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "书写格式"
+          }
+        }
+      }
+    },
     " · Dev builds don’t check for updates" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2536,7 +2855,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "跟随全局"
+            "value" : "沿用默认"
           }
         }
       }
@@ -3146,7 +3465,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "保留口头词、重复和改口，只补标点。"
+            "value" : "保留口癖、重复和改口，只补充标点。"
           }
         }
       }

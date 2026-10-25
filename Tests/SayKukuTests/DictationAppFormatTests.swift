@@ -5,67 +5,88 @@ import Testing
 @Suite("App-specific Voice Input formatting")
 @MainActor
 struct DictationAppFormatTests {
-    @Test("legacy global and per-app cleanup preserve their effective behavior after migration")
+    @Test("legacy separate switches retain global and per-app behavior")
     func legacyCleanupMigration() throws {
         for refines: Bool? in [nil, false, true] {
-            for global: DictationCleanup? in [nil, .verbatim, .light] {
-                let environment = AppStateTestEnvironment()
-                defer { environment.clean() }
-                if let refines { environment.defaults.set(refines, forKey: "dictation.refine") }
-                if let global { environment.defaults.set(global.rawValue, forKey: "dictation.cleanup") }
-                let rules = [
-                    DictationAppFormat(bundleID: "inherit", numberFormat: .spoken),
-                    DictationAppFormat(bundleID: "light", cleanup: .light, expressionPreference: "自然口语"),
-                    DictationAppFormat(bundleID: "verbatim", cleanup: .verbatim)
-                ]
-                environment.defaults.set(try JSONEncoder().encode(rules), forKey: "dictation.appFormats")
-                let settings = environment.makeState().settings
-                let expectedLight: DictationCleanup = (refines ?? true) ? .refined : .light
-                let expectedGlobal = global == .verbatim ? .verbatim : expectedLight
-                #expect(settings.dictationCleanup == expectedGlobal)
-                #expect(settings.dictationFormat(for: "inherit").cleanup == expectedGlobal)
-                #expect(settings.dictationFormat(for: "inherit").numberFormat == .spoken)
-                #expect(settings.dictationFormat(for: "light").cleanup == expectedLight)
-                #expect(settings.dictationFormat(for: "light").expressionPreference == "自然口语")
-                #expect(settings.dictationFormat(for: "verbatim").cleanup == .verbatim)
-                #expect(settings.dictationAppFormats.first { $0.bundleID == "inherit" }?.cleanup == nil)
-                #expect(environment.defaults.object(forKey: "dictation.refine") == nil)
-                #expect(environment.makeState().settings.dictationAppFormats == settings.dictationAppFormats)
-
-                // Once migrated, single-pass choices must survive the next launch.
-                settings.dictationCleanup = .light
-                settings.saveDictationAppFormat(.init(bundleID: "light", cleanup: .light))
-                let reloaded = environment.makeState().settings
-                #expect(reloaded.dictationCleanup == .light)
-                #expect(reloaded.dictationFormat(for: "light").cleanup == .light)
-            }
+            let environment = AppStateTestEnvironment()
+            defer { environment.clean() }
+            if let refines { environment.defaults.set(refines, forKey: "dictation.refine") }
+            environment.defaults.set("verbatim", forKey: "dictation.cleanup")
+            let rules = [DictationAppFormat(bundleID: "app", cleanup: .light)]
+            environment.defaults.set(try JSONEncoder().encode(rules), forKey: "dictation.appFormats")
+            let settings = environment.makeState().settings
+            #expect(settings.dictationCleanup == .verbatim)
+            #expect(settings.dictationFormat(for: "app").cleanup == .light)
+            #expect(settings.dictationFormat(for: "app").refine == (refines ?? false))
+            #expect(environment.makeState().settings.dictationAppFormats == rules)
         }
     }
 
-    @Test("all cleanup choices persist independently of global changes")
-    func cleanupPersistence() {
+    @Test("an unset cleanup preference defaults to speed, while explicit choices survive reloads")
+    func speedDefault() {
+        for separated in [false, true] {
+            let environment = AppStateTestEnvironment()
+            defer { environment.clean() }
+            environment.defaults.set(separated, forKey: "dictation.cleanupOptionsSeparated")
+            let settings = environment.makeState().settings
+            #expect(!settings.refineDictation)
+            #expect(!settings.dictationFormat(for: "new.app").refine)
+            settings.refineDictation = true
+            #expect(environment.makeState().settings.refineDictation)
+            settings.refineDictation = false
+            #expect(!environment.makeState().settings.refineDictation)
+        }
+    }
+
+    @Test("released combined modes migrate to independent cleanup and quality options once")
+    func combinedModeMigration() throws {
+        for mode: String? in [nil, "verbatim", "light", "refined"] {
+            let environment = AppStateTestEnvironment()
+            defer { environment.clean() }
+            environment.defaults.set(true, forKey: "dictation.cleanupModesMigrated")
+            if let mode { environment.defaults.set(mode, forKey: "dictation.cleanup") }
+            let oldRules: [[String: String]] = [
+                ["bundleID": "one", "cleanup": "light", "expressionPreference": "自然口语"],
+                ["bundleID": "two", "cleanup": "refined", "expressionPreference": ""],
+                ["bundleID": "raw", "cleanup": "verbatim", "expressionPreference": ""],
+                ["bundleID": "inherit", "expressionPreference": ""]
+            ]
+            environment.defaults.set(try JSONSerialization.data(withJSONObject: oldRules), forKey: "dictation.appFormats")
+            let settings = environment.makeState().settings
+            #expect(settings.dictationCleanup == (mode == "verbatim" ? .verbatim : .light))
+            #expect(settings.refineDictation == (mode == "refined"))
+            #expect(!settings.dictationFormat(for: "one").refine)
+            #expect(settings.dictationFormat(for: "two").refine)
+            #expect(settings.dictationFormat(for: "two").cleanup == .light)
+            #expect(settings.dictationFormat(for: "raw").cleanup == .verbatim)
+            #expect(settings.dictationFormat(for: "one").expressionPreference == "自然口语")
+            #expect(settings.dictationAppFormats.first { $0.bundleID == "inherit" }?.refine == nil)
+            settings.refineDictation.toggle()
+            #expect(environment.makeState().settings.refineDictation == settings.refineDictation)
+        }
+    }
+
+    @Test("layout and quality overrides persist, inherit defaults, and survive global verbatim")
+    func cleanupOptionsPersistence() throws {
         let environment = AppStateTestEnvironment()
         defer { environment.clean() }
         let settings = environment.makeState().settings
-        #expect(settings.dictationCleanup == .refined)
-        for cleanup in DictationCleanup.allCases {
-            settings.dictationCleanup = cleanup
-            settings.saveDictationAppFormat(.init(bundleID: "app", cleanup: cleanup))
-            let reloaded = environment.makeState().settings
-            #expect(reloaded.dictationCleanup == cleanup)
-            reloaded.dictationCleanup = cleanup == .refined ? .verbatim : .refined
-            #expect(reloaded.dictationFormat(for: "app").cleanup == cleanup)
-            reloaded.saveDictationAppFormat(.init(bundleID: "app", numberFormat: .spoken))
-            #expect(reloaded.dictationFormat(for: "app").cleanup == reloaded.dictationCleanup)
-        }
-    }
-
-    @Test("both cleanup choices use the same local disfluency cleaner")
-    func firstPassUnchanged() throws {
-        for sample in try DictationPolishSample.loadFixture() {
-            #expect(SpeechDisfluencyCleaner.clean(sample.spoken, mode: .refined)
-                == SpeechDisfluencyCleaner.clean(sample.spoken, mode: .light))
-        }
+        #expect(settings.structureDictation && !settings.refineDictation)
+        settings.dictationCleanup = .verbatim
+        settings.saveDictationAppFormat(.init(bundleID: "app", cleanup: .light, structure: false, refine: false))
+        let reloaded = environment.makeState().settings
+        let format = reloaded.dictationFormat(for: "app")
+        #expect(format.cleanup == .light && !format.structure && !format.refine)
+        reloaded.structureDictation = false
+        reloaded.refineDictation = false
+        reloaded.saveDictationAppFormat(.init(bundleID: "app", structure: true, refine: true))
+        #expect(reloaded.dictationFormat(for: "app").structure && reloaded.dictationFormat(for: "app").refine)
+        reloaded.saveDictationAppFormat(.init(bundleID: "app"))
+        #expect(reloaded.dictationAppFormats.isEmpty)
+        #expect(!reloaded.dictationFormat(for: "app").refine)
+        let old = try JSONDecoder().decode(DictationAppFormat.self,
+            from: Data(#"{"bundleID":"old","expressionPreference":""}"#.utf8))
+        #expect(old.structure == nil && old.refine == nil)
     }
 
     @Test("optional overrides follow changing global values, while explicit values stay fixed")
