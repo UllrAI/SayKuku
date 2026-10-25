@@ -8,7 +8,6 @@ ROOT_DIR="${0:A:h:h}"
 NOTARY_PROFILE="SayKuku-Notary"
 APP_DIR="$ROOT_DIR/Build/SayKuku.app"
 DIST_DIR="$ROOT_DIR/Dist"
-VERSION_FEED="$DIST_DIR/ver.json"
 
 fail() {
     print -u2 -r -- "$*"

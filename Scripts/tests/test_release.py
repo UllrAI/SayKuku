@@ -231,6 +231,7 @@ class ReleaseTests(unittest.TestCase):
         self.assertLess(events.index("verified:ver.json"), events.index("appcast.xml"))
         self.assertLess(events.index("appcast.xml"), events.index("ver.json"))
         self.assertEqual(json.loads((self.root / "marketing/site/dist/ver.json").read_text())["version"], "1.1.0")
+        self.assertEqual((self.root / "Dist/ver.json").read_bytes(), self.feed.read_bytes())
         # Repeating a publication uses the same validated metadata and archive.
         self.publish_fixture()
 

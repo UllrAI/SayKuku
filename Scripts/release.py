@@ -315,6 +315,9 @@ def publish(metadata_file, tools):
         verify_public(DOWNLOADS + "ver.json", metadata["legacy_sha256"])
         # Only copy generated website changes back after the public release passes verification.
         shutil.copytree(site, ROOT / "marketing/site/dist", dirs_exist_ok=True)
+        local_feed = ROOT / "Dist/ver.json"
+        local_feed.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(metadata["legacy_feed"], local_feed)
     tag = "v" + metadata["version"]
     if subprocess.run(["git", "rev-parse", "--verify", tag], cwd=ROOT, capture_output=True).returncode:
         run(["git", "tag", tag, metadata["commit"]], cwd=ROOT)
