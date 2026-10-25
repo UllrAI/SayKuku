@@ -5,13 +5,13 @@ import Testing
 
 @Suite("Single-pass dictation output")
 struct SinglePassDictationTests {
-    @Test("the default single-pass prompt matches the frozen three-round candidate byte for byte")
-    func frozenPrompt() {
+    @Test("the single-pass prompt freezes the current structure rules byte for byte")
+    func frozenCurrentStructureRules() {
         let prompt = SinglePassDictation.instructions(recognitionLanguage: .automatic, numberFormat: .preferDigits, targetApp: nil, keepEndingPunctuation: true)
-        #expect(prompt.count == 3_464)
-        #expect(prompt.utf8.count == 6_212)
+        #expect(prompt.count == 4_617)
+        #expect(prompt.utf8.count == 8_125)
         let digest = SHA256.hash(data: Data(prompt.utf8)).map { String(format: "%02x", $0) }.joined()
-        #expect(digest == "66dad00cb1d1c4316a8e2d209b3bea39c4c760537cb8c9094d88c9a955c95bab")
+        #expect(digest == "84f22452756acf618b64ac32040f4d557afbc7085004eee9317f91c1d7844e46")
     }
 
     @Test("both cleanup modes share one prompt and preserve dictated formatting commands")
@@ -23,11 +23,13 @@ struct SinglePassDictationTests {
         #expect(single.contains("换行/new line"))
     }
 
-    @Test("the batch default keeps the released plain-text prompt byte for byte")
-    func batchPromptUnchanged() {
+    @Test("the batch prompt freezes the current structure rules byte for byte")
+    func frozenBatchStructureRules() {
         let prompt = QwenRealtimeClient.makeDictationInstructions(memoryPrompt: "", structuredReply: false)
+        #expect(prompt.count == 7_128)
+        #expect(prompt.utf8.count == 8_180)
         let digest = SHA256.hash(data: Data(prompt.utf8)).map { String(format: "%02x", $0) }.joined()
-        #expect(digest == "63cc2952f31db9cfbc54fcddcfdb26c3cdba02e1c4a769aafad0f0452b850bc6")
+        #expect(digest == "39d7af15a79db3c1f5dd4f7f5cd4d51dca64f450778d158d9854b8caa41daaa4")
     }
 
     @Test("only the final field is returned, including quoted repeats, escapes, literal JSON, and silence")
