@@ -1,8 +1,10 @@
-# Typeless 本地样本研究与当前基线重放
+# Typeless 本地样本研究与历史基线重放
 
-研究日期：2026-10-24。本 PR 保留最新主线的中文优先单次 Realtime 与可选 Flash 流程，提交导出工具、研究报告和显式启用的评测入口，不恢复旧两阶段实现。
+研究日期：2026-10-24。以下结果冻结于旧基线 `39dcc4b`，不代表合并 #183 后的当前质量。当前实现、长短语音对照及默认速度配置见 [2026-10-25 复验](DICTATION_UNIFIED_EVAL_2026-10-25.md) 与 [语音输入设置](VOICE_INPUT_SETTINGS.md)。
 
-当前 `39dcc4b` 已完成 **Realtime 单次**与 **batch 单次**两路重放，各含 12 条私人录音和 40 句合成音频，均无请求错误，没有调用 Flash 二次整理。40 句完全匹配分别为 Realtime 35/40、batch 30/40；真人结果仍接近逐字口语，结构整理不足，不能称已达到 Typeless。下文 33/40 和约 13 秒属于旧本地实验，均不是本轮当前主线结果。
+本 PR 添加导出工具、历史研究和调用当前客户端的显式评测入口，不恢复旧两阶段实现。
+
+历史基线 `39dcc4b` 已完成 **Realtime 单次**与 **batch 单次**两路重放，各含 12 条私人录音和 40 句合成音频，均无请求错误，没有调用 Flash 二次整理。40 句完全匹配分别为 Realtime 35/40、batch 30/40；真人结果仍接近逐字口语，结构整理不足，不能称已达到 Typeless。下文 33/40 和约 13 秒属于旧本地实验，均不是本轮当前主线结果。
 
 Realtime 使用完整 WAV 突发上传，不包含录音时间；其提交等待不能当作南宁等真实使用网络下的用户松手延迟。两路请求也不是同时间、同网络条件的受控对照，不能据耗时差异宣称某条路径更快。
 
@@ -16,9 +18,9 @@ Realtime 使用完整 WAV 突发上传，不包含录音时间；其提交等待
 | --- | --- |
 | `cbf1e575136548373f83f30f3490ad8616432d82` | 旧实验基线；下文“旧基线”与原版输出均指它 |
 | `cdf2e1489b5edbee46222d8d698fccf62d4a0e8a` | 本地历史实验快照，包含先识别再文本整理及其审查修复；未随本 PR 合入 |
-| `39dcc4bce8d9a958dbc648a8da12e284542e5a2d` | 本 PR 对照的当前主线，已合入 #175、#177 等后续设计 |
+| `39dcc4bce8d9a958dbc648a8da12e284542e5a2d` | 本研究冻结的历史主线，已合入 #175、#177 等后续设计 |
 
-旧实验的 40 句与 12 条录音结果不能作为当前主线的性能或质量结论。当前方案及其中文优先取舍以 [中文单次听写接入记录](DICTATION_SINGLE_PASS_CHINESE_2026-10-22.md)、[SinglePassDictation](../Sources/SayKuku/Qwen/SinglePassDictation.swift) 和 [DictationRefinement](../Sources/SayKuku/Qwen/DictationRefinement.swift) 为准。
+旧实验及39dcc4b的重放结果均不能作为当前主线的性能或质量结论。当前方案及其中文优先取舍以 [中文单次听写接入记录](DICTATION_SINGLE_PASS_CHINESE_2026-10-22.md)、[DictationStructure](../Sources/SayKuku/Qwen/DictationStructure.swift) 和 [DictationRefinement](../Sources/SayKuku/Qwen/DictationRefinement.swift) 为准。
 
 ## 一手数据与证据边界
 
@@ -111,25 +113,25 @@ Typeless 数据来自本机 SQLite 数据库及其 `Recordings` 目录。`refine
 
 该批历史两阶段请求耗时中位数为 13.046 秒，最短 6.958 秒、最长 28.459 秒，包含识别与文本整理。没有匹配口径的旧基线耗时，因此不声称更快。这组数字不能与当前中文单次评测的耗时直接比较。私人目录保留带录音的三列对照 `comparison.html`；该文件和其中的录音、全文均不提交。
 
-## 与当前主线 #175、#177 的对照
+## 历史实现对照：39dcc4b（#175、#177）
 
-当前主线已经完成另一条路线。[#175](https://github.com/UllrAI/SayKuku/pull/175) 统一原样、轻度整理、二次整理三档并迁移既有偏好；[#177](https://github.com/UllrAI/SayKuku/pull/177) 按用户中文优先的选择，接入新的单次 Realtime 提示。当前实现和已记录评测比旧基线更新，应保留其产品取舍。
+当时主线已经完成另一条路线。[#175](https://github.com/UllrAI/SayKuku/pull/175) 统一原样、轻度整理、二次整理三档并迁移既有偏好；[#177](https://github.com/UllrAI/SayKuku/pull/177) 按用户中文优先的选择，接入新的单次 Realtime 提示。当时实现和已记录评测比旧基线更新，应保留其产品取舍。
 
-| 维度 | 历史本地实验 | 当前主线实现 |
+| 维度 | 历史本地实验 | 当时主线实现 |
 | --- | --- | --- |
 | Realtime 轻度整理 | 先逐字识别，再必经文本整理 | `SinglePassDictation` 在一次音频响应中生成 `negations`、`transcript`、`text`，只将 `text` 交给调用方 |
 | 二次文本处理 | 轻度整理默认必经，同一 Omni 模型、预算 512 | 仅 `.refined` 档启用 `DictationRefinement`，固定使用 `qwen3.8-flash`，两秒截止，超时、错误或审核不通过时保留首次结果 |
 | 批处理 | 先逐字音频识别，再文本整理 | 保留独立的纯文字批处理提示，不将 Realtime 结构化策略直接套用；选择二次整理时再走共享 refinement |
-| 段落与列表 | 历史文本整理阶段允许生成结构 | 首次生成负责排版；当前 refinement 要求保留已有换行和列表，不创建或删除列表 |
+| 段落与列表 | 历史文本整理阶段允许生成结构 | 首次生成负责排版；当时 refinement 要求保留已有换行和列表，不创建或删除列表 |
 | 证据重点 | 少量真人录音及 40 句旧开发集 | 中文与中英混合优先的冻结评测、可选二次抽样与生产接入检查；具体口径见现有文档 |
 
-依据：[SinglePassDictation](../Sources/SayKuku/Qwen/SinglePassDictation.swift)、[DictationRefinement](../Sources/SayKuku/Qwen/DictationRefinement.swift)、[VoiceWorkflow](../Sources/SayKuku/Voice/VoiceWorkflow.swift)、[中文单次听写接入记录](DICTATION_SINGLE_PASS_CHINESE_2026-10-22.md)。`negations` 和 `transcript` 与 `text` 来自同一次生成，不能视作独立的保真证据；当前源码也明确了这一点。
+依据：[SinglePassDictation](https://github.com/UllrAI/SayKuku/blob/39dcc4bce8d9a958dbc648a8da12e284542e5a2d/Sources/SayKuku/Qwen/SinglePassDictation.swift)、[DictationRefinement](https://github.com/UllrAI/SayKuku/blob/39dcc4bce8d9a958dbc648a8da12e284542e5a2d/Sources/SayKuku/Qwen/DictationRefinement.swift)、[VoiceWorkflow](https://github.com/UllrAI/SayKuku/blob/39dcc4bce8d9a958dbc648a8da12e284542e5a2d/Sources/SayKuku/Voice/VoiceWorkflow.swift)、[中文单次听写接入记录](DICTATION_SINGLE_PASS_CHINESE_2026-10-22.md)。`negations` 和 `transcript` 与 `text` 来自同一次生成，不能视作独立的保真证据；当时源码也明确了这一点。
 
 现有中文记录注明，纯英文有已知退化，中英混合严格匹配也非各项均改善；用户按中文优先接受取舍。可选二次整理抽样既有修复也有引语重复被误删，不能宣称总能改善。这些已有结果与本报告的旧实验使用不同样本、路径和计分方式，不能横向排名。
 
-Typeless 样本后续适合用来检查长录音分段、隐式列举、远距离改口与条件保留。若要改变当前流程，需在当前单次与可选二次两档上另建同音频对照，并按 [听写润色评测](DICTATION_POLISH_EVAL.md)、[中英混说评测](MIXED_LANGUAGE_EVAL.md) 和中文方案的既有口径验证。本 PR 提供研究材料、导出能力和新基线评测入口，不以旧成绩替代这项验证。
+Typeless 样本后续适合用来检查长录音分段、隐式列举、远距离改口与条件保留。若要改变当时流程，需在当时单次与可选二次两档上另建同音频对照，并按 [听写润色评测](DICTATION_POLISH_EVAL.md)、[中英混说评测](MIXED_LANGUAGE_EVAL.md) 和中文方案的既有口径验证。本 PR 提供研究材料、导出能力和新基线评测入口，不以旧成绩替代这项验证。
 
-## 当前基线的新一轮实测
+## 当时基线的新一轮实测
 
 本轮目标是直接重放 `39dcc4b` 的生产单次路径，不使用旧实验的两阶段整理。新增 [显式启用的样本评测](../Tests/SayKukuTests/TypelessSampleEvalTests.swift) 复用生产 Realtime `connect/append/commit`，批处理单独复用 `transcribeAudio`；两者均使用 `.light`，不调用可选的 `DictationRefinement`。
 
@@ -140,9 +142,9 @@ Typeless 样本后续适合用来检查长录音分段、隐式列举、远距�
 | 40 句固定合成音频 | Realtime 单次 | 40/40 完成，35/40 完全匹配，0 请求错误 |
 | 40 句固定合成音频 | 批处理单次 | 40/40 完成，30/40 完全匹配，0 请求错误 |
 
-四组请求均为北京地域、自动语言识别、优先数字、完整末尾标点、无目标 App/表达偏好/记忆，均为 `.light`，报告显式记录基线 SHA。Realtime 模型为 `qwen3.8-omni-flash-realtime`，batch 为 `qwen3.8-omni-flash`。当前 batch 保留纯文字策略，与 Realtime 的 `SinglePassDictation` 结构化单次不是同一路径。
+四组请求均为北京地域、自动语言识别、优先数字、完整末尾标点、无目标 App/表达偏好/记忆，均为 `.light`，报告显式记录基线 SHA。Realtime 模型为 `qwen3.8-omni-flash-realtime`，batch 为 `qwen3.8-omni-flash`。当时 batch 保留纯文字策略，与 Realtime 的 `SinglePassDictation` 结构化单次不是同一路径。
 
-### 当前 Realtime 单次
+### 当时 Realtime 单次
 
 | 指标 | 12 条私人录音 | 40 句固定合成音频 |
 | --- | ---: | ---: |
@@ -171,9 +173,9 @@ Typeless 样本后续适合用来检查长录音分段、隐式列举、远距�
 
 12 条真人结果的无意义口癖已较少，但背景与要求仍多连成整段，未出现空行或编号列表，整体仍接近逐字口语。`0755c7e5-…` 的开头、`8d402365-…` 的启动术语、`616c635b-…` 的分组/汇总动作、`f9aff849-…` 的开头时序和 `4be826d2-…` 的产品名仍有待回听的保真疑点。Typeless 和旧 `verbatim` 只能供对照，不能当人工真值；本轮没有真人金标，不能宣称已达到 Typeless 的清洗质量。
 
-### 当前 batch 单次
+### 当时 batch 单次
 
-| 当前 batch 单次指标 | 12 条私人录音 | 40 句固定合成音频 |
+| 当时 batch 单次指标 | 12 条私人录音 | 40 句固定合成音频 |
 | --- | ---: | ---: |
 | 请求完成 / 请求错误 | 12/12 / 0 | 40/40 / 0 |
 | 含“嗯/呃/哎” | 1 | 0 |
@@ -260,7 +262,7 @@ swift test --filter TypelessSampleEvalTests
 
 旧两阶段实验的录音重放与旧预设 live probe 只存在于本地 `cdf2e1489b5edbee46222d8d698fccf62d4a0e8a` 快照，并依赖未提交的私人样本与开发环境。复核历史结果必须切到该快照并取得相应材料；当前新增入口重放的是新主线单次路径，不复现旧两阶段结果。
 
-## 本 PR 的离线验证状态
+## 2026-10-24 历史离线验证状态
 
 - 输入校验修复前，相关 18 项 Swift 测试通过；修复后运行 `swift test --filter 'TypelessSample|SinglePassDictation|DictationRefinement'`，19 项测试、4 个 suite 通过，包括缺失格式、采样率、声道、编码与位深的拒绝检查，以及可变大小和奇数字节 padding chunk 的合法解析。默认 live 入口跳过，没有因此访问私人文件、Keychain 或网络。
 - `python3 -B -m unittest discover -s Scripts/tests -v` 的 1 项合成导出 fixture 通过；`git diff --check` 通过，无新编译警告。
@@ -291,3 +293,12 @@ uncertainty = sum(bool(re.search("好像|可能|我觉得|是不是|应该|如�
 ```
 
 仓库只保存工具、合成测试、统计口径、匿名 ID 与研究结论；全文、录音、数据库和对照页面继续保留在仓库外。
+
+
+## 合并前更新（2026-10-25）
+
+已同步 #183 的主线实现。回放入口直接调用当前生产客户端，明确使用自动清理、自动排版开启及不追加Flash的单次配置，并在报告中记录。本文历史基线的模型结果未重新运行，不能用同步代码后的离线测试改写历史模型成绩。
+
+导出仅复制所选Recordings树里的普通文件，不跟随符号链接，也不按数据库路径读取目录外文件。旧位置的绝对路径仍可按文件名匹配已经复制的录音。输出目录不得位于源目录内，避免递归复制或修改来源。丢失或被跳过的音频继续记录在manifest中。
+
+合并前复验：完整 `swift test` 348项、43个suite通过；`python3 -B -m unittest discover -s Scripts/tests -v` 3项通过；`git diff --check`通过。默认测试没有读取私人样本或真实Keychain，也没有新增模型请求。

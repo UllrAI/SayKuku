@@ -67,6 +67,52 @@ class TypelessExportTests(unittest.TestCase):
             self.assertEqual((destination / "Recordings/nested/debug.pcm").read_bytes(), b"fixture fragment")
             self.assertEqual(database.read_bytes(), original_database)
 
+    def test_output_cannot_modify_the_source_tree(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "source"
+            source.mkdir()
+            destination = source / "Recordings/export"
+            with self.assertRaises(ValueError):
+                export_typeless.export(source, destination)
+            self.assertEqual(list(source.iterdir()), [])
+            relocated = Path(directory) / "relocated-recordings"
+            relocated.mkdir()
+            (source / "Recordings").symlink_to(relocated, target_is_directory=True)
+            with self.assertRaises(ValueError):
+                export_typeless.export(source, relocated / "export")
+            self.assertEqual(list(relocated.iterdir()), [])
+
+    def test_external_paths_and_symlinks_are_not_exported(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source"
+            recordings = source / "Recordings"
+            recordings.mkdir(parents=True)
+            external = root / "private.txt"
+            external.write_bytes(b"not audio")
+            (recordings / "linked.ogg").symlink_to(external)
+            (recordings / "linked-directory").symlink_to(root, target_is_directory=True)
+            (recordings / "legacy.ogg").write_bytes(b"fixture audio")
+            with sqlite3.connect(source / "typeless.db") as connection:
+                for table in ["history", "history_v2"]:
+                    connection.execute(f"CREATE TABLE {table} (id TEXT, created_at TEXT, refined_text TEXT, audio_local_path TEXT)")
+                connection.executemany("INSERT INTO history VALUES (?, ?, ?, ?)", [
+                    ("external", "2026-01-01", "fixture", str(external)),
+                    ("traversal", "2026-01-01", "fixture", str(recordings / "../../private.txt")),
+                    ("symlink", "2026-01-01", "fixture", str(recordings / "linked.ogg")),
+                    ("directory-link", "2026-01-01", "fixture", str(recordings / "linked-directory/private.txt")),
+                    ("legacy", "2026-01-01", "fixture", str(root / "old-location/Recordings/legacy.ogg")),
+                ])
+            destination = root / "export"
+            with contextlib.redirect_stdout(io.StringIO()):
+                export_typeless.export(source, destination)
+            records = {record["id"]: record for record in map(json.loads, (destination / "history.jsonl").read_text().splitlines())}
+            for identifier in ["external", "traversal", "symlink", "directory-link"]:
+                self.assertIsNone(records[identifier]["exported_audio_path"])
+            self.assertEqual(records["legacy"]["exported_audio_path"], "Recordings/legacy.ogg")
+            self.assertEqual(external.read_bytes(), b"not audio")
+            self.assertEqual([file.name for file in (destination / "Recordings").iterdir()], ["legacy.ogg"])
+
 
 if __name__ == "__main__":
     unittest.main()

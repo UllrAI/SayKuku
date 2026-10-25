@@ -48,6 +48,7 @@ struct TypelessSampleEvalTests {
         let numberFormat: String
         let cleanup = "light"
         let refinementEnabled = false
+        let structureEnabled = true
         let audioFormat = "16 kHz mono PCM16 WAV"
         let keepEndingPunctuation = true
         let targetApp: String? = nil
@@ -108,7 +109,7 @@ struct TypelessSampleEvalTests {
                 case .batch:
                     reply = try await batchClient.transcribeAudio(
                         apiKey: key, configuration: configuration, wav: wav,
-                        recognitionLanguage: language, numberFormat: numberFormat, cleanup: .light
+                        recognitionLanguage: language, numberFormat: numberFormat, cleanup: .light, structure: true
                     )
                 case .realtime:
                     let client = QwenRealtimeClient()
@@ -120,7 +121,7 @@ struct TypelessSampleEvalTests {
                             try await client.connect(
                                 session: session, apiKey: key, configuration: configuration,
                                 autoStop: false, onSpeechStopped: {}, onDelta: { _ in },
-                                recognitionLanguage: language, numberFormat: numberFormat, cleanup: .light
+                                recognitionLanguage: language, numberFormat: numberFormat, cleanup: .light, structure: true
                             )
                         }
                         do {

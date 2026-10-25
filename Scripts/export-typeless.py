@@ -13,6 +13,9 @@ from pathlib import Path
 
 
 def export(source, destination):
+    source, destination = source.resolve(), destination.resolve()
+    if any(destination.is_relative_to(folder) for folder in [source, (source / "Recordings").resolve()]):
+        raise ValueError("Export destination must be outside the source and recordings directories")
     destination.mkdir(parents=True, exist_ok=False)
     database = destination / "typeless.db"
     with sqlite3.connect((source / "typeless.db").as_uri() + "?mode=ro", uri=True) as original:
@@ -20,7 +23,10 @@ def export(source, destination):
             original.backup(snapshot)
 
     recordings = destination / "Recordings"
-    shutil.copytree(source / "Recordings", recordings)
+    # Do not copy files outside the selected recordings tree through symbolic links.
+    shutil.copytree(source / "Recordings", recordings, ignore=lambda directory, names: [
+        name for name in names if (Path(directory) / name).is_symlink()
+    ])
     with sqlite3.connect(database) as snapshot:
         snapshot.row_factory = sqlite3.Row
         assert snapshot.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
@@ -39,14 +45,11 @@ def export(source, destination):
         path = record.get("audio_local_path")
         relative = None
         if path:
-            original_path = Path(path)
+            original_path = Path(path).resolve()
             try:
-                relative = Path("Recordings") / original_path.relative_to(source / "Recordings")
+                relative = Path("Recordings") / original_path.relative_to((source / "Recordings").resolve())
             except ValueError:
                 relative = Path("Recordings") / original_path.name
-            if not (destination / relative).is_file() and original_path.is_file():
-                (destination / relative).parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(original_path, destination / relative)
         if relative and (destination / relative).is_file():
             record["exported_audio_path"] = str(relative)
         else:
