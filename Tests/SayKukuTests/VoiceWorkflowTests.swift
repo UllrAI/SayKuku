@@ -533,15 +533,17 @@ struct VoiceWorkflowTests {
         }
     }
 
-    @Test("a recording without speech fails with the Didn’t catch that message")
-    func dictationNoSpeech() async throws {
+    @Test("all-zero audio is rejected before requesting transcription", arguments: [false, true])
+    func dictationNoSpeech(realtimeEnabled: Bool) async throws {
         let environment = AppStateTestEnvironment()
         defer { environment.clean() }
+        let realtime = FakeRealtime()
         let reasoning = FakeReasoning()
         let text = FakeTextWriting()
         let state = try makeState(
-            environment, .fake(audio: FakeAudioCapturing(recording: .silence), reasoning: reasoning, text: text)
+            environment, .fake(audio: FakeAudioCapturing(recording: .silence), realtime: realtime, reasoning: reasoning, text: text)
         )
+        if realtimeEnabled { state.settings.qwenWorkspaceID = "llm-test" }
 
         try await startListening(state)
         state.workflow.finishDictation()
@@ -549,7 +551,78 @@ struct VoiceWorkflowTests {
         #expect(state.workflow.overlayError == QwenError.noSpeech.localizedDescription)
         #expect(state.workflow.dictationPhase == .idle)
         #expect(reasoning.transcribeCount == 0)
+        #expect(await realtime.commitCount == 0)
         #expect(text.writes.isEmpty)
+    }
+
+    @Test("quiet audio reaches the model through realtime, fallback and batch", arguments: ["realtime", "fallback", "batch"])
+    func quietDictation(route: String) async throws {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        // One minimum-amplitude PCM sample was rejected by the old volume and duration thresholds.
+        let pcm = Data([1, 0])
+        let recording = AudioCapture.Recording(
+            wav: Data(), duration: 1.0 / 16_000,
+            hasNonzeroSamples: AudioCapture.containsNonzeroSamples(in: pcm)
+        )
+        let realtime = FakeRealtime(transcript: "Hello world.", commitError: route == "fallback" ? .timeout : nil)
+        let reasoning = FakeReasoning()
+        let text = FakeTextWriting()
+        let state = try makeState(environment, .fake(
+            audio: FakeAudioCapturing(recording: recording), realtime: realtime, reasoning: reasoning, text: text
+        ))
+        if route != "batch" { state.settings.qwenWorkspaceID = "llm-test" }
+
+        try await startListening(state)
+        state.workflow.finishDictation()
+        #expect(await eventually { state.workflow.dictationPhase == .success })
+        #expect(text.writes == ["Hello world."])
+        #expect(await realtime.commitCount == (route == "batch" ? 0 : 1))
+        #expect(reasoning.transcribeCount == (route == "realtime" ? 0 : 1))
+    }
+
+    @Test("a model's empty transcript still reports no speech", arguments: [false, true])
+    func modelDetectsNoSpeech(realtimeEnabled: Bool) async throws {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let realtime = FakeRealtime(transcript: "")
+        let reasoning = FakeReasoning(transcriptions: [.text("")])
+        let text = FakeTextWriting()
+        let state = try makeState(environment, .fake(realtime: realtime, reasoning: reasoning, text: text))
+        if realtimeEnabled { state.settings.qwenWorkspaceID = "llm-test" }
+
+        try await startListening(state)
+        state.workflow.finishDictation()
+        #expect(await eventually { state.data.historyEntries.first?.status == .failed })
+        #expect(state.workflow.overlayError == QwenError.noSpeech.localizedDescription)
+        #expect(text.writes.isEmpty)
+        #expect(await realtime.commitCount == (realtimeEnabled ? 1 : 0))
+        #expect(reasoning.transcribeCount == (realtimeEnabled ? 0 : 1))
+    }
+
+    @Test("Voice Agent leaves quiet audio to the model and rejects only all-zero audio", arguments: [false, true])
+    func agentAudioSignal(nonzero: Bool) async throws {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let pcm = Data([nonzero ? 1 : 0, 0])
+        let recording = AudioCapture.Recording(
+            wav: Data(), duration: 1.0 / 16_000,
+            hasNonzeroSamples: AudioCapture.containsNonzeroSamples(in: pcm)
+        )
+        let reply = AgentResponse(transcript: "Swift 是什么", action: .answer, output: "A programming language.")
+        let reasoning = FakeReasoning(agentReply: .success(reply))
+        let state = try makeState(environment, .fake(audio: FakeAudioCapturing(recording: recording), reasoning: reasoning))
+
+        try await startAgentListening(state)
+        state.workflow.finishAgentListening()
+        if nonzero {
+            #expect(await eventually { state.workflow.agentPhase == .answerReady })
+            #expect(reasoning.agentContexts.count == 1)
+            #expect(state.workflow.pendingAnswerText == reply.output)
+        } else {
+            #expect(await eventually { state.workflow.overlayError == QwenError.noSpeech.localizedDescription })
+            #expect(reasoning.agentContexts.isEmpty)
+        }
     }
 
     @Test("an Agent answer waits on its card, and Insert writes it and closes the card")
@@ -878,7 +951,7 @@ struct VoiceWorkflowTests {
         #expect(try SpeechDisfluencyCleaner.dictation(hesitation, mode: .light).isEmpty)
         let environment = AppStateTestEnvironment()
         defer { environment.clean() }
-        let audio = FakeAudioCapturing(recording: AudioCapture.Recording(wav: Data(count: 64), duration: 1, hasSpeech: true))
+        let audio = FakeAudioCapturing(recording: AudioCapture.Recording(wav: Data(count: 64), duration: 1, hasNonzeroSamples: true))
         let reasoning = FakeReasoning(transcriptions: [.text(hesitation)], refinements: [.text("changed")])
         let text = FakeTextWriting()
         let state = try makeState(environment, .fake(audio: audio, reasoning: reasoning, text: text))
@@ -940,7 +1013,7 @@ struct VoiceWorkflowTests {
         for cleanup in DictationCleanup.allCases {
             let environment = AppStateTestEnvironment()
             defer { environment.clean() }
-            let audio = FakeAudioCapturing(recording: AudioCapture.Recording(wav: Data(count: 64), duration: 1, hasSpeech: true))
+            let audio = FakeAudioCapturing(recording: AudioCapture.Recording(wav: Data(count: 64), duration: 1, hasNonzeroSamples: true))
             let firstPass = "我们下周去上，上海出差。"
             let reasoning = FakeReasoning(
                 transcriptions: [.failure(.invalidResponse), .text(firstPass)],

@@ -56,8 +56,8 @@ extension AppState.Dependencies {
 
 extension AudioCapture.Recording {
     /// Empty WAV data, so nothing is written to the History audio folder.
-    static let speech = AudioCapture.Recording(wav: Data(), duration: 1, hasSpeech: true)
-    static let silence = AudioCapture.Recording(wav: Data(), duration: 1, hasSpeech: false)
+    static let speech = AudioCapture.Recording(wav: Data(), duration: 1, hasNonzeroSamples: true)
+    static let silence = AudioCapture.Recording(wav: Data(), duration: 1, hasNonzeroSamples: false)
 }
 
 extension TextTargetSnapshot {

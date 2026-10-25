@@ -615,17 +615,21 @@ struct PersistenceTests {
         await #expect(throws: LocalStoreError.self) { try await store.audio(named: "../store.json") }
     }
 
-    @Test("silence is rejected before transcription")
-    func silenceDetection() {
-        let silence = Data(repeating: 0, count: 16_000 * 2)
-        #expect(!AudioCapture.containsSpeech(in: silence))
+    @Test("only empty or all-zero PCM is rejected locally")
+    func emptyAudioDetection() {
+        #expect(!AudioCapture.containsNonzeroSamples(in: Data()))
+        #expect(!AudioCapture.containsNonzeroSamples(in: Data(repeating: 0, count: 16_000 * 2)))
+    }
 
-        var tone = Data()
-        for index in 0..<(16_000 / 4) {
-            var sample = Int16(sin(Double(index) * 2 * .pi * 440 / 16_000) * 4_000).littleEndian
-            withUnsafeBytes(of: &sample) { tone.append(contentsOf: $0) }
-        }
-        #expect(AudioCapture.containsSpeech(in: tone))
+    @Test("even a single quiet sample is left for the model to interpret", arguments: [Int16(1), -1, 256, -256])
+    func quietAudioDetection(sample: Int16) {
+        var value = sample.littleEndian
+        let sampleData = withUnsafeBytes(of: &value) { Data($0) }
+        #expect(AudioCapture.containsNonzeroSamples(in: sampleData))
+
+        var mostlyZero = Data(repeating: 0, count: 16_000 * 2)
+        mostlyZero.append(sampleData)
+        #expect(AudioCapture.containsNonzeroSamples(in: mostlyZero))
     }
 
     @Test("stopping a capture that never started returns an empty recording")
@@ -634,7 +638,7 @@ struct PersistenceTests {
         capture.cancel()
         let recording = capture.stop()
         #expect(recording.duration == 0)
-        #expect(!recording.hasSpeech)
+        #expect(!recording.hasNonzeroSamples)
         #expect(recording.wav.count == 44)
     }
 }
