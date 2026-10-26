@@ -12,6 +12,13 @@ final class AppSettings {
     var overlayPlacement: OverlayPlacement = .bottom {
         didSet { defaults.set(overlayPlacement.rawValue, forKey: Keys.overlayPlacement) }
     }
+    /// Core Audio UIDs survive reconnects; nil follows the system default input.
+    var inputDeviceUID: String? {
+        didSet {
+            defaults.set(inputDeviceUID, forKey: Keys.inputDeviceUID)
+            inputDeviceChangeHandler?()
+        }
+    }
     var autoStop = false { didSet { defaults.set(autoStop, forKey: Keys.autoStop) } }
     var recognitionLanguage: RecognitionLanguage = .automatic {
         didSet { defaults.set(recognitionLanguage.rawValue, forKey: Keys.recognitionLanguage) }
@@ -113,6 +120,7 @@ final class AppSettings {
     }
 
     /// The API Key, region, Workspace ID or a model changed.
+    @ObservationIgnored var inputDeviceChangeHandler: (@MainActor () -> Void)?
     @ObservationIgnored var qwenConnectionChangeHandler: (@MainActor () -> Void)?
     @ObservationIgnored var historyRetentionChangeHandler: (@MainActor () -> Void)?
     @ObservationIgnored var globalShortcutChangeHandler: (@MainActor () -> Void)?
@@ -273,6 +281,7 @@ final class AppSettings {
         learnFromCorrections = storedBool(Keys.learnCorrections, default: true)
         // Retired: microphone capture no longer uses Apple's voice processing.
         defaults.removeObject(forKey: "voice.processingEnabled")
+        inputDeviceUID = defaults.string(forKey: Keys.inputDeviceUID)
         soundCuesEnabled = storedBool(Keys.soundCues, default: true)
         selectedTextAllowed = storedBool(Keys.selectedText, default: true)
         currentAppAllowed = storedBool(Keys.currentApp, default: true)
@@ -300,6 +309,7 @@ final class AppSettings {
     }
 
     private enum Keys {
+        static let inputDeviceUID = "voice.inputDeviceUID"
         static let inputMode = "inputMode", legacyLanguage = "appLanguage", autoStop = "autoStop"
         static let overlayPlacement = "overlay.placement"
         static let recognitionLanguage = "dictation.recognitionLanguage", dictationNumberFormat = "dictation.numberFormat"

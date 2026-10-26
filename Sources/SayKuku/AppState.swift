@@ -50,6 +50,7 @@ final class AppState {
     let data: LocalData
     let workflow: VoiceWorkflow
     let systemPermissions: SystemPermissionController
+    let audioInputDevices: AudioInputDevices
     let microphoneTest: MicrophoneTestController
     /// Nil in dev builds and `swift run`, which never check for updates.
     let softwareUpdater: SoftwareUpdater?
@@ -93,6 +94,7 @@ final class AppState {
     /// The microphone, Qwen, focused-app and permission services the voice workflows drive; tests pass fakes.
     struct Dependencies {
         var audioCapture: any AudioCapturing
+        var audioInputDevices: AudioInputDevices? = nil
         var realtimeClient: any RealtimeTranscribing
         var reasoningClient: any Reasoning
         var textInteraction: any TextWriting
@@ -110,6 +112,7 @@ final class AppState {
         @MainActor static var live: Dependencies {
             Dependencies(
                 audioCapture: AudioCapture(),
+                audioInputDevices: AudioInputDevices(),
                 realtimeClient: QwenRealtimeClient(),
                 reasoningClient: QwenReasoningClient(),
                 textInteraction: TextInteraction(),
@@ -127,6 +130,8 @@ final class AppState {
     ) {
         let settings = AppSettings(defaults: defaults, keychain: keychain)
         self.settings = settings
+        audioInputDevices = dependencies.audioInputDevices ?? AudioInputDevices(read: { AudioInputSnapshot() })
+        dependencies.audioCapture.selectInput(uid: settings.inputDeviceUID)
         let data = LocalData(store: store, settings: settings, persistenceDelay: persistenceDelay)
         self.data = data
         workflow = VoiceWorkflow(settings: settings, data: data, dependencies: dependencies)
@@ -142,6 +147,13 @@ final class AppState {
             ? AppAnalytics(bundle: .main, settings: settings, defaults: defaults) : nil
         launchAtLogin = SMAppService.mainApp.status == .enabled
         systemPermissions.accessibilityChangeHandler = { [weak self] in self?.refreshSystemPermissions() }
+        settings.inputDeviceChangeHandler = { [weak self, audioCapture = dependencies.audioCapture] in
+            guard let self else { return }
+            let wasTesting = self.microphoneTest.phase == .running || self.microphoneTest.phase == .starting
+            self.microphoneTest.stop()
+            audioCapture.selectInput(uid: self.settings.inputDeviceUID)
+            if wasTesting { self.microphoneTest.start() }
+        }
         settings.qwenConnectionChangeHandler = { [weak self] in self?.invalidateConnectionTest() }
         settings.historyRetentionChangeHandler = { [weak self] in self?.data.cleanExpiredHistory() }
         data.toastHandler = { [weak self] text, symbol in self?.showToast(text, symbol: symbol) }
@@ -169,6 +181,7 @@ final class AppState {
     func startSystemServices() {
         guard shortcutController == nil else { return }
         workflow.overlayController = FloatingOverlayController(appState: self)
+        audioInputDevices.startMonitoring()
         workflow.prepareMicrophone()
         let controller = ShortcutController(appState: self)
         shortcutController = controller

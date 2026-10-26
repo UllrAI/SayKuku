@@ -229,7 +229,8 @@ final class MicrophoneTestController {
 
     private(set) var phase: Phase = .idle
     private(set) var level: Double = 0
-    private(set) var deviceName = ""
+    private(set) var activeInput: AudioInputSelection?
+    var deviceName: String { activeInput?.device.name ?? "" }
 
     /// The capture recordings use, so the test reuses its engine instead of building one on the main thread,
     /// which takes seconds with a Bluetooth input, and checks the same path a recording takes.
@@ -241,7 +242,6 @@ final class MicrophoneTestController {
     init(audioCapture: any AudioCapturing, microphoneAllowed: @escaping @MainActor () -> Bool) {
         self.audioCapture = audioCapture
         self.microphoneAllowed = microphoneAllowed
-        refreshDeviceName()
     }
 
     var isRunning: Bool { phase == .running }
@@ -253,7 +253,6 @@ final class MicrophoneTestController {
         }
 
         stop(resetPhase: false)
-        refreshDeviceName()
         phase = .starting
         let generation = generation
         let started = audioCapture.start(
@@ -276,6 +275,7 @@ final class MicrophoneTestController {
             guard let self, self.generation == generation else { return }
             do {
                 try result.get()
+                activeInput = audioCapture.activeInput
                 phase = .running
             } catch {
                 audioCapture.cancel()
@@ -292,11 +292,8 @@ final class MicrophoneTestController {
     private func stop(resetPhase: Bool) {
         if phase == .starting || phase == .running { audioCapture.cancel() }
         generation += 1
+        activeInput = nil
         level = 0
         if resetPhase { phase = .idle }
-    }
-
-    private func refreshDeviceName() {
-        deviceName = AVCaptureDevice.default(for: .audio)?.localizedName ?? ""
     }
 }

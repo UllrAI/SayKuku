@@ -1,6 +1,94 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Using %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用中：%@"
+          }
+        }
+      }
+    },
+    "Selected microphone unavailable. Using %@." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "所选麦克风不可用，正在使用 %@。"
+          }
+        }
+      }
+    },
+    "Input device" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "输入设备"
+          }
+        }
+      }
+    },
+    "Follow system default input" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "跟随系统默认输入"
+          }
+        }
+      }
+    },
+    "Used by Voice Input, Voice Agent, and the microphone test. Your system default stays unchanged." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "语音输入、语音助手和麦克风测试共用此设备，不会更改系统默认输入。"
+          }
+        }
+      }
+    },
+    "Selected microphone unavailable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "所选麦克风不可用"
+          }
+        }
+      }
+    },
+    "No input device available. Connect a microphone or check System Settings." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有可用的输入设备，请连接麦克风或检查系统设置。"
+          }
+        }
+      }
+    },
+    "No sound heard · %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有听到声音 · %@"
+          }
+        }
+      }
+    },
     "A result is still waiting" : {
       "extractionState" : "manual",
       "localizations" : {

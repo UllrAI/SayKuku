@@ -172,7 +172,20 @@ private struct FloatingSystemOverlay: View {
                 || appState.workflow.agentPhase == .listening
                 || appState.workflow.dictationPhase == .starting
                 || appState.workflow.dictationPhase == .listening {
-                RecordingPill()
+                VStack(spacing: KukuSpacing.xxs) {
+                    if let message = appState.workflow.recordingInputMessage {
+                        Text(message)
+                            .font(.kuku(.caption))
+                            .foregroundStyle(KukuColor.textPrimary)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, KukuSpacing.sm)
+                            .padding(.vertical, KukuSpacing.xxs)
+                            .frame(maxWidth: 340)
+                            .kukuGlassPill()
+                    }
+                    RecordingPill()
+                }
                     .transition(appState.workflow.agentPhase == .starting || appState.workflow.dictationPhase == .starting
                         ? .identity : .scale(scale: 0.94, anchor: .bottom).combined(with: .opacity))
             } else if appState.workflow.agentPhase != .hidden {

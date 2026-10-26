@@ -228,10 +228,11 @@ struct MicrophoneTestPanel: View {
     }
 
     private var deviceSubtitle: String {
-        if !appState.microphoneTest.deviceName.isEmpty {
-            return appState.microphoneTest.deviceName
+        if appState.microphoneTest.isRunning, let input = appState.microphoneTest.activeInput {
+            return input.description
         }
-        return localized("Uses the system default input device")
+        return appState.audioInputDevices.snapshot.resolve(uid: appState.settings.inputDeviceUID)?.description
+            ?? localized("No input device available. Connect a microphone or check System Settings.")
     }
 
     private var startButtonTitle: String {
