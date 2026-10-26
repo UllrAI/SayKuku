@@ -23,6 +23,11 @@ struct AudioInputSnapshot: Equatable, Sendable {
     var devices: [AudioInputDevice] = []
     var defaultDeviceID: AudioDeviceID?
 
+    /// An active recording stays on its actual input; a failed preferred device is retried next time.
+    func keepsRecordingInput(_ deviceID: AudioDeviceID, followsSystemDefault: Bool) -> Bool {
+        devices.contains { $0.id == deviceID } && (!followsSystemDefault || defaultDeviceID == deviceID)
+    }
+
     func resolve(uid: String?) -> AudioInputSelection? {
         if let uid, let device = devices.first(where: { $0.uid == uid }) {
             return AudioInputSelection(device: device, isFallback: false)

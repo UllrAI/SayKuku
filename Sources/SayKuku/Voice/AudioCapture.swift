@@ -54,6 +54,7 @@ final class AudioCapture: AudioCapturing, @unchecked Sendable {
     /// The engine, its observer, its input device and the last input device are only touched on `queue`.
     private var engine: AVAudioEngine?
     private var engineInputConfiguration: InputConfiguration?
+    private var engineFollowsSystemDefault = true
     private var configurationObserver: NSObjectProtocol?
     private var lastDeviceID: UInt32?
     private var deviceObservation: AudioInputDeviceObservation?
@@ -96,8 +97,17 @@ final class AudioCapture: AudioCapturing, @unchecked Sendable {
                 self.deviceObservation = AudioInputDeviceObservation { [weak self] in
                     guard let self else { return }
                     queue.async {
-                        let next = CoreAudioInputs.snapshot().resolve(uid: self.selectedUID)?.device.id
-                        if next != self.engineInputConfiguration?.deviceID {
+                        let snapshot = CoreAudioInputs.snapshot()
+                        let deviceID = self.engineInputConfiguration?.deviceID
+                        let inputChanged: Bool
+                        if self.lock.withLock({ self.running }), let deviceID {
+                            inputChanged = !snapshot.keepsRecordingInput(
+                                deviceID, followsSystemDefault: self.engineFollowsSystemDefault
+                            )
+                        } else {
+                            inputChanged = snapshot.resolve(uid: self.selectedUID)?.device.id != deviceID
+                        }
+                        if inputChanged {
                             self.engineInvalidated = true
                             self.interrupt()
                         }
@@ -232,6 +242,7 @@ final class AudioCapture: AudioCapturing, @unchecked Sendable {
             throw AudioCaptureError.microphoneUnavailable
         }
         let inputDevice = selection.device.id
+        engineFollowsSystemDefault = useSystemDefault || selectedUID == nil || selection.isFallback
         if let engine, inputDevice == engineInputConfiguration?.deviceID, !engineInvalidated { return (engine, true) }
         discardEngine()
         let engine = AVAudioEngine()

@@ -35,6 +35,31 @@ struct AudioInputDeviceTests {
         #expect(AudioInputSnapshot().resolve(uid: external.uid) == nil)
     }
 
+    @Test("a listed preferred device that failed to open does not displace a running fallback")
+    func runningFallbackSurvivesUnrelatedDeviceChanges() {
+        var snapshot = AudioInputSnapshot(devices: [builtIn, external], defaultDeviceID: builtIn.id)
+        // The preferred input still enumerates, but capture has already fallen back after open failed.
+        #expect(snapshot.resolve(uid: external.uid)?.device.id == external.id)
+        #expect(snapshot.keepsRecordingInput(builtIn.id, followsSystemDefault: true))
+        snapshot.devices.append(virtual)
+        #expect(snapshot.keepsRecordingInput(builtIn.id, followsSystemDefault: true))
+        snapshot.devices.removeAll { $0.id == virtual.id }
+        #expect(snapshot.keepsRecordingInput(builtIn.id, followsSystemDefault: true))
+
+        snapshot.devices.removeAll { $0.id == builtIn.id }
+        #expect(!snapshot.keepsRecordingInput(builtIn.id, followsSystemDefault: true))
+    }
+
+    @Test("system-following and fallback recordings stop on a default change, explicit recordings stay")
+    func runningInputRoutingRules() {
+        var snapshot = AudioInputSnapshot(devices: [builtIn, external], defaultDeviceID: builtIn.id)
+        snapshot.defaultDeviceID = external.id
+        #expect(!snapshot.keepsRecordingInput(builtIn.id, followsSystemDefault: true))
+        #expect(snapshot.keepsRecordingInput(builtIn.id, followsSystemDefault: false))
+        snapshot.devices.removeAll { $0.id == builtIn.id }
+        #expect(!snapshot.keepsRecordingInput(builtIn.id, followsSystemDefault: false))
+    }
+
     @Test("refresh replaces the visible input devices after a hardware change")
     @MainActor
     func inventoryRefresh() {
