@@ -5,6 +5,44 @@ import Testing
 @Suite("Voice workflow")
 @MainActor
 struct VoiceWorkflowTests {
+    @Test("device feedback appears only after either workflow successfully starts and clears on stop")
+    func recordingInputFeedbackLifecycle() async throws {
+        for agent in [false, true] {
+            let environment = AppStateTestEnvironment()
+            defer { environment.clean() }
+            let audio = FakeAudioCapturing(startDelay: .milliseconds(60))
+            let state = try makeState(environment, .fake(audio: audio))
+            if agent { state.workflow.startAgent() } else { state.workflow.startDictation() }
+            #expect(state.workflow.recordingInputNotice == nil)
+            try #require(await eventually { state.workflow.isRecording })
+            #expect(state.workflow.recordingInput?.device.name == "Test Microphone")
+            #expect(state.workflow.recordingInputNotice == .device(audio.activeInput!))
+            try await Task.sleep(for: .milliseconds(2150))
+            #expect(state.workflow.recordingInputNotice == .quiet(audio.activeInput!))
+            audio.emitLevel(0.7)
+            try #require(await eventually { state.workflow.recordingInputNotice?.isQuiet != true })
+            if agent { state.workflow.dismissAgent() } else { state.workflow.cancelDictation() }
+            #expect(state.workflow.recordingInput == nil)
+            #expect(state.workflow.recordingInputNotice == nil)
+            audio.emitLevel(0.8)
+            try await Task.sleep(for: .milliseconds(20))
+            #expect(state.workflow.inputLevel == 0)
+        }
+    }
+
+    @Test("a device interruption stops capture and removes the recording hints")
+    func interruptedInputFeedback() async throws {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let audio = FakeAudioCapturing()
+        let state = try makeState(environment, .fake(audio: audio))
+        try await startListening(state)
+        audio.interrupt()
+        try #require(await eventually { !state.workflow.isRecording })
+        #expect(state.workflow.recordingInput == nil)
+        #expect(state.workflow.recordingInputNotice == nil)
+    }
+
     @Test("only verified dictation writes enter local totals, independently of History")
     func dictationUsageDelivery() async throws {
         for outcome in [TextWriteOutcome.verified, .deliveredUnverified] {

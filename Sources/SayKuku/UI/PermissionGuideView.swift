@@ -163,93 +163,83 @@ struct MicrophoneTestPanel: View {
         VStack(alignment: .leading, spacing: KukuSpacing.md) {
             HStack(spacing: KukuSpacing.sm) {
                 VStack(alignment: .leading, spacing: KukuSpacing.xxs) {
-                    Text(localized("Microphone level"))
+                    Text(localized("Microphone test"))
                         .font(.kuku(.body))
                         .foregroundStyle(KukuColor.textPrimary)
                     Text(deviceSubtitle)
                         .font(.kuku(.subheadline))
                         .foregroundStyle(KukuColor.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer()
-                Circle()
-                    .fill(statusDotColor)
-                    .frame(width: KukuLayout.statusDot, height: KukuLayout.statusDot)
-                Text(testStatus)
-                    .font(.kuku(.subheadline, weight: .medium))
-                    .foregroundStyle(KukuColor.textSecondary)
+                testButton
             }
-
-            AudioLevelMeter(level: test.level)
 
             HStack(spacing: KukuSpacing.sm) {
-                Label(
-                    localized("Checks the level only. Nothing is saved, uploaded, or played back."),
-                    systemImage: "lock.fill"
-                )
-                .font(.kuku(.subheadline))
-                .foregroundStyle(KukuColor.textSecondary)
-
-                Spacer()
-
-                Button(test.isRunning ? localized("Stop Test") : startButtonTitle) {
-                    if test.isRunning {
-                        test.stop()
-                    } else {
-                        Task {
-                            var granted = appState.systemPermissions.microphoneStatus.isAuthorized
-                            if !granted {
-                                granted = await appState.requestPermission(.microphone)
-                            }
-                            if granted {
-                                test.start()
-                            }
-                        }
-                    }
-                }
-                .buttonStyle(.kukuSecondary)
-                // A recording holds the microphone; starting the test then would take it away.
-                .disabled(
-                    test.phase == .starting || appState.systemPermissions.requesting != nil
-                        || appState.workflow.dictationIsListening || appState.workflow.agentIsListening
-                )
+                AudioLevelMeter(level: test.level)
+                Text(testStatus)
+                    .font(.kuku(.subheadline))
+                    .foregroundStyle(KukuColor.textSecondary)
+                    .fixedSize()
             }
+
+            Label(localized("Test audio is never saved, uploaded, or played back."), systemImage: "lock")
+                .font(.kuku(.caption))
+                .foregroundStyle(KukuColor.textSecondary)
         }
         .padding(KukuLayout.rowPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
         .onDisappear { test.stop() }
     }
 
-    private var statusDotColor: Color {
-        switch appState.microphoneTest.phase {
-        case .running: KukuColor.success
-        case .failed: KukuColor.warning
-        case .idle, .starting: KukuColor.textTertiary
+    private var testButton: some View {
+        let test = appState.microphoneTest
+        return Button(test.isRunning ? localized("Stop Test") : startButtonTitle) {
+            if test.isRunning {
+                test.stop()
+            } else {
+                Task {
+                    var granted = appState.systemPermissions.microphoneStatus.isAuthorized
+                    if !granted {
+                        granted = await appState.requestPermission(.microphone)
+                    }
+                    if granted { test.start() }
+                }
+            }
         }
+        .buttonStyle(.kukuSecondary)
+        // A recording holds the microphone; starting the test then would take it away.
+        .disabled(
+            test.phase == .starting || appState.systemPermissions.requesting != nil
+                || appState.workflow.dictationIsListening || appState.workflow.agentIsListening
+        )
     }
 
     private var deviceSubtitle: String {
-        if !appState.microphoneTest.deviceName.isEmpty {
-            return appState.microphoneTest.deviceName
+        if let input = appState.workflow.recordingInput { return input.description }
+        if appState.microphoneTest.isRunning, let input = appState.microphoneTest.activeInput {
+            return input.description
         }
-        return localized("Uses the system default input device")
+        return appState.audioInputDevices.snapshot.resolve(uid: appState.settings.inputDeviceUID)?.description
+            ?? localized("Connect a microphone to get started.")
     }
 
     private var startButtonTitle: String {
         appState.systemPermissions.microphoneStatus.isAuthorized
-            ? localized("Start Test")
+            ? localized("Test Microphone")
             : localized("Enable & Test")
     }
 
     private var testStatus: String {
         switch appState.microphoneTest.phase {
         case .idle:
-            return localized("Not tested")
+            return localized("Ready to test")
         case .starting:
             return localized("Starting…")
         case .running:
             return appState.microphoneTest.level > 0.08
                 ? localized("Sound detected")
-                : localized("Listening")
+                : localized("Say a few words…")
         case .failed(.permissionRequired):
             return localized("Microphone permission required")
         case .failed(.noInputDevice):
@@ -265,16 +255,16 @@ private struct AudioLevelMeter: View {
     private let barCount = 24
 
     var body: some View {
-        HStack(alignment: .center, spacing: KukuSpacing.xs) {
+        HStack(alignment: .center, spacing: KukuSpacing.xxs) {
             ForEach(0..<barCount, id: \.self) { index in
                 let threshold = Double(index + 1) / Double(barCount)
-                Capsule()
+                RoundedRectangle(cornerRadius: 2)
                     // Live input is an in-progress state, so the lit bars are coral.
                     .fill(level >= threshold ? KukuColor.coral : KukuColor.fillHover)
                     .frame(maxWidth: .infinity)
             }
         }
-        .frame(height: 18) // Meter geometry.
+        .frame(height: 8) // Meter geometry.
         .animation(Motion.meter, value: level)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(localized("Microphone input level"))

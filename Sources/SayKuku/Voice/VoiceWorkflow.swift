@@ -52,6 +52,14 @@ final class VoiceWorkflow {
     var agentCommand = ""
     var liveTranscript = ""
     var inputLevel = 0.0
+    private(set) var recordingInput: AudioInputSelection?
+    private(set) var recordingInputNotice: RecordingInputNotice? {
+        didSet {
+            if recordingInputNotice != oldValue { overlayController?.refresh() }
+        }
+    }
+    @ObservationIgnored private var inputFeedback = RecordingInputFeedback()
+    @ObservationIgnored private var inputFeedbackTask: Task<Void, Never>?
     var pendingCopyText = "" { didSet { hasCopiedPendingText = false } }
     /// Whether `pendingCopyText` is on the pasteboard, so the copy fallback can say so.
     private(set) var hasCopiedPendingText = false
@@ -644,6 +652,7 @@ final class VoiceWorkflow {
         } else {
             withAnimation(Motion.spring) { dictationPhase = .listening }
         }
+        beginInputFeedback()
         if mode == .dictation, let chunks, (!fnTapDictation || fnTapConfirmed) {
             connectRealtime(streaming: chunks, generation: generation)
             fnTapChunks = nil
@@ -746,12 +755,14 @@ final class VoiceWorkflow {
     }
 
     private func releaseMicrophone() {
+        endInputFeedback()
         guard holdsMicrophone else { return }
         holdsMicrophone = false
         audioCapture.cancel()
     }
 
     private func stopRecording() -> AudioCapture.Recording {
+        endInputFeedback()
         recordingLimitTask?.cancel()
         recordingLimitTask = nil
         holdsMicrophone = false
@@ -760,6 +771,35 @@ final class VoiceWorkflow {
         chunkContinuation?.finish()
         chunkContinuation = nil
         return recording
+    }
+
+    private func beginInputFeedback() {
+        guard let input = audioCapture.activeInput else { return }
+        recordingInput = input
+        inputFeedback.begin(input, at: .now)
+        updateInputNotice()
+        inputFeedbackTask?.cancel()
+        inputFeedbackTask = Task { [weak self] in
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .milliseconds(100)) }
+                catch { return }
+                guard let self, self.isRecording else { return }
+                self.updateInputNotice()
+            }
+        }
+    }
+
+    private func updateInputNotice() {
+        let notice = inputFeedback.notice(at: .now)
+        if recordingInputNotice != notice { recordingInputNotice = notice }
+    }
+
+    private func endInputFeedback() {
+        inputFeedbackTask?.cancel()
+        inputFeedbackTask = nil
+        inputFeedback.end()
+        recordingInput = nil
+        recordingInputNotice = nil
     }
 
     /// Queues the engine start off the main thread at once; the returned task finishes once it runs.
@@ -771,8 +811,10 @@ final class VoiceWorkflow {
         return audioCapture.start(
             onLevel: { [weak self] level in
                 Task { @MainActor [weak self] in
-                    guard let self else { return }
+                    guard let self, self.workflowGeneration == generation, self.holdsMicrophone, self.isRecording else { return }
                     self.inputLevel = AudioLevel.smoothed(previous: self.inputLevel, next: level)
+                    self.inputFeedback.recordLevel(level, at: .now)
+                    self.updateInputNotice()
                 }
             },
             onChunk: onChunk,

@@ -37,9 +37,13 @@ final class FloatingOverlayController {
     /// Shared by the panel and its SwiftUI root so both always agree on the overlay bounds.
     /// `answerHeight` is the answer card's height, or nil while a pill shows. The pill panel is
     /// the 36 pt pill plus the 16 pt bottom inset, with room above for a two-line error and the
-    /// shadow; the answer panel leaves room around the card for its shadow.
-    nonisolated static func panelSize(answerHeight: CGFloat?) -> NSSize {
-        guard let answerHeight else { return NSSize(width: 380, height: 92) }
+    /// shadow, growing as needed for recording feedback; the answer panel leaves room for its shadow.
+    nonisolated static func panelSize(
+        answerHeight: CGFloat?, recordingContentHeight: CGFloat = KukuLayout.pillHeight
+    ) -> NSSize {
+        guard let answerHeight else {
+            return NSSize(width: 380, height: max(92, recordingContentHeight + OverlayLayout.contentBottomInset + 12))
+        }
         return NSSize(width: OverlayLayout.answerCardWidth + 20, height: answerHeight + 30)
     }
 
@@ -70,7 +74,11 @@ final class FloatingOverlayController {
 
         if shouldShow {
             let answerHeight = appState.workflow.agentPhase == .answerReady ? appState.workflow.answerCardHeight : nil
-            place(size: Self.panelSize(answerHeight: answerHeight))
+            let recordingHeight = OverlayLayout.recordingContentHeight(for: appState.workflow.recordingInputNotice?.input.description)
+            place(
+                size: Self.panelSize(answerHeight: answerHeight, recordingContentHeight: recordingHeight),
+                contentHeight: answerHeight ?? recordingHeight
+            )
             panel.orderFrontRegardless()
         } else {
             panel.orderOut(nil)
@@ -78,11 +86,9 @@ final class FloatingOverlayController {
     }
 
     /// Sizes the panel and keeps it on the anchor; resizing alone would grow it from its bottom-left corner.
-    private func place(size: NSSize) {
+    private func place(size: NSSize, contentHeight: CGFloat) {
         // Before the first workflow there is no anchor yet.
         guard let visibleFrame = visibleFrame ?? NSScreen.main?.visibleFrame, let appState else { return }
-        // Error feedback can wrap to two lines; the pill height is close enough for the caret gap.
-        let contentHeight = appState.workflow.agentPhase == .answerReady ? appState.workflow.answerCardHeight : KukuLayout.pillHeight
         let origin = OverlayLayout.origin(
             placement: appState.settings.overlayPlacement, caretFrame: caretFrame, visibleFrame: visibleFrame,
             panelSize: size, contentHeight: contentHeight
@@ -101,6 +107,25 @@ enum OverlayLayout {
     static let bottomInset: CGFloat = 8
     static let answerCardWidth: CGFloat = 440
     static let answerCardHeights: ClosedRange<CGFloat> = 160...420
+    static let recordingNoticeWidth: CGFloat = 340
+
+    /// Includes the device caption inside the recording pill, using the same font and padding.
+    static func recordingContentHeight(
+        for message: String?, font: NSFont = .preferredFont(forTextStyle: .footnote)
+    ) -> CGFloat {
+        guard let message else { return KukuLayout.pillHeight }
+        let captionFont = NSFont.systemFont(ofSize: font.pointSize, weight: .medium)
+        let textBounds = NSAttributedString(string: message, attributes: [.font: captionFont])
+            .boundingRect(
+                with: NSSize(width: recordingNoticeWidth - KukuSpacing.sm * 4, height: .greatestFiniteMagnitude),
+                options: [.usesLineFragmentOrigin, .usesFontLeading], context: nil
+            )
+        let lineCount = min(2, ceil(textBounds.height / NSLayoutManager().defaultLineHeight(for: captionFont)))
+        // Reserve whole points for both ascent and descent, as SwiftUI lays out each line.
+        let lineHeight = ceil(captionFont.ascender) - floor(captionFont.descender) + ceil(captionFont.leading)
+        return KukuLayout.pillHeight + lineCount * lineHeight + KukuSpacing.sm + KukuSpacing.xs * 2
+    }
+
     /// Everything in the answer card besides the answer text: padding above and below, the header
     /// row (its close button is the tallest item), the footer row (its buttons are the tallest) and
     /// the stack spacing on either side of the text.
@@ -110,7 +135,7 @@ enum OverlayLayout {
     /// `.bottom` and `.top` center the overlay at the bottom or top of `visibleFrame`, which already
     /// excludes the Dock and the menu bar (notch included). `.caret` puts it below the caret, centered
     /// on it, or above it when there's no room below, kept inside `visibleFrame`; without a caret it
-    /// falls back to `.bottom`. `contentHeight` is the pill or card inside the panel, so gaps are
+    /// falls back to `.bottom`. `contentHeight` includes any feedback above the pill, so gaps are
     /// measured to it rather than to the panel's transparent headroom.
     static func origin(
         placement: OverlayPlacement, caretFrame: CGRect?,
@@ -157,7 +182,8 @@ private struct FloatingSystemOverlay: View {
 
     var body: some View {
         let size = FloatingOverlayController.panelSize(
-            answerHeight: appState.workflow.agentPhase == .answerReady ? appState.workflow.answerCardHeight : nil
+            answerHeight: appState.workflow.agentPhase == .answerReady ? appState.workflow.answerCardHeight : nil,
+            recordingContentHeight: OverlayLayout.recordingContentHeight(for: appState.workflow.recordingInputNotice?.input.description)
         )
         ZStack(alignment: .bottom) {
             Color.clear

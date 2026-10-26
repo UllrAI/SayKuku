@@ -53,11 +53,44 @@ struct RecordingPill: View {
     private var isStarting: Bool {
         appState.workflow.agentPhase == .starting || appState.workflow.dictationPhase == .starting
     }
+    private var isQuiet: Bool { appState.workflow.recordingInputNotice?.isQuiet == true }
+    private var status: String {
+        if isStarting { return localized("Starting…") }
+        return isQuiet ? localized("No sound yet") : localized("Listening…")
+    }
     private var width: CGFloat {
-        KukuPillLayout.width(for: localized("Listening…"), minimum: 208, fixedContentWidth: 140)
+        let controls = KukuPillLayout.width(for: status, minimum: 208, fixedContentWidth: 140)
+        guard let notice = appState.workflow.recordingInputNotice else { return controls }
+        return KukuPillLayout.width(
+            for: notice.input.description, minimum: controls, fixedContentWidth: KukuSpacing.sm * 4,
+            maximum: OverlayLayout.recordingNoticeWidth, fontWeight: .medium
+        )
     }
 
     var body: some View {
+        VStack(spacing: KukuSpacing.xs) {
+            if let notice = appState.workflow.recordingInputNotice {
+                Text(notice.input.description)
+                    .font(.kuku(.caption))
+                    .foregroundStyle(KukuColor.textSecondary)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, KukuSpacing.sm)
+                    .padding(.top, KukuSpacing.sm)
+                    .help(notice.input.description)
+            }
+            controls
+        }
+        .padding(.horizontal, KukuSpacing.sm)
+        .padding(.bottom, appState.workflow.recordingInputNotice == nil ? 0 : KukuSpacing.xs)
+        .frame(width: width)
+        .kukuGlass(in: RoundedRectangle(cornerRadius: KukuLayout.pillHeight / 2, style: .continuous))
+        .animation(Motion.snappy, value: isAgent)
+        .animation(Motion.pill, value: appState.workflow.recordingInputNotice)
+    }
+
+    private var controls: some View {
         HStack(spacing: KukuSpacing.sm) {
             PillCancelButton(
                 label: isAgent ? localized("Cancel Voice Agent") : localized("Cancel Voice Input"),
@@ -86,13 +119,18 @@ struct RecordingPill: View {
 
                 if isStarting {
                     ProgressView().controlSize(.mini).frame(width: 22)
+                } else if isQuiet {
+                    Image(systemName: "waveform.slash")
+                        .font(.kukuIcon(.regular))
+                        .foregroundStyle(KukuColor.warning)
+                        .frame(width: 22)
                 } else {
                     Waveform(color: KukuColor.coral, level: appState.workflow.inputLevel, barCount: 5, height: 15)
                         .frame(width: 22)
                 }
             }
 
-            Text(isStarting ? localized("Starting…") : localized("Listening…"))
+            Text(status)
                 .font(.kuku(.callout, weight: .semibold))
                 .foregroundStyle(KukuColor.textPrimary)
                 .lineLimit(1)
@@ -108,11 +146,7 @@ struct RecordingPill: View {
             )
             .disabled(isStarting)
         }
-        .padding(.horizontal, KukuSpacing.sm)
-        .frame(width: width)
         .frame(minHeight: KukuLayout.pillHeight)
-        .kukuGlassPill()
-        .animation(Motion.snappy, value: isAgent)
     }
 }
 

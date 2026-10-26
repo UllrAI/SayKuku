@@ -684,8 +684,12 @@ private struct AudioSettings: View {
 
     var body: some View {
         @Bindable var settings = appState.settings
-        SettingsStack(title: localized("Audio"), subtitle: localized("Microphone and recording options for Voice Input and Voice Agent.")) {
-            KukuGroup(localized("Microphone test")) {
+        SettingsStack(title: localized("Audio"), subtitle: localized("Choose a microphone and check that it can hear you.")) {
+            KukuGroup(localized("Microphone")) {
+                KukuRow(localized("Input device"), caption: localized("Your choice only affects SayKuku.")) {
+                    KukuPicker(localized("Input device"), options: inputOptions, selection: $settings.inputDeviceUID, label: deviceLabel)
+                }
+                KukuDivider()
                 MicrophoneTestPanel()
             }
             KukuGroup(localized("Recording sounds")) {
@@ -696,6 +700,18 @@ private struct AudioSettings: View {
                 )
             }
         }
+    }
+
+    private var inputOptions: [String?] {
+        var options: [String?] = [nil] + appState.audioInputDevices.snapshot.devices.map { Optional($0.uid) }
+        if let uid = appState.settings.inputDeviceUID, !options.contains(uid) { options.append(uid) }
+        return options
+    }
+
+    private func deviceLabel(_ uid: String?) -> String {
+        guard let uid else { return localized("System Default") }
+        return appState.audioInputDevices.snapshot.devices.first { $0.uid == uid }?.name
+            ?? localized("Microphone disconnected")
     }
 }
 

@@ -93,6 +93,10 @@ final class FakeAudioCapturing: AudioCapturing {
     let startDelay: Duration
     private let starts = OSAllocatedUnfairLock(initialState: 0)
     private let cancels = OSAllocatedUnfairLock(initialState: 0)
+    private let levelCallback = OSAllocatedUnfairLock<(@Sendable (Double) -> Void)?>(initialState: nil)
+    private let interruptionCallback = OSAllocatedUnfairLock<(@Sendable () -> Void)?>(initialState: nil)
+    func emitLevel(_ level: Double) { levelCallback.withLock { $0 }?(level) }
+    func interrupt() { interruptionCallback.withLock { $0 }?() }
 
     var startCount: Int { starts.withLock { $0 } }
     var cancelCount: Int { cancels.withLock { $0 } }
@@ -113,6 +117,8 @@ final class FakeAudioCapturing: AudioCapturing {
         onInterruption: @escaping @Sendable () -> Void
     ) -> Task<Void, Error> {
         starts.withLock { $0 += 1 }
+        levelCallback.withLock { $0 = onLevel }
+        interruptionCallback.withLock { $0 = onInterruption }
         // One chunk, so a streamed dictation has audio to send.
         onChunk(Data(count: 2))
         let startError = startError
@@ -123,6 +129,12 @@ final class FakeAudioCapturing: AudioCapturing {
         }
     }
 
+    var activeInput: AudioInputSelection? {
+        AudioInputSelection(device: AudioInputDevice(id: 1, uid: "test-mic", name: "Test Microphone"), isFallback: false)
+    }
+    private let inputUID = OSAllocatedUnfairLock<String?>(initialState: nil)
+    var selectedUID: String? { inputUID.withLock { $0 } }
+    func selectInput(uid: String?) { inputUID.withLock { $0 = uid } }
     func prepare() {}
 
     func stop() -> AudioCapture.Recording { recording }
