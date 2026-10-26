@@ -194,13 +194,8 @@ struct DictationRealtimeLongformEvalTests {
             let instructions = try String(contentsOf: flashOverride, encoding: .utf8)
             let id = UUID().uuidString
             do {
-                let reply = try await withThrowingTaskGroup(of: String.self) { group in
-                    group.addTask { try await QwenReasoningClient().refineDictation(apiKey: live.apiKey, configuration: live.configuration,
-                        instructions: instructions, userMessage: DictationRefinement.userMessage(first, id: id)) }
-                    group.addTask { try await Task.sleep(for: DictationRefinement.timeout(for: first)); throw QwenError.timeout }
-                    defer { group.cancelAll() }
-                    return try await group.next() ?? ""
-                }
+                let reply = try await QwenReasoningClient().refineDictation(apiKey: live.apiKey, configuration: live.configuration,
+                    instructions: instructions, userMessage: DictationRefinement.userMessage(first, id: id))
                 let reviewedReply: String
                 if candidate == "draft-blocks" {
                     struct Block: Decodable { let text: String?; let items: [String]? }

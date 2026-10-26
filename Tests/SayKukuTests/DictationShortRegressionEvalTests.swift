@@ -141,13 +141,8 @@ struct DictationShortRegressionEvalTests {
                 let instructions = legacyFlash
                 let id = UUID().uuidString
                 do {
-                    let raw = try await withThrowingTaskGroup(of: String.self) { group in
-                        group.addTask { try await QwenReasoningClient().refineDictation(apiKey: live.apiKey, configuration: live.configuration,
-                            instructions: instructions, userMessage: DictationRefinement.userMessage(first, id: id)) }
-                        group.addTask { try await Task.sleep(for: candidate == "legacy" ? .seconds(2) : DictationRefinement.timeout(for: first)); throw QwenError.timeout }
-                        defer { group.cancelAll() }
-                        return try await group.next() ?? ""
-                    }
+                    let raw = try await QwenReasoningClient().refineDictation(apiKey: live.apiKey, configuration: live.configuration,
+                        instructions: instructions, userMessage: DictationRefinement.userMessage(first, id: id))
                     switch DictationRefinement.review(raw, input: first, id: id, longForm: candidate != "legacy") {
                     case .success(let text): outcome = .init(text: text, fallback: nil)
                     case .failure(let reason): outcome = .init(text: first, fallback: reason)

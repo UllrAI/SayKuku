@@ -39,32 +39,44 @@ struct DictationRefinementReplayEvalTests {
             var proposed: String?
             do {
                 if production {
+                    // Production waits for the request. An explicit timeout bounds only an experimental prompt.
                     outcome = try await DictationRefinement.refine(row.text, settings: .init(),
-                        apiKey: live.apiKey, configuration: live.configuration, client: QwenReasoningClient(),
-                        timeout: overrideTimeout.map { .seconds($0) }, id: id)
+                        apiKey: live.apiKey, configuration: live.configuration, client: QwenReasoningClient(), id: id)
                 } else {
-                let reply = try await withThrowingTaskGroup(of: String.self) { group in
-                    group.addTask {
-                        if let effort { return try await Self.completion(live: live, model: model, effort: effort,
-                            instructions: prompt, userMessage: DictationRefinement.userMessage(row.text, id: id)) }
+                    let userMessage = DictationRefinement.userMessage(row.text, id: id)
+                    let fetch: @Sendable () async throws -> String = {
+                        if let effort {
+                            return try await live.completion(model: model,
+                                messages: [["role": "system", "content": prompt], ["role": "user", "content": userMessage]],
+                                effort: effort)
+                        }
                         return try await QwenReasoningClient().refineDictation(apiKey: live.apiKey,
-                            configuration: live.configuration, instructions: prompt,
-                            userMessage: DictationRefinement.userMessage(row.text, id: id))
+                            configuration: live.configuration, instructions: prompt, userMessage: userMessage)
                     }
-                    group.addTask { try await Task.sleep(for: overrideTimeout.map { .seconds($0) } ?? DictationRefinement.timeout(for: row.text)); throw QwenError.timeout }
-                    defer { group.cancelAll() }
-                    return try await group.next() ?? ""
-                }
-                let cleanedReply: String
-                if env["SAYKUKU_REFINEMENT_DECODE"] == "paragraphs" {
-                    struct Structured: Decodable { let paragraphs: [String] }
-                    cleanedReply = try JSONDecoder().decode(Structured.self, from: Data(reply.utf8)).paragraphs.joined(separator: "\n\n")
-                } else { cleanedReply = reply }
-                proposed = cleanedReply
-                switch DictationRefinement.review(cleanedReply, input: row.text, id: id, longForm: true) {
-                case .success(let text): outcome = .init(text: text, fallback: nil)
-                case .failure(let reason): outcome = .init(text: row.text, fallback: reason)
-                }
+                    let reply: String
+                    if let overrideTimeout {
+                        reply = try await withThrowingTaskGroup(of: String.self) { group in
+                            group.addTask { try await fetch() }
+                            group.addTask {
+                                try await Task.sleep(for: .seconds(overrideTimeout))
+                                throw QwenError.timeout
+                            }
+                            defer { group.cancelAll() }
+                            return try await group.next() ?? ""
+                        }
+                    } else {
+                        reply = try await fetch()
+                    }
+                    let cleanedReply: String
+                    if env["SAYKUKU_REFINEMENT_DECODE"] == "paragraphs" {
+                        struct Structured: Decodable { let paragraphs: [String] }
+                        cleanedReply = try JSONDecoder().decode(Structured.self, from: Data(reply.utf8)).paragraphs.joined(separator: "\n\n")
+                    } else { cleanedReply = reply }
+                    proposed = cleanedReply
+                    switch DictationRefinement.review(cleanedReply, input: row.text, id: id, longForm: true) {
+                    case .success(let text): outcome = .init(text: text, fallback: nil)
+                    case .failure(let reason): outcome = .init(text: row.text, fallback: reason)
+                    }
                 }
             } catch {
                 try Task.checkCancellation()
@@ -115,11 +127,5 @@ struct DictationRefinementReplayEvalTests {
                 proposedText: row.proposedText, refinementModel: row.refinementModel, refinementEffort: row.refinementEffort)
             try file.write(contentsOf: encoder.encode(revised) + Data([10]))
         }
-    }
-
-    private static func completion(live: LiveDictationEval, model: String, effort: String,
-                                   instructions: String, userMessage: String) async throws -> String {
-        try await live.completion(model: model,
-            messages: [["role": "system", "content": instructions], ["role": "user", "content": userMessage]], effort: effort)
     }
 }
