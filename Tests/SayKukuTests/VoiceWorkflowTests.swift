@@ -929,7 +929,7 @@ struct VoiceWorkflowTests {
                 if path != "realtime" { #expect(reasoning.structures == [false]) }
                 #expect(reasoning.refineCount == (refines ? 1 : 0))
                 if refines {
-                    #expect(reasoning.refinementEfforts == [.low])
+                    #expect(reasoning.refinementEfforts == [.none])
                     #expect(reasoning.refinementInstructions[0].contains(DictationStructure.disabledInstruction))
                 }
             }

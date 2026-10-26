@@ -39,21 +39,30 @@ struct DictationRefinementReplayEvalTests {
             var proposed: String?
             do {
                 if production {
+                    // Production waits for the request. An explicit timeout bounds only an experimental prompt.
                     outcome = try await DictationRefinement.refine(row.text, settings: .init(),
-                        apiKey: live.apiKey, configuration: live.configuration, client: QwenReasoningClient(),
-                        timeout: overrideTimeout.map { .seconds($0) }, id: id)
+                        apiKey: live.apiKey, configuration: live.configuration, client: QwenReasoningClient(), id: id)
                 } else {
-                let reply = try await withThrowingTaskGroup(of: String.self) { group in
-                    group.addTask {
-                        if let effort { return try await Self.completion(live: live, model: model, effort: effort,
-                            instructions: prompt, userMessage: DictationRefinement.userMessage(row.text, id: id)) }
-                        return try await QwenReasoningClient().refineDictation(apiKey: live.apiKey,
-                            configuration: live.configuration, instructions: prompt,
-                            userMessage: DictationRefinement.userMessage(row.text, id: id))
+                let userMessage = DictationRefinement.userMessage(row.text, id: id)
+                let reply: String
+                if let overrideTimeout {
+                    reply = try await withThrowingTaskGroup(of: String.self) { group in
+                        group.addTask {
+                            if let effort { return try await Self.completion(live: live, model: model, effort: effort,
+                                instructions: prompt, userMessage: userMessage) }
+                            return try await QwenReasoningClient().refineDictation(apiKey: live.apiKey,
+                                configuration: live.configuration, instructions: prompt, userMessage: userMessage)
+                        }
+                        group.addTask { try await Task.sleep(for: .seconds(overrideTimeout)); throw QwenError.timeout }
+                        defer { group.cancelAll() }
+                        return try await group.next() ?? ""
                     }
-                    group.addTask { try await Task.sleep(for: overrideTimeout.map { .seconds($0) } ?? DictationRefinement.timeout(for: row.text)); throw QwenError.timeout }
-                    defer { group.cancelAll() }
-                    return try await group.next() ?? ""
+                } else if let effort {
+                    reply = try await Self.completion(live: live, model: model, effort: effort,
+                        instructions: prompt, userMessage: userMessage)
+                } else {
+                    reply = try await QwenReasoningClient().refineDictation(apiKey: live.apiKey,
+                        configuration: live.configuration, instructions: prompt, userMessage: userMessage)
                 }
                 let cleanedReply: String
                 if env["SAYKUKU_REFINEMENT_DECODE"] == "paragraphs" {

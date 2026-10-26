@@ -8,9 +8,6 @@ enum DictationRefinement {
     /// Fixed text model for dictation, independent of the Voice Agent model setting.
     static let model = "qwen3.8-flash"
     enum Effort: String, Sendable { case none, low }
-    /// Bounds the whole pass, including any retry the request makes in that time; cancelling at the deadline
-    /// cancels the request. A slower reply would hold up insertion for too little gain.
-    static let timeout: Duration = .seconds(2)
     /// Non-whitespace characters of the reply over those of the first pass. Real self-repairs shrank short
     /// sentences to 0.44–0.47 in the evals and no faithful reply grew; translations grew to 3.4.
     static let lengthRatios: ClosedRange<Double> = 0.4...1.5
@@ -153,10 +150,6 @@ enum DictationRefinement {
         return Double(output.filter { !$0.isWhitespace }.count) / Double(max(inputLength, 1))
     }
 
-    static func timeout(for text: String) -> Duration {
-        .seconds(min(10, 2 + Double(max(0, text.filter { !$0.isWhitespace }.count - 60)) / 40))
-    }
-
     private static func layoutLengthRatio(_ output: String, to input: String) -> Double {
         let strip = { (text: String) in
             text.replacingOccurrences(of: #"(?m)^[ \t]*\d+[.)、][ \t]+"#, with: "", options: .regularExpression)
@@ -177,36 +170,24 @@ enum DictationRefinement {
     }
 
     /// Refines `text`, the first pass after `SpeechDisfluencyCleaner`, or returns it unchanged with the reason.
-    /// Throws only `CancellationError`, when the caller is cancelled; cancelling also cancels the request.
+    /// Waits for this Chat Completions call. The request's own timeout and one retry are the hang protection.
+    /// Thinking stays off for both prompts. Throws only `CancellationError`, when the caller is cancelled;
+    /// cancelling also cancels the request.
     static func refine(
         _ text: String, settings: Settings, apiKey: String, configuration: QwenConfiguration,
-        client: any Reasoning, timeout: Duration? = nil, id: String = UUID().uuidString
+        client: any Reasoning, id: String = UUID().uuidString
     ) async throws -> Outcome {
         let started = ContinuousClock.now
         let usesLongProfile = text.filter { !$0.isWhitespace }.count >= 120
-        let timeout = timeout ?? (usesLongProfile ? .seconds(12) : Self.timeout)
         let instructions = instructions(settings, longForm: usesLongProfile)
         let userMessage = userMessage(text, id: id)
         let reply: String
         do {
-            reply = try await withThrowingTaskGroup(of: String.self) { group in
-                group.addTask {
-                    try await client.refineDictation(
-                        apiKey: apiKey, configuration: configuration,
-                        instructions: instructions, userMessage: userMessage,
-                        effort: usesLongProfile ? .low : .none
-                    )
-                }
-                group.addTask {
-                    try await Task.sleep(for: timeout)
-                    throw QwenError.timeout
-                }
-                // Leaving the group waits for the loser, so it is cancelled first.
-                defer { group.cancelAll() }
-                // Each child returns a reply or throws, so `next()` gives the first reply or rethrows.
-                guard let reply = try await group.next() else { throw QwenError.timeout }
-                return reply
-            }
+            reply = try await client.refineDictation(
+                apiKey: apiKey, configuration: configuration,
+                instructions: instructions, userMessage: userMessage,
+                effort: .none
+            )
         } catch {
             try Task.checkCancellation()
             let fallback: Fallback = (error as? QwenError) == .timeout ? .timeout : .failed
@@ -215,7 +196,7 @@ enum DictationRefinement {
             )
             return Outcome(text: text, fallback: fallback)
         }
-        // A reply can still win the race against a cancel.
+        // A reply can still arrive after the caller cancelled.
         try Task.checkCancellation()
         let milliseconds = Int((started.duration(to: .now) / .milliseconds(1)).rounded())
         switch review(reply, input: text, id: id, longForm: usesLongProfile) {

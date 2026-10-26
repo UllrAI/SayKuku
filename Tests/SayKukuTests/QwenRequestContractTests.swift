@@ -11,9 +11,11 @@ struct QwenRequestContractTests {
             messages: [], jsonResponse: false, effort: .low)
         #expect(body["reasoning_effort"] as? String == "low")
         #expect(body["enable_thinking"] == nil)
+        #expect(body["thinking_budget"] == nil)
         let json = QwenReasoningClient.requestBody(model: "m", messages: [], jsonResponse: true, effort: .low)
         #expect(json["reasoning_effort"] == nil)
         #expect(json["enable_thinking"] as? Bool == false)
+        #expect(json["thinking_budget"] == nil)
     }
 
     @Test("only short-lived network failures are retried")
@@ -30,11 +32,14 @@ struct QwenRequestContractTests {
         #expect(json["temperature"] as? Double == PromptRules.temperature)
         #expect(json["enable_thinking"] as? Bool == false)
         #expect(json["reasoning_effort"] == nil)
+        #expect(json["thinking_budget"] == nil)
         #expect((json["response_format"] as? [String: String])?["type"] == "json_object")
 
         let text = QwenReasoningClient.requestBody(model: "m", messages: [], jsonResponse: false)
         #expect(text["temperature"] as? Double == PromptRules.temperature)
         #expect(text["enable_thinking"] as? Bool == false)
+        #expect(text["reasoning_effort"] == nil)
+        #expect(text["thinking_budget"] == nil)
         #expect(text["response_format"] == nil)
     }
 

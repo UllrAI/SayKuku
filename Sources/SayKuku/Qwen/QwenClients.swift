@@ -713,8 +713,8 @@ struct QwenReasoningClient: Reasoning {
         return structuredOutput ? try DictationStructure.decode(reply, usesAppTone: targetApp != nil).text : reply
     }
 
-    /// Always `DictationRefinement.model`, whatever the reasoning model setting. `DictationRefinement.refine`
-    /// cancels the request at its deadline, which also ends a retry's wait.
+    /// Always `DictationRefinement.model`, whatever the reasoning model setting. Production refinement passes
+    /// `.none`, which keeps thinking off. Caller cancellation cancels this request, including a retry's wait.
     func refineDictation(
         apiKey: String, configuration: QwenConfiguration, instructions: String, userMessage: String,
         effort: DictationRefinement.Effort = .none
@@ -880,7 +880,8 @@ struct QwenReasoningClient: Reasoning {
         return nil
     }
 
-    /// Only long text refinement requests reasoning; other requests keep thinking disabled.
+    /// `effort` other than `.none` is an opt-in experiment: it drops `enable_thinking` and sends
+    /// `reasoning_effort`. Production refinement passes `.none`, which keeps thinking off.
     static func requestBody(model: String, messages: [[String: Any]], jsonResponse: Bool,
                             effort: DictationRefinement.Effort = .none) -> [String: Any] {
         var body: [String: Any] = [
@@ -976,7 +977,7 @@ struct QwenReasoningClient: Reasoning {
                 return result
             } catch {
                 let milliseconds = WorkflowTrace.milliseconds(started.duration(to: .now))
-                // A cancel is the caller's choice, such as the refinement deadline, not a failure.
+                // A cancel is the caller's choice, such as stopping dictation, not a failure.
                 let cancelled = error is CancellationError || (error as? URLError)?.code == .cancelled
                 Log.qwen.log(
                     level: cancelled ? .info : .error,

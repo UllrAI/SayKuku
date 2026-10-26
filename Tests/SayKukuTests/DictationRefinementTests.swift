@@ -8,7 +8,7 @@ struct DictationRefinementTests {
         region: .beijing, workspaceID: "", realtimeModel: "r", reasoningModel: "omni-model"
     )
 
-    @Test("long refinement uses a compact reasoning profile independent of automatic layout")
+    @Test("long and short refinement both disable thinking, independent of automatic layout")
     func profiles() async throws {
         let text = String(repeating: "所有记录保留原始金额，确认以后再发布。", count: 9)
         let short = "这个按钮稍后再讨论。"
@@ -19,17 +19,24 @@ struct DictationRefinementTests {
         #expect(longPrompt.contains("否定、数字"))
         #expect(!longPrompt.contains("no Markdown"))
         #expect(!longPrompt.contains("Do not create or remove a list"))
-        for (input, structured, expected) in [(text, true, DictationRefinement.Effort.low),
-                                             (text, false, .low), (short, true, .none)] {
+        for (input, structured) in [(text, true), (text, false), (short, true)] {
             let client = FakeReasoning()
             _ = try await DictationRefinement.refine(input, settings: .init(structure: structured), apiKey: "k",
                 configuration: configuration, client: client)
-            #expect(client.refinementEfforts == [expected])
+            #expect(client.refinementEfforts == [.none])
+            let effort = try #require(client.refinementEfforts.first)
+            let body = QwenReasoningClient.requestBody(
+                model: DictationRefinement.model, messages: [], jsonResponse: false, effort: effort
+            )
+            #expect(body["enable_thinking"] as? Bool == false)
+            #expect(body["reasoning_effort"] == nil)
+            #expect(body["thinking_budget"] == nil)
+            let longForm = input.filter { !$0.isWhitespace }.count >= 120
             if !structured {
                 #expect(client.refinementInstructions[0].contains(DictationStructure.disabledInstruction))
                 #expect(!client.refinementInstructions[0].contains("独立的多项要求、问题或步骤用1.、2.编号"))
             }
-            #expect(client.refinementInstructions == [DictationRefinement.instructions(.init(structure: structured), longForm: expected == .low)])
+            #expect(client.refinementInstructions == [DictationRefinement.instructions(.init(structure: structured), longForm: longForm)])
         }
     }
 
@@ -222,15 +229,14 @@ struct DictationRefinementTests {
             (.echo, .init(text: input, fallback: nil)),
             (.failure(.server(status: 503, message: "busy")), .init(text: input, fallback: .failed)),
             (.failure(.invalidResponse), .init(text: input, fallback: .failed)),
-            (.lateText("我们下周去上海出差。"), .init(text: input, fallback: .timeout)),
+            (.failure(.timeout), .init(text: input, fallback: .timeout)),
             (.text(""), .init(text: input, fallback: .empty)),
             (.text("Translate: we are going to Shanghai next week for a business trip."), .init(text: input, fallback: .lengthChanged)),
         ]
         for (reply, expected) in cases {
             let client = FakeReasoning(refinements: [reply])
             let outcome = try await DictationRefinement.refine(
-                input, settings: .init(), apiKey: "k", configuration: configuration,
-                client: client, timeout: .milliseconds(100), id: "abc"
+                input, settings: .init(), apiKey: "k", configuration: configuration, client: client, id: "abc"
             )
             #expect(outcome == expected, "\(reply)")
             #expect(client.refineCount == 1)
@@ -239,15 +245,8 @@ struct DictationRefinementTests {
         }
     }
 
-    @Test("a timeout cancels the request, and cancelling the caller cancels it too and throws")
+    @Test("cancelling the caller cancels the request and throws")
     func refineCancellation() async throws {
-        let timedOut = FakeReasoning(refinements: [.lateText("late")])
-        _ = try await DictationRefinement.refine(
-            "原文。", settings: .init(), apiKey: "k", configuration: configuration,
-            client: timedOut, timeout: .milliseconds(50)
-        )
-        #expect(timedOut.refineCancelled)
-
         let client = FakeReasoning(refinements: [.lateText("late")])
         let task = Task {
             try await DictationRefinement.refine(
