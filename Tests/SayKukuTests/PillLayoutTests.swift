@@ -107,6 +107,67 @@ struct OverlayLayoutTests {
         #expect(card == CGPoint(x: 490, y: 875 - 8 - 16 - 160))
     }
 
+    @Test("top recording feedback stays below the menu bar at larger text sizes", arguments: [11.0, 24.0])
+    @MainActor
+    func topRecordingFeedback(fontSize: Double) {
+        let font = NSFont.systemFont(ofSize: fontSize)
+        let message = String(repeating: "No sound heard · External microphone with a long device name ", count: 4)
+        let renderedText = NSHostingView(rootView:
+            Text(message)
+                .font(.system(size: fontSize, weight: .medium))
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(width: OverlayLayout.recordingNoticeWidth - KukuSpacing.sm * 2)
+        ).fittingSize
+        let height = OverlayLayout.recordingContentHeight(for: message, font: font)
+        let size = FloatingOverlayController.panelSize(answerHeight: nil, recordingContentHeight: height)
+        let origin = OverlayLayout.origin(
+            placement: .top, caretFrame: nil, visibleFrame: visibleFrame, panelSize: size, contentHeight: height
+        )
+        let contentBottom = origin.y + OverlayLayout.contentBottomInset
+
+        #expect(height >= KukuLayout.pillHeight + KukuSpacing.xxs * 3 + renderedText.height, "content=\(height), rendered text=\(renderedText.height)")
+        #expect(size.height >= OverlayLayout.contentBottomInset + height)
+        #expect(contentBottom >= visibleFrame.minY)
+        #expect(contentBottom + height == visibleFrame.maxY - OverlayLayout.bottomInset)
+        // The stop control is in the recording pill, below the separate notice.
+        #expect(contentBottom + KukuLayout.pillHeight < contentBottom + height)
+    }
+
+    @Test("dismissing top recording feedback keeps the recording pill on screen")
+    func topRecordingFeedbackDismissal() {
+        let heights = [
+            OverlayLayout.recordingContentHeight(for: "Using MacBook Pro Microphone"),
+            OverlayLayout.recordingContentHeight(for: nil)
+        ]
+        for height in heights {
+            let size = FloatingOverlayController.panelSize(answerHeight: nil, recordingContentHeight: height)
+            let origin = OverlayLayout.origin(
+                placement: .top, caretFrame: nil, visibleFrame: visibleFrame, panelSize: size, contentHeight: height
+            )
+            let pillBottom = origin.y + OverlayLayout.contentBottomInset
+            #expect(pillBottom >= visibleFrame.minY)
+            #expect(pillBottom + KukuLayout.pillHeight <= visibleFrame.maxY - OverlayLayout.bottomInset)
+        }
+        #expect(heights[1] == KukuLayout.pillHeight)
+    }
+
+    @Test("recording feedback preserves bottom anchoring and the gap below the caret")
+    func recordingFeedbackAnchors() {
+        let height = OverlayLayout.recordingContentHeight(for: "No sound heard · MacBook Pro Microphone")
+        let size = FloatingOverlayController.panelSize(answerHeight: nil, recordingContentHeight: height)
+        let bottom = OverlayLayout.origin(
+            placement: .bottom, caretFrame: nil, visibleFrame: visibleFrame, panelSize: size, contentHeight: height
+        )
+        let caret = CGRect(x: 700, y: 500, width: 2, height: 18)
+        let following = OverlayLayout.origin(
+            placement: .caret, caretFrame: caret, visibleFrame: visibleFrame, panelSize: size, contentHeight: height
+        )
+
+        #expect(bottom == CGPoint(x: 530, y: 78))
+        #expect(following.y + OverlayLayout.contentBottomInset + height == caret.minY - OverlayLayout.caretGap)
+    }
+
     @Test("bottom and top placements ignore the caret")
     func placementIgnoresCaret() {
         let caret = CGRect(x: 700, y: 500, width: 2, height: 18)

@@ -230,7 +230,6 @@ final class MicrophoneTestController {
     private(set) var phase: Phase = .idle
     private(set) var level: Double = 0
     private(set) var activeInput: AudioInputSelection?
-    var deviceName: String { activeInput?.device.name ?? "" }
 
     /// The capture recordings use, so the test reuses its engine instead of building one on the main thread,
     /// which takes seconds with a Bluetooth input, and checks the same path a recording takes.

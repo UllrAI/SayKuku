@@ -53,7 +53,11 @@ final class VoiceWorkflow {
     var liveTranscript = ""
     var inputLevel = 0.0
     private(set) var recordingInput: AudioInputSelection?
-    private(set) var recordingInputMessage: String?
+    private(set) var recordingInputMessage: String? {
+        didSet {
+            if recordingInputMessage != oldValue { overlayController?.refresh() }
+        }
+    }
     @ObservationIgnored private var inputFeedback = RecordingInputFeedback()
     @ObservationIgnored private var inputFeedbackTask: Task<Void, Never>?
     var pendingCopyText = "" { didSet { hasCopiedPendingText = false } }
@@ -773,16 +777,21 @@ final class VoiceWorkflow {
         guard let input = audioCapture.activeInput else { return }
         recordingInput = input
         inputFeedback.begin(input, at: .now)
-        recordingInputMessage = inputFeedback.message(at: .now)
+        updateInputMessage()
         inputFeedbackTask?.cancel()
         inputFeedbackTask = Task { [weak self] in
             while !Task.isCancelled {
                 do { try await Task.sleep(for: .milliseconds(100)) }
                 catch { return }
                 guard let self, self.isRecording else { return }
-                self.recordingInputMessage = self.inputFeedback.message(at: .now)
+                self.updateInputMessage()
             }
         }
+    }
+
+    private func updateInputMessage() {
+        let message = inputFeedback.message(at: .now)
+        if recordingInputMessage != message { recordingInputMessage = message }
     }
 
     private func endInputFeedback() {
@@ -805,7 +814,7 @@ final class VoiceWorkflow {
                     guard let self, self.workflowGeneration == generation, self.holdsMicrophone, self.isRecording else { return }
                     self.inputLevel = AudioLevel.smoothed(previous: self.inputLevel, next: level)
                     self.inputFeedback.recordLevel(level, at: .now)
-                    self.recordingInputMessage = self.inputFeedback.message(at: .now)
+                    self.updateInputMessage()
                 }
             },
             onChunk: onChunk,
