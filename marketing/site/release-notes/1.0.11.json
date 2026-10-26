@@ -1,0 +1,17 @@
+{
+  "version": "1.0.11",
+  "notes": {
+    "zh-Hans": [
+      "支持为 SayKuku 单独选择麦克风，断连时自动回退到系统输入。",
+      "录音时显示当前麦克风与无声提示，改进麦克风测试和浮窗布局。",
+      "听写二次整理关闭思考并等待结果返回，减少长文本整理被提前跳过的情况。",
+      "扩大设置折叠标题的点击范围，句末标点说明随选项更新。"
+    ],
+    "en": [
+      "Choose a microphone just for SayKuku, with automatic fallback to the system input when disconnected.",
+      "Recording shows the active microphone and a quiet-input hint, with an improved microphone test and overlay layout.",
+      "Dictation refinement disables thinking and waits for the response, so longer text is less likely to skip cleanup.",
+      "Settings disclosure headers are easier to click, and ending-punctuation help follows your selection."
+    ]
+  }
+}

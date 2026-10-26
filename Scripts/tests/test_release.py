@@ -84,6 +84,47 @@ class ReleaseTests(unittest.TestCase):
                     release.preflight(version, build)
             run.assert_not_called()
 
+    def test_localized_notes_drive_appcast_website_and_legacy_feed(self):
+        import plistlib
+        import xml.etree.ElementTree as ET
+        app = self.root / "SayKuku.app"
+        (app / "Contents").mkdir(parents=True)
+        (app / "Contents/Info.plist").write_bytes(plistlib.dumps({
+            "CFBundleShortVersionString": "1.1.0", "CFBundleVersion": "20", "SUPublicEDKey": "public"}))
+        source = {"version": "1.1.0", "notes": {"zh-Hans": ["选择麦克风。"], "en": ["Choose a microphone & test <input>."]}}
+        def generate(args, **kwargs):
+            self.appcast.replace(self.root / "Dist/releases/1.1.0/appcast.xml")
+        with patch.object(release, "optional_url", return_value=None), patch.object(release, "run", side_effect=generate), patch.object(release, "validate"):
+            metadata_file = release.prepare(self.dmg, app, json.dumps(source), self.root, self.meta["commit"])
+        metadata = json.loads(metadata_file.read_text())
+        descriptions = {node.get("{http://www.w3.org/XML/1998/namespace}lang"): node.text
+                        for node in ET.parse(metadata["appcast"]).findall("channel/item/description")}
+        self.assertEqual(descriptions, {language: "- " + lines[0] for language, lines in source["notes"].items()})
+        self.assertEqual(json.loads(Path(metadata["legacy_feed"]).read_text())["notes"], "- 选择麦克风。\n")
+        release.stage_site(metadata, self.root / "staged")
+        self.assertIn("选择麦克风。", (self.root / "staged/download/index.html").read_text())
+        english = (self.root / "staged/en/download/index.html").read_text()
+        self.assertIn("Choose a microphone &amp; test &lt;input&gt;.", english)
+        self.assertNotIn("选择麦克风。", english)
+        with patch.object(release, "run"), patch.object(release.subprocess, "check_output", return_value=self.meta["commit"]), patch.object(release.subprocess, "run", return_value=subprocess.CompletedProcess([], 1)):
+            release.validate(metadata, self.root)
+            metadata["localized_notes"]["en"] = "changed"
+            with self.assertRaisesRegex(ValueError, "localized notes"):
+                release.validate(metadata, self.root)
+
+    def test_localized_notes_reject_wrong_version_and_missing_translation_before_preparation(self):
+        import plistlib
+        app = self.root / "SayKuku.app"
+        (app / "Contents").mkdir(parents=True)
+        (app / "Contents/Info.plist").write_bytes(plistlib.dumps({
+            "CFBundleShortVersionString": "1.1.0", "CFBundleVersion": "20", "SUPublicEDKey": "public"}))
+        for source in [{"version": "1.0.9", "notes": {}}, {"version": "1.1.0", "notes": {"zh-Hans": ["中文"]}},
+                       {"version": "1.1.0", "notes": {"zh-Hans": ["中文"], "en": [""]}}]:
+            with self.assertRaises(ValueError), patch.object(release, "run") as run:
+                release.prepare(self.dmg, app, json.dumps(source), self.root, self.meta["commit"])
+            run.assert_not_called()
+        self.assertFalse((self.root / "Dist/releases/1.1.0/release.json").exists())
+
     def test_legacy_build_is_read_from_mounted_archive_and_detached(self):
         import plistlib
         def command(args, **kwargs):

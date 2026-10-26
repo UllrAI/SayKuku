@@ -283,7 +283,7 @@ Scripts/release.sh --notes /absolute/path/release-notes.txt
 
 更新说明使用简短的 UTF-8 文本，通常 3–5 条，每行一条，可用 `- ` 开头。旧版 `ver.json` 客户端只显示一个 `notes` 字段，当前统一使用简短中文；不要逐条拼接中英文，也不要把安装细节写成长段落。HTML 会转义，不能嵌入脚本。
 
-Sparkle 支持在 appcast 的多个 `<description>` 上分别指定 `xml:lang="zh-Hans"` / `xml:lang="en"`，由框架按用户语言选择，两个节点都要明确标注语言；见 [官方本地化说明](https://sparkle-project.org/documentation/publishing/#localization)。1.0.10 已在数据层拆分 Sparkle 和中英文下载页的说明，语言源归档在 `marketing/site/release-notes/1.0.10.json`。当前 `--notes` 仍只接收一份单语言纯文本，不能把这个 JSON 直接传进去；后续版本补齐从语言源自动生成网页和 appcast 的发布工具支持。
+Sparkle 支持在 appcast 的多个 `<description>` 上分别指定 `xml:lang="zh-Hans"` / `xml:lang="en"`，由框架按用户语言选择，两个节点都要明确标注语言；见 [官方本地化说明](https://sparkle-project.org/documentation/publishing/#localization)。`--notes` 也接受 `marketing/site/release-notes/<版本>.json` 格式的双语说明：`version` 必须与 App 一致，`notes` 中的 `zh-Hans` 和 `en` 必须各有非空文本列表。发布工具据此生成对应语言的下载页与 appcast，旧 `ver.json` 保持简短中文。推荐直接传入该 JSON，纯文本入口继续支持单语言发布。
 
 已发布版本的文字更正只更新网页和更新清单，并同步发布元数据的说明及清单哈希；保留原版本、构建号、DMG、安装包签名和 Git 标签。完成后回读官网与 R2 的 `ver.json`、appcast 和各语言下载页，确认文字正确且安装包哈希不变。
 

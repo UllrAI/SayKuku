@@ -115,6 +115,17 @@ def prepare(dmg, app, notes, tools, commit):
         raise ValueError("Archive filename must match the App version")
     if not notes.strip():
         raise ValueError("Release notes must not be empty")
+    localized_notes = {}
+    if notes.lstrip().startswith("{"):
+        source = json.loads(notes)
+        if source.get("version") != version:
+            raise ValueError("Release notes version must match the App version")
+        for language in ["zh-Hans", "en"]:
+            lines = source.get("notes", {}).get(language)
+            if not isinstance(lines, list) or not lines or any(not isinstance(line, str) or not line.strip() for line in lines):
+                raise ValueError("Release notes require nonempty text lines for " + language)
+            localized_notes[language] = "\n".join("- " + line for line in lines)
+        notes = localized_notes["zh-Hans"] + "\n"
     destination = ROOT / "Dist/releases" / version
     destination.mkdir(parents=True, exist_ok=True)
     if (destination / "release.json").exists():
@@ -125,6 +136,8 @@ def prepare(dmg, app, notes, tools, commit):
         "download_url": DOWNLOADS + dmg.name, "website": WEBSITE,
         "public_key": info["SUPublicEDKey"],
     }
+    if localized_notes:
+        metadata["localized_notes"] = localized_notes
     metadata_file = destination / "release.json"
     write_metadata(metadata_file, metadata)  # Preserve a resumable checkpoint before any network request.
     return complete_preparation(metadata_file, tools)
@@ -156,8 +169,19 @@ def complete_preparation(metadata_file, tools):
     run([tools / "generate_appcast", "--account", ACCOUNT, "--maximum-deltas", "0",
          "--maximum-versions", "0", "--embed-release-notes", "--download-url-prefix", DOWNLOADS, destination])
     appcast = destination / "appcast.xml"
-    items = ET.parse(appcast).getroot().findall("channel/item")
+    tree = ET.parse(appcast)
+    items = tree.getroot().findall("channel/item")
     item = next(item for item in items if item.findtext(f"{{{SPARKLE}}}version") == str(metadata["build"]))
+    if localized_notes := metadata.get("localized_notes"):
+        for description in item.findall("description"):
+            item.remove(description)
+        for language, notes in localized_notes.items():
+            ET.SubElement(item, "description", {
+                "{http://www.w3.org/XML/1998/namespace}lang": language,
+                f"{{{SPARKLE}}}format": "markdown",
+            }).text = notes
+        ET.register_namespace("sparkle", SPARKLE)
+        tree.write(appcast, encoding="utf-8", xml_declaration=True)
     enclosure = item.find("enclosure")
     metadata.update({"appcast": str(appcast.resolve()), "appcast_sha256": sha256(appcast),
                      "ed_signature": enclosure.attrib[f"{{{SPARKLE}}}edSignature"]})
@@ -187,6 +211,11 @@ def validate(metadata, tools):
     enclosure = item.find("enclosure")
     if item.findtext(f"{{{SPARKLE}}}shortVersionString") != metadata["version"]:
         raise ValueError("Appcast display version does not match the release")
+    if localized_notes := metadata.get("localized_notes"):
+        descriptions = {node.get("{http://www.w3.org/XML/1998/namespace}lang"): node.text
+                        for node in item.findall("description")}
+        if descriptions != localized_notes:
+            raise ValueError("Appcast localized notes do not match the release")
     if (enclosure.attrib["url"], int(enclosure.attrib["length"]), enclosure.attrib[f"{{{SPARKLE}}}edSignature"]) != (
             metadata["download_url"], metadata["size"], metadata["ed_signature"]):
         raise ValueError("Appcast release fields do not match the archive")
@@ -252,6 +281,11 @@ def verify_public(url, digest):
     raise ValueError("Public content does not match the release: " + url)
 
 
+def notes_html(notes):
+    return "<ul>" + "".join("<li>" + html.escape(line.removeprefix("- ")) + "</li>"
+                            for line in notes.splitlines() if line.strip()) + "</ul>"
+
+
 def stage_site(metadata, destination):
     source = ROOT / "marketing/site/dist"
     shutil.copytree(source, destination)
@@ -268,8 +302,8 @@ def stage_site(metadata, destination):
     for name in ["download/index.html", "en/download/index.html"]:
         file = destination / name
         text = file.read_text()
-        notes = "<ul>" + "".join("<li>" + html.escape(line.removeprefix("- ")) + "</li>"
-                                    for line in metadata["notes"].splitlines() if line.strip()) + "</ul>"
+        language = "en" if name.startswith("en/") else "zh-Hans"
+        notes = notes_html(metadata.get("localized_notes", {}).get(language, metadata["notes"]))
         text, count = re.subn(r"(<h2>[^<]*" + re.escape(metadata["version"]) + r"[^<]*</h2>)<ul>.*?</ul>",
                              lambda match: match[1] + notes, text, count=1, flags=re.DOTALL)
         if count != 1:
