@@ -31,6 +31,16 @@ protocol AudioCapturing: AnyObject, Sendable {
 }
 
 final class AudioCapture: AudioCapturing, @unchecked Sendable {
+    struct InputConfiguration: Equatable {
+        let deviceID: AudioDeviceID
+        let hardwareFormat: AVAudioFormat
+        let outputFormat: AVAudioFormat
+
+        func requiresRebuild(after next: Self, isRecording: Bool, engineIsRunning: Bool) -> Bool {
+            self != next || (isRecording && !engineIsRunning)
+        }
+    }
+
     struct Recording: Sendable {
         let wav: Data
         let duration: Double
@@ -43,7 +53,7 @@ final class AudioCapture: AudioCapturing, @unchecked Sendable {
     /// format, so it is rebuilt when the selected device or hardware format changes, or it fails to start.
     /// The engine, its observer, its input device and the last input device are only touched on `queue`.
     private var engine: AVAudioEngine?
-    private var engineInputDevice: AudioDeviceID?
+    private var engineInputConfiguration: InputConfiguration?
     private var configurationObserver: NSObjectProtocol?
     private var lastDeviceID: UInt32?
     private var deviceObservation: AudioInputDeviceObservation?
@@ -87,7 +97,7 @@ final class AudioCapture: AudioCapturing, @unchecked Sendable {
                     guard let self else { return }
                     queue.async {
                         let next = CoreAudioInputs.snapshot().resolve(uid: self.selectedUID)?.device.id
-                        if next != self.engineInputDevice {
+                        if next != self.engineInputConfiguration?.deviceID {
                             self.engineInvalidated = true
                             self.interrupt()
                         }
@@ -166,17 +176,12 @@ final class AudioCapture: AudioCapturing, @unchecked Sendable {
         onInterruption: @escaping @Sendable () -> Void
     ) throws {
         let input = engine.inputNode
-        let sourceFormat = input.outputFormat(forBus: 0)
+        // Selecting a different device can leave the output bus in the old device's format.
+        // Installing the tap below applies the selected hardware format to that unconnected bus.
+        let sourceFormat = input.inputFormat(forBus: 0)
         guard sourceFormat.channelCount > 0, sourceFormat.sampleRate > 0 else {
             discardEngine()
             throw AudioCaptureError.microphoneUnavailable
-        }
-        // A tap in another format than the hardware's raises an exception, so a stale engine must not get one.
-        let hardwareFormat = input.inputFormat(forBus: 0)
-        guard hardwareFormat.sampleRate == sourceFormat.sampleRate,
-              hardwareFormat.channelCount == sourceFormat.channelCount else {
-            discardEngine()
-            throw AudioCaptureError.unsupportedFormat
         }
         guard let converter = AVAudioConverter(from: sourceFormat, to: targetFormat) else {
             throw AudioCaptureError.unsupportedFormat
@@ -196,6 +201,10 @@ final class AudioCapture: AudioCapturing, @unchecked Sendable {
         input.installTap(onBus: 0, bufferSize: 1_024, format: sourceFormat) { [weak self] buffer, _ in
             self?.consume(buffer, sourceFormat: sourceFormat)
         }
+        engineInputConfiguration = InputConfiguration(
+            deviceID: input.auAudioUnit.deviceID,
+            hardwareFormat: input.inputFormat(forBus: 0), outputFormat: input.outputFormat(forBus: 0)
+        )
         engine.prepare()
         do {
             try engine.start()
@@ -223,23 +232,39 @@ final class AudioCapture: AudioCapturing, @unchecked Sendable {
             throw AudioCaptureError.microphoneUnavailable
         }
         let inputDevice = selection.device.id
-        if let engine, inputDevice == engineInputDevice, !engineInvalidated { return (engine, true) }
+        if let engine, inputDevice == engineInputConfiguration?.deviceID, !engineInvalidated { return (engine, true) }
         discardEngine()
         let engine = AVAudioEngine()
-        try engine.inputNode.auAudioUnit.setDeviceID(inputDevice)
+        let input = engine.inputNode
+        try input.auAudioUnit.setDeviceID(inputDevice)
+        engineInputConfiguration = InputConfiguration(
+            deviceID: input.auAudioUnit.deviceID,
+            hardwareFormat: input.inputFormat(forBus: 0), outputFormat: input.outputFormat(forBus: 0)
+        )
         // Hardware/profile changes stop the engine's tap. Interrupt this recording and rebuild before reuse.
         configurationObserver = NotificationCenter.default.addObserver(
             forName: .AVAudioEngineConfigurationChange, object: engine, queue: nil
-        ) { [weak self] _ in
-            guard let self else { return }
+        ) { [weak self, weak engine] _ in
+            guard let self, let engine else { return }
             self.queue.async {
+                guard self.engine === engine, let previous = self.engineInputConfiguration else { return }
+                let input = engine.inputNode
+                let hardware = input.inputFormat(forBus: 0)
+                let output = input.outputFormat(forBus: 0)
+                let next = InputConfiguration(
+                    deviceID: input.auAudioUnit.deviceID, hardwareFormat: hardware, outputFormat: output
+                )
+                // setDeviceID can post a startup notification while the same input still runs normally.
+                // Keep it only when the route, both formats, and the running recording are unchanged.
+                guard previous.requiresRebuild(
+                    after: next, isRecording: self.lock.withLock { self.running }, engineIsRunning: engine.isRunning
+                ) else { return }
                 self.engineInvalidated = true
                 self.interrupt()
             }
         }
         self.engineInvalidated = false
         self.engine = engine
-        engineInputDevice = inputDevice
         return (engine, false)
     }
 
@@ -295,7 +320,7 @@ final class AudioCapture: AudioCapturing, @unchecked Sendable {
             self.configurationObserver = nil
         }
         engine = nil
-        engineInputDevice = nil
+        engineInputConfiguration = nil
     }
 
     private func interrupt() {

@@ -1,3 +1,4 @@
+import AVFoundation
 import Foundation
 import os
 import Testing
@@ -133,5 +134,46 @@ struct RecordingInputFeedbackTests {
         feedback.begin(AudioInputSelection(device: mic, isFallback: false), at: start)
         feedback.recordLevel(0.1, at: start.addingTimeInterval(0.05))
         #expect(feedback.message(at: start.addingTimeInterval(4)) == nil)
+    }
+}
+
+@Suite("Audio engine configuration changes")
+struct AudioEngineConfigurationTests {
+    private func configuration(
+        deviceID: UInt32 = 1, rate: Double = 48_000, channels: AVAudioChannelCount = 1
+    ) -> AudioCapture.InputConfiguration {
+        let format = AVAudioFormat(standardFormatWithSampleRate: rate, channels: channels)!
+        return AudioCapture.InputConfiguration(deviceID: deviceID, hardwareFormat: format, outputFormat: format)
+    }
+
+    @Test("unchanged startup notifications preserve prewarmed and recording engines")
+    func unchangedConfiguration() {
+        let previous = configuration()
+        #expect(!previous.requiresRebuild(after: configuration(), isRecording: false, engineIsRunning: false))
+        #expect(!previous.requiresRebuild(after: configuration(), isRecording: true, engineIsRunning: true))
+    }
+
+    @Test("an actual device, hardware format, or tap format change invalidates the engine")
+    func changedConfiguration() {
+        let previous = configuration()
+        for next in [configuration(deviceID: 2), configuration(rate: 44_100), configuration(channels: 2)] {
+            #expect(previous.requiresRebuild(after: next, isRecording: true, engineIsRunning: true))
+            #expect(previous.requiresRebuild(after: next, isRecording: false, engineIsRunning: false))
+        }
+        let differentFormat = configuration(rate: 44_100).hardwareFormat
+        let hardwareOnly = AudioCapture.InputConfiguration(
+            deviceID: 1, hardwareFormat: differentFormat, outputFormat: previous.outputFormat
+        )
+        let outputOnly = AudioCapture.InputConfiguration(
+            deviceID: 1, hardwareFormat: previous.hardwareFormat, outputFormat: differentFormat
+        )
+        #expect(previous.requiresRebuild(after: hardwareOnly, isRecording: true, engineIsRunning: true))
+        #expect(previous.requiresRebuild(after: outputOnly, isRecording: true, engineIsRunning: true))
+    }
+
+    @Test("a stopped engine still interrupts an active recording even if its format is unchanged")
+    func stoppedEngine() {
+        let previous = configuration()
+        #expect(previous.requiresRebuild(after: configuration(), isRecording: true, engineIsRunning: false))
     }
 }
