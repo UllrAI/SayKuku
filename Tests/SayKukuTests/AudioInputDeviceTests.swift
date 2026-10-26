@@ -119,38 +119,39 @@ struct RecordingInputFeedbackTests {
         var feedback = RecordingInputFeedback()
         let input = AudioInputSelection(device: mic, isFallback: false)
         feedback.begin(input, at: start)
-        #expect(feedback.message(at: start) == localized("Using \(mic.name)"))
+        #expect(feedback.notice(at: start) == .device(input))
         feedback.recordLevel(0.5, at: start)
-        #expect(feedback.message(at: start.addingTimeInterval(3)) == nil)
+        #expect(feedback.notice(at: start.addingTimeInterval(3)) == nil)
         feedback.end()
         feedback.begin(input, at: start.addingTimeInterval(10))
-        #expect(feedback.message(at: start.addingTimeInterval(10)) == nil)
+        #expect(feedback.notice(at: start.addingTimeInterval(10)) == nil)
         feedback.begin(input, at: start.addingTimeInterval(12 * 3600 + 11))
-        #expect(feedback.message(at: start.addingTimeInterval(12 * 3600 + 11)) != nil)
+        #expect(feedback.notice(at: start.addingTimeInterval(12 * 3600 + 11)) == .device(input))
         let changed = AudioInputDevice(id: 2, uid: "new", name: "New microphone")
         feedback.begin(AudioInputSelection(device: changed, isFallback: false), at: start)
-        #expect(feedback.message(at: start) == localized("Using \(changed.name)"))
+        #expect(feedback.notice(at: start) == .device(AudioInputSelection(device: changed, isFallback: false)))
         for _ in 0..<2 {
             feedback.end()
             feedback.begin(AudioInputSelection(device: changed, isFallback: true), at: start)
-            #expect(feedback.message(at: start) == localized("Using \(changed.name)"))
+            #expect(feedback.notice(at: start) == .device(AudioInputSelection(device: changed, isFallback: true)))
         }
     }
 
     @Test("quiet warning waits two seconds, clears on sound, and can return after later silence")
     func silenceAndRecovery() {
         var feedback = RecordingInputFeedback()
-        feedback.begin(AudioInputSelection(device: mic, isFallback: false), at: start)
+        let input = AudioInputSelection(device: mic, isFallback: false)
+        feedback.begin(input, at: start)
         feedback.recordLevel(0.001, at: start.addingTimeInterval(1))
-        #expect(feedback.message(at: start.addingTimeInterval(1.99)) == localized("Using \(mic.name)"))
-        #expect(feedback.message(at: start.addingTimeInterval(2)) == localized("No sound heard · \(mic.name)"))
+        #expect(feedback.notice(at: start.addingTimeInterval(1.99)) == .device(input))
+        #expect(feedback.notice(at: start.addingTimeInterval(2)) == .quiet(input))
         feedback.recordLevel(0.5, at: start.addingTimeInterval(3))
-        #expect(feedback.message(at: start.addingTimeInterval(3)) == nil)
+        #expect(feedback.notice(at: start.addingTimeInterval(3)) == nil)
         feedback.recordLevel(0, at: start.addingTimeInterval(4))
-        #expect(feedback.message(at: start.addingTimeInterval(5.9)) == nil)
-        #expect(feedback.message(at: start.addingTimeInterval(6)) == localized("No sound heard · \(mic.name)"))
+        #expect(feedback.notice(at: start.addingTimeInterval(5.9)) == nil)
+        #expect(feedback.notice(at: start.addingTimeInterval(6)) == .quiet(input))
         feedback.end()
-        #expect(feedback.message(at: start.addingTimeInterval(7)) == nil)
+        #expect(feedback.notice(at: start.addingTimeInterval(7)) == nil)
     }
 
     @Test("speaking straight away never warns about silence")
@@ -158,7 +159,7 @@ struct RecordingInputFeedbackTests {
         var feedback = RecordingInputFeedback()
         feedback.begin(AudioInputSelection(device: mic, isFallback: false), at: start)
         feedback.recordLevel(0.1, at: start.addingTimeInterval(0.05))
-        #expect(feedback.message(at: start.addingTimeInterval(4)) == nil)
+        #expect(feedback.notice(at: start.addingTimeInterval(4)) == nil)
     }
 }
 

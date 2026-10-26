@@ -74,7 +74,7 @@ final class FloatingOverlayController {
 
         if shouldShow {
             let answerHeight = appState.workflow.agentPhase == .answerReady ? appState.workflow.answerCardHeight : nil
-            let recordingHeight = OverlayLayout.recordingContentHeight(for: appState.workflow.recordingInputMessage)
+            let recordingHeight = OverlayLayout.recordingContentHeight(for: appState.workflow.recordingInputNotice?.input.description)
             place(
                 size: Self.panelSize(answerHeight: answerHeight, recordingContentHeight: recordingHeight),
                 contentHeight: answerHeight ?? recordingHeight
@@ -109,7 +109,7 @@ enum OverlayLayout {
     static let answerCardHeights: ClosedRange<CGFloat> = 160...420
     static let recordingNoticeWidth: CGFloat = 340
 
-    /// Includes both lines of input feedback above the recording pill, using its caption font.
+    /// Includes the device caption inside the recording pill, using the same font and padding.
     static func recordingContentHeight(
         for message: String?, font: NSFont = .preferredFont(forTextStyle: .footnote)
     ) -> CGFloat {
@@ -117,14 +117,13 @@ enum OverlayLayout {
         let captionFont = NSFont.systemFont(ofSize: font.pointSize, weight: .medium)
         let textBounds = NSAttributedString(string: message, attributes: [.font: captionFont])
             .boundingRect(
-                with: NSSize(width: recordingNoticeWidth - KukuSpacing.sm * 2, height: .greatestFiniteMagnitude),
+                with: NSSize(width: recordingNoticeWidth - KukuSpacing.sm * 4, height: .greatestFiniteMagnitude),
                 options: [.usesLineFragmentOrigin, .usesFontLeading], context: nil
             )
         let lineCount = min(2, ceil(textBounds.height / NSLayoutManager().defaultLineHeight(for: captionFont)))
         // Reserve whole points for both ascent and descent, as SwiftUI lays out each line.
         let lineHeight = ceil(captionFont.ascender) - floor(captionFont.descender) + ceil(captionFont.leading)
-        let noticeHeight = lineCount * lineHeight + KukuSpacing.xxs * 2
-        return KukuLayout.pillHeight + KukuSpacing.xxs + noticeHeight
+        return KukuLayout.pillHeight + lineCount * lineHeight + KukuSpacing.sm + KukuSpacing.xs * 2
     }
 
     /// Everything in the answer card besides the answer text: padding above and below, the header
@@ -184,7 +183,7 @@ private struct FloatingSystemOverlay: View {
     var body: some View {
         let size = FloatingOverlayController.panelSize(
             answerHeight: appState.workflow.agentPhase == .answerReady ? appState.workflow.answerCardHeight : nil,
-            recordingContentHeight: OverlayLayout.recordingContentHeight(for: appState.workflow.recordingInputMessage)
+            recordingContentHeight: OverlayLayout.recordingContentHeight(for: appState.workflow.recordingInputNotice?.input.description)
         )
         ZStack(alignment: .bottom) {
             Color.clear
@@ -199,21 +198,7 @@ private struct FloatingSystemOverlay: View {
                 || appState.workflow.agentPhase == .listening
                 || appState.workflow.dictationPhase == .starting
                 || appState.workflow.dictationPhase == .listening {
-                VStack(spacing: KukuSpacing.xxs) {
-                    if let message = appState.workflow.recordingInputMessage {
-                        Text(message)
-                            .font(.kuku(.caption))
-                            .foregroundStyle(KukuColor.textPrimary)
-                            .lineLimit(2)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, KukuSpacing.sm)
-                            .padding(.vertical, KukuSpacing.xxs)
-                            .frame(maxWidth: OverlayLayout.recordingNoticeWidth)
-                            .kukuGlassPill()
-                    }
-                    RecordingPill()
-                }
+                RecordingPill()
                     .transition(appState.workflow.agentPhase == .starting || appState.workflow.dictationPhase == .starting
                         ? .identity : .scale(scale: 0.94, anchor: .bottom).combined(with: .opacity))
             } else if appState.workflow.agentPhase != .hidden {

@@ -111,13 +111,13 @@ struct OverlayLayoutTests {
     @MainActor
     func topRecordingFeedback(fontSize: Double) {
         let font = NSFont.systemFont(ofSize: fontSize)
-        let message = String(repeating: "No sound heard · External microphone with a long device name ", count: 4)
+        let message = String(repeating: "External microphone with a long device name ", count: 4)
         let renderedText = NSHostingView(rootView:
             Text(message)
                 .font(.system(size: fontSize, weight: .medium))
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
-                .frame(width: OverlayLayout.recordingNoticeWidth - KukuSpacing.sm * 2)
+                .frame(width: OverlayLayout.recordingNoticeWidth - KukuSpacing.sm * 4)
         ).fittingSize
         let height = OverlayLayout.recordingContentHeight(for: message, font: font)
         let size = FloatingOverlayController.panelSize(answerHeight: nil, recordingContentHeight: height)
@@ -126,18 +126,18 @@ struct OverlayLayoutTests {
         )
         let contentBottom = origin.y + OverlayLayout.contentBottomInset
 
-        #expect(height >= KukuLayout.pillHeight + KukuSpacing.xxs * 3 + renderedText.height, "content=\(height), rendered text=\(renderedText.height)")
+        #expect(height >= KukuLayout.pillHeight + KukuSpacing.sm + KukuSpacing.xs * 2 + renderedText.height, "content=\(height), rendered text=\(renderedText.height)")
         #expect(size.height >= OverlayLayout.contentBottomInset + height)
         #expect(contentBottom >= visibleFrame.minY)
         #expect(contentBottom + height == visibleFrame.maxY - OverlayLayout.bottomInset)
-        // The stop control is in the recording pill, below the separate notice.
+        // The controls stay below the device caption inside the same surface.
         #expect(contentBottom + KukuLayout.pillHeight < contentBottom + height)
     }
 
     @Test("dismissing top recording feedback keeps the recording pill on screen")
     func topRecordingFeedbackDismissal() {
         let heights = [
-            OverlayLayout.recordingContentHeight(for: "Using MacBook Pro Microphone"),
+            OverlayLayout.recordingContentHeight(for: "MacBook Pro Microphone"),
             OverlayLayout.recordingContentHeight(for: nil)
         ]
         for height in heights {
@@ -154,7 +154,7 @@ struct OverlayLayoutTests {
 
     @Test("recording feedback preserves bottom anchoring and the gap below the caret")
     func recordingFeedbackAnchors() {
-        let height = OverlayLayout.recordingContentHeight(for: "No sound heard · MacBook Pro Microphone")
+        let height = OverlayLayout.recordingContentHeight(for: "MacBook Pro Microphone")
         let size = FloatingOverlayController.panelSize(answerHeight: nil, recordingContentHeight: height)
         let bottom = OverlayLayout.origin(
             placement: .bottom, caretFrame: nil, visibleFrame: visibleFrame, panelSize: size, contentHeight: height

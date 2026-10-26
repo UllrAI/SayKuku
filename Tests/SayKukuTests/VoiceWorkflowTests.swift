@@ -13,17 +13,17 @@ struct VoiceWorkflowTests {
             let audio = FakeAudioCapturing(startDelay: .milliseconds(60))
             let state = try makeState(environment, .fake(audio: audio))
             if agent { state.workflow.startAgent() } else { state.workflow.startDictation() }
-            #expect(state.workflow.recordingInputMessage == nil)
+            #expect(state.workflow.recordingInputNotice == nil)
             try #require(await eventually { state.workflow.isRecording })
             #expect(state.workflow.recordingInput?.device.name == "Test Microphone")
-            #expect(state.workflow.recordingInputMessage == localized("Using \(audio.activeInput!.device.name)"))
+            #expect(state.workflow.recordingInputNotice == .device(audio.activeInput!))
             try await Task.sleep(for: .milliseconds(2150))
-            #expect(state.workflow.recordingInputMessage == localized("No sound heard · \(audio.activeInput!.device.name)"))
+            #expect(state.workflow.recordingInputNotice == .quiet(audio.activeInput!))
             audio.emitLevel(0.7)
-            try #require(await eventually { state.workflow.recordingInputMessage != localized("No sound heard · \(audio.activeInput!.device.name)") })
+            try #require(await eventually { state.workflow.recordingInputNotice?.isQuiet != true })
             if agent { state.workflow.dismissAgent() } else { state.workflow.cancelDictation() }
             #expect(state.workflow.recordingInput == nil)
-            #expect(state.workflow.recordingInputMessage == nil)
+            #expect(state.workflow.recordingInputNotice == nil)
             audio.emitLevel(0.8)
             try await Task.sleep(for: .milliseconds(20))
             #expect(state.workflow.inputLevel == 0)
@@ -40,7 +40,7 @@ struct VoiceWorkflowTests {
         audio.interrupt()
         try #require(await eventually { !state.workflow.isRecording })
         #expect(state.workflow.recordingInput == nil)
-        #expect(state.workflow.recordingInputMessage == nil)
+        #expect(state.workflow.recordingInputNotice == nil)
     }
 
     @Test("only verified dictation writes enter local totals, independently of History")

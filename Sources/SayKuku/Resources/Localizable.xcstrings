@@ -1,24 +1,13 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "Using %@" : {
+    "Using %@ instead" : {
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "使用中：%@"
-          }
-        }
-      }
-    },
-    "Selected microphone unavailable. Using %@." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "所选麦克风不可用，正在使用 %@。"
+            "value" : "暂时改用 %@"
           }
         }
       }
@@ -34,57 +23,46 @@
         }
       }
     },
-    "Follow system default input" : {
+    "Your choice only affects SayKuku." : {
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "跟随系统默认输入"
+            "value" : "仅用于 SayKuku，不影响其他应用。"
           }
         }
       }
     },
-    "Used by Voice Input, Voice Agent, and the microphone test. Your system default stays unchanged." : {
+    "Microphone disconnected" : {
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "语音输入、语音助手和麦克风测试共用此设备，不会更改系统默认输入。"
+            "value" : "麦克风未连接"
           }
         }
       }
     },
-    "Selected microphone unavailable" : {
+    "Connect a microphone to get started." : {
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "所选麦克风不可用"
+            "value" : "请连接麦克风后再试。"
           }
         }
       }
     },
-    "No input device available. Connect a microphone or check System Settings." : {
+    "No sound yet" : {
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "没有可用的输入设备，请连接麦克风或检查系统设置。"
-          }
-        }
-      }
-    },
-    "No sound heard · %@" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "没有听到声音 · %@"
+            "value" : "还没听到声音"
           }
         }
       }
@@ -1581,13 +1559,13 @@
         }
       }
     },
-    "Checks the level only. Nothing is saved, uploaded, or played back." : {
+    "Test audio is never saved, uploaded, or played back." : {
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "只检测音量，不会保存、上传或回放"
+            "value" : "测试声音不会保存、上传或回放。"
           }
         }
       }
@@ -3833,13 +3811,13 @@
         }
       }
     },
-    "Listening" : {
+    "Say a few words…" : {
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "正在监听"
+            "value" : "说句话试试…"
           }
         }
       }
@@ -3988,13 +3966,13 @@
         }
       }
     },
-    "Microphone and recording options for Voice Input and Voice Agent." : {
+    "Choose a microphone and check that it can hear you." : {
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "语音输入和语音助手共用的麦克风与录音设置。"
+            "value" : "选择麦克风，确认能收到声音。"
           }
         }
       }
@@ -4006,17 +3984,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "麦克风输入音量"
-          }
-        }
-      }
-    },
-    "Microphone level" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "麦克风音量"
           }
         }
       }
@@ -4307,13 +4274,13 @@
         }
       }
     },
-    "Not tested" : {
+    "Ready to test" : {
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "尚未测试"
+            "value" : "等待测试"
           }
         }
       }
@@ -6147,13 +6114,13 @@
         }
       }
     },
-    "Start Test" : {
+    "Test Microphone" : {
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "开始测试"
+            "value" : "测试麦克风"
           }
         }
       }
@@ -7123,17 +7090,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "语音 Agent 搜索时打开的网站"
-          }
-        }
-      }
-    },
-    "Uses the system default input device" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "使用系统默认输入设备"
           }
         }
       }

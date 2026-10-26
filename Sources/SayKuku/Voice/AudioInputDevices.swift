@@ -14,8 +14,8 @@ struct AudioInputSelection: Equatable, Sendable {
 
     var description: String {
         isFallback
-            ? localized("Selected microphone unavailable. Using \(device.name).")
-            : localized("Using \(device.name)")
+            ? localized("Using \(device.name) instead")
+            : device.name
     }
 }
 

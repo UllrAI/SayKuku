@@ -684,30 +684,11 @@ private struct AudioSettings: View {
 
     var body: some View {
         @Bindable var settings = appState.settings
-        SettingsStack(title: localized("Audio"), subtitle: localized("Microphone and recording options for Voice Input and Voice Agent.")) {
+        SettingsStack(title: localized("Audio"), subtitle: localized("Choose a microphone and check that it can hear you.")) {
             KukuGroup(localized("Microphone")) {
-                KukuRow(localized("Input device"), caption: localized("Used by Voice Input, Voice Agent, and the microphone test. Your system default stays unchanged.")) {
-                    Picker(localized("Input device"), selection: $settings.inputDeviceUID) {
-                        Text(localized("Follow system default input")).tag(String?.none)
-                        ForEach(appState.audioInputDevices.snapshot.devices) { device in
-                            Text(device.name).tag(Optional(device.uid))
-                        }
-                        if let uid = settings.inputDeviceUID,
-                           !appState.audioInputDevices.snapshot.devices.contains(where: { $0.uid == uid }) {
-                            Text(localized("Selected microphone unavailable")).tag(Optional(uid))
-                        }
-                    }
-                    .labelsHidden()
-                    .frame(maxWidth: 240)
+                KukuRow(localized("Input device"), caption: localized("Your choice only affects SayKuku.")) {
+                    KukuPicker(localized("Input device"), options: inputOptions, selection: $settings.inputDeviceUID, label: deviceLabel)
                 }
-                Text(appState.workflow.recordingInput?.description
-                    ?? appState.microphoneTest.activeInput?.description
-                    ?? appState.audioInputDevices.snapshot.resolve(uid: settings.inputDeviceUID)?.description
-                    ?? localized("No input device available. Connect a microphone or check System Settings."))
-                    .font(.kuku(.subheadline))
-                    .foregroundStyle(KukuColor.textSecondary)
-                    .padding(.horizontal, KukuLayout.rowPadding)
-                    .padding(.bottom, KukuSpacing.sm)
                 KukuDivider()
                 MicrophoneTestPanel()
             }
@@ -719,6 +700,18 @@ private struct AudioSettings: View {
                 )
             }
         }
+    }
+
+    private var inputOptions: [String?] {
+        var options: [String?] = [nil] + appState.audioInputDevices.snapshot.devices.map { Optional($0.uid) }
+        if let uid = appState.settings.inputDeviceUID, !options.contains(uid) { options.append(uid) }
+        return options
+    }
+
+    private func deviceLabel(_ uid: String?) -> String {
+        guard let uid else { return localized("System Default") }
+        return appState.audioInputDevices.snapshot.devices.first { $0.uid == uid }?.name
+            ?? localized("Microphone disconnected")
     }
 }
 

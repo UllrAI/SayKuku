@@ -53,9 +53,9 @@ final class VoiceWorkflow {
     var liveTranscript = ""
     var inputLevel = 0.0
     private(set) var recordingInput: AudioInputSelection?
-    private(set) var recordingInputMessage: String? {
+    private(set) var recordingInputNotice: RecordingInputNotice? {
         didSet {
-            if recordingInputMessage != oldValue { overlayController?.refresh() }
+            if recordingInputNotice != oldValue { overlayController?.refresh() }
         }
     }
     @ObservationIgnored private var inputFeedback = RecordingInputFeedback()
@@ -777,21 +777,21 @@ final class VoiceWorkflow {
         guard let input = audioCapture.activeInput else { return }
         recordingInput = input
         inputFeedback.begin(input, at: .now)
-        updateInputMessage()
+        updateInputNotice()
         inputFeedbackTask?.cancel()
         inputFeedbackTask = Task { [weak self] in
             while !Task.isCancelled {
                 do { try await Task.sleep(for: .milliseconds(100)) }
                 catch { return }
                 guard let self, self.isRecording else { return }
-                self.updateInputMessage()
+                self.updateInputNotice()
             }
         }
     }
 
-    private func updateInputMessage() {
-        let message = inputFeedback.message(at: .now)
-        if recordingInputMessage != message { recordingInputMessage = message }
+    private func updateInputNotice() {
+        let notice = inputFeedback.notice(at: .now)
+        if recordingInputNotice != notice { recordingInputNotice = notice }
     }
 
     private func endInputFeedback() {
@@ -799,7 +799,7 @@ final class VoiceWorkflow {
         inputFeedbackTask = nil
         inputFeedback.end()
         recordingInput = nil
-        recordingInputMessage = nil
+        recordingInputNotice = nil
     }
 
     /// Queues the engine start off the main thread at once; the returned task finishes once it runs.
@@ -814,7 +814,7 @@ final class VoiceWorkflow {
                     guard let self, self.workflowGeneration == generation, self.holdsMicrophone, self.isRecording else { return }
                     self.inputLevel = AudioLevel.smoothed(previous: self.inputLevel, next: level)
                     self.inputFeedback.recordLevel(level, at: .now)
-                    self.updateInputMessage()
+                    self.updateInputNotice()
                 }
             },
             onChunk: onChunk,

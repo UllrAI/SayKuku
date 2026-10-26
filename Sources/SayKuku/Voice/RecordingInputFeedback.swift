@@ -1,5 +1,21 @@
 import Foundation
 
+enum RecordingInputNotice: Equatable {
+    case device(AudioInputSelection)
+    case quiet(AudioInputSelection)
+
+    var input: AudioInputSelection {
+        switch self {
+        case .device(let input), .quiet(let input): input
+        }
+    }
+
+    var isQuiet: Bool {
+        if case .quiet = self { return true }
+        return false
+    }
+}
+
 /// Shared by dictation and the agent. Only successful starts count toward device notices.
 struct RecordingInputFeedback {
     private var lastDeviceUID: String?
@@ -24,12 +40,12 @@ struct RecordingInputFeedback {
         else if quietSince == nil { quietSince = now }
     }
 
-    func message(at now: Date) -> String? {
+    func notice(at now: Date) -> RecordingInputNotice? {
         guard let input else { return nil }
         if let quietSince, now.timeIntervalSince(quietSince) >= 2 {
-            return localized("No sound heard · \(input.device.name)")
+            return .quiet(input)
         }
-        if let deviceNoticeUntil, now < deviceNoticeUntil { return localized("Using \(input.device.name)") }
+        if let deviceNoticeUntil, now < deviceNoticeUntil { return .device(input) }
         return nil
     }
 
