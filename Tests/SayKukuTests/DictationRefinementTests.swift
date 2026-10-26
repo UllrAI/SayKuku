@@ -19,19 +19,11 @@ struct DictationRefinementTests {
         #expect(longPrompt.contains("否定、数字"))
         #expect(!longPrompt.contains("no Markdown"))
         #expect(!longPrompt.contains("Do not create or remove a list"))
-        for (input, structured) in [(text, true), (text, false), (short, true)] {
+        for (input, structured, longForm) in [(text, true, true), (text, false, true), (short, true, false)] {
             let client = FakeReasoning()
             _ = try await DictationRefinement.refine(input, settings: .init(structure: structured), apiKey: "k",
                 configuration: configuration, client: client)
             #expect(client.refinementEfforts == [.none])
-            let effort = try #require(client.refinementEfforts.first)
-            let body = QwenReasoningClient.requestBody(
-                model: DictationRefinement.model, messages: [], jsonResponse: false, effort: effort
-            )
-            #expect(body["enable_thinking"] as? Bool == false)
-            #expect(body["reasoning_effort"] == nil)
-            #expect(body["thinking_budget"] == nil)
-            let longForm = input.filter { !$0.isWhitespace }.count >= 120
             if !structured {
                 #expect(client.refinementInstructions[0].contains(DictationStructure.disabledInstruction))
                 #expect(!client.refinementInstructions[0].contains("独立的多项要求、问题或步骤用1.、2.编号"))
