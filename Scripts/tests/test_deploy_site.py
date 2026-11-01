@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import unittest
 from unittest.mock import patch
+from urllib.error import HTTPError
 
 
 SPEC = importlib.util.spec_from_file_location("deploy_site", Path(__file__).parents[1] / "deploy_site.py")
@@ -48,6 +49,31 @@ class DeploymentTests(unittest.TestCase):
             with self.assertRaises(TimeoutError):
                 deploy_site.main()
         self.assertEqual(request.call_count, 1)
+
+    def test_a_transient_status_error_retries_only_the_read_request(self):
+        replies = [response({"deployments": [{"deployment_uuid": "deployment-id"}]}),
+                   HTTPError("https://c.ullrai.com/api/v1/deployments/deployment-id", 502, "Bad Gateway", {}, None),
+                   response({"status": "finished"})]
+        with patch.object(deploy_site, "urlopen", side_effect=replies) as request, patch.object(deploy_site.time, "sleep"):
+            deploy_site.main()
+        self.assertEqual([call.args[0].get_method() for call in request.call_args_list], ["POST", "GET", "GET"])
+
+    def test_a_status_permission_error_fails_without_retrying(self):
+        denied = HTTPError("https://c.ullrai.com/api/v1/deployments/deployment-id", 401, "Unauthorized", {}, None)
+        replies = [response({"deployments": [{"deployment_uuid": "deployment-id"}]}), denied]
+        try:
+            with patch.object(deploy_site, "urlopen", side_effect=replies) as request, self.assertRaises(HTTPError):
+                deploy_site.main()
+            self.assertEqual(request.call_count, 2)
+        finally:
+            denied.close()
+
+    def test_status_read_retries_stop_at_the_deployment_deadline(self):
+        unavailable = HTTPError("https://c.ullrai.com/api/v1/deployments/deployment-id", 503, "Unavailable", {}, None)
+        replies = [response({"deployments": [{"deployment_uuid": "deployment-id"}]}), unavailable]
+        with patch.object(deploy_site, "urlopen", side_effect=replies) as request, patch.object(deploy_site.time, "sleep"), patch.object(deploy_site.time, "monotonic", side_effect=[0, 1, 601]), self.assertRaises(TimeoutError):
+            deploy_site.main()
+        self.assertEqual(request.call_count, 2)
 
 
 if __name__ == "__main__":

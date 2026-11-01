@@ -4,6 +4,7 @@
 import json
 import os
 import time
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
@@ -28,8 +29,17 @@ def main():
     deadline = time.monotonic() + 600
     previous = None
     while time.monotonic() < deadline:
-        with urlopen(Request(status_url, headers=headers), timeout=30) as response:
-            status = json.load(response)["status"]
+        try:
+            with urlopen(Request(status_url, headers=headers), timeout=30) as response:
+                status = json.load(response)["status"]
+        except (URLError, TimeoutError) as error:
+            if isinstance(error, HTTPError):
+                if error.code not in (429, 500, 502, 503, 504):
+                    raise
+                error.close()
+            print("Deployment status temporarily unavailable; retrying the read request", flush=True)
+            time.sleep(5)
+            continue
         if status != previous:
             print("Deployment status: " + status, flush=True)
             previous = status
