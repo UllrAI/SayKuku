@@ -97,21 +97,12 @@ jobs:
           docker push "$IMAGE:sha-$GITHUB_SHA"
           docker tag "$IMAGE:sha-$GITHUB_SHA" "$IMAGE:main"
           docker push "$IMAGE:main"
-      - name: Confirm the public image can be pulled without credentials
+      - name: Verify the private image publication
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          mkdir -p "$RUNNER_TEMP/saykuku-anonymous-docker"
-          printf '{"auths":{}}\n' > "$RUNNER_TEMP/saykuku-anonymous-docker/config.json"
-          for attempt in $(seq 1 60); do
-            if DOCKER_CONFIG="$RUNNER_TEMP/saykuku-anonymous-docker" docker manifest inspect "$IMAGE:sha-$GITHUB_SHA" >/dev/null 2>&1; then
-              exit 0
-            fi
-            if [ "$attempt" -eq 1 ]; then
-              echo 'Waiting for the GHCR package to be public and available to Coolify.'
-            fi
-            sleep 5
-          done
-          echo 'The image is not publicly readable; deployment has not been triggered.' >&2
-          exit 1
+          test "$(gh api orgs/UllrAI/packages/container/saykuku-site --jq '.visibility')" = private
+          docker manifest inspect "$IMAGE:sha-$GITHUB_SHA" >/dev/null
 
   deploy:
     name: Deploy to Coolify and verify the published site
