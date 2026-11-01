@@ -69,7 +69,7 @@ class SiteTests(unittest.TestCase):
 @unittest.skipUnless(BASE_URL, "Set SAYKUKU_SITE_URL to test a running deployment")
 class DeployedSiteTests(unittest.TestCase):
     def fetch(self, route):
-        request = Request(BASE_URL + route, headers={"Cache-Control": "no-cache"})
+        request = Request(BASE_URL + route, headers={"Cache-Control": "no-cache", "User-Agent": "SayKuku-SiteCheck/1.0"})
         return urlopen(request, timeout=15)
 
     def test_health(self):
