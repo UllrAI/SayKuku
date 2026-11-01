@@ -241,13 +241,19 @@ class ReleaseTests(unittest.TestCase):
         def output(args, **kwargs):
             if args[1:3] == ["branch", "--show-current"]:
                 return "main\n"
+            if args[1:3] == ["rev-parse", "HEAD"]:
+                return "c" * 40
+            if args[1:3] == ["status", "--porcelain"] and "--" in args:
+                return " M marketing/site/dist/ver.json\n"
             return ""
         def command(args, **kwargs):
-            if args[0] == "npx":
-                events.append("website")
-                if failure == "website":
-                    raise subprocess.CalledProcessError(1, args)
+            if args[:3] == ["git", "push", "origin"] and args[-1] == "HEAD:main":
+                events.append("website-push")
             return subprocess.CompletedProcess(args, 0)
+        def website_ci(*args, **kwargs):
+            events.append("website")
+            if failure == "website":
+                raise subprocess.CalledProcessError(1, ["gh", "run", "watch"])
         def upload(*args):
             events.append("archive")
             if failure == "archive":
@@ -258,7 +264,7 @@ class ReleaseTests(unittest.TestCase):
                 raise ValueError("feed upload failed")
         def verify(url, digest):
             events.append("verified:" + url.rsplit("/", 1)[-1])
-        with patch.object(release.subprocess, "check_output", side_effect=output), patch.object(release.subprocess, "run", return_value=subprocess.CompletedProcess([], 0)), patch.object(release, "run", side_effect=command), patch.object(release, "deployment_config", return_value={"ZEABUR_PROJECT_ID": "project", "ZEABUR_SERVICE_ID": "service"}), patch.object(release, "validate"), patch.object(release, "read_url", return_value=b'{"version":"1.0.9","build":19}'), patch.object(release, "upload_archive", side_effect=upload), patch.object(release, "put_object", side_effect=put), patch.object(release, "verify_public", side_effect=verify):
+        with patch.object(release.subprocess, "check_output", side_effect=output), patch.object(release.subprocess, "run", return_value=subprocess.CompletedProcess([], 0)), patch.object(release, "run", side_effect=command), patch.object(release, "deployment_config", return_value={}), patch.object(release, "validate"), patch.object(release, "read_url", return_value=b'{"version":"1.0.9","build":19}'), patch.object(release, "upload_archive", side_effect=upload), patch.object(release, "put_object", side_effect=put), patch.object(release, "verify_public", side_effect=verify), patch.object(release, "wait_for_site_ci", side_effect=website_ci):
             if failure:
                 with self.assertRaises((ValueError, subprocess.CalledProcessError)):
                     release.publish(metadata, self.root)
@@ -268,7 +274,9 @@ class ReleaseTests(unittest.TestCase):
 
     def test_publish_order_and_failure_recovery(self):
         events = self.publish_fixture()
-        self.assertLess(events.index("archive"), events.index("website"))
+        self.assertLess(events.index("archive"), events.index("website-push"))
+        self.assertLess(events.index("website-push"), events.index("website"))
+        self.assertLess(events.index("website"), events.index("verified:ver.json"))
         self.assertLess(events.index("verified:ver.json"), events.index("appcast.xml"))
         self.assertLess(events.index("appcast.xml"), events.index("ver.json"))
         self.assertEqual(json.loads((self.root / "marketing/site/dist/ver.json").read_text())["version"], "1.1.0")
@@ -279,14 +287,28 @@ class ReleaseTests(unittest.TestCase):
     def test_failed_upload_never_deploys_website_or_feeds(self):
         self.assertEqual(self.publish_fixture("archive"), ["archive"])
 
-    def test_failed_website_never_publishes_feeds_or_changes_local_site(self):
-        self.assertEqual(self.publish_fixture("website"), ["archive", "website"])
-        self.assertIn("1.0.9", (self.root / "marketing/site/dist/index.html").read_text())
+    def test_failed_website_ci_never_publishes_feeds_and_keeps_the_candidate(self):
+        self.assertEqual(self.publish_fixture("website"), ["archive", "website-push", "website"])
+        self.assertIn("1.1.0", (self.root / "marketing/site/dist/index.html").read_text())
 
     def test_failed_appcast_stops_legacy_feed_and_keeps_local_site(self):
         events = self.publish_fixture("appcast.xml")
         self.assertNotIn("ver.json", events)
-        self.assertIn("1.0.9", (self.root / "marketing/site/dist/index.html").read_text())
+        self.assertIn("1.1.0", (self.root / "marketing/site/dist/index.html").read_text())
+
+    def test_failed_ci_is_only_retried_on_an_explicit_resume(self):
+        workflow = json.dumps([{"databaseId": 12, "status": "completed", "conclusion": "failure"}])
+        with patch.object(release.subprocess, "check_output", return_value=workflow), patch.object(release, "run") as run:
+            release.wait_for_site_ci("c" * 40, {}, rerun_failed=False)
+            self.assertEqual([call.args[0][1:3] for call in run.call_args_list], [["run", "watch"]])
+        with patch.object(release.subprocess, "check_output", return_value=workflow), patch.object(release, "run") as run:
+            release.wait_for_site_ci("c" * 40, {}, rerun_failed=True)
+            self.assertEqual([call.args[0][1:3] for call in run.call_args_list], [["run", "rerun"], ["run", "watch"]])
+
+    def test_failed_workflow_status_is_propagated(self):
+        workflow = json.dumps([{"databaseId": 12, "status": "completed", "conclusion": "failure"}])
+        with patch.object(release.subprocess, "check_output", return_value=workflow), patch.object(release, "run", side_effect=subprocess.CalledProcessError(1, ["gh", "run", "watch"])), self.assertRaises(subprocess.CalledProcessError):
+            release.wait_for_site_ci("c" * 40, {})
 
 
 if __name__ == "__main__":

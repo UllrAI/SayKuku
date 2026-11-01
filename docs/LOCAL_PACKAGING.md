@@ -287,7 +287,7 @@ Sparkle 支持在 appcast 的多个 `<description>` 上分别指定 `xml:lang="z
 
 已发布版本的文字更正只更新网页和更新清单，并同步发布元数据的说明及清单哈希；保留原版本、构建号、DMG、安装包签名和 Git 标签。完成后回读官网与 R2 的 `ver.json`、appcast 和各语言下载页，确认文字正确且安装包哈希不变。
 
-本机需安装并登录 Wrangler 与 Zeabur（`wrangler whoami`、`npx zeabur@latest auth status -i=false`）。沿用已有 R2 bucket `saykuku` 和官网服务，不创建新服务。`~/.config/saykuku/deploy.env` 应为权限 `600` 的本机文件，提供 `CLOUDFLARE_ACCOUNT_ID`、`ZEABUR_PROJECT_ID`、`ZEABUR_SERVICE_ID`，可选 `ZEABUR_ENVIRONMENT_ID`；环境变量优先，不在仓库保存凭据。
+本机需安装并登录 Wrangler 与 GitHub CLI（`wrangler whoami`、`gh auth status`），并具有推送 `UllrAI/SayKuku` 与读取、重试 Actions 的权限。沿用已有 R2 bucket `saykuku`；官网由 Site CI/CD 发布 GHCR 镜像并交给 Coolify 部署。`~/.config/saykuku/deploy.env` 应为权限 `600` 的本机文件，只需提供 `CLOUDFLARE_ACCOUNT_ID`；环境变量优先，不在仓库保存凭据。Coolify 凭据由仓库 Actions secrets 管理，发布机无需保存。
 
 Sparkle 固定为 2.10.0，保留完整 framework 和许可证；发布工具按相同版本和官方 SHA-256 下载到 `Build/`。Ed25519 发布私钥保存在登录 Keychain 的 Sparkle 条目中，account 为 `com.saykuku.app`；公钥在 Info.plist。已有钥匙不要重新生成或替换。新机器应从安全备份恢复：
 
@@ -303,11 +303,11 @@ Build/sparkle-tools-2.10.0/bin/generate_keys --account com.saykuku.app -p
 3. App 签名 → 公证 → staple → Gatekeeper；用装订后的 App 制作 DMG → DMG 签名 → 公证 → staple → Gatekeeper。
 4. 对最终不再修改的 DMG 运行 `generate_appcast --maximum-deltas 0 --maximum-versions 0`，保留历史条目且不生成增量包。生成 `Dist/releases/<版本>/release.json`、`appcast.xml` 与 `ver.json`。
 5. 先通过 Wrangler 的 R2 接口检查版本化对象：同名文件相同则复用，不同则停止，只有明确不存在才上传；避免提前访问公开的不存在 URL 而触发 CDN 404 缓存。上传后公开回读大小与 SHA-256，禁止覆盖已发布版本。
-6. 从同一元数据更新官网版本、链接、实际大小、SHA-256 和更新说明，部署现有 Zeabur 服务；公开校验两种语言下载页和官网 `ver.json`。
+6. 从同一元数据更新官网版本、链接、实际大小、SHA-256 和更新说明，提交并推送官网到 `main`，等待对应 Site CI/CD 的测试、镜像构建和 Coolify 部署全部通过；公开校验两种语言下载页和官网 `ver.json`。
 7. 上传 R2 的 `appcast.xml` 和同一份旧 `ver.json`，公开回读校验。官网及清单都只能在 DMG 公开可下载后发布。
-8. 公开校验全部成功后回写本地官网和兼容旧工具的 `Dist/ver.json` 副本，提交官网变更，为实际构建提交打标签并推送 `main` 与标签；标签已存在时必须指向同一构建提交。
+8. 公开校验全部成功后回写兼容旧工具的 `Dist/ver.json` 副本，为实际构建提交打标签并推送 `main` 与标签；标签已存在时必须指向同一构建提交。
 
-任何一步失败立即停止。上传、公证和部署无需重复执行：保留原产物，修复原因后从干净的 `main` 继续：
+任何一步失败立即停止。保留原产物与已提交的官网候选变更，修复原因后从干净的 `main` 继续；已验证的相同安装包会复用，无需重新构建、公证，失败的官网 CI 会在恢复时重试：
 
 ```bash
 Scripts/release.sh --resume Dist/releases/1.0.10/release.json
