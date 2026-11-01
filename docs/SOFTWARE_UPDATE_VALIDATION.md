@@ -1,5 +1,9 @@
 # 软件更新验证记录
 
+本文保留历史版本的实测结果，其中 Zeabur 描述仅对应当时的部署。当前官网已迁移到
+Coolify + 私有 GHCR，后续发布以 [本地打包与发布](LOCAL_PACKAGING.md) 和
+[Site CI/CD](../.github/workflows/site.yml) 为准，不再向旧 Zeabur 服务发布。
+
 验证日期：2026-10-25。对应 #169，固定 Sparkle 2.10.0；[1.0.10 已正式发布](https://github.com/UllrAI/SayKuku/releases/tag/v1.0.10)，官网、R2 更新源和旧版版本文件均已上线。
 
 | 范围 | 结果 |

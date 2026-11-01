@@ -9,6 +9,14 @@
 - App Bundle 由 `Scripts/package-app.sh` 生成，权限声明位于 `Scripts/Resources/SayKuku.entitlements`。
 - `README.md` 是仓库入口；产品说明集中在 `SayKuku.md`；本机发布流程见 `docs/LOCAL_PACKAGING.md`。
 
+## 官网部署
+
+- 正式官网是 `https://say.anikuku.com`，由 GitHub Actions 的 Site CI/CD 构建并测试私有 GHCR 镜像，再部署到 Coolify；不要向旧 Zeabur 服务发布。
+- 原生 App 的签名、公证和 R2 安装包/更新源仍按 `docs/LOCAL_PACKAGING.md` 在本机发布；官网迁移不改变 App 的发布顺序。
+- 复用已有仓库 Actions secrets、服务器 GHCR 登录和 Coolify 资源，正常发布无需重新安装或鉴权。
+- 临时验收域名用完就清理 Coolify 绑定、DNS 和专属规则；不要把旧 preview 当成当前入口。
+- 变更部署平台时同步更新本文件、部署/发布手册、README 入口及相关文档；旧平台指引明确标为历史资料。
+
 ## 常用验证
 
 按改动范围执行必要检查：
