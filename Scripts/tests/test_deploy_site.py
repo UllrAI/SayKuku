@@ -31,6 +31,7 @@ class DeploymentTests(unittest.TestCase):
             deploy_site.main()
         methods = [call.args[0].get_method() for call in request.call_args_list]
         self.assertEqual(methods, ["POST", "GET", "GET", "GET"])
+        self.assertTrue(all(call.args[0].get_header("User-agent") == "SayKuku-Deploy/1.0" for call in request.call_args_list))
         self.assertTrue(all(call.args[0].full_url.endswith("/deployments/deployment-id") for call in request.call_args_list[1:]))
 
     def test_a_failed_deployment_fails_the_workflow(self):

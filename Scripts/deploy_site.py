@@ -14,7 +14,7 @@ def main():
     address = urlsplit(webhook)
     if address.scheme != "https" or address.hostname != "c.ullrai.com":
         raise ValueError("COOLIFY_WEBHOOK must use https://c.ullrai.com")
-    headers = {"Authorization": "Bearer " + token, "Accept": "application/json"}
+    headers = {"Authorization": "Bearer " + token, "Accept": "application/json", "User-Agent": "SayKuku-Deploy/1.0"}
     request = Request(webhook, data=b"", headers=headers, method="POST")
     # Do not retry POST: an interrupted response may already have queued a deployment.
     with urlopen(request, timeout=30) as response:
