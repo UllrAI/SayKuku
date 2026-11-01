@@ -24,6 +24,7 @@ DOWNLOADS = "https://saykuku.ullrai.com/"
 WEBSITE = "https://say.anikuku.com/"
 SPARKLE = "http://www.andymatuschak.org/xml-namespaces/sparkle"
 ACCOUNT = "com.saykuku.app"
+GITHUB_REPOSITORY = "UllrAI/SayKuku"
 
 
 def run(arguments, **kwargs):
@@ -87,7 +88,10 @@ def preflight(version, build):
         raise ValueError("Release build must exceed the published build")
     env = deployment_config()  # Check local identifiers before building or notarizing.
     run(["wrangler", "whoami"], stdout=subprocess.DEVNULL, env=env)
-    run(["npx", "zeabur@latest", "auth", "status", "-i=false"], stdout=subprocess.DEVNULL, env=env)
+    workflow = json.loads(subprocess.check_output(
+        ["gh", "api", f"repos/{GITHUB_REPOSITORY}/actions/workflows/site.yml"], text=True, env=env))
+    if workflow["state"] != "active":
+        raise ValueError("The website CI/CD workflow must be active before publishing")
 
 
 def deployment_config():
@@ -101,7 +105,7 @@ def deployment_config():
             if len(fields) == 1 and "=" in fields[0]:
                 name, value = fields[0].split("=", 1)
                 values.setdefault(name, value)
-    for name in ["CLOUDFLARE_ACCOUNT_ID", "ZEABUR_PROJECT_ID", "ZEABUR_SERVICE_ID"]:
+    for name in ["CLOUDFLARE_ACCOUNT_ID"]:
         if not values.get(name):
             raise ValueError("Missing deployment setting: " + name)
     return values
@@ -313,6 +317,24 @@ def stage_site(metadata, destination):
             raise ValueError("Website release fields are incomplete: " + name)
 
 
+def wait_for_site_ci(commit, env, rerun_failed=False):
+    for attempt in range(45):
+        workflows = json.loads(subprocess.check_output(
+            ["gh", "run", "list", "--repo", GITHUB_REPOSITORY, "--workflow", "site.yml",
+             "--branch", "main", "--commit", commit, "--limit", "1", "--json", "databaseId,status,conclusion"],
+            text=True, env=env))
+        if workflows:
+            workflow = workflows[0]
+            run_id = str(workflow["databaseId"])
+            if rerun_failed and workflow["status"] == "completed" and workflow["conclusion"] != "success":
+                run(["gh", "run", "rerun", run_id, "--repo", GITHUB_REPOSITORY], env=env)
+            run(["gh", "run", "watch", run_id, "--repo", GITHUB_REPOSITORY, "--exit-status", "--compact"], env=env)
+            return
+        if attempt < 44:
+            time.sleep(2)
+    raise ValueError("Website CI did not appear for " + commit + "; check Site CI/CD and resume after starting the matching workflow")
+
+
 def publish(metadata_file, tools):
     metadata = json.loads(metadata_file.read_text())
     branch = subprocess.check_output(["git", "branch", "--show-current"], cwd=ROOT, text=True).strip()
@@ -335,11 +357,15 @@ def publish(metadata_file, tools):
     with tempfile.TemporaryDirectory(prefix="saykuku-site-publish-") as folder:
         site = Path(folder) / "site"
         stage_site(metadata, site)
-        args = ["npx", "zeabur@latest", "deploy", "--project-id", env["ZEABUR_PROJECT_ID"],
-                "--service-id", env["ZEABUR_SERVICE_ID"], "--json", "-i=false"]
-        if env.get("ZEABUR_ENVIRONMENT_ID"):
-            args += ["--environment-id", env["ZEABUR_ENVIRONMENT_ID"]]
-        run(args, cwd=site, env=env)
+        # CI builds the committed site; feeds still wait for verified deployment.
+        shutil.copytree(site, ROOT / "marketing/site/dist", dirs_exist_ok=True)
+        changed = subprocess.check_output(["git", "status", "--porcelain", "--", "marketing/site/dist"], cwd=ROOT, text=True)
+        if changed:
+            run(["git", "add", "marketing/site/dist"], cwd=ROOT)
+            run(["git", "commit", "-m", "Publish SayKuku " + metadata["version"] + " website"], cwd=ROOT)
+        site_commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+        run(["git", "push", "origin", "HEAD:main"], cwd=ROOT, env=env)
+        wait_for_site_ci(site_commit, env, rerun_failed=not bool(changed))
         verify_public(metadata["website"] + "ver.json", metadata["legacy_sha256"])
         for name in ["download/index.html", "en/download/index.html"]:
             verify_public(metadata["website"] + name.removesuffix("index.html"), sha256(site / name))
@@ -347,18 +373,12 @@ def publish(metadata_file, tools):
         put_object(metadata["legacy_feed"], "ver.json", "application/json", env)
         verify_public(DOWNLOADS + "appcast.xml", metadata["appcast_sha256"])
         verify_public(DOWNLOADS + "ver.json", metadata["legacy_sha256"])
-        # Only copy generated website changes back after the public release passes verification.
-        shutil.copytree(site, ROOT / "marketing/site/dist", dirs_exist_ok=True)
         local_feed = ROOT / "Dist/ver.json"
         local_feed.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(metadata["legacy_feed"], local_feed)
     tag = "v" + metadata["version"]
     if subprocess.run(["git", "rev-parse", "--verify", tag], cwd=ROOT, capture_output=True).returncode:
         run(["git", "tag", tag, metadata["commit"]], cwd=ROOT)
-    changed = subprocess.check_output(["git", "status", "--porcelain", "--", "marketing/site/dist"], cwd=ROOT, text=True)
-    if changed:
-        run(["git", "add", "marketing/site/dist"], cwd=ROOT)
-        run(["git", "commit", "-m", "Publish SayKuku " + metadata["version"] + " website"], cwd=ROOT)
     run(["git", "push", "origin", "HEAD:main", "refs/tags/" + tag], cwd=ROOT)
     print("Published and verified SayKuku " + metadata["version"], flush=True)
 

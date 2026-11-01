@@ -1,0 +1,137 @@
+name: Site CI/CD
+
+on:
+  pull_request:
+    paths:
+      - marketing/site/**
+      - Scripts/release.py
+      - Scripts/deploy_site.py
+      - Scripts/tests/test_release.py
+      - Scripts/tests/test_site.py
+      - Scripts/tests/test_deploy_site.py
+      - .github/workflows/site.yml
+  push:
+    branches: [main]
+    paths:
+      - marketing/site/**
+      - Scripts/release.py
+      - Scripts/deploy_site.py
+      - Scripts/tests/test_release.py
+      - Scripts/tests/test_site.py
+      - Scripts/tests/test_deploy_site.py
+      - .github/workflows/site.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: saykuku-site-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/ullrai/saykuku-site
+
+jobs:
+  test:
+    name: Website and release checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.13'
+      - name: Check release ordering and website contents
+        run: |
+          python3 -m unittest discover -s Scripts/tests -p test_release.py
+          python3 -m unittest discover -s Scripts/tests -p test_site.py
+          python3 -m unittest discover -s Scripts/tests -p test_deploy_site.py
+
+  build:
+    name: Build, smoke test and publish image
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    env:
+      DOCKER_BUILD_RECORD_UPLOAD: 'false'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.13'
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build the image once
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: marketing/site
+          platforms: linux/amd64
+          load: true
+          tags: ${{ env.IMAGE }}:sha-${{ github.sha }}
+          build-args: SOURCE_COMMIT=${{ github.sha }}
+          cache-from: type=gha,scope=saykuku-site
+          cache-to: type=gha,mode=max,scope=saykuku-site
+      - name: Test the actual container
+        env:
+          SAYKUKU_SITE_URL: http://127.0.0.1:8080
+          SAYKUKU_SITE_REVISION: ${{ github.sha }}
+        run: |
+          docker run --detach --name saykuku-site-check --publish 127.0.0.1:8080:8080 "$IMAGE:sha-$GITHUB_SHA"
+          trap 'docker logs saykuku-site-check; docker rm --force saykuku-site-check' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent "$SAYKUKU_SITE_URL/healthz" >/dev/null; then break; fi
+            sleep 1
+          done
+          python3 -m unittest discover -s Scripts/tests -p test_site.py
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish the tested image
+        run: |
+          docker push "$IMAGE:sha-$GITHUB_SHA"
+          docker tag "$IMAGE:sha-$GITHUB_SHA" "$IMAGE:main"
+          docker push "$IMAGE:main"
+      - name: Confirm the public image can be pulled without credentials
+        run: |
+          mkdir -p "$RUNNER_TEMP/saykuku-anonymous-docker"
+          printf '{"auths":{}}\n' > "$RUNNER_TEMP/saykuku-anonymous-docker/config.json"
+          for attempt in $(seq 1 60); do
+            if DOCKER_CONFIG="$RUNNER_TEMP/saykuku-anonymous-docker" docker manifest inspect "$IMAGE:sha-$GITHUB_SHA" >/dev/null 2>&1; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 1 ]; then
+              echo 'Waiting for the GHCR package to be public and available to Coolify.'
+            fi
+            sleep 5
+          done
+          echo 'The image is not publicly readable; deployment has not been triggered.' >&2
+          exit 1
+
+  deploy:
+    name: Deploy to Coolify and verify the published site
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.13'
+      - name: Deploy only after tests and image publication pass
+        env:
+          COOLIFY_WEBHOOK: ${{ secrets.COOLIFY_WEBHOOK }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+        run: python3 Scripts/deploy_site.py
+      - name: Verify pages, assets, release metadata and deployed commit
+        env:
+          SAYKUKU_SITE_URL: ${{ vars.SAYKUKU_SITE_URL }}
+          SAYKUKU_SITE_REVISION: ${{ github.sha }}
+        run: |
+          test -n "$SAYKUKU_SITE_URL"
+          python3 -m unittest discover -s Scripts/tests -p test_site.py
