@@ -47,6 +47,14 @@ Git 标签 `v1.0.10` 指向实际构建提交；GitHub Release 的 DMG 资产摘
 - App / DMG 的签名、公证、装订、Gatekeeper 及最终 EdDSA 校验全部通过。官网与更新源已公开回读；GitHub Release 资产大小、摘要与同一 DMG 一致。官网使用既有 Zeabur 服务，运行日志确认服务启动。
 - 本次没有重新执行真实更新安装集成测试，也未进行真实麦克风热插拔或正式用户 TCC / Keychain 跨版本人工验收；不以离线测试代替这些验证。
 
+## 已发布的 1.0.12（2026-11-09）
+
+- Swift 离线测试 373 项、48 个 suite 通过。Python 测试运行 44 项，5 项实机集成测试按默认配置跳过。既有 SQLite `ResourceWarning` 和工具链弃用提示仍存在。
+- 标签 `v1.0.12` 指向 App 构建提交 `f217a1447dc2a295cf2b3b1d64b861712220cfaa`，构建号 `408`。已核对 arm64 与 x86_64 二进制的最低系统版本均为 macOS 14.0。
+- App 和 DMG 均通过 Developer ID 签名、公证、装订和 Gatekeeper 校验，最终 DMG 通过 Sparkle EdDSA 校验。公开 R2 与 [GitHub Release](https://github.com/UllrAI/SayKuku/releases/tag/v1.0.12) 的 DMG 均为 6,810,059 字节，SHA-256 为 `1d7b03e105a17e450fed2f66ea94b3251973a78033102597a4fbc9269363da12`。
+- 官网通过 [Site CI/CD](https://github.com/UllrAI/SayKuku/actions/runs/42625234871) 部署到 Coolify。Cloudflare 改写邮箱和统计脚本曾导致整页哈希不符。发布工具改为校验部署提交及双语下载页正文，再复用原 DMG 恢复发布。官网和 R2 的 `ver.json` 以及 Sparkle appcast 已公开回读。
+- 开发版实测了麦克风交接、历史回放、在线重识别和退出等待，并用合成音验证实时转写、试写区写入及 Agent 审批。物理 Fn、真人语音识别、跨应用写入和正式版跨版本更新安装未做端到端验收。
+
 ## 复验与边界
 
 ```bash
