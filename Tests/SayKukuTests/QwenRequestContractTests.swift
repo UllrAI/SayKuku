@@ -90,6 +90,28 @@ struct QwenRequestContractTests {
         #expect(try await transcript == "明天下午开会。")
     }
 
+    @Test("repeated commits share one request and late frames cannot change final text")
+    func commitIsIdempotent() async throws {
+        let client = QwenRealtimeClient()
+        let session = UUID()
+        let sent = SentEvents()
+        let deltas = OSAllocatedUnfairLock(initialState: [String]())
+        await client.begin(session: session, send: { await sent.record($0) }, onDelta: { delta in
+            deltas.withLock { $0.append(delta) }
+        })
+        try await client.handle(serverEvent(["type": "response.text.done", "text": "Final"]), session: session)
+        async let first = client.commit(session: session, timeout: .seconds(1))
+        async let second = client.commit(session: session, timeout: .seconds(1))
+        let results = try await [first, second]
+        #expect(results == ["Final", "Final"])
+
+        try await client.handle(serverEvent(["type": "response.text.delta", "delta": " stale"]), session: session)
+        try await client.handle(serverEvent(["type": "response.text.done", "text": "Late"]), session: session)
+        #expect(try await client.commit(session: session, timeout: .seconds(1)) == "Final")
+        #expect(deltas.withLock { $0 }.isEmpty)
+        #expect(await sent.types == ["input_audio_buffer.commit", "response.create"])
+    }
+
     @Test("single-pass sessions hide streamed JSON and return only the final field")
     func structuredTranscript() async throws {
         let client = QwenRealtimeClient()

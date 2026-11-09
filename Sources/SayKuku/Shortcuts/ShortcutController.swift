@@ -101,17 +101,23 @@ private let hotKeyEventCallback: EventHandlerUPP = { _, event, userInfo in
 /// Carbon hot keys need no permission. Fn and modifier taps use AppKit event
 /// monitors and the Accessibility permission that text insertion already requires.
 final class ShortcutController: @unchecked Sendable {
+    enum PauseReason { case recordingShortcut, termination }
+
     private weak var appState: AppState?
     private var globalKeyMonitor: Any?
     private var localKeyMonitor: Any?
     private var hotKeyHandler: EventHandlerRef?
     private var hotKeys: [GlobalShortcutAction: EventHotKeyRef] = [:]
     private var failedHotKeys: [GlobalShortcutAction] = []
-    private var hotKeysPaused = false
+    private var pauseReasons: Set<PauseReason> = []
+    private var hotKeysPaused: Bool { !pauseReasons.isEmpty }
     private var wakeObserver: NSObjectProtocol?
 
-    private var fnIsDown = false
-    private var fnWasChorded = false
+    private enum FnPress {
+        case released, pressed, chorded
+    }
+
+    private var fnPress: FnPress = .released
     private var firstTapAt: TimeInterval?
     private var holdTask: Task<Void, Never>?
     private var singleTapTask: Task<Void, Never>?
@@ -173,7 +179,7 @@ final class ShortcutController: @unchecked Sendable {
 
     @MainActor
     fileprivate func handleHotKey(id: UInt32) {
-        guard let appState else { return }
+        guard !hotKeysPaused, let appState else { return }
         firstTapAt = nil
         singleTapTask?.cancel()
         switch GlobalShortcutAction(rawValue: id) {
@@ -215,13 +221,13 @@ final class ShortcutController: @unchecked Sendable {
             pendingModifierTask = nil
             pendingModifierTap = nil
             firstTapAt = nil
-            fnWasChorded = fnIsDown
+            if fnPress != .released { fnPress = .chorded }
             appState.workflow.cancelActiveVoiceWorkflow()
             return
         }
 
-        if sample.kind == .keyDown, fnIsDown, !isFnKey {
-            fnWasChorded = true
+        if sample.kind == .keyDown, fnPress != .released, !isFnKey {
+            fnPress = .chorded
             holdTask?.cancel()
             if appState.workflow.dictationIsListening {
                 appState.workflow.cancelDictation()
@@ -231,9 +237,9 @@ final class ShortcutController: @unchecked Sendable {
 
         guard sample.kind == .flagsChanged else { return }
 
-        if sample.functionIsPressed, !fnIsDown {
+        if sample.functionIsPressed, fnPress == .released {
             fnDown(appState)
-        } else if !sample.functionIsPressed, fnIsDown {
+        } else if !sample.functionIsPressed, fnPress != .released {
             fnUp(appState, at: sample.timestamp)
         }
     }
@@ -310,14 +316,13 @@ final class ShortcutController: @unchecked Sendable {
 
     @MainActor
     private func fnDown(_ appState: AppState) {
-        fnIsDown = true
-        fnWasChorded = false
+        fnPress = .pressed
 
         guard Self.shouldArmHold(appState) else { return }
         holdTask?.cancel()
         holdTask = Task { @MainActor [weak self, weak appState] in
             try? await Task.sleep(for: self?.holdThreshold ?? .milliseconds(150))
-            guard let self, let appState, !Task.isCancelled, self.fnIsDown, !self.fnWasChorded,
+            guard let self, let appState, !Task.isCancelled, self.fnPress == .pressed,
                   ShortcutController.shouldArmHold(appState) else { return }
             self.firstTapAt = nil
             self.singleTapTask?.cancel()
@@ -327,10 +332,9 @@ final class ShortcutController: @unchecked Sendable {
 
     @MainActor
     private func fnUp(_ appState: AppState, at timestamp: TimeInterval) {
-        fnIsDown = false
+        let wasChorded = fnPress == .chorded
+        fnPress = .released
         holdTask?.cancel()
-        let wasChorded = fnWasChorded
-        fnWasChorded = false
 
         if Self.isDoubleTap(first: firstTapAt, second: timestamp, wasChorded: wasChorded),
            (appState.workflow.canPromoteFnTap
@@ -499,9 +503,11 @@ final class ShortcutController: @unchecked Sendable {
     }
 
     @MainActor
-    func setHotKeysPaused(_ paused: Bool) {
-        guard hotKeysPaused != paused else { return }
-        hotKeysPaused = paused
+    func setHotKeysPaused(_ paused: Bool, for reason: PauseReason) {
+        let wasPaused = hotKeysPaused
+        if paused { pauseReasons.insert(reason) }
+        else { pauseReasons.remove(reason) }
+        guard hotKeysPaused != wasPaused else { return }
         modifierTap.reset()
         pendingModifierTask?.cancel()
         pendingModifierTask = nil

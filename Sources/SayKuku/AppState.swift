@@ -40,7 +40,14 @@ final class AppState {
     var shortcutStatus: ShortcutStatus = .starting
     var presentedSheet: AppSheet? {
         // Covers every close path (buttons, Esc, dismiss()) without relying on sheet onDismiss.
-        didSet { if presentedSheet == nil, oldValue != nil { presentNextSetupStep() } }
+        didSet {
+            if presentedSheet != nil {
+                nextSetupStepTask?.cancel()
+                nextSetupStepTask = nil
+            } else if oldValue != nil {
+                presentNextSetupStep()
+            }
+        }
     }
     /// Where the sheet on screen sits in the first-run flow; nil outside that flow.
     private(set) var setupProgress: SetupProgress?
@@ -63,6 +70,7 @@ final class AppState {
     @ObservationIgnored private var settingsOpener: OpenSettingsAction?
     @ObservationIgnored private var didEvaluateStartupPermissions = false
     @ObservationIgnored private var pendingSetupSteps: [AppSheet] = []
+    @ObservationIgnored private var nextSetupStepTask: Task<Void, Never>?
     @ObservationIgnored var savedForRelaunch = false
 
     @ObservationIgnored lazy var termination: AppTermination = {
@@ -80,7 +88,7 @@ final class AppState {
         termination.save = { [weak self] in await self?.data.flushPersistence() ?? false }
         termination.pauseNewWork = { [weak self] paused in
             self?.workflow.startsPaused = paused
-            self?.setGlobalShortcutsPaused(paused)
+            self?.shortcutController?.setHotKeysPaused(paused, for: .termination)
             if paused { self?.microphoneTest.stop() }
         }
         termination.waitingHandler = { [weak self] in
@@ -197,10 +205,14 @@ final class AppState {
 
     func analyzeMemory(_ source: String) async throws -> MemoryAnalysis {
         let redacted = MemoryPipeline.redactingPII(in: source)
+        let apiKey = settings.apiKey
+        let configuration = settings.configuration
         var entities: [ProposedEntity] = []
         for chunk in MemoryPipeline.chunks(redacted.text) {
-            entities += try await reasoningClient.extractMemory(apiKey: settings.apiKey, configuration: settings.configuration, text: chunk)
+            try Task.checkCancellation()
+            entities += try await reasoningClient.extractMemory(apiKey: apiKey, configuration: configuration, text: chunk)
         }
+        try Task.checkCancellation()
         return MemoryPipeline.analyze(proposals: entities, existing: data.memoryEntities, ignored: redacted.ignored)
     }
 
@@ -305,9 +317,10 @@ final class AppState {
             setupProgress = nil
             return
         }
-        Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .milliseconds(350))
-            guard let self, self.presentedSheet == nil else { return }
+        nextSetupStepTask = Task { @MainActor [weak self] in
+            do { try await Task.sleep(for: .milliseconds(350)) } catch { return }
+            guard !Task.isCancelled, let self, self.presentedSheet == nil else { return }
+            self.nextSetupStepTask = nil
             while !self.pendingSetupSteps.isEmpty {
                 let step = self.pendingSetupSteps.removeFirst()
                 if self.isSetupStepNeeded(step) {
@@ -371,7 +384,9 @@ final class AppState {
             )
         }
     }
-    func setGlobalShortcutsPaused(_ paused: Bool) { shortcutController?.setHotKeysPaused(paused) }
+    func setShortcutRecording(_ isRecording: Bool) {
+        shortcutController?.setHotKeysPaused(isRecording, for: .recordingShortcut)
+    }
     func openKeyboardSettings() {
         if let url = URL(string: "x-apple.systempreferences:com.apple.Keyboard-Settings.extension") { NSWorkspace.shared.open(url) }
     }
@@ -391,8 +406,7 @@ final class AppState {
                 termination.pauseNewWork(false)
                 return
             }
-            // Release the global shortcuts first: the new instance registers them before this one quits.
-            setGlobalShortcutsPaused(true)
+            // New work and global shortcuts are paused before the new instance starts.
             let configuration = NSWorkspace.OpenConfiguration()
             configuration.createsNewApplicationInstance = true
             NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: configuration) { @Sendable _, error in

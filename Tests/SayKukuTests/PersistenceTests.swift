@@ -352,12 +352,12 @@ struct PersistenceTests {
         let entity = MemoryEntity(name: "SayKuku", type: .project)
         state.data.historyEntries.insert(recorded, at: 0)
         state.data.memoryEntities.append(entity)
+        #expect(await state.data.flushPersistence())
         await loading.value
         await state.data.loadStoredData()
         #expect(Set(state.data.historyEntries.map(\.id)) == [stored.id, recorded.id])
         #expect(state.data.memoryEntities.map(\.id) == [entity.id])
 
-        await state.data.flushPersistence()
         let saved = try await LocalStore(root: environment.root).load()
         #expect(Set(saved.history.map(\.id)) == [stored.id, recorded.id])
         #expect(saved.entities.map(\.id) == [entity.id])

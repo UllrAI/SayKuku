@@ -149,7 +149,9 @@ final class SystemPermissionController {
 
     @discardableResult
     func request(_ kind: SystemPermissionKind) async -> Bool {
+        guard requesting == nil else { return status(for: kind).isAuthorized }
         requesting = kind
+        defer { requesting = nil }
         let granted: Bool
         switch kind {
         case .microphone:
@@ -157,7 +159,6 @@ final class SystemPermissionController {
         case .accessibility:
             granted = await requestAccessibility()
         }
-        requesting = nil
         return granted
     }
 
@@ -246,12 +247,12 @@ final class MicrophoneTestController {
     var isRunning: Bool { phase == .running }
 
     func start() {
+        stop(resetPhase: false)
         guard microphoneAllowed() else {
             phase = .failed(.permissionRequired)
             return
         }
 
-        stop(resetPhase: false)
         phase = .starting
         let generation = generation
         let started = audioCapture.start(

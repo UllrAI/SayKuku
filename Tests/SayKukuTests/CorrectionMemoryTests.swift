@@ -215,15 +215,19 @@ struct CorrectionMemoryTests {
         }
     }
 
-    @Test("a correction noticed while recording waits in Suggestions")
-    func correctionDuringRecording() {
-        withState { state in
-            state.workflow.dictationPhase = .listening
-            state.workflow.noteCorrection(CorrectionCandidate(before: "张月", after: "张越"), app: "Notes", windowTitle: "")
-            #expect(state.workflow.overlayError == nil)
-            #expect(state.data.corrections.first?.promptCount == 0)
-            #expect(state.data.pendingCorrections.count == 1)
-        }
+    @Test("a correction noticed while the microphone starts waits in Suggestions")
+    func correctionDuringRecording() throws {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let state = environment.makeState(dependencies: .fake())
+        try state.settings.saveAPIKey("test")
+        state.workflow.startDictation()
+        #expect(state.workflow.dictationPhase == .starting)
+        state.workflow.noteCorrection(CorrectionCandidate(before: "张月", after: "张越"), app: "Notes", windowTitle: "")
+        #expect(state.workflow.overlayError == nil)
+        #expect(state.data.corrections.first?.promptCount == 0)
+        #expect(state.data.pendingCorrections.count == 1)
+        state.workflow.cancelDictation()
     }
 
     @Test("a correction to an automatically learned name renames it instead of adding another")

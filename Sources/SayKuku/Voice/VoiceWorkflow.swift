@@ -30,24 +30,37 @@ final class VoiceWorkflow {
         var isCancellable: Bool { self == .starting || self == .listening || self == .transcribing || self == .processing }
     }
 
-    var startsPaused = false
-    var hasActiveWork: Bool {
-        dictationPhase.isCancellable || agentPhase.isCancellable || startingWorkflow != nil || isWriting
-    }
-    var hasUnclaimedResult: Bool {
-        pendingAction != nil || (!pendingAnswerText.isEmpty && !hasCopiedPendingText)
-            || (!pendingCopyText.isEmpty && !hasCopiedPendingText)
+    private enum Activity {
+        case idle
+        case dictation(DictationPhase)
+        case agent(AgentPhase)
     }
 
-    var dictationPhase: DictationPhase = .idle { didSet { overlayController?.refresh() } }
-    var agentPhase: AgentPhase = .hidden { didSet { overlayController?.refresh() } }
+    private var activity: Activity = .idle { didSet { overlayController?.refresh() } }
+    var dictationPhase: DictationPhase {
+        if case .dictation(let phase) = activity { return phase }
+        return .idle
+    }
+    var agentPhase: AgentPhase {
+        if case .agent(let phase) = activity { return phase }
+        return .hidden
+    }
+
+    var startsPaused = false
+    var hasActiveWork: Bool {
+        dictationPhase.isCancellable || agentPhase.isCancellable || isWriting || !historyRetries.isEmpty
+    }
+    var hasUnclaimedResult: Bool {
+        if let answerCard { return pendingAction != nil || !answerCard.wasCopied }
+        return !pendingCopyText.isEmpty && !hasCopiedPendingText
+    }
+
     /// True while the microphone is capturing for either workflow.
     var isRecording: Bool { dictationPhase == .listening || agentPhase == .listening }
-    /// Also true while the microphone is still starting, so a release, second press or Esc
-    /// in that window can stop the start instead of going unheard.
-    var dictationIsListening: Bool { dictationPhase == .starting || dictationPhase == .listening || startingWorkflow == .dictation }
-    var agentIsListening: Bool { agentPhase == .starting || agentPhase == .listening || startingWorkflow == .agent }
-    var canPromoteFnTap: Bool { fnTapDictation && dictationIsListening }
+    /// Includes microphone startup so a release, second press or Esc can stop a pending start.
+    var dictationIsListening: Bool { dictationPhase == .starting || dictationPhase == .listening }
+    var agentIsListening: Bool { agentPhase == .starting || agentPhase == .listening }
+    var canPromoteFnTap: Bool { fnTap != nil && dictationIsListening }
     var contextItems: [ContextItem] = []
     var agentCommand = ""
     var liveTranscript = ""
@@ -60,22 +73,48 @@ final class VoiceWorkflow {
     }
     @ObservationIgnored private var inputFeedback = RecordingInputFeedback()
     @ObservationIgnored private var inputFeedbackTask: Task<Void, Never>?
-    var pendingCopyText = "" { didSet { hasCopiedPendingText = false } }
-    /// Whether `pendingCopyText` is on the pasteboard, so the copy fallback can say so.
+    private struct AnswerCard {
+        enum Content {
+            case answer(TextTargetSnapshot)
+            case action(PendingExternalAction)
+        }
+
+        let id = UUID()
+        let text: String
+        let height: CGFloat
+        let content: Content
+        var wasCopied = false
+        var status: String?
+    }
+
+    private(set) var pendingCopyText = "" { didSet { hasCopiedPendingText = false } }
     private(set) var hasCopiedPendingText = false
-    var pendingAnswerText = ""
-    /// Measured from `pendingAnswerText` before the answer card shows.
-    private(set) var answerCardHeight = OverlayLayout.answerCardHeights.lowerBound
-    var pendingAnswerStatus: String?
-    /// An external action waiting on the answer card for the user's approval.
-    var pendingAction: AgentResponse? { pendingExternalAction?.response }
+    private var answerCard: AnswerCard?
+    var pendingAnswerText: String { answerCard?.text ?? "" }
+    var answerCardHeight: CGFloat { answerCard?.height ?? OverlayLayout.answerCardHeights.lowerBound }
+    var pendingAnswerStatus: String? { answerCard?.status }
+    var pendingAction: AgentResponse? { externalAction?.response }
+
+    private var externalAction: PendingExternalAction? {
+        guard case .action(let action) = answerCard?.content else { return nil }
+        return action
+    }
     var resultCanUndo = false
-    /// Set while Insert or Undo is writing, so a double click can't paste the same text twice.
-    private(set) var isWriting = false
-    var overlayErrorSymbol = "exclamationmark"
-    var overlayError: String? { didSet { overlayController?.refresh() } }
+    /// The write can still be verifying delivery or restoring the clipboard after the workflow is cancelled.
+    private var writesInFlight = 0
+    var isWriting: Bool { writesInFlight > 0 }
+    private struct OverlayFeedback {
+        let id = UUID()
+        let message: String
+        let symbol: String
+        var buttons: [OverlayButton]
+    }
+
+    private var overlayFeedback: OverlayFeedback? { didSet { overlayController?.refresh() } }
+    var overlayErrorSymbol: String { overlayFeedback?.symbol ?? "exclamationmark" }
+    var overlayError: String? { overlayFeedback?.message }
     /// Buttons after the overlay message, secondary first and primary last; empty for a plain notice.
-    private(set) var overlayButtons: [OverlayButton] = []
+    var overlayButtons: [OverlayButton] { overlayFeedback?.buttons ?? [] }
 
     /// The floating overlay; set by `AppState.startSystemServices`, so tests run without one.
     @ObservationIgnored var overlayController: FloatingOverlayController?
@@ -98,8 +137,6 @@ final class VoiceWorkflow {
     @ObservationIgnored private let actionExecutor: @MainActor (AgentResponse, SearchEngine) async throws -> Void
     @ObservationIgnored private let soundCues = SoundCues()
     @ObservationIgnored private let signposter = OSSignposter.performance
-    /// The workflow whose microphone is starting; nil once it listens or is cancelled.
-    @ObservationIgnored private var startingWorkflow: VoiceWorkflowMode?
     /// Whether a recording holds the microphone, which the microphone test shares; only the holder cancels it.
     @ObservationIgnored private var holdsMicrophone = false
     @ObservationIgnored private var workflowTask: Task<Void, Never>?
@@ -109,24 +146,25 @@ final class VoiceWorkflow {
     @ObservationIgnored private var activeDictationFormat: EffectiveDictationFormat?
     /// Read once from the captured target, so realtime, its batch fallback and batch-only dictation send the same text.
     @ObservationIgnored private var activeCursorContext: DictationCursorContext?
+    private enum FnTap {
+        case awaitingConfirmation(AsyncStream<Data>?)
+        case confirmed
+        case finishingOnStart(WorkflowTiming.StopReason)
+    }
+
     /// A tap starts one capture immediately; the second tap can reuse it for Voice Agent.
-    @ObservationIgnored private var fnTapDictation = false
-    @ObservationIgnored private var fnTapConfirmed = false
-    @ObservationIgnored private var fnTapChunks: AsyncStream<Data>?
-    @ObservationIgnored private var finishFnTapWhenReady = false
+    @ObservationIgnored private var fnTap: FnTap?
+    private var historyRetries: Set<UUID> = []
     /// Recent Voice Agent turns for continuous conversation. Memory only, so quitting clears them.
     @ObservationIgnored private var sessions: [AgentSession] = []
     @ObservationIgnored private var activeAgentSessions: [AgentSession] = []
     @ObservationIgnored private var lastVerifiedWrite: VerifiedWrite?
     /// Keep the original dictation through Agent revisions, and separately track what Undo reverses.
     @ObservationIgnored private var lastWriteUsage = WriteUsage()
-    @ObservationIgnored private var pendingAnswerTarget: TextTargetSnapshot?
-    private var pendingExternalAction: PendingExternalAction?
     @ObservationIgnored private var executingActionHistoryID: UUID?
     @ObservationIgnored private var workflowGeneration = 0
     @ObservationIgnored private var realtimeSessionID = UUID()
     @ObservationIgnored private var recordingLimitTask: Task<Void, Never>?
-    @ObservationIgnored private var overlayFeedbackGeneration = 0
     /// Shortcut to a running microphone for the current recording, for its trace.
     @ObservationIgnored private var micStartDuration: Duration?
     /// How long the current realtime connection took to get ready; nil until it is.
@@ -170,27 +208,23 @@ final class VoiceWorkflow {
     }
 
     func confirmFnTapDictation() {
-        guard fnTapDictation, !fnTapConfirmed else { return }
-        fnTapConfirmed = true
+        guard case .awaitingConfirmation(let chunks) = fnTap else { return }
+        fnTap = .confirmed
         guard targetSnapshot?.hasDictationTarget == true else {
             cancelWorkflow()
             handleWorkflowError(TextInteractionError.noFocusedElement, agent: false)
             return
         }
-        if dictationPhase == .listening, let fnTapChunks {
-            connectRealtime(streaming: fnTapChunks, generation: workflowGeneration)
-            self.fnTapChunks = nil
+        if dictationPhase == .listening, let chunks {
+            connectRealtime(streaming: chunks, generation: workflowGeneration)
         }
     }
 
     /// Switches the still-running capture to Agent without stopping or restarting the microphone.
     @discardableResult
     func promoteFnTapToAgent() -> Bool {
-        guard fnTapDictation, dictationIsListening, let snapshot = targetSnapshot else { return false }
-        fnTapDictation = false
-        fnTapConfirmed = false
-        fnTapChunks = nil
-        finishFnTapWhenReady = false
+        guard canPromoteFnTap, let snapshot = targetSnapshot else { return false }
+        fnTap = nil
         chunkContinuation?.finish()
         chunkContinuation = nil
         if let uploadTask {
@@ -199,17 +233,13 @@ final class VoiceWorkflow {
             let session = realtimeSessionID
             Task { [realtimeClient] in await realtimeClient.cancel(session: session) }
         }
-        let wasStarting = startingWorkflow == .dictation
-        if wasStarting {
-            startingWorkflow = .agent
-            agentPhase = .starting
-            dictationPhase = .idle
-        }
-        prepareWorkflow(mode: .agent, snapshot: snapshot)
-        if !wasStarting {
+        if dictationPhase == .starting {
+            activity = .agent(.starting)
+            prepareWorkflow(mode: .agent, snapshot: snapshot)
+        } else {
+            prepareWorkflow(mode: .agent, snapshot: snapshot)
             recordingLimitTask?.cancel()
-            agentPhase = .listening
-            dictationPhase = .idle
+            activity = .agent(.listening)
             scheduleRecordingLimit(for: .agent)
         }
         return true
@@ -221,23 +251,25 @@ final class VoiceWorkflow {
     }
 
     func cancelDictation() {
+        guard dictationPhase != .idle else { return }
         cancelWorkflow()
         playStopCueIfRecording()
-        withAnimation(Motion.snappy) { dictationPhase = .idle }
+        withAnimation(Motion.snappy) { activity = .idle }
     }
 
     func finishDictation(reason: WorkflowTiming.StopReason = .manual) {
         guard dictationPhase == .listening else {
-            if startingWorkflow == .dictation, fnTapDictation {
+            guard dictationPhase == .starting else { return }
+            if fnTap != nil {
                 // The engine may already be recording while its start task is waiting to resume.
-                if !fnTapConfirmed { confirmFnTapDictation() }
-                if dictationIsListening { finishFnTapWhenReady = true }
-            } else if startingWorkflow == .dictation {
+                confirmFnTapDictation()
+                if dictationPhase == .starting { fnTap = .finishingOnStart(reason) }
+            } else {
                 cancelDictation()
             }
             return
         }
-        if fnTapDictation && !fnTapConfirmed {
+        if case .awaitingConfirmation = fnTap {
             confirmFnTapDictation()
             guard dictationPhase == .listening else { return }
         }
@@ -246,9 +278,7 @@ final class VoiceWorkflow {
             mode: .dictation, stopReason: reason, micStart: micStartDuration, connect: realtimeConnectDuration
         )
         processingTrace = trace
-        fnTapDictation = false
-        fnTapConfirmed = false
-        fnTapChunks = nil
+        fnTap = nil
         playSoundCue(.stop)
         let historyID = data.beginHistoryEntry(mode: .dictation, recording: recording, snapshot: targetSnapshot)
         let snapshot = targetSnapshot
@@ -260,7 +290,7 @@ final class VoiceWorkflow {
         let realtimeSession = realtimeSessionID
         targetSnapshot = nil
         let generation = workflowGeneration
-        withAnimation(Motion.snappy) { dictationPhase = .processing }
+        withAnimation(Motion.snappy) { activity = .dictation(.processing) }
         workflowTask = Task { [weak self] in
             await self?.completeDictation(
                 recording, historyID: historyID, snapshot: snapshot,
@@ -281,7 +311,7 @@ final class VoiceWorkflow {
     func finishAgentListening(reason: WorkflowTiming.StopReason = .manual) {
         guard agentPhase == .listening else {
             // Stopped before the microphone opened, so nothing was recorded.
-            if startingWorkflow == .agent { dismissAgent() }
+            if agentPhase == .starting { dismissAgent() }
             return
         }
         let recording = stopRecording()
@@ -297,7 +327,7 @@ final class VoiceWorkflow {
         targetSnapshot = nil
         activeAgentSessions = []
         let generation = workflowGeneration
-        withAnimation(Motion.snappy) { agentPhase = .transcribing }
+        withAnimation(Motion.snappy) { activity = .agent(.transcribing) }
         workflowTask = Task { [weak self] in
             await self?.processAgentRecording(
                 recording, historyID: historyID, snapshot: snapshot,
@@ -308,26 +338,33 @@ final class VoiceWorkflow {
     }
 
     func dismissAgent() {
+        guard agentPhase != .hidden else { return }
         cancelWorkflow()
         playStopCueIfRecording()
-        withAnimation(Motion.snappy) { agentPhase = .hidden }
+        withAnimation(Motion.snappy) { activity = .idle }
     }
 
     func cancelActiveVoiceWorkflow() {
-        guard dictationPhase.isCancellable || agentPhase.isCancellable || startingWorkflow != nil else { return }
+        guard dictationPhase.isCancellable || agentPhase.isCancellable else { return }
         cancelWorkflow()
         playStopCueIfRecording()
-        withAnimation(Motion.snappy) {
-            dictationPhase = .idle
-            agentPhase = .hidden
-        }
+        withAnimation(Motion.snappy) { activity = .idle }
     }
 
     func copyPendingText() {
         guard !pendingCopyText.isEmpty else { return }
-        let pasteboard = NSPasteboard.general
+        hasCopiedPendingText = copyToPasteboard(pendingCopyText)
+    }
+
+    private func copyToPasteboard(_ text: String, to pasteboard: NSPasteboard = .general) -> Bool {
         pasteboard.clearContents()
-        hasCopiedPendingText = pasteboard.setString(pendingCopyText, forType: .string)
+        return pasteboard.setString(text, forType: .string)
+    }
+
+    private func write(_ text: String, to target: TextTargetSnapshot) async throws -> TextWriteOutcome {
+        writesInFlight += 1
+        defer { writesInFlight -= 1 }
+        return try await textInteraction.write(text, to: target)
     }
 
     var canUndoLastWrite: Bool { lastVerifiedWrite != nil }
@@ -335,13 +372,11 @@ final class VoiceWorkflow {
     func undoLastWrite() async {
         guard !startsPaused else { return }
         guard !isWriting, let lastVerifiedWrite else { return }
-        isWriting = true
-        defer { isWriting = false }
         let generation = workflowGeneration
         let usageAdjustment = lastWriteUsage.undo
         do {
             let replacement = try textInteraction.replacementSnapshot(for: lastVerifiedWrite)
-            let outcome = try await textInteraction.write(lastVerifiedWrite.target.selectedText, to: replacement)
+            let outcome = try await write(lastVerifiedWrite.target.selectedText, to: replacement)
             if outcome == .verified, let adjustment = usageAdjustment {
                 data.adjustDictationUsage(adjustment.receipt, subtract: !adjustment.wasRemoval)
             }
@@ -349,8 +384,7 @@ final class VoiceWorkflow {
             lastWriteUsage = WriteUsage()
             self.lastVerifiedWrite = nil
             guard generation == workflowGeneration else { return }
-            if dictationPhase == .success { dictationPhase = .idle }
-            if agentPhase == .result { agentPhase = .hidden }
+            if dictationPhase == .success || agentPhase == .result { activity = .idle }
             showOverlayFeedback(
                 outcome == .verified
                     ? localized("Undone")
@@ -368,42 +402,36 @@ final class VoiceWorkflow {
     }
 
     func dismissAnswer() {
-        if let pendingExternalAction { data.updateHistory(pendingExternalAction.historyID, status: .cancelled) }
-        clearAnswer()
+        guard agentPhase == .answerReady else { return }
+        if let externalAction { data.updateHistory(externalAction.historyID, status: .cancelled) }
+        answerCard = nil
+        activity = .idle
     }
 
-    private func clearAnswer() {
-        pendingAnswerText = ""
-        pendingAnswerStatus = nil
-        pendingAnswerTarget = nil
-        pendingExternalAction = nil
-        agentPhase = .hidden
-    }
-
-    func copyAnswer() {
-        guard !pendingAnswerText.isEmpty else { return }
-        pendingCopyText = pendingAnswerText
-        copyPendingText()
-        pendingAnswerStatus = pendingAction == nil ? localized("Answer copied") : localized("Copied")
+    func copyAnswer(to pasteboard: NSPasteboard = .general) {
+        guard var card = answerCard, !card.text.isEmpty, copyToPasteboard(card.text, to: pasteboard) else { return }
+        card.wasCopied = true
+        card.status = pendingAction == nil ? localized("Answer copied") : localized("Copied")
+        answerCard = card
     }
 
     func confirmPendingAction() {
-        guard !startsPaused else { return }
-        guard let pendingExternalAction else { return }
+        guard !startsPaused, let pendingExternalAction = externalAction else { return }
         let action = pendingExternalAction.response
         let historyID = pendingExternalAction.historyID
         let session = pendingExternalAction.session
-        clearAnswer()
+        answerCard = nil
         data.updateHistory(historyID, status: .processing)
         executingActionHistoryID = historyID
         let generation = workflowGeneration
         let engine = settings.searchEngine
         agentCommand = action.intent ?? action.action.title
-        withAnimation(Motion.panel) { agentPhase = .processing }
+        withAnimation(Motion.panel) { activity = .agent(.processing) }
         // Stored as the workflow so the pill's cancel button stops a running shortcut.
         workflowTask = Task { [weak self] in
             guard let self else { return }
             do {
+                try Task.checkCancellation()
                 try await self.actionExecutor(action, engine)
                 guard generation == self.workflowGeneration else { return }
                 self.data.updateHistory(historyID, status: .completed)
@@ -423,35 +451,30 @@ final class VoiceWorkflow {
 
     func insertAnswer() async {
         guard !startsPaused else { return }
-        guard !isWriting, let snapshot = pendingAnswerTarget, !pendingAnswerText.isEmpty else { return }
-        isWriting = true
-        defer { isWriting = false }
-        let answer = pendingAnswerText
-        let generation = workflowGeneration
+        guard !isWriting, let card = answerCard, case .answer(let snapshot) = card.content else { return }
+        let answer = card.text
         do {
-            let outcome = try await textInteraction.write(answer, to: snapshot)
-            guard generation == workflowGeneration, pendingAnswerText == answer else { return }
+            let outcome = try await write(answer, to: snapshot)
+            guard answerCard?.id == card.id else { return }
             lastVerifiedWrite = outcome == .verified ? VerifiedWrite(target: snapshot, text: answer) : nil
             lastWriteUsage = WriteUsage()
             dismissAnswer()
             showOverlayFeedback(localized("Inserted"), symbol: "checkmark")
         } catch {
-            if generation == workflowGeneration, pendingAnswerText == answer {
-                pendingAnswerStatus = localized("The text field changed. Copy the answer instead.")
+            if answerCard?.id == card.id {
+                answerCard?.status = localized("The text field changed. Copy the answer instead.")
             }
         }
     }
 
     func dismissCopyFallback() {
-        let wasDictation = dictationPhase == .copyReady
-        let wasAgent = agentPhase == .copyReady
+        guard dictationPhase == .copyReady || agentPhase == .copyReady else { return }
         cancelWorkflow()
-        if wasDictation { dictationPhase = .idle }
-        if wasAgent { agentPhase = .hidden }
+        activity = .idle
     }
 
     func retryDictation(_ id: UUID) async {
-        guard !startsPaused else { return }
+        guard !startsPaused, !Task.isCancelled, !historyRetries.contains(id) else { return }
         guard let index = data.historyEntries.firstIndex(where: { $0.id == id }),
               data.historyEntries[index].canRetryTranscription else { return }
         let entry = data.historyEntries[index]
@@ -459,11 +482,14 @@ final class VoiceWorkflow {
             showToast(QwenError.missingConfiguration.localizedDescription, symbol: "key.fill")
             return
         }
+        historyRetries.insert(id)
+        defer { historyRetries.remove(id) }
         data.historyEntries[index].status = .processing
         data.historyEntries[index].errorMessage = nil
         let format = settings.dictationFormat(for: nil)
         do {
             let wav = try await data.audio(for: entry)
+            try Task.checkCancellation()
             let result = try await reasoningClient.transcribeAudio(
                 apiKey: settings.apiKey,
                 configuration: settings.configuration,
@@ -480,16 +506,20 @@ final class VoiceWorkflow {
                 cursorContext: nil,
                 memoryPrompt: renderMemoryPrompt(.transcription)
             )
+            try Task.checkCancellation()
             // Refined like the dictation it replays, with the same History-only settings as above:
             // no app, so no tone and no expression preference.
             let cleaned = try await refined(
                 SpeechDisfluencyCleaner.dictation(result, mode: format.cleanup),
                 format: format, targetApp: nil
             )
+            try Task.checkCancellation()
             let output = format.keepEndingPunctuation
                 ? cleaned : SpeechDisfluencyCleaner.withoutEndingPunctuation(cleaned)
             data.updateHistory(id, input: cleaned, output: output, status: .completed)
             showToast(localized("Transcribed again"), symbol: "checkmark")
+        } catch is CancellationError {
+            data.updateHistory(id, status: .cancelled)
         } catch {
             data.updateHistory(id, status: .failed, errorMessage: localizedError(error))
         }
@@ -500,8 +530,7 @@ final class VoiceWorkflow {
     private func beginVoiceWorkflow(mode: VoiceWorkflowMode, pendingFnTap: Bool = false) {
         guard !startsPaused else { return }
         cancelWorkflow()
-        dictationPhase = .idle
-        agentPhase = .hidden
+        activity = .idle
         // Shortcuts usually fire from another app, so explain on the overlay and open the fix.
         guard systemPermissions.microphoneStatus == .authorized else {
             showOverlayFeedback(localized("Allow microphone access first"), symbol: "mic.slash", duration: .seconds(4))
@@ -522,8 +551,6 @@ final class VoiceWorkflow {
             return
         }
         overlayController?.resetAnchor()
-        fnTapDictation = pendingFnTap
-        fnTapConfirmed = false
         let generation = workflowGeneration
         let pressed = ContinuousClock.now
         micStartDuration = nil
@@ -541,7 +568,7 @@ final class VoiceWorkflow {
             chunks = nil
             onChunk = { _ in }
         }
-        fnTapChunks = pendingFnTap ? chunks : nil
+        fnTap = pendingFnTap ? .awaitingConfirmation(chunks) : nil
         var engineStart: Task<Void, Error>?
         do {
             let snapshot = try signposter.withIntervalSignpost("captureTarget") {
@@ -551,12 +578,10 @@ final class VoiceWorkflow {
                     onSafeTarget: {
                         // The secure-field and target checks have passed. Start the engine on its
                         // queue while Accessibility reads the remaining target details.
-                        startingWorkflow = mode
                         captureWillStartHandler?()
                         engineStart = startAudioCapture(for: mode, onChunk: onChunk)
                         // The pill can appear before optional Accessibility reads finish.
-                        if mode == .agent { agentPhase = .starting }
-                        else { dictationPhase = .starting }
+                        activity = mode == .agent ? .agent(.starting) : .dictation(.starting)
                     }
                 )
             }
@@ -584,8 +609,7 @@ final class VoiceWorkflow {
                 self.signposter.endInterval("Fn to Pill", pillInterval)
                 return
             }
-            let activeMode = self.startingWorkflow ?? mode
-            self.startingWorkflow = nil
+            let activeMode: VoiceWorkflowMode = self.agentPhase == .starting ? .agent : .dictation
             do {
                 try started.get()
             } catch {
@@ -595,13 +619,14 @@ final class VoiceWorkflow {
             }
             self.signposter.endInterval("Fn to Pill", pillInterval)
             self.micStartDuration = pressed.duration(to: .now)
-            let finishAfterStart = activeMode == .dictation && self.finishFnTapWhenReady
-            self.finishFnTapWhenReady = false
+            let stopReason: WorkflowTiming.StopReason?
+            if case .finishingOnStart(let reason) = self.fnTap { stopReason = reason }
+            else { stopReason = nil }
             self.startListening(
                 mode: activeMode, chunks: chunks, generation: generation,
-                playStartCue: !finishAfterStart
+                playStartCue: stopReason == nil
             )
-            if finishAfterStart { self.finishDictation() }
+            if let stopReason { self.finishDictation(reason: stopReason) }
         }
     }
 
@@ -648,14 +673,16 @@ final class VoiceWorkflow {
         playStartCue: Bool = true
     ) {
         if mode == .agent {
-            agentPhase = .listening
+            activity = .agent(.listening)
         } else {
-            withAnimation(Motion.spring) { dictationPhase = .listening }
+            withAnimation(Motion.spring) { activity = .dictation(.listening) }
         }
         beginInputFeedback()
-        if mode == .dictation, let chunks, (!fnTapDictation || fnTapConfirmed) {
-            connectRealtime(streaming: chunks, generation: generation)
-            fnTapChunks = nil
+        if mode == .dictation, let chunks {
+            switch fnTap {
+            case .awaitingConfirmation: break
+            default: connectRealtime(streaming: chunks, generation: generation)
+            }
         }
         if playStartCue {
             playSoundCue(.start)
@@ -839,8 +866,11 @@ final class VoiceWorkflow {
         realtimeSession: UUID, format: EffectiveDictationFormat,
         cursorContext: DictationCursorContext?, trace: WorkflowTrace, generation: Int
     ) async {
-        await trace.measure(.saveRecording) { await persistHistoryAudio(recording, historyID: historyID) }
+        await trace.measure(.saveRecording) {
+            await persistHistoryAudio(recording, historyID: historyID, generation: generation)
+        }
         do {
+            try Task.checkCancellation()
             let targetApp = format.targetAppName(for: snapshot)
             let firstPass = try await transcribe(
                 recording, upload: upload, realtimeSession: realtimeSession,
@@ -864,7 +894,7 @@ final class VoiceWorkflow {
             do {
                 let outcome = try await trace.measure(.insert) {
                     trace.mark(.writeStarted)
-                    return try await textInteraction.write(raw, to: snapshot)
+                    return try await write(raw, to: snapshot)
                 }
                 trace.mark(.writeFinished)
                 trace.setInsertion(outcome)
@@ -892,17 +922,17 @@ final class VoiceWorkflow {
                 await realtimeClient.cancel(session: realtimeSession)
                 return
             }
-            withAnimation(Motion.spring) { dictationPhase = .success }
+            withAnimation(Motion.spring) { activity = .dictation(.success) }
             trace.mark(.successStateSet)
             analyticsHandler?(.voiceInput, raw.count)
             try? await Task.sleep(for: Self.successDisplayDuration)
             if generation == workflowGeneration, dictationPhase == .success {
-                withAnimation(Motion.snappy) { dictationPhase = .idle }
+                withAnimation(Motion.snappy) { activity = .idle }
             }
         } catch is CancellationError {
             endTrace(trace, .cancelled, historyID: historyID)
             data.updateHistory(historyID, status: .cancelled)
-            if generation == workflowGeneration, dictationPhase == .processing { dictationPhase = .idle }
+            if generation == workflowGeneration, dictationPhase == .processing { activity = .idle }
         } catch {
             finishFailedWorkflow(error, historyID: historyID, agent: false, trace: trace, generation: generation)
         }
@@ -915,7 +945,9 @@ final class VoiceWorkflow {
         conversation: [AgentSession], apiKey: String,
         configuration: QwenConfiguration, trace: WorkflowTrace, generation: Int
     ) async {
-        await trace.measure(.saveRecording) { await persistHistoryAudio(recording, historyID: historyID) }
+        await trace.measure(.saveRecording) {
+            await persistHistoryAudio(recording, historyID: historyID, generation: generation)
+        }
         do {
             try Task.checkCancellation()
             guard generation == workflowGeneration else { throw CancellationError() }
@@ -947,7 +979,7 @@ final class VoiceWorkflow {
             if response.deletesPrevious, let historyID { data.deleteHistoryEntry(historyID) }
             data.updateHistory(historyID, input: command)
             agentCommand = response.intent ?? response.action.title
-            withAnimation(Motion.panel) { agentPhase = .processing }
+            withAnimation(Motion.panel) { activity = .agent(.processing) }
             await executeAgent(
                 response, snapshot: snapshot, context: context,
                 command: command, historyID: historyID, trace: trace, generation: generation
@@ -956,7 +988,7 @@ final class VoiceWorkflow {
             endTrace(trace, .cancelled, historyID: historyID)
             data.updateHistory(historyID, status: .cancelled)
             if generation == workflowGeneration, agentPhase == .transcribing || agentPhase == .processing {
-                agentPhase = .hidden
+                activity = .idle
             }
         } catch {
             finishFailedWorkflow(error, historyID: historyID, agent: true, trace: trace, generation: generation)
@@ -1082,7 +1114,7 @@ final class VoiceWorkflow {
                         }
                         let priorOrigin = response.target == .previous ? lastWriteUsage.origin : nil
                         let outcome = try await trace.measure(.insert) {
-                            try await textInteraction.write(text, to: writeTarget)
+                            try await write(text, to: writeTarget)
                         }
                         trace.setInsertion(outcome)
                         let removedReceipt = outcome == .verified && response.deletesPrevious ? priorOrigin : nil
@@ -1145,30 +1177,31 @@ final class VoiceWorkflow {
                 return
             }
             if response.action == .answer || actionToConfirm != nil {
-                pendingAnswerText = output
-                answerCardHeight = OverlayLayout.answerCardHeight(for: output)
-                pendingAnswerTarget = snapshot
-                pendingExternalAction = actionToConfirm.map {
-                    PendingExternalAction(response: $0, historyID: historyID, session: session)
+                let content: AnswerCard.Content
+                if let actionToConfirm {
+                    content = .action(PendingExternalAction(response: actionToConfirm, historyID: historyID, session: session))
+                } else {
+                    content = .answer(snapshot)
                 }
-                withAnimation(Motion.panel) { agentPhase = .answerReady }
+                answerCard = AnswerCard(text: output, height: OverlayLayout.answerCardHeight(for: output), content: content)
+                withAnimation(Motion.panel) { activity = .agent(.answerReady) }
                 return
             }
             await showAgentResult(generation: generation)
         } catch is CancellationError {
             endTrace(trace, .cancelled, historyID: historyID)
             data.updateHistory(historyID, status: .cancelled)
-            if generation == workflowGeneration { agentPhase = .hidden }
+            if generation == workflowGeneration { activity = .idle }
         } catch {
             finishFailedWorkflow(error, historyID: historyID, agent: true, trace: trace, generation: generation)
         }
     }
 
     private func showAgentResult(generation: Int) async {
-        withAnimation(Motion.panel) { agentPhase = .result }
+        withAnimation(Motion.panel) { activity = .agent(.result) }
         try? await Task.sleep(for: Self.successDisplayDuration)
         if generation == workflowGeneration, agentPhase == .result {
-            withAnimation(Motion.snappy) { agentPhase = .hidden }
+            withAnimation(Motion.snappy) { activity = .idle }
         }
     }
 
@@ -1194,10 +1227,10 @@ final class VoiceWorkflow {
         if processingTrace === trace { processingTrace = nil }
     }
 
-    private func persistHistoryAudio(_ recording: AudioCapture.Recording, historyID: UUID?) async {
+    private func persistHistoryAudio(_ recording: AudioCapture.Recording, historyID: UUID?, generation: Int) async {
         let saved = await data.persistHistoryAudio(recording, historyID: historyID)
         // The user is usually in another app, where only the overlay is visible.
-        if !saved {
+        if !saved, generation == workflowGeneration {
             showOverlayFeedback(
                 localized("Couldn’t save this to History. Transcription will continue."),
                 symbol: "exclamationmark.triangle"
@@ -1206,19 +1239,15 @@ final class VoiceWorkflow {
     }
 
     private func cancelWorkflow() {
-        if isRecording || startingWorkflow != nil {
-            let mode = agentPhase == .listening || startingWorkflow == .agent ? "Agent" : "Dictation"
+        if dictationIsListening || agentIsListening {
+            let mode = agentIsListening ? "Agent" : "Dictation"
             Log.workflow.notice("\(mode, privacy: .public) cancelled before the recording finished")
         }
         workflowGeneration += 1
-        if let pendingExternalAction { data.updateHistory(pendingExternalAction.historyID, status: .cancelled) }
+        if let externalAction { data.updateHistory(externalAction.historyID, status: .cancelled) }
         data.updateHistory(executingActionHistoryID, status: .cancelled)
         executingActionHistoryID = nil
-        startingWorkflow = nil
-        fnTapDictation = false
-        fnTapConfirmed = false
-        fnTapChunks = nil
-        finishFnTapWhenReady = false
+        fnTap = nil
         workflowTask?.cancel()
         workflowTask = nil
         uploadTask?.cancel()
@@ -1237,21 +1266,17 @@ final class VoiceWorkflow {
         activeDictationFormat = nil
         activeCursorContext = nil
         pendingCopyText = ""
-        pendingAnswerText = ""
-        pendingAnswerStatus = nil
-        pendingAnswerTarget = nil
-        pendingExternalAction = nil
+        answerCard = nil
         resultCanUndo = false
-        overlayButtons = []
-        overlayError = nil
+        overlayFeedback = nil
     }
 
     private func presentCopyFallback(_ text: String, agent: Bool, copyImmediately: Bool = true) {
         pendingCopyText = text
         if copyImmediately { copyPendingText() }
         withAnimation(Motion.panel) {
-            if agent { agentPhase = .copyReady }
-            else { dictationPhase = .copyReady }
+            if agent { activity = .agent(.copyReady) }
+            else { activity = .dictation(.copyReady) }
         }
     }
 
@@ -1262,17 +1287,13 @@ final class VoiceWorkflow {
         Log.workflow.log(level: level, "Workflow failed in \(stage, privacy: .public): \(Log.describe(error), privacy: .public)")
         recordingLimitTask?.cancel()
         recordingLimitTask = nil
-        startingWorkflow = nil
-        fnTapDictation = false
-        fnTapConfirmed = false
-        fnTapChunks = nil
-        finishFnTapWhenReady = false
+        fnTap = nil
         releaseMicrophone()
         inputLevel = 0
         chunkContinuation?.finish()
         chunkContinuation = nil
         uploadTask?.cancel()
-        if agent { agentPhase = .hidden } else { dictationPhase = .idle }
+        activity = .idle
         targetSnapshot = nil
         activeCursorContext = nil
         let message = localizedError(error)
@@ -1305,35 +1326,31 @@ final class VoiceWorkflow {
     private func showOverlayFeedback(
         _ message: String, symbol: String, duration: Duration = .seconds(2.4), buttons: [OverlayButton] = []
     ) {
-        overlayFeedbackGeneration += 1
-        let generation = overlayFeedbackGeneration
-        overlayErrorSymbol = symbol
-        overlayButtons = buttons
-        overlayError = message
+        let feedback = OverlayFeedback(message: message, symbol: symbol, buttons: buttons)
+        overlayFeedback = feedback
         Task { @MainActor [weak self] in
             try? await Task.sleep(for: duration)
-            guard let self, self.overlayFeedbackGeneration == generation else { return }
-            self.overlayButtons = []
-            withAnimation(Motion.snappy) { self.overlayError = nil }
+            guard let self, self.overlayFeedback?.id == feedback.id else { return }
+            withAnimation(Motion.snappy) { self.overlayFeedback = nil }
         }
     }
 
     /// Runs an overlay button, then closes the message unless the button showed another one.
     func pressOverlayButton(at index: Int) {
-        guard overlayButtons.indices.contains(index) else { return }
-        let action = overlayButtons[index].action
-        let generation = overlayFeedbackGeneration
-        overlayButtons = []
+        guard var feedback = overlayFeedback, feedback.buttons.indices.contains(index) else { return }
+        let action = feedback.buttons[index].action
+        feedback.buttons = []
+        overlayFeedback = feedback
         action()
-        guard generation == overlayFeedbackGeneration else { return }
-        withAnimation(Motion.snappy) { overlayError = nil }
+        guard overlayFeedback?.id == feedback.id else { return }
+        withAnimation(Motion.snappy) { overlayFeedback = nil }
     }
 
     /// Counts a correction the user just made and, until it has been asked about twice, offers to
     /// remember it on the overlay, where the user can see it from any app.
     func noteCorrection(_ change: CorrectionCandidate, app: String, windowTitle: String) {
         // The message would cover a recording that started since the write; the suggestion waits in Memory.
-        let isBusy = dictationPhase != .idle || agentPhase != .hidden || startingWorkflow != nil
+        let isBusy = dictationPhase != .idle || agentPhase != .hidden
         guard let record = data.recordCorrection(change, app: app, windowTitle: windowTitle, canPrompt: !isBusy) else {
             return
         }

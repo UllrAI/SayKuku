@@ -18,7 +18,7 @@ final class ShortcutRecorder {
         stop()
         self.appState = appState
         self.action = action
-        appState.setGlobalShortcutsPaused(true)
+        appState.setShortcutRecording(true)
 
         // Local monitors run before menu key equivalents, so returning nil keeps
         // the recorded keys from also triggering a menu item.
@@ -52,7 +52,7 @@ final class ShortcutRecorder {
         action = nil
         issue = nil
         modifierCandidate = nil
-        appState?.setGlobalShortcutsPaused(false)
+        appState?.setShortcutRecording(false)
     }
 
     private func receive(_ event: NSEvent) -> Bool {

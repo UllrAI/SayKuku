@@ -60,6 +60,45 @@ struct AppStateTests {
         #expect(environment.defaults.object(forKey: "appLanguage") == nil)
     }
 
+    @Test("launch overrides apply for the session without replacing saved settings")
+    @MainActor
+    func launchOverridesAreTemporary() {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let defaults = LaunchOverrideDefaults(suiteName: environment.suite)!
+        let selectedText = "privacy.selectedText"
+        let shortcut = "shortcuts.voiceInput"
+        let realtimeModel = "qwen.realtimeModel"
+        let menuBar = "showInMenuBar"
+        defaults.set(true, forKey: selectedText)
+        defaults.set(GlobalShortcut.defaultVoiceInput.storageValue, forKey: shortcut)
+        defaults.set("qwen3.5-omni-flash-realtime", forKey: realtimeModel)
+        defaults.set(false, forKey: menuBar)
+        defaults.overrides = [
+            selectedText: false, shortcut: "", realtimeModel: "temporary-model",
+            "hideDockIconAfterMainWindowCloses": true
+        ]
+
+        let settings = AppSettings(defaults: defaults, keychain: environment.keychain)
+        #expect(!settings.selectedTextAllowed)
+        #expect(settings.voiceInputShortcut == nil)
+        #expect(settings.realtimeModel == "temporary-model")
+        #expect(settings.showInMenuBar)
+        let saved = defaults.persistentDomain(forName: environment.suite)
+        #expect(saved?[selectedText] as? Bool == true)
+        #expect(saved?[shortcut] as? String == GlobalShortcut.defaultVoiceInput.storageValue)
+        #expect(saved?[realtimeModel] as? String == "qwen3.5-omni-flash-realtime")
+        #expect(saved?[menuBar] as? Bool == false)
+        #expect(saved?["qwen.realtimeModelUpgradedToQwen38"] == nil)
+
+        settings.selectedTextAllowed = false
+        #expect(defaults.persistentDomain(forName: environment.suite)?[selectedText] as? Bool == false)
+        defaults.overrides = [:]
+        let relaunched = AppSettings(defaults: defaults, keychain: environment.keychain)
+        #expect(relaunched.voiceInputShortcut == .defaultVoiceInput)
+        #expect(relaunched.realtimeModel == QwenModelCatalog.defaultRealtimeModel)
+    }
+
     @Test("failed or cancelled dictation with a recording can be transcribed again")
     func retryableHistory() {
         func entry(_ mode: HistoryMode, _ status: HistoryStatus, audio: String? = "clip.wav") -> HistoryEntry {
@@ -152,23 +191,6 @@ struct AppStateTests {
         #expect(environment.makeState().settings.searchEngine == .duckduckgo)
     }
 
-    @Test("only the listening phase counts as recording, so cancels elsewhere stay silent")
-    @MainActor
-    func recordingPhases() {
-        let environment = AppStateTestEnvironment()
-        defer { environment.clean() }
-        let state = environment.makeState()
-        #expect(!state.workflow.isRecording)
-        state.workflow.dictationPhase = .listening
-        #expect(state.workflow.isRecording)
-        state.workflow.dictationPhase = .processing
-        #expect(!state.workflow.isRecording)
-        state.workflow.agentPhase = .listening
-        #expect(state.workflow.isRecording)
-        state.workflow.agentPhase = .transcribing
-        #expect(!state.workflow.isRecording)
-    }
-
     @Test("each sound cue is bundled, loads, and stays short")
     @MainActor
     func soundCueClips() throws {
@@ -206,5 +228,26 @@ struct AppStateTests {
     @Test("toasts with the same copy are still distinct")
     func toastIdentity() {
         #expect(ToastMessage(text: "已复制", symbol: "doc.on.doc") != ToastMessage(text: "已复制", symbol: "doc.on.doc"))
+    }
+}
+
+/// The system argument domain is shared across UserDefaults instances in the test process.
+private final class LaunchOverrideDefaults: UserDefaults, @unchecked Sendable {
+    var overrides: [String: Any] = [:]
+
+    override func volatileDomain(forName domainName: String) -> [String: Any] {
+        domainName == UserDefaults.argumentDomain ? overrides : super.volatileDomain(forName: domainName)
+    }
+
+    override func object(forKey defaultName: String) -> Any? {
+        overrides[defaultName] ?? super.object(forKey: defaultName)
+    }
+
+    override func string(forKey defaultName: String) -> String? {
+        overrides[defaultName] as? String ?? super.string(forKey: defaultName)
+    }
+
+    override func bool(forKey defaultName: String) -> Bool {
+        overrides[defaultName] as? Bool ?? super.bool(forKey: defaultName)
     }
 }

@@ -327,7 +327,7 @@ private struct AgentAnswerCard: View {
                     .foregroundStyle(KukuColor.textSecondary)
                     .lineLimit(2)
                 Spacer()
-                Button(localized("Copy"), action: appState.workflow.copyAnswer)
+                Button(localized("Copy")) { appState.workflow.copyAnswer() }
                     .buttonStyle(.kukuSecondary)
                 Button(labels.primary) {
                     if appState.workflow.pendingAction == nil {

@@ -30,6 +30,24 @@ struct VoiceWorkflowTests {
         }
     }
 
+    @Test("only listening counts as recording, for either voice workflow")
+    func recordingPhases() async throws {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let state = try makeState(environment, .fake())
+        #expect(!state.workflow.isRecording)
+        try await startListening(state)
+        #expect(state.workflow.isRecording)
+        state.workflow.finishDictation()
+        #expect(!state.workflow.isRecording)
+        try await startAgentListening(state)
+        #expect(state.workflow.isRecording)
+        #expect(state.workflow.dictationPhase == .idle)
+        state.workflow.finishAgentListening()
+        #expect(!state.workflow.isRecording)
+        state.workflow.cancelActiveVoiceWorkflow()
+    }
+
     @Test("a device interruption stops capture and removes the recording hints")
     func interruptedInputFeedback() async throws {
         let environment = AppStateTestEnvironment()
@@ -421,6 +439,28 @@ struct VoiceWorkflowTests {
         #expect(text.writes.isEmpty)
     }
 
+    @Test("a cancelled workflow remains busy while an already dispatched write finishes")
+    func cancelledWriteIsStillBusy() async throws {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let text = FakeTextWriting()
+        let state = try makeState(environment, .fake(text: text))
+        let (writeCanFinish, releaseWrite) = AsyncStream<Void>.makeStream()
+        defer { releaseWrite.finish() }
+        text.beforeWriteFinishes = {
+            // Like TextInteraction's verification task, the delivered write can outlive cancellation.
+            await Task { for await _ in writeCanFinish {} }.value
+        }
+        try await startListening(state)
+        state.workflow.finishDictation()
+        try #require(await eventually { !text.writes.isEmpty })
+        state.workflow.cancelDictation()
+        #expect(state.workflow.dictationPhase == .idle)
+        #expect(state.workflow.hasActiveWork)
+        releaseWrite.finish()
+        #expect(await eventually { !state.workflow.hasActiveWork })
+    }
+
     @Test("a new recording discards the transcript of the one still processing")
     func newRecordingSupersedesProcessing() async throws {
         let environment = AppStateTestEnvironment()
@@ -691,11 +731,19 @@ struct VoiceWorkflowTests {
         #expect(await eventually { state.workflow.agentPhase == .answerReady })
         #expect(state.workflow.pendingAnswerText == "A programming language.")
         #expect(text.writes.isEmpty)
+        #expect(state.workflow.hasUnclaimedResult)
+        let pasteboard = NSPasteboard.withUniqueName()
+        defer { pasteboard.releaseGlobally() }
+        state.workflow.copyAnswer(to: pasteboard)
+        #expect(pasteboard.string(forType: .string) == "A programming language.")
+        #expect(!state.workflow.hasUnclaimedResult)
+        #expect(state.workflow.pendingCopyText.isEmpty)
 
         await state.workflow.insertAnswer()
         #expect(text.writes == ["A programming language."])
         #expect(state.workflow.agentPhase == .hidden)
         #expect(state.workflow.pendingAnswerText.isEmpty)
+        #expect(!state.workflow.hasUnclaimedResult)
     }
 
     @Test("a link chosen while selected text is attached waits for confirmation")
@@ -797,6 +845,29 @@ struct VoiceWorkflowTests {
         #expect(state.data.historyEntries.first?.status == .processing)
         state.workflow.dismissAgent()
         #expect(state.data.historyEntries.first?.status == .cancelled)
+    }
+
+    @Test("an action card cannot insert text or launch after cancellation")
+    func cancelledBeforeActionStarts() async throws {
+        let environment = AppStateTestEnvironment()
+        defer { environment.clean() }
+        let link = AgentResponse(transcript: "打开链接", action: .openURL, url: "https://example.com")
+        let text = FakeTextWriting(snapshot: .fake(selectedText: "https://example.com"))
+        var dependencies = AppState.Dependencies.fake(reasoning: FakeReasoning(agentReply: .success(link)), text: text)
+        dependencies.actionExecutor = { _, _ in Issue.record("Cancelled action reached the executor") }
+        let state = try makeState(environment, dependencies)
+
+        try await startAgentListening(state)
+        state.workflow.finishAgentListening()
+        try #require(await eventually { state.workflow.agentPhase == .answerReady })
+        await state.workflow.insertAnswer()
+        #expect(text.writes.isEmpty)
+        #expect(state.workflow.hasUnclaimedResult)
+        state.workflow.confirmPendingAction()
+        state.workflow.cancelActiveVoiceWorkflow()
+        try await Task.sleep(for: .milliseconds(30))
+        #expect(state.data.historyEntries.first?.status == .cancelled)
+        #expect(!state.workflow.hasUnclaimedResult)
     }
 
     @Test("the Agent deletes the last write without a History entry, and the deletion can be undone")

@@ -11,8 +11,19 @@ final class LocalData {
     var memoryEntities: [MemoryEntity] = [] { didSet { schedulePersistence() } }
     var corrections: [CorrectionRecord] = [] { didSet { schedulePersistence() } }
     private(set) var usageStatistics = UsageStatistics() { didSet { schedulePersistence() } }
-    private(set) var isLoaded = false
-    private(set) var loadingFailed = false
+    private enum LoadState {
+        case idle, loading(Task<Void, Never>), loaded, failed
+    }
+
+    private var loadState: LoadState = .idle
+    var isLoaded: Bool {
+        if case .loaded = loadState { return true }
+        return false
+    }
+    var loadingFailed: Bool {
+        if case .failed = loadState { return true }
+        return false
+    }
     /// Correction suggestions still waiting for an answer.
     var pendingCorrections: [CorrectionRecord] { corrections.filter { $0.status == .pending } }
     private(set) var localDataIssue: LocalStore.DataIssue?
@@ -23,7 +34,6 @@ final class LocalData {
 
     @ObservationIgnored private let store: LocalStore
     @ObservationIgnored private let settings: AppSettings
-    @ObservationIgnored private var didStartLoading = false
     @ObservationIgnored private var usageGeneration = UUID()
     @ObservationIgnored private let initialUsageEnabled: Bool
     @ObservationIgnored private var pendingUsageChanges: [PendingUsageChange] = []
@@ -304,8 +314,19 @@ final class LocalData {
     private static let legacyPlaceholderDetails: Set<String> = ["手动添加", "Added manually", "来自纠正记忆", "From correction memory"]
 
     func loadStoredData() async {
-        guard !didStartLoading else { return }
-        didStartLoading = true
+        switch loadState {
+        case .idle:
+            let task = Task { await readStoredData() }
+            loadState = .loading(task)
+            await task.value
+        case .loading(let task):
+            await task.value
+        case .loaded, .failed:
+            break
+        }
+    }
+
+    private func readStoredData() async {
         localDataIssue = await store.dataIssue
         if !settings.legacyDataNoticeDismissed {
             legacyDataURL = await store.legacyEncryptedDataURL()
@@ -314,7 +335,7 @@ final class LocalData {
         do {
             snapshot = try await store.load()
         } catch {
-            loadingFailed = true
+            loadState = .failed
             showToast(
                 localized("Couldn’t read local data, so new changes won’t be saved. See History for details."),
                 symbol: "exclamationmark.triangle.fill"
@@ -342,7 +363,7 @@ final class LocalData {
         usageStatistics = usage
         pendingUsageChanges = []
         // Saving before every array is in place would replace the stored data with part of it.
-        isLoaded = true
+        loadState = .loaded
         cleanExpiredHistory()
         migrateLegacyCustomTerms()
         schedulePersistence()
@@ -425,6 +446,7 @@ final class LocalData {
     /// Writes pending changes now and reports whether they were saved. Quitting waits for this.
     @discardableResult
     func flushPersistence() async -> Bool {
+        await loadStoredData()
         do {
             try await persistCurrentState()
             return true
@@ -438,6 +460,7 @@ final class LocalData {
     }
 
     private func persistCurrentState() async throws {
+        if case .loading(let task) = loadState { await task.value }
         persistenceTask?.cancel()
         persistenceTask = nil
         guard let snapshot = nextPersistedSnapshot() else { return }

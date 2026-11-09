@@ -359,6 +359,7 @@ final class FakeTextWriting: TextWriting {
     var captureError: TextInteractionError?
     var writeOutcome = TextWriteOutcome.verified
     var writeError: TextInteractionError?
+    var beforeWriteFinishes: (() async -> Void)?
     var replacementError: TextInteractionError?
     /// What `currentValue(of:)` reads back from the field.
     var fieldValue: String?
@@ -383,6 +384,7 @@ final class FakeTextWriting: TextWriting {
 
     func write(_ text: String, to snapshot: TextTargetSnapshot) async throws -> TextWriteOutcome {
         writes.append(text)
+        await beforeWriteFinishes?()
         if let writeError { throw writeError }
         return writeOutcome
     }

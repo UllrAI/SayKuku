@@ -157,6 +157,7 @@ struct PermissionActionRow: View {
 
 struct MicrophoneTestPanel: View {
     @Environment(AppState.self) private var appState
+    @State private var startRequest: Task<Void, Never>?
 
     var body: some View {
         let test = appState.microphoneTest
@@ -189,7 +190,11 @@ struct MicrophoneTestPanel: View {
         }
         .padding(KukuLayout.rowPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .onDisappear { test.stop() }
+        .onDisappear {
+            startRequest?.cancel()
+            startRequest = nil
+            test.stop()
+        }
     }
 
     private var testButton: some View {
@@ -197,20 +202,26 @@ struct MicrophoneTestPanel: View {
         return Button(test.isRunning ? localized("Stop Test") : startButtonTitle) {
             if test.isRunning {
                 test.stop()
-            } else {
-                Task {
+            } else if startRequest == nil {
+                startRequest = Task {
+                    guard !Task.isCancelled else { return }
                     var granted = appState.systemPermissions.microphoneStatus.isAuthorized
                     if !granted {
                         granted = await appState.requestPermission(.microphone)
                     }
-                    if granted { test.start() }
+                    guard !Task.isCancelled else { return }
+                    startRequest = nil
+                    if granted, !appState.workflow.startsPaused,
+                       !appState.workflow.dictationIsListening, !appState.workflow.agentIsListening {
+                        test.start()
+                    }
                 }
             }
         }
         .buttonStyle(.kukuSecondary)
         // A recording holds the microphone; starting the test then would take it away.
         .disabled(
-            test.phase == .starting || appState.systemPermissions.requesting != nil
+            startRequest != nil || test.phase == .starting || appState.systemPermissions.requesting != nil
                 || appState.workflow.dictationIsListening || appState.workflow.agentIsListening
         )
     }

@@ -8,105 +8,111 @@ import Observation
 final class AppSettings {
     /// Saved as this app's `AppleLanguages`, which macOS applies at the next launch.
     var appLanguage: AppLanguage = .saved { didSet { appLanguage.save() } }
-    var inputMode: InputMode = .hold { didSet { defaults.set(inputMode.rawValue, forKey: Keys.inputMode) } }
+    var inputMode: InputMode = .hold { didSet { persistSetting(inputMode.rawValue, forKey: Keys.inputMode) } }
     var overlayPlacement: OverlayPlacement = .bottom {
-        didSet { defaults.set(overlayPlacement.rawValue, forKey: Keys.overlayPlacement) }
+        didSet { persistSetting(overlayPlacement.rawValue, forKey: Keys.overlayPlacement) }
     }
     /// Core Audio UIDs survive reconnects; nil follows the system default input.
     var inputDeviceUID: String? {
         didSet {
-            defaults.set(inputDeviceUID, forKey: Keys.inputDeviceUID)
+            persistSetting(inputDeviceUID, forKey: Keys.inputDeviceUID)
             inputDeviceChangeHandler?()
         }
     }
-    var autoStop = false { didSet { defaults.set(autoStop, forKey: Keys.autoStop) } }
+    var autoStop = false { didSet { persistSetting(autoStop, forKey: Keys.autoStop) } }
     var recognitionLanguage: RecognitionLanguage = .automatic {
-        didSet { defaults.set(recognitionLanguage.rawValue, forKey: Keys.recognitionLanguage) }
+        didSet { persistSetting(recognitionLanguage.rawValue, forKey: Keys.recognitionLanguage) }
     }
     var dictationNumberFormat: DictationNumberFormat = .preferDigits {
-        didSet { defaults.set(dictationNumberFormat.rawValue, forKey: Keys.dictationNumberFormat) }
+        didSet { persistSetting(dictationNumberFormat.rawValue, forKey: Keys.dictationNumberFormat) }
     }
     var dictationCleanup: DictationCleanup = .light {
-        didSet { defaults.set(dictationCleanup.rawValue, forKey: Keys.dictationCleanup) }
+        didSet { persistSetting(dictationCleanup.rawValue, forKey: Keys.dictationCleanup) }
     }
     var structureDictation = true {
-        didSet { defaults.set(structureDictation, forKey: Keys.structureDictation) }
+        didSet { persistSetting(structureDictation, forKey: Keys.structureDictation) }
     }
     var keepEndingPunctuation = true {
-        didSet { defaults.set(keepEndingPunctuation, forKey: Keys.keepEndingPunctuation) }
+        didSet { persistSetting(keepEndingPunctuation, forKey: Keys.keepEndingPunctuation) }
     }
-    var matchAppTone = true { didSet { defaults.set(matchAppTone, forKey: Keys.matchAppTone) } }
+    var matchAppTone = true { didSet { persistSetting(matchAppTone, forKey: Keys.matchAppTone) } }
     /// Sends the text around the cursor with dictation, so names and homophones match the document.
-    var cursorContextAllowed = true { didSet { defaults.set(cursorContextAllowed, forKey: Keys.cursorContext) } }
+    var cursorContextAllowed = true { didSet { persistSetting(cursorContextAllowed, forKey: Keys.cursorContext) } }
     /// Sends light-cleanup dictation to a Qwen text model once more; see `DictationRefinement`.
-    var refineDictation = false { didSet { defaults.set(refineDictation, forKey: Keys.refineDictation) } }
+    var refineDictation = false { didSet { persistSetting(refineDictation, forKey: Keys.refineDictation) } }
     private(set) var dictationAppFormats: [DictationAppFormat] = [] {
         didSet {
             if let data = try? JSONEncoder().encode(dictationAppFormats) {
-                defaults.set(data, forKey: Keys.dictationAppFormats)
+                persistSetting(data, forKey: Keys.dictationAppFormats)
             }
         }
     }
     var selectedDomains: Set<DomainPreset> = [] {
-        didSet { defaults.set(selectedDomains.map(\.rawValue).sorted(), forKey: Keys.selectedDomains) }
+        didSet { persistSetting(selectedDomains.map(\.rawValue).sorted(), forKey: Keys.selectedDomains) }
     }
     var didCompleteOnboarding = false {
-        didSet { defaults.set(didCompleteOnboarding, forKey: Keys.didCompleteOnboarding) }
+        didSet { persistSetting(didCompleteOnboarding, forKey: Keys.didCompleteOnboarding) }
     }
-    var continuousConversation = true { didSet { defaults.set(continuousConversation, forKey: Keys.continuousConversation) } }
+    var continuousConversation = true { didSet { persistSetting(continuousConversation, forKey: Keys.continuousConversation) } }
     var automaticAgentWriteBack = true {
-        didSet { defaults.set(automaticAgentWriteBack, forKey: Keys.automaticAgentWriteBack) }
+        didSet { persistSetting(automaticAgentWriteBack, forKey: Keys.automaticAgentWriteBack) }
     }
     /// Nil until the user picks an engine, so the default keeps following the region.
     private var storedSearchEngine: SearchEngine? = nil {
-        didSet { defaults.set(storedSearchEngine?.rawValue, forKey: Keys.searchEngine) }
+        didSet { persistSetting(storedSearchEngine?.rawValue, forKey: Keys.searchEngine) }
     }
     var searchEngine: SearchEngine {
         get { storedSearchEngine ?? SearchEngine.defaultEngine(for: qwenRegion) }
         set { storedSearchEngine = newValue }
     }
-    var learnFromCorrections = true { didSet { defaults.set(learnFromCorrections, forKey: Keys.learnCorrections) } }
-    var soundCuesEnabled = true { didSet { defaults.set(soundCuesEnabled, forKey: Keys.soundCues) } }
-    var selectedTextAllowed = true { didSet { defaults.set(selectedTextAllowed, forKey: Keys.selectedText) } }
-    var currentAppAllowed = true { didSet { defaults.set(currentAppAllowed, forKey: Keys.currentApp) } }
-    var windowTitleAllowed = true { didSet { defaults.set(windowTitleAllowed, forKey: Keys.windowTitle) } }
-    var clipboardAllowed = false { didSet { defaults.set(clipboardAllowed, forKey: Keys.clipboard) } }
-    var browserPageAllowed = false { didSet { defaults.set(browserPageAllowed, forKey: Keys.browserPage) } }
-    var screenTextAllowed = true { didSet { defaults.set(screenTextAllowed, forKey: Keys.screenText) } }
+    var learnFromCorrections = true { didSet { persistSetting(learnFromCorrections, forKey: Keys.learnCorrections) } }
+    var soundCuesEnabled = true { didSet { persistSetting(soundCuesEnabled, forKey: Keys.soundCues) } }
+    var selectedTextAllowed = true { didSet { persistSetting(selectedTextAllowed, forKey: Keys.selectedText) } }
+    var currentAppAllowed = true { didSet { persistSetting(currentAppAllowed, forKey: Keys.currentApp) } }
+    var windowTitleAllowed = true { didSet { persistSetting(windowTitleAllowed, forKey: Keys.windowTitle) } }
+    var clipboardAllowed = false { didSet { persistSetting(clipboardAllowed, forKey: Keys.clipboard) } }
+    var browserPageAllowed = false { didSet { persistSetting(browserPageAllowed, forKey: Keys.browserPage) } }
+    var screenTextAllowed = true { didSet { persistSetting(screenTextAllowed, forKey: Keys.screenText) } }
     var historyRetention: HistoryRetention = .days30 {
-        didSet { defaults.set(historyRetention.rawValue, forKey: Keys.historyRetention); historyRetentionChangeHandler?() }
+        didSet { persistSetting(historyRetention.rawValue, forKey: Keys.historyRetention); historyRetentionChangeHandler?() }
     }
-    var storeVoiceAudio = true { didSet { defaults.set(storeVoiceAudio, forKey: Keys.storeVoiceAudio) } }
+    var storeVoiceAudio = true { didSet { persistSetting(storeVoiceAudio, forKey: Keys.storeVoiceAudio) } }
     var analyticsEnabled = true {
         didSet {
-            defaults.set(analyticsEnabled, forKey: Keys.analyticsEnabled)
+            persistSetting(analyticsEnabled, forKey: Keys.analyticsEnabled)
             if analyticsEnabled { analyticsEnabledHandler?() }
         }
     }
     var localStatisticsEnabled = true {
         didSet {
-            defaults.set(localStatisticsEnabled, forKey: Keys.localStatisticsEnabled)
+            persistSetting(localStatisticsEnabled, forKey: Keys.localStatisticsEnabled)
             localStatisticsEnabledHandler?()
         }
     }
-    private(set) var showInMenuBar = true { didSet { defaults.set(showInMenuBar, forKey: Keys.showInMenuBar) } }
+    private(set) var showInMenuBar = true {
+        didSet {
+            // A temporary Dock override can force the menu bar icon on for this launch.
+            guard !launchOverrideKeys.contains(Keys.hideDockIconAfterMainWindowCloses) else { return }
+            persistSetting(showInMenuBar, forKey: Keys.showInMenuBar)
+        }
+    }
     var hideDockIconAfterMainWindowCloses = false {
         didSet {
-            defaults.set(hideDockIconAfterMainWindowCloses, forKey: Keys.hideDockIconAfterMainWindowCloses)
+            persistSetting(hideDockIconAfterMainWindowCloses, forKey: Keys.hideDockIconAfterMainWindowCloses)
             if hideDockIconAfterMainWindowCloses { showInMenuBar = true }
         }
     }
     var qwenRegion: QwenRegion = .beijing {
-        didSet { defaults.set(qwenRegion.rawValue, forKey: Keys.qwenRegion); qwenConnectionChangeHandler?() }
+        didSet { persistSetting(qwenRegion.rawValue, forKey: Keys.qwenRegion); qwenConnectionChangeHandler?() }
     }
     var qwenWorkspaceID = "" {
-        didSet { defaults.set(qwenWorkspaceID, forKey: Keys.qwenWorkspace); qwenConnectionChangeHandler?() }
+        didSet { persistSetting(qwenWorkspaceID, forKey: Keys.qwenWorkspace); qwenConnectionChangeHandler?() }
     }
     var realtimeModel = QwenModelCatalog.defaultRealtimeModel {
-        didSet { defaults.set(realtimeModel, forKey: Keys.realtimeModel); qwenConnectionChangeHandler?() }
+        didSet { persistSetting(realtimeModel, forKey: Keys.realtimeModel); qwenConnectionChangeHandler?() }
     }
     var reasoningModel = QwenModelCatalog.defaultReasoningModel {
-        didSet { defaults.set(reasoningModel, forKey: Keys.reasoningModel); qwenConnectionChangeHandler?() }
+        didSet { persistSetting(reasoningModel, forKey: Keys.reasoningModel); qwenConnectionChangeHandler?() }
     }
     /// The saved key; edits stay in a view draft until `commitQwenCredentials` runs.
     private(set) var apiKey = ""
@@ -129,11 +135,14 @@ final class AppSettings {
 
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let keychain: KeychainStore
+    @ObservationIgnored private var launchOverrideKeys: Set<String> = []
 
     init(defaults: UserDefaults, keychain: KeychainStore) {
         self.defaults = defaults
         self.keychain = keychain
+        launchOverrideKeys = Set(defaults.volatileDomain(forName: UserDefaults.argumentDomain).keys)
         loadSettings()
+        launchOverrideKeys.removeAll()
         reloadAPIKey()
     }
 
@@ -195,8 +204,14 @@ final class AppSettings {
         qwenConnectionChangeHandler?()
     }
 
+    /// Load effective launch overrides without writing them back over saved preferences.
+    private func persistSetting(_ value: Any?, forKey key: String) {
+        guard !launchOverrideKeys.contains(key) else { return }
+        defaults.set(value, forKey: key)
+    }
+
     private func saveGlobalShortcut(_ shortcut: GlobalShortcut?, forKey key: String) {
-        defaults.set(shortcut?.storageValue ?? "", forKey: key)
+        persistSetting(shortcut?.storageValue ?? "", forKey: key)
         globalShortcutChangeHandler?()
     }
 
@@ -215,7 +230,10 @@ final class AppSettings {
 
     /// Unpack the released three-mode preference without changing effective cleanup or speed.
     private func migrateCleanupOptionsIfNeeded() {
-        guard !defaults.bool(forKey: Keys.cleanupOptionsSeparated) else { return }
+        guard launchOverrideKeys.isDisjoint(with: [
+            Keys.cleanupOptionsSeparated, Keys.legacyCombinedCleanupMigration,
+            Keys.dictationCleanup, Keys.refineDictation, Keys.dictationAppFormats
+        ]), !defaults.bool(forKey: Keys.cleanupOptionsSeparated) else { return }
         let hadCombinedModes = defaults.bool(forKey: Keys.legacyCombinedCleanupMigration)
         let raw = defaults.string(forKey: Keys.dictationCleanup)
         let refines = hadCombinedModes ? raw == "refined" : storedBool(Keys.refineDictation, default: false)
@@ -243,7 +261,7 @@ final class AppSettings {
         if let raw = defaults.string(forKey: Keys.overlayPlacement),
            let value = OverlayPlacement(rawValue: raw) { overlayPlacement = value }
         // The language now lives in `AppleLanguages`; carry an explicit old choice over once.
-        if let raw = defaults.string(forKey: Keys.legacyLanguage) {
+        if !launchOverrideKeys.contains(Keys.legacyLanguage), let raw = defaults.string(forKey: Keys.legacyLanguage) {
             if appLanguage == .system, let language = AppLanguage(rawValue: raw) { appLanguage = language }
             defaults.removeObject(forKey: Keys.legacyLanguage)
         }
@@ -259,11 +277,12 @@ final class AppSettings {
         if let raw = defaults.string(forKey: Keys.qwenRegion), let value = QwenRegion(rawValue: raw) { qwenRegion = value }
         qwenWorkspaceID = defaults.string(forKey: Keys.qwenWorkspace) ?? ""
         // One-time move from the old 3.5 default to 3.8; afterwards an explicit 3.5 choice sticks.
+        let canMigrateRealtimeModel = launchOverrideKeys.isDisjoint(with: [Keys.realtimeModel, Keys.realtimeModelUpgraded])
         realtimeModel = QwenModelCatalog.realtimeModel(
             stored: defaults.string(forKey: Keys.realtimeModel),
-            upgradesPreviousDefault: !defaults.bool(forKey: Keys.realtimeModelUpgraded)
+            upgradesPreviousDefault: canMigrateRealtimeModel && !defaults.bool(forKey: Keys.realtimeModelUpgraded)
         )
-        defaults.set(true, forKey: Keys.realtimeModelUpgraded)
+        if canMigrateRealtimeModel { defaults.set(true, forKey: Keys.realtimeModelUpgraded) }
         reasoningModel = QwenModelCatalog.reasoningModel(stored: defaults.string(forKey: Keys.reasoningModel))
         storedSearchEngine = defaults.string(forKey: Keys.searchEngine).flatMap(SearchEngine.init(rawValue:))
         autoStop = storedBool(Keys.autoStop, default: false)

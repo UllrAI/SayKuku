@@ -169,6 +169,8 @@ actor QwenRealtimeClient: RealtimeTranscribing {
     private var socket: URLSessionWebSocketTask?
     private var sendEvent: (@Sendable (String) async throws -> Void)?
     private var receiveTask: Task<Void, Never>?
+    /// Every caller finishing this recording shares one commit and one final-text wait.
+    private var commitTask: Task<String, Error>?
     private var transcriptTimeoutTask: Task<Void, Never>?
     private var transcriptContinuation: CheckedContinuation<String, Error>?
     private var sessionTimeoutTask: Task<Void, Never>?
@@ -301,6 +303,23 @@ actor QwenRealtimeClient: RealtimeTranscribing {
     /// is committed here even with auto-stop on.
     func commit(session: UUID, timeout: Duration) async throws -> String {
         guard currentSession == session else { throw CancellationError() }
+        try Task.checkCancellation()
+        let task: Task<String, Error>
+        if let commitTask {
+            task = commitTask
+        } else {
+            task = Task { try await finishRecording(session: session, timeout: timeout) }
+            commitTask = task
+        }
+        let result = try await task.value
+        try Task.checkCancellation()
+        guard currentSession == session else { throw CancellationError() }
+        return result
+    }
+
+    private func finishRecording(session: UUID, timeout: Duration) async throws -> String {
+        try Task.checkCancellation()
+        guard currentSession == session else { throw CancellationError() }
         if !audioCommitted {
             try await send(["event_id": eventID(), "type": "input_audio_buffer.commit"], session: session)
             try await send(["event_id": eventID(), "type": "response.create"], session: session)
@@ -315,6 +334,8 @@ actor QwenRealtimeClient: RealtimeTranscribing {
 
     /// Tears down without suspending, so no other actor call can interleave with it.
     private func closeCurrentSession() {
+        commitTask?.cancel()
+        commitTask = nil
         sessionContinuation?.resume(throwing: CancellationError())
         sessionContinuation = nil
         sessionTimeoutTask?.cancel()
@@ -350,8 +371,8 @@ actor QwenRealtimeClient: RealtimeTranscribing {
 
     private func waitForSession(_ session: UUID) async throws {
         guard currentSession == session else { throw CancellationError() }
-        if sessionReady { return }
         if let sessionError { throw sessionError }
+        if sessionReady { return }
         try await withCheckedThrowingContinuation { continuation in
             sessionContinuation = continuation
             sessionTimeoutTask?.cancel()
@@ -438,7 +459,7 @@ actor QwenRealtimeClient: RealtimeTranscribing {
 
     /// Applies one server event. Frames that are not JSON events are skipped.
     func handle(_ data: Data, session: UUID) {
-        guard currentSession == session,
+        guard currentSession == session, sessionError == nil,
               let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let type = object["type"] as? String else { return }
         switch type {
@@ -452,9 +473,11 @@ actor QwenRealtimeClient: RealtimeTranscribing {
             sessionTimeoutTask?.cancel()
             sessionTimeoutTask = nil
         case "response.text.delta":
+            guard !transcriptDone else { return }
             transcript += object["delta"] as? String ?? ""
             onDelta?(structuredOutput ? DictationStructure.preview(transcript, usesAppTone: usesAppTone) : transcript)
         case "response.text.done":
+            guard !transcriptDone else { return }
             transcript = (object["text"] as? String ?? transcript).trimmingCharacters(in: .whitespacesAndNewlines)
             if structuredOutput {
                 do {
@@ -495,6 +518,7 @@ actor QwenRealtimeClient: RealtimeTranscribing {
             guard currentSession == session else { throw CancellationError() }
             throw error
         }
+        guard currentSession == session else { throw CancellationError() }
     }
 
     /// A rejected WebSocket handshake surfaces as a transport error; keep its HTTP status instead.

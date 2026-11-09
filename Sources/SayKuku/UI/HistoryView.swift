@@ -265,12 +265,13 @@ struct HistoryView: View {
         let wasPlaying = playback?.entryID == entry.id
         stopPlayback()
         guard !wasPlaying else { return }
-        withAnimation(Motion.snappy) { playback = Playback(entryID: entry.id) }
+        let request = Playback(entryID: entry.id)
+        withAnimation(Motion.snappy) { playback = request }
         Task {
             do {
                 let data = try await appState.data.audio(for: entry)
                 // Stopped, switched or left the page while loading.
-                guard playback?.entryID == entry.id, playback?.player == nil else { return }
+                guard playback?.id == request.id else { return }
                 let player = try AVAudioPlayer(data: data)
                 player.prepareToPlay()
                 player.play()
@@ -279,7 +280,8 @@ struct HistoryView: View {
                 guard playback?.player === player else { return }
                 withAnimation(Motion.snappy) { playback = nil }
             } catch {
-                if playback?.entryID == entry.id { withAnimation(Motion.snappy) { playback = nil } }
+                guard playback?.id == request.id else { return }
+                withAnimation(Motion.snappy) { playback = nil }
                 appState.showToast(
                     localized("Couldn’t play this recording. The file may have been moved or deleted."),
                     symbol: "exclamationmark.triangle.fill"
@@ -315,6 +317,7 @@ struct HistoryView: View {
 }
 
 private struct Playback {
+    let id = UUID()
     let entryID: HistoryEntry.ID
     /// `nil` while the recording loads.
     var player: AVAudioPlayer?

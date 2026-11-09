@@ -141,25 +141,30 @@ struct AppTerminationTests {
         #expect(await eventually { installs == 1 })
     }
 
-    @Test("voice startup, model work, writes and unclaimed results are distinct quit states")
-    func workflowStates() {
+    @Test("voice startup and model work are busy, while an unclaimed result waits for the user")
+    func workflowStates() async throws {
         let environment = AppStateTestEnvironment()
         defer { environment.clean() }
-        let state = environment.makeState()
+        let response = AgentResponse(transcript: "Hello", action: .answer, output: "Unsaved result")
+        let state = environment.makeState(dependencies: .fake(reasoning: FakeReasoning(agentReply: .success(response))))
+        try state.settings.saveAPIKey("test")
+        state.settings.soundCuesEnabled = false
         #expect(!state.workflow.hasActiveWork && !state.workflow.hasUnclaimedResult)
-        for phase in [VoiceWorkflow.DictationPhase.starting, .listening, .processing] {
-            state.workflow.dictationPhase = phase
-            #expect(state.workflow.hasActiveWork)
-        }
-        state.workflow.dictationPhase = .success
+        state.workflow.startAgent()
+        #expect(state.workflow.agentPhase == .starting)
+        #expect(state.workflow.hasActiveWork)
+        try #require(await eventually { state.workflow.agentPhase == .listening })
+        #expect(state.workflow.hasActiveWork)
+        state.workflow.finishAgentListening()
+        #expect(state.workflow.hasActiveWork)
+        try #require(await eventually { state.workflow.agentPhase == .answerReady })
         #expect(!state.workflow.hasActiveWork)
-        state.workflow.pendingCopyText = "Unsaved result"
         #expect(state.workflow.hasUnclaimedResult)
-        state.workflow.pendingCopyText = ""
         state.workflow.startsPaused = true
         state.workflow.startDictation()
-        #expect(state.workflow.dictationPhase == .success)
-        #expect(!state.workflow.hasActiveWork)
+        #expect(state.workflow.agentPhase == .answerReady)
+        state.workflow.dismissAnswer()
+        #expect(!state.workflow.hasActiveWork && !state.workflow.hasUnclaimedResult)
     }
 }
 

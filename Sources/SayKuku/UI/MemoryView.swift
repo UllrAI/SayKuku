@@ -458,20 +458,37 @@ private struct MemoryFormSheet: View {
 private struct MemoryImportSheet: View {
     @Environment(AppState.self) private var appState
     @Environment(\.dismiss) private var dismiss
-    @State private var reviewing = false
+    private enum Phase {
+        case editing(error: String? = nil)
+        case analyzing(Task<Void, Never>)
+        case reviewing(MemoryAnalysis, selected: Set<UUID>)
+    }
+
+    @State private var phase: Phase = .editing()
     @State private var source = ""
-    @State private var selected = Set<UUID>()
-    @State private var analysis: MemoryAnalysis?
-    @State private var analysisTask: Task<Void, Never>?
-    @State private var errorMessage: String?
     @State private var confirmingDiscard = false
     @FocusState private var sourceFocused: Bool
+    @FocusState private var reviewFocused: Bool
 
-    private var analyzing: Bool { analysisTask != nil }
+    private var analyzing: Bool {
+        if case .analyzing = phase { return true }
+        return false
+    }
+
+    private var reviewing: Bool {
+        if case .reviewing = phase { return true }
+        return false
+    }
+
+    private var selected: Set<UUID> {
+        if case .reviewing(_, let selected) = phase { return selected }
+        return []
+    }
+    private var needsDiscardConfirmation: Bool { !selected.isEmpty }
 
     /// Whether the analysis produced anything the user can import.
     private var hasResults: Bool {
-        guard let analysis else { return false }
+        guard case .reviewing(let analysis, _) = phase else { return false }
         return analysis.candidates.contains { $0.status != .ignored }
     }
 
@@ -493,8 +510,11 @@ private struct MemoryImportSheet: View {
             Group {
                 if !reviewing {
                     sourceEditor
-                } else if hasResults {
-                    reviewList
+                } else if case .reviewing(let analysis, _) = phase, hasResults {
+                    reviewList(analysis)
+                        .focusable()
+                        .focused($reviewFocused)
+                        .onAppear { reviewFocused = true }
                 } else {
                     KukuEmptyState(
                         title: localized("No names or terms found"),
@@ -523,8 +543,20 @@ private struct MemoryImportSheet: View {
         }
         .frame(width: KukuLayout.sheetWideWidth, height: KukuLayout.sheetHeight)
         .background(KukuColor.canvas)
-        .onChange(of: source) { errorMessage = nil }
-        .onDisappear { analysisTask?.cancel() }
+        .interactiveDismissDisabled(needsDiscardConfirmation)
+        .onKeyPress(.escape) {
+            cancel()
+            return .handled
+        }
+        .onChange(of: source) {
+            if case .editing = phase { phase = .editing() }
+        }
+        .onDisappear {
+            if case .analyzing(let task) = phase {
+                task.cancel()
+                phase = .editing()
+            }
+        }
         .confirmationDialog(
             localized("Discard this import?"),
             isPresented: $confirmingDiscard,
@@ -546,6 +578,7 @@ private struct MemoryImportSheet: View {
                 .padding(KukuSpacing.md)
                 .kukuFieldChrome(isFocused: sourceFocused)
                 .accessibilityLabel(localized("Text to import"))
+                .disabled(analyzing)
             Label(localized(
                 "Before analysis, SayKuku removes phone numbers, emails, and ID and bank card numbers in common formats, plus labeled addresses"
             ), systemImage: "eye.slash")
@@ -557,10 +590,10 @@ private struct MemoryImportSheet: View {
         .padding(.vertical, KukuSpacing.xl)
     }
 
-    private var reviewList: some View {
+    private func reviewList(_ analysis: MemoryAnalysis) -> some View {
         ScrollView {
             VStack(spacing: KukuLayout.listSpacing) {
-                ForEach(analysis?.candidates ?? []) { candidate in
+                ForEach(analysis.candidates) { candidate in
                     let ignored = candidate.status == .ignored
                     ImportRow(
                         title: ignored ? localized("Filtered sensitive info") : candidate.entity.name,
@@ -595,7 +628,7 @@ private struct MemoryImportSheet: View {
     }
 
     private var footerNote: KukuSheetNote? {
-        if let errorMessage { return KukuSheetNote(text: errorMessage, isError: true) }
+        if case .editing(let error?) = phase { return KukuSheetNote(text: error, isError: true) }
         if !reviewing {
             return KukuSheetNote(text: localized("Text is sent to Qwen for analysis. SayKuku doesn’t keep a copy."))
         }
@@ -633,15 +666,17 @@ private struct MemoryImportSheet: View {
     }
 
     private func toggle(_ id: UUID) {
+        guard case .reviewing(let analysis, var selected) = phase else { return }
         if selected.contains(id) {
             selected.remove(id)
         } else {
             selected.insert(id)
         }
+        phase = .reviewing(analysis, selected: selected)
     }
 
     private func cancel() {
-        if reviewing && !selected.isEmpty {
+        if needsDiscardConfirmation {
             confirmingDiscard = true
         } else {
             dismiss()
@@ -649,27 +684,30 @@ private struct MemoryImportSheet: View {
     }
 
     private func goBack() {
-        errorMessage = nil
-        withAnimation(Motion.snappy) { reviewing = false }
+        withAnimation(Motion.snappy) { phase = .editing() }
     }
 
     private func analyze() {
-        errorMessage = nil
-        analysisTask = Task {
+        guard case .editing = phase, !source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        sourceFocused = false
+        let source = source
+        let task = Task {
             do {
+                try Task.checkCancellation()
                 let value = try await appState.analyzeMemory(source)
-                analysis = value
-                selected = Set(value.candidates.filter { $0.status == .new || $0.status == .merge }.map(\.id))
-                withAnimation(Motion.panel) { reviewing = true }
+                try Task.checkCancellation()
+                let selected = Set(value.candidates.filter { $0.status == .new || $0.status == .merge }.map(\.id))
+                withAnimation(Motion.panel) { phase = .reviewing(value, selected: selected) }
             } catch {
-                errorMessage = localizedError(error)
+                guard !Task.isCancelled else { return }
+                phase = .editing(error: localizedError(error))
             }
-            analysisTask = nil
         }
+        phase = .analyzing(task)
     }
 
     private func importSelection() {
-        guard let analysis, !selected.isEmpty else { return }
+        guard case .reviewing(let analysis, let selected) = phase, !selected.isEmpty else { return }
         let count = selected.count
         appState.data.commitMemory(analysis, selectedIDs: selected)
         appState.showToast(
