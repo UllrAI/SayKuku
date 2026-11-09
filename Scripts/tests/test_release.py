@@ -37,7 +37,7 @@ class ReleaseTests(unittest.TestCase):
         for name in ["download/index.html", "en/download/index.html", "index.html"]:
             file = site / name
             file.parent.mkdir(parents=True, exist_ok=True)
-            file.write_text('Version 1.0.9 https://saykuku.ullrai.com/SayKuku-1.0.9.dmg 5.6 MB ' + "b" * 64 + '<h2>1.0.9 Release notes</h2><ul><li>Old notes</li></ul>')
+            file.write_text('<main>Version 1.0.9 https://saykuku.ullrai.com/SayKuku-1.0.9.dmg 5.6 MB ' + "b" * 64 + '<h2>1.0.9 Release notes</h2><ul><li>Old notes</li></ul></main>')
 
     def test_versions(self):
         self.assertEqual(release.version_parts("1.2.0"), release.version_parts("1.2"))
@@ -234,6 +234,18 @@ class ReleaseTests(unittest.TestCase):
         with patch.object(release, "read_url", return_value=b"old"), patch.object(release.time, "sleep"), self.assertRaises(ValueError):
             release.verify_public("https://example.test/feed", hashlib.sha256(b"new").hexdigest())
 
+    def test_download_readback_allows_cdn_footer_changes_but_rejects_wrong_release_content(self):
+        content = b'<main id="main"><a href="new.dmg">Download</a><ul><li>New notes</li></ul></main>'
+        digest = hashlib.sha256(content).hexdigest()
+        cdn_footer = b'<footer><a href="/cdn-cgi/l/email-protection">Email</a></footer><script src="beacon.js"></script>'
+        url = "https://example.test/download/"
+        with patch.object(release, "read_url", return_value=content + cdn_footer):
+            release.verify_public(url, digest, download_page=True)
+        for incorrect in [content.replace(b"new.dmg", b"old.dmg"), content.replace(b"New notes", b"Old notes"), b""]:
+            with self.subTest(incorrect=incorrect), patch.object(release, "read_url", return_value=incorrect + cdn_footer), patch.object(release.time, "sleep"):
+                with self.assertRaisesRegex(ValueError, "Public content"):
+                    release.verify_public(url, digest, download_page=True)
+
     def publish_fixture(self, failure=None):
         events = []
         metadata = self.root / "release.json"
@@ -262,7 +274,7 @@ class ReleaseTests(unittest.TestCase):
             events.append(key)
             if failure == key:
                 raise ValueError("feed upload failed")
-        def verify(url, digest):
+        def verify(url, digest, *, download_page=False):
             events.append("verified:" + url.rsplit("/", 1)[-1])
         with patch.object(release.subprocess, "check_output", side_effect=output), patch.object(release.subprocess, "run", return_value=subprocess.CompletedProcess([], 0)), patch.object(release, "run", side_effect=command), patch.object(release, "deployment_config", return_value={}), patch.object(release, "validate"), patch.object(release, "read_url", return_value=b'{"version":"1.0.9","build":19}'), patch.object(release, "upload_archive", side_effect=upload), patch.object(release, "put_object", side_effect=put), patch.object(release, "verify_public", side_effect=verify), patch.object(release, "wait_for_site_ci", side_effect=website_ci):
             if failure:
@@ -276,7 +288,8 @@ class ReleaseTests(unittest.TestCase):
         events = self.publish_fixture()
         self.assertLess(events.index("archive"), events.index("website-push"))
         self.assertLess(events.index("website-push"), events.index("website"))
-        self.assertLess(events.index("website"), events.index("verified:ver.json"))
+        self.assertLess(events.index("website"), events.index("verified:revision.txt"))
+        self.assertLess(events.index("verified:revision.txt"), events.index("verified:ver.json"))
         self.assertLess(events.index("verified:ver.json"), events.index("appcast.xml"))
         self.assertLess(events.index("appcast.xml"), events.index("ver.json"))
         self.assertEqual(json.loads((self.root / "marketing/site/dist/ver.json").read_text())["version"], "1.1.0")

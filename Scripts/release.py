@@ -273,10 +273,19 @@ def upload_archive(metadata, env):
     verify_public(metadata["download_url"], metadata["sha256"])
 
 
-def verify_public(url, digest):
+def download_page_content(page):
+    # The CDN rewrites footer emails and adds scripts outside the main content.
+    match = re.search(rb"<main\b[^>]*>.*?</main>", page, re.DOTALL)
+    return match.group(0) if match else b""
+
+
+def verify_public(url, digest, *, download_page=False):
     for attempt in range(6):
         try:
-            if hashlib.sha256(read_url(url)).hexdigest() == digest:
+            payload = read_url(url)
+            if download_page:
+                payload = download_page_content(payload)
+            if hashlib.sha256(payload).hexdigest() == digest:
                 return
         except (urllib.error.URLError, TimeoutError):
             pass
@@ -366,9 +375,15 @@ def publish(metadata_file, tools):
         site_commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
         run(["git", "push", "origin", "HEAD:main"], cwd=ROOT, env=env)
         wait_for_site_ci(site_commit, env, rerun_failed=not bool(changed))
+        revision_digest = hashlib.sha256((site_commit + "\n").encode()).hexdigest()
+        verify_public(metadata["website"] + "revision.txt", revision_digest)
         verify_public(metadata["website"] + "ver.json", metadata["legacy_sha256"])
         for name in ["download/index.html", "en/download/index.html"]:
-            verify_public(metadata["website"] + name.removesuffix("index.html"), sha256(site / name))
+            content = download_page_content((site / name).read_bytes())
+            if not content:
+                raise ValueError("Missing main content in " + name)
+            digest = hashlib.sha256(content).hexdigest()
+            verify_public(metadata["website"] + name.removesuffix("index.html"), digest, download_page=True)
         put_object(metadata["appcast"], "appcast.xml", "application/rss+xml", env)
         put_object(metadata["legacy_feed"], "ver.json", "application/json", env)
         verify_public(DOWNLOADS + "appcast.xml", metadata["appcast_sha256"])
