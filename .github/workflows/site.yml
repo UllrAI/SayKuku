@@ -6,6 +6,8 @@ on:
       - marketing/site/**
       - Scripts/release.py
       - Scripts/deploy_site.py
+      - Scripts/check_pve_runner.sh
+      - Scripts/test_site_image.sh
       - Scripts/tests/test_release.py
       - Scripts/tests/test_site.py
       - Scripts/tests/test_deploy_site.py
@@ -16,6 +18,7 @@ on:
       - marketing/site/**
       - Scripts/release.py
       - Scripts/deploy_site.py
+      - Scripts/test_site_image.sh
       - Scripts/tests/test_release.py
       - Scripts/tests/test_site.py
       - Scripts/tests/test_deploy_site.py
@@ -93,19 +96,7 @@ jobs:
           cache-from: type=gha,scope=saykuku-site
           cache-to: type=gha,mode=max,scope=saykuku-site
       - name: Test the actual container
-        env:
-          SAYKUKU_SITE_REVISION: ${{ github.sha }}
-        run: |
-          container=$(docker create --publish 127.0.0.1::8080 "$IMAGE:sha-$GITHUB_SHA")
-          trap 'docker logs "$container"; docker rm --force "$container"' EXIT
-          docker start "$container"
-          address=$(docker port "$container" 8080/tcp)
-          export SAYKUKU_SITE_URL="http://$address"
-          for _ in $(seq 1 30); do
-            if curl --fail --silent "$SAYKUKU_SITE_URL/healthz" >/dev/null; then break; fi
-            sleep 1
-          done
-          python3 -m unittest discover -s Scripts/tests -p test_site.py
+        run: bash Scripts/test_site_image.sh "$IMAGE:sha-$GITHUB_SHA" "$GITHUB_SHA"
       - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           registry: ghcr.io
@@ -153,11 +144,11 @@ jobs:
     needs: build
     runs-on: >-
       ${{ fromJSON(vars.PVE_DEPLOY == 'true'
-        && vars.PVE_RUNNER_LABELS != ''
+        && vars.PVE_DEPLOY_RUNNER_LABELS != ''
         && github.repository == 'UllrAI/SayKuku'
         && github.ref == 'refs/heads/main'
         && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-        && vars.PVE_RUNNER_LABELS || '["ubuntu-latest"]') }}
+        && vars.PVE_DEPLOY_RUNNER_LABELS || '["ubuntu-latest"]') }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
