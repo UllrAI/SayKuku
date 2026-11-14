@@ -287,7 +287,7 @@ Sparkle 支持在 appcast 的多个 `<description>` 上分别指定 `xml:lang="z
 
 已发布版本的文字更正只更新网页和更新清单，并同步发布元数据的说明及清单哈希；保留原版本、构建号、DMG、安装包签名和 Git 标签。完成后回读官网与 R2 的 `ver.json`、appcast 和各语言下载页，确认文字正确且安装包哈希不变。
 
-本机需安装并登录 Wrangler 与 GitHub CLI（`wrangler whoami`、`gh auth status`），并具有推送 `UllrAI/SayKuku` 与读取、重试 Actions 的权限。沿用已有 R2 bucket `saykuku`；官网由 Site CI/CD 发布 GHCR 镜像并交给 Coolify 部署。`~/.config/saykuku/deploy.env` 应为权限 `600` 的本机文件，只需提供 `CLOUDFLARE_ACCOUNT_ID`；环境变量优先，不在仓库保存凭据。Coolify 凭据由仓库 Actions secrets 管理，发布机无需保存。
+本机需安装并登录 Wrangler 与 GitHub CLI（`wrangler whoami`、`gh auth status`），并具有推送 `UllrAI/SayKuku` 与读取、重试 Actions 的权限。沿用已有 R2 bucket `saykuku`；官网由 Site CI/CD 发布 GHCR 镜像并交给 Coolify 部署。`~/.config/saykuku/deploy.env` 应为权限 `600` 的本机文件，只需提供 `CLOUDFLARE_ACCOUNT_ID`；环境变量优先，不在仓库保存凭据。Coolify 凭据由仓库 Actions secrets 管理，发布机无需保存。 官网 Linux runner 的路由与恢复步骤见 [CI runner 规则](ci-runner-policy.md)。
 
 Sparkle 固定为 2.10.0，保留完整 framework 和许可证；发布工具按相同版本和官方 SHA-256 下载到 `Build/`。Ed25519 发布私钥保存在登录 Keychain 的 Sparkle 条目中，account 为 `com.saykuku.app`；公钥在 Info.plist。已有钥匙不要重新生成或替换。新机器应从安全备份恢复：
 

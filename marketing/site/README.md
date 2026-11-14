@@ -23,7 +23,7 @@ App 上线统一从仓库根目录运行 `Scripts/release.sh --notes FILE`：先
 
 验证地址：<https://saykuku-preview.ullrai.com/>，与正式域名运行同一个镜像。Coolify 项目 `SayKuku`、环境 `production`、应用 `saykuku-site`。入口 Traefik 统一管理 HTTPS，站点使用官方非 root Nginx Alpine slim，监听 `8080`，无需 Node.js、数据库或持久卷。
 
-[Site CI/CD](../../.github/workflows/site.yml) 只使用 Linux runner：
+[Site CI/CD](../../.github/workflows/site.yml) 只使用 Linux runner。PR 固定使用 GitHub-hosted runner，`main` 的测试、镜像和部署阶段默认同样使用 GitHub-hosted runner。PVE 启用条件和恢复步骤见 [CI runner 规则](../../docs/ci-runner-policy.md)。
 
 1. PR 和相关 `main` 提交运行已有发布顺序单元测试、站内链接与下载页检查、部署状态处理测试。
 2. `main` 测试通过后构建一次 `linux/amd64` 镜像，运行实际容器检查页面、资源、404、版本文件与 Git 提交标识。

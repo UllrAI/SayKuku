@@ -14,6 +14,7 @@
 - 正式官网是 `https://say.anikuku.com`，由 GitHub Actions 的 Site CI/CD 构建并测试私有 GHCR 镜像，再部署到 Coolify；不要向旧 Zeabur 服务发布。
 - 原生 App 的签名、公证和 R2 安装包/更新源仍按 `docs/LOCAL_PACKAGING.md` 在本机发布；官网迁移不改变 App 的发布顺序。
 - 复用已有仓库 Actions secrets、服务器 GHCR 登录和 Coolify 资源，正常发布无需重新安装或鉴权。
+- 官网 Linux runner 路由与 PVE 启用条件见 [CI runner 规则](docs/ci-runner-policy.md)。
 - 临时验收域名用完就清理 Coolify 绑定、DNS 和专属规则；不要把旧 preview 当成当前入口。
 - 变更部署平台时同步更新本文件、部署/发布手册、README 入口及相关文档；旧平台指引明确标为历史资料。
 
@@ -71,5 +72,3 @@ open Build/SayKuku.app
 - 不提交签名私钥、`.p8`、`.p12`、密码、公证 profile 内容或真实 API Key。
 - 仓库使用 `LICENSE` 中的 Apache-2.0 许可。引入或复制第三方代码前必须核对许可证，不能把调研候选误写成现有依赖。
 - 发布前检查 diff、运行测试并验证签名。完整公证顺序必须是：App 签名 → 公证 → staple → Gatekeeper 验证 → 用装订后的 App 制作 DMG → DMG 签名 → 公证 → staple → Gatekeeper 验证。
-
-- CI runner routing and activation follow [docs/ci-runner-policy.md](docs/ci-runner-policy.md). Do not enable unregistered PVE runners or add hosted polling watchers.

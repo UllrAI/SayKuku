@@ -77,6 +77,7 @@ open Build/SayKuku.app
 | 测试 | [`Tests/SayKukuTests/`](Tests/SayKukuTests/) |
 | 产品与实现说明 | [`SayKuku.md`](SayKuku.md) |
 | 本机打包与发布 | [`docs/LOCAL_PACKAGING.md`](docs/LOCAL_PACKAGING.md) |
+| 官网 CI 与 runner 规则 | [`docs/ci-runner-policy.md`](docs/ci-runner-policy.md) |
 | App 统计及隐私边界 | [`docs/APP_ANALYTICS.md`](docs/APP_ANALYTICS.md) |
 | 写入兼容性测试计划 | [`docs/COMPATIBILITY.md`](docs/COMPATIBILITY.md) |
 | 中英混说评测 | [`docs/MIXED_LANGUAGE_EVAL.md`](docs/MIXED_LANGUAGE_EVAL.md) |
