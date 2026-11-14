@@ -100,7 +100,7 @@ jobs:
           docker start "$container"
           address=$(docker port "$container" 8080/tcp)
           export SAYKUKU_SITE_URL="http://$address"
-          for attempt in $(seq 1 30); do
+          for _ in $(seq 1 30); do
             if curl --fail --silent "$SAYKUKU_SITE_URL/healthz" >/dev/null; then break; fi
             sleep 1
           done
@@ -111,16 +111,38 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Publish the tested image
+        id: publish
         run: |
-          docker push "$IMAGE:sha-$GITHUB_SHA"
-          docker tag "$IMAGE:sha-$GITHUB_SHA" "$IMAGE:main"
-          docker push "$IMAGE:main"
-      - name: Verify the private image publication
+          tested_id=$(docker image inspect --format '{{.Id}}' "$IMAGE:sha-$GITHUB_SHA")
+          push_output=$(docker push "$IMAGE:sha-$GITHUB_SHA")
+          printf '%s\n' "$push_output"
+          digest=$(awk '$2 == "digest:" { print $3 }' <<< "$push_output")
+          if [[ ! "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]; then
+            echo 'GHCR push did not return a valid image digest' >&2
+            exit 1
+          fi
+          printf 'digest=%s\ntested_id=%s\n' "$digest" "$tested_id" >> "$GITHUB_OUTPUT"
+      - name: Verify the private image by digest
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IMAGE_DIGEST: ${{ steps.publish.outputs.digest }}
+          TESTED_IMAGE_ID: ${{ steps.publish.outputs.tested_id }}
         run: |
           test "$(gh api orgs/UllrAI/packages/container/saykuku-site --jq '.visibility')" = private
-          docker manifest inspect "$IMAGE:sha-$GITHUB_SHA" >/dev/null
+          docker pull "$IMAGE@$IMAGE_DIGEST"
+          pulled_id=$(docker image inspect --format '{{.Id}}' "$IMAGE@$IMAGE_DIGEST")
+          test "$pulled_id" = "$TESTED_IMAGE_ID"
+      - name: Publish the verified image to the deployment tag
+        env:
+          IMAGE_DIGEST: ${{ steps.publish.outputs.digest }}
+        run: |
+          docker tag "$IMAGE@$IMAGE_DIGEST" "$IMAGE:main"
+          push_output=$(docker push "$IMAGE:main")
+          printf '%s\n' "$push_output"
+          digest=$(awk '$2 == "digest:" { print $3 }' <<< "$push_output")
+          test "$digest" = "$IMAGE_DIGEST"
+          printf "Verified website image for \`%s\`\n\n\`%s@%s\`\n" \
+            "$GITHUB_SHA" "$IMAGE" "$IMAGE_DIGEST" >> "$GITHUB_STEP_SUMMARY"
 
   deploy:
     name: Deploy to Coolify and verify the published site
