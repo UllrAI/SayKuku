@@ -73,6 +73,7 @@ jobs:
       packages: write
     env:
       DOCKER_BUILD_RECORD_UPLOAD: 'false'
+      IMAGE_RUNTIME_FORMAT: '{{.Os}}/{{.Architecture}} {{json .Config}} {{json .RootFS.Layers}}'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -112,8 +113,9 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Publish the tested image
         id: publish
+        shell: bash
         run: |
-          tested_id=$(docker image inspect --format '{{.Id}}' "$IMAGE:sha-$GITHUB_SHA")
+          tested_content=$(docker image inspect --format "$IMAGE_RUNTIME_FORMAT" "$IMAGE:sha-$GITHUB_SHA" | sha256sum | cut -d ' ' -f 1)
           push_output=$(docker push "$IMAGE:sha-$GITHUB_SHA")
           printf '%s\n' "$push_output"
           digest=$(awk '$2 == "digest:" { print $3 }' <<< "$push_output")
@@ -121,18 +123,20 @@ jobs:
             echo 'GHCR push did not return a valid image digest' >&2
             exit 1
           fi
-          printf 'digest=%s\ntested_id=%s\n' "$digest" "$tested_id" >> "$GITHUB_OUTPUT"
+          printf 'digest=%s\ntested_content=%s\n' "$digest" "$tested_content" >> "$GITHUB_OUTPUT"
       - name: Verify the private image by digest
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           IMAGE_DIGEST: ${{ steps.publish.outputs.digest }}
-          TESTED_IMAGE_ID: ${{ steps.publish.outputs.tested_id }}
+          TESTED_IMAGE_CONTENT: ${{ steps.publish.outputs.tested_content }}
         run: |
           test "$(gh api orgs/UllrAI/packages/container/saykuku-site --jq '.visibility')" = private
           docker pull "$IMAGE@$IMAGE_DIGEST"
-          pulled_id=$(docker image inspect --format '{{.Id}}' "$IMAGE@$IMAGE_DIGEST")
-          test "$pulled_id" = "$TESTED_IMAGE_ID"
+          pulled_content=$(docker image inspect --format "$IMAGE_RUNTIME_FORMAT" "$IMAGE@$IMAGE_DIGEST" | sha256sum | cut -d ' ' -f 1)
+          test "$pulled_content" = "$TESTED_IMAGE_CONTENT"
       - name: Publish the verified image to the deployment tag
+        shell: bash
         env:
           IMAGE_DIGEST: ${{ steps.publish.outputs.digest }}
         run: |
