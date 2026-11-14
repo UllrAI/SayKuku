@@ -25,4 +25,7 @@ done
 image="saykuku-pve-preflight:$(python3 -c 'import uuid; print(uuid.uuid4().hex)')"
 trap 'docker image rm "$image" >/dev/null 2>&1 || true' EXIT
 docker buildx build --platform linux/amd64 --load --tag "$image" --build-arg "SOURCE_COMMIT=$revision" marketing/site
+platform=$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$image")
+printf 'Loaded website image platform: %s\n' "$platform"
+test "$platform" = linux/amd64
 bash Scripts/test_site_image.sh "$image" "$revision"
