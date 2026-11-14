@@ -90,3 +90,8 @@ Release builds are signed, notarized, and packaged locally and published to the 
 ## License
 
 SayKuku source code is licensed under [Apache License 2.0](LICENSE). The Lucide-derived icon assets carry [their own notices](Scripts/Resources/Licenses/Lucide.txt).
+
+## CI runner operations
+
+See [the unified CI runner policy](docs/ci-runner-policy.md) for staged PVE activation,
+PR isolation, retry behavior, and monitoring.

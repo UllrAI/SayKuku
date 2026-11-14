@@ -35,7 +35,8 @@ env:
 jobs:
   test:
     name: Website and release checks
-    runs-on: ubuntu-latest
+    # Explicit opt-in only; retries retain this route and PRs stay hosted.
+    runs-on: ${{ fromJSON(vars.PVE_BUILDS == 'true' && vars.PVE_RUNNER_LABELS != '' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && vars.PVE_RUNNER_LABELS || '["ubuntu-latest"]') }}
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -52,7 +53,8 @@ jobs:
     name: Build, smoke test and publish image
     needs: test
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
+    # Explicit opt-in only; retries retain this route and PRs stay hosted.
+    runs-on: ${{ fromJSON(vars.PVE_BUILDS == 'true' && vars.PVE_RUNNER_LABELS != '' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && vars.PVE_RUNNER_LABELS || '["ubuntu-latest"]') }}
     timeout-minutes: 15
     permissions:
       contents: read
@@ -77,11 +79,14 @@ jobs:
           cache-to: type=gha,mode=max,scope=saykuku-site
       - name: Test the actual container
         env:
-          SAYKUKU_SITE_URL: http://127.0.0.1:8080
           SAYKUKU_SITE_REVISION: ${{ github.sha }}
         run: |
-          docker run --detach --name saykuku-site-check --publish 127.0.0.1:8080:8080 "$IMAGE:sha-$GITHUB_SHA"
-          trap 'docker logs saykuku-site-check; docker rm --force saykuku-site-check' EXIT
+          SMOKE_CONTAINER=ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}
+          docker run --detach --name $SMOKE_CONTAINER --publish 127.0.0.1::8080 "$IMAGE:sha-$GITHUB_SHA"
+          SMOKE_PORT=$(docker port "$SMOKE_CONTAINER" 8080/tcp | sed 's/.*://')
+          export SMOKE_URL="http://127.0.0.1:$SMOKE_PORT"
+          export SAYKUKU_SITE_URL="$SMOKE_URL"
+          trap 'docker logs $SMOKE_CONTAINER; docker rm --force $SMOKE_CONTAINER' EXIT
           for attempt in $(seq 1 30); do
             if curl --fail --silent "$SAYKUKU_SITE_URL/healthz" >/dev/null; then break; fi
             sleep 1
@@ -107,7 +112,8 @@ jobs:
   deploy:
     name: Deploy to Coolify and verify the published site
     needs: build
-    runs-on: ubuntu-latest
+    # Explicit opt-in only; retries retain this route and PRs stay hosted.
+    runs-on: ${{ fromJSON(vars.PVE_DEPLOY == 'true' && vars.PVE_RUNNER_LABELS != '' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && vars.PVE_RUNNER_LABELS || '["ubuntu-latest"]') }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
