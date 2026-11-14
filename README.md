@@ -79,6 +79,7 @@ The debug package requires a stable Apple Development signing identity. `swift r
 | Tests | [`Tests/SayKukuTests/`](Tests/SayKukuTests/) |
 | Product and implementation notes | [`SayKuku.md`](SayKuku.md) |
 | Local packaging and release | [`docs/LOCAL_PACKAGING.md`](docs/LOCAL_PACKAGING.md) |
+| Website CI and runner policy | [`docs/ci-runner-policy.md`](docs/ci-runner-policy.md) |
 | App analytics and privacy boundaries | [`docs/APP_ANALYTICS.md`](docs/APP_ANALYTICS.md) |
 | Compatibility test plan | [`docs/COMPATIBILITY.md`](docs/COMPATIBILITY.md) |
 | Mixed-language evaluation | [`docs/MIXED_LANGUAGE_EVAL.md`](docs/MIXED_LANGUAGE_EVAL.md) |

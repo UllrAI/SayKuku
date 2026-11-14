@@ -35,10 +35,18 @@ env:
 jobs:
   test:
     name: Website and release checks
-    runs-on: ubuntu-latest
+    runs-on: >-
+      ${{ fromJSON(vars.PVE_BUILDS == 'true'
+        && vars.PVE_RUNNER_LABELS != ''
+        && github.repository == 'UllrAI/SayKuku'
+        && github.ref == 'refs/heads/main'
+        && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        && vars.PVE_RUNNER_LABELS || '["ubuntu-latest"]') }}
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.13'
@@ -52,7 +60,13 @@ jobs:
     name: Build, smoke test and publish image
     needs: test
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: >-
+      ${{ fromJSON(vars.PVE_BUILDS == 'true'
+        && vars.PVE_RUNNER_LABELS != ''
+        && github.repository == 'UllrAI/SayKuku'
+        && github.ref == 'refs/heads/main'
+        && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        && vars.PVE_RUNNER_LABELS || '["ubuntu-latest"]') }}
     timeout-minutes: 15
     permissions:
       contents: read
@@ -61,6 +75,8 @@ jobs:
       DOCKER_BUILD_RECORD_UPLOAD: 'false'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.13'
@@ -77,11 +93,13 @@ jobs:
           cache-to: type=gha,mode=max,scope=saykuku-site
       - name: Test the actual container
         env:
-          SAYKUKU_SITE_URL: http://127.0.0.1:8080
           SAYKUKU_SITE_REVISION: ${{ github.sha }}
         run: |
-          docker run --detach --name saykuku-site-check --publish 127.0.0.1:8080:8080 "$IMAGE:sha-$GITHUB_SHA"
-          trap 'docker logs saykuku-site-check; docker rm --force saykuku-site-check' EXIT
+          container=$(docker create --publish 127.0.0.1::8080 "$IMAGE:sha-$GITHUB_SHA")
+          trap 'docker logs "$container"; docker rm --force "$container"' EXIT
+          docker start "$container"
+          address=$(docker port "$container" 8080/tcp)
+          export SAYKUKU_SITE_URL="http://$address"
           for attempt in $(seq 1 30); do
             if curl --fail --silent "$SAYKUKU_SITE_URL/healthz" >/dev/null; then break; fi
             sleep 1
@@ -107,10 +125,18 @@ jobs:
   deploy:
     name: Deploy to Coolify and verify the published site
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: >-
+      ${{ fromJSON(vars.PVE_DEPLOY == 'true'
+        && vars.PVE_RUNNER_LABELS != ''
+        && github.repository == 'UllrAI/SayKuku'
+        && github.ref == 'refs/heads/main'
+        && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        && vars.PVE_RUNNER_LABELS || '["ubuntu-latest"]') }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.13'

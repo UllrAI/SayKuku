@@ -14,6 +14,7 @@
 - 正式官网是 `https://say.anikuku.com`，由 GitHub Actions 的 Site CI/CD 构建并测试私有 GHCR 镜像，再部署到 Coolify；不要向旧 Zeabur 服务发布。
 - 原生 App 的签名、公证和 R2 安装包/更新源仍按 `docs/LOCAL_PACKAGING.md` 在本机发布；官网迁移不改变 App 的发布顺序。
 - 复用已有仓库 Actions secrets、服务器 GHCR 登录和 Coolify 资源，正常发布无需重新安装或鉴权。
+- 官网 Linux runner 路由与 PVE 启用条件见 [CI runner 规则](docs/ci-runner-policy.md)。
 - 临时验收域名用完就清理 Coolify 绑定、DNS 和专属规则；不要把旧 preview 当成当前入口。
 - 变更部署平台时同步更新本文件、部署/发布手册、README 入口及相关文档；旧平台指引明确标为历史资料。
 
