@@ -27,14 +27,16 @@ App 上线统一从仓库根目录运行 `Scripts/release.sh --notes FILE`：先
 
 1. PR 和相关 `main` 提交运行已有发布顺序单元测试、站内链接与下载页检查、部署状态处理测试。
 2. `main` 测试通过后构建一次 `linux/amd64` 镜像，运行实际容器检查页面、资源、404、版本文件与 Git 提交标识。
-3. 将同一镜像发布为 `ghcr.io/ullrai/saykuku-site:sha-<完整提交号>` 和 `:main`，确认 package 保持 Private 且认证后可读取，才触发 Coolify。
-4. Coolify 仅拉取镜像，不再构建源码。工作流等待部署完成，再验证公开站点的内容与 `/revision.txt`，失败会使工作流失败。
+3. 推送 `ghcr.io/ullrai/saykuku-site:sha-<完整提交号>`，确认 package 保持 Private，再按推送返回的 digest 回拉，并与已通过 smoke test 的镜像比较平台、运行配置和文件系统层。用该镜像更新 `:main`，要求两次推送返回相同 digest。GitHub Actions 运行摘要记录完整的 `image@sha256:…` 引用。
+4. Coolify 通过现有 webhook 拉取应用配置中的 `:main`。工作流等待部署完成，再验证公开站点内容与 `/revision.txt`。`main` 工作流串行，因此另一轮本工作流不会在当前部署途中更新标签。
 
 仓库配置：Actions secrets `COOLIFY_WEBHOOK`、`COOLIFY_TOKEN`；Actions variable `SAYKUKU_SITE_URL` 为 `https://say.anikuku.com`。Coolify 令牌只需 `read` 和 `deploy` 权限，不保存到仓库。GHCR package 保持 Private：Actions 用短期 `GITHUB_TOKEN` 推送，部署服务器以专用的 `read:packages` 凭据登录 `ghcr.io` 后拉取。该凭据无需写入 Actions；在 Coolify 的 Servers → Registries 管理登录。两类部署凭据都需在到期前轮换。
 
 官网所在仓库为 Public，标准 GitHub-hosted Linux runner 的计算不消耗私有仓库额度；GHCR 容器镜像存储和带宽目前免费。迁移其他私有仓库时，新增构建时间仍计入所属账号或组织额度，复用 workflow 不能免除计费。
 
-手动重试使用 `gh workflow run site.yml`。回退可在 Coolify 将镜像标签从 `main` 改为之前验证过的 `sha-<提交号>` 并重新部署；健康检查路径为 `/healthz`，容器端口为 `8080`。验证域名带 `X-Robots-Tag: noindex, nofollow`，页面 canonical 和安装包地址保持正式域名。
+`main` 标签仍可被有 GHCR 写权限的其他发布者移动。生产端自动固定 digest 需要 Coolify 支持生产部署时传入镜像引用，或用有 `write` 权限的身份更新应用镜像配置。现有 webhook 的 `docker_tag` 只用于预览部署。需要人工固定镜像或回退时，由有应用配置权限的操作者从成功运行摘要选取已验证的 digest，在 Coolify 保存并部署，再核对该次部署日志和公开 `/revision.txt`。人工固定后，后续自动部署须先由操作者协调镜像配置。
+
+手动重试使用 `gh workflow run site.yml`。健康检查路径为 `/healthz`，容器端口为 `8080`。验证域名带 `X-Robots-Tag: noindex, nofollow`，页面 canonical 和安装包地址保持正式域名。
 
 ## 本机预览
 
