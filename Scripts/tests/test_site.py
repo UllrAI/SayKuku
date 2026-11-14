@@ -8,7 +8,7 @@ import re
 import unittest
 from urllib.error import HTTPError
 from urllib.parse import unquote, urljoin, urlsplit
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener, urlopen
 
 
 SITE = Path(__file__).resolve().parents[2] / "marketing/site/dist"
@@ -21,9 +21,18 @@ class References(HTMLParser):
     def __init__(self):
         super().__init__()
         self.urls = []
+        self.installers = []
 
     def handle_starttag(self, tag, attrs):
         self.urls.extend(value for name, value in attrs if name in ("src", "href") and value)
+        attrs = dict(attrs)
+        if tag == "a" and "data-installer-version" in attrs:
+            self.installers.append(attrs)
+
+
+class NoRedirects(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
 
 
 class SiteTests(unittest.TestCase):
@@ -55,11 +64,19 @@ class SiteTests(unittest.TestCase):
         self.assertGreater(feed["build"], 0)
         self.assertEqual(feed["url"], "https://say.anikuku.com/download/")
         hashes = []
-        for page in ("download/index.html", "en/download/index.html"):
+        for page, language in (("download/index.html", "zh"), ("en/download/index.html", "en")):
             text = (SITE / page).read_text()
             with self.subTest(page=page):
-                self.assertIn("SayKuku-" + feed["version"] + ".dmg", text)
-                self.assertIn('data-umami-event-version="' + feed["version"] + '"', text)
+                references = References()
+                references.feed(text)
+                self.assertEqual(len(references.installers), 1)
+                installer = references.installers[0]
+                self.assertEqual(installer.get("href"), f'https://saykuku.ullrai.com/SayKuku-{feed["version"]}.dmg')
+                self.assertEqual(installer["data-installer-version"], feed["version"])
+                self.assertEqual(installer.get("data-installer-language"), language)
+                self.assertIn("download", installer)
+                self.assertNotIn("data-umami-event", installer)
+                self.assertIn("/assets/installer-download.js", references.urls)
                 checksums = re.findall(r"<code>([a-f0-9]{64})</code>", text)
                 self.assertEqual(len(checksums), 1)
                 hashes.append(checksums)
@@ -68,9 +85,10 @@ class SiteTests(unittest.TestCase):
 
 @unittest.skipUnless(BASE_URL, "Set SAYKUKU_SITE_URL to test a running deployment")
 class DeployedSiteTests(unittest.TestCase):
-    def fetch(self, route):
+    def fetch(self, route, *, follow_redirects=True):
         request = Request(BASE_URL + route, headers={"Cache-Control": "no-cache", "User-Agent": "SayKuku-SiteCheck/1.0"})
-        return urlopen(request, timeout=15)
+        open_url = urlopen if follow_redirects else build_opener(NoRedirects()).open
+        return open_url(request, timeout=15)
 
     def test_health(self):
         with self.fetch("/healthz") as response:
@@ -86,8 +104,28 @@ class DeployedSiteTests(unittest.TestCase):
             self.assertEqual(json.load(response), json.loads((SITE / "ver.json").read_text()))
             self.assertIn("no-store", response.headers.get("Cache-Control", ""))
 
+    def test_directory_redirects_keep_origin_and_query(self):
+        query = "?utm_source=site-check&utm_medium=test"
+        for route in ("/download", "/en", "/en/download"):
+            with self.subTest(route=route):
+                source = route + query
+                destination = route + "/" + query
+                with self.assertRaises(HTTPError) as result:
+                    with self.fetch(source, follow_redirects=False):
+                        pass
+                with result.exception as redirect:
+                    self.assertEqual(redirect.code, 301)
+                    self.assertEqual(urljoin(BASE_URL + source, redirect.headers["Location"]), BASE_URL + destination)
+                with self.fetch(destination, follow_redirects=False) as response:
+                    self.assertEqual(response.status, 200)
+
     def test_assets_are_served_with_their_content_types(self):
-        for path, mime in (("/assets/site.css", "text/css"), ("/assets/site.js", "application/javascript"), ("/assets/favicon.svg", "image/svg+xml")):
+        for path, mime in (
+            ("/assets/site.css", "text/css"),
+            ("/assets/site.js", "application/javascript"),
+            ("/assets/installer-download.js", "application/javascript"),
+            ("/assets/favicon.svg", "image/svg+xml"),
+        ):
             with self.subTest(path=path), self.fetch(path) as response:
                 self.assertEqual(response.headers.get_content_type(), mime)
                 self.assertEqual(response.read(), (SITE / path.lstrip("/")).read_bytes())
